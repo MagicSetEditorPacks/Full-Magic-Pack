@@ -4,11 +4,9 @@ short name: M15 Godzilla
 full name: M15 Godzilla Style
 icon: card-sample.png
 installer group: magic/m15 style/normal cards
-position hint: 001
+position hint: 018
 
 ###################################### Template made by Redwavez
-
-########################## Card frames, crowns and aliases by silverback_ape
 
 version: 2020-05-11
 depends on:
@@ -56,6 +54,10 @@ init script:
 	no_als := {chosen(styling.frame_options, choice: "no alias")}
 	show_border := {chosen(styling.frame_options, choice: "show border")}
 	show_bar := {not chosen(styling.frame_options, choice: "no flavor bar")}
+	is_auto := {chosen(styling.crown, choice: "auto")}
+	is_nyx := { chosen(styling.crown, choice: "nyx") or ( is_auto() and match(card.super_type, match: "Enchantment") and match(card.super_type, match: "Creature" ) and not is_com() ) }
+	is_com := { chosen(styling.crown, choice: "companion") or ( is_auto() and match(rules_text(), match: "Companion") ) }
+	is_custom := {chosen(styling.crown, choice: "custom")}
 
 	
 	chop_top := {if number_of_items(in: break_text(match: "[^,]+", styling.chop_text)) < 2 then 0 else to_number(break_text(match: "[^,]+", styling.chop_text)[0])}
@@ -65,11 +67,13 @@ init script:
 
 	rules_text := {remove_tags(replace(replace(card.text,match:"<i-flavor>.*</i-flavor>",replace:""), match: "[\t\n\r]", replace:""))}
 	bar_visibility := {if rules_text() != "" and show_bar() and remove_tags(card.flavor_text) != "" then true else false}
-	bar_offset := {if styling.flavor_bar_offset == "" then 0 else if styling.flavor_bar_offset[0]=="-" then to_number(substring(styling.flavor_bar_offset, begin: 1))*(-1) else (to_number(styling.flavor_bar_offset) or else 0)}
+	bar_offset := {num(styling.flavor_bar_offset)}
+
+	num := {( if input != "" then (if input[0] == "-" then to_number(substring(input, begin: 1))*(-1) else to_number(input)) else 0) or else 0}
 	
 	template_prefix := [card: "" pt: "" crown: "legend/" stamp: "" identity: "/magic-identity-new.mse-include/" alias: "alias/" tall: "tall/" short: "short/"]
-	template_suffix := [card: "card.png" pt: "pt.png" stamp: "stamp.jpg" crown: "crown.png" "stamp" identity: "identity.png" alias: "card.png" tall: "card.png" short: "card.png"]
-	template      := { template_prefix[type] + (if type == "crown" and no_als() then "noals/" else "") + input + template_suffix[type]}
+	template_suffix := [card: "card.png" pt: "pt.png" stamp: "stamp.png" crown: "crown.png" "stamp" identity: "identity.png" alias: "card.png" tall: "card.png" short: "card.png"]
+	template      := { (if is_custom() and type == "crown" then ("custom_crown" + styling.custom_crown_location + "/") else ( template_prefix[type] + (if type == "crown" and no_als() then "noals/" else "") + (if is_nyx() and type == "crown" then "nyx/" else if is_com() and type == "crown" then "com/") ) ) + input + template_suffix[type]}
 	land_template := template
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
@@ -126,8 +130,30 @@ styling field:
 	description: Changes the rules text's font size (default is 14)
 styling field:
 	type: text
+	name: shrink name text
+	description: Shrinks the name's font size
+styling field:
+	type: text
+	name: shrink typeline text
+	description: Shrinks the typeline's font size
+styling field:
+	type: text
 	name: flavor bar offset
 	description: Moves the flavor bar n pixels (positive number for down, negative number for up).
+styling field:
+	type: choice
+	name: crown
+	description: The legend crown type. Auto recognizes it automatically (companion overrides nyx). Custom uses the "custom_crown" folder.
+	choice: auto
+	choice: standard
+	choice: nyx
+	choice: companion
+	choice: custom
+	initial: auto
+styling field:
+	type: text
+	name: custom crown location
+	description: Can be used to target a specific place inside the "custom_crown" folder. No need to insert a "/" in the end of the location's name.
 styling field:
 	type: boolean
 	name: use holofoil stamps
@@ -234,6 +260,19 @@ styling style:
 
 ############################################################## Card fields
 card style:
+	alias:
+		left: 54
+		top: 58
+		width: 268
+		height: 15
+		z index: 3
+		visible: {if no_als() then "false" else "true"}
+		font:
+			name: MPlantin-Italic
+			size: 10
+			scale down to: 6
+			color: white
+		alignment: middle center
 	############################# Background stuff
 	border color:
 		left: 0
@@ -260,7 +299,7 @@ card style:
 	
 	name:
 		left: { if card.card_symbol=="none" then 32 else 50 }
-		top: 30
+		top: {30 - num(styling.shrink_name_text)}
 		right:  { 341 - card_style.casting_cost.content_width }
 		height: 23
 		alignment: bottom shrink-overflow
@@ -268,7 +307,7 @@ card style:
 		z index: 5
 		font:
 			name: Beleren Bold
-			size: 16
+			size: {16 - num(styling.shrink_name_text)}
 			color: white
 	casting cost:
 		right: 346
@@ -284,7 +323,7 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 5
 		padding top: 0
 	card symbol:
 		left: {if card.card_symbol=="none" then 20 else 30}
@@ -303,7 +342,7 @@ card style:
 		height:	523
 		z index: 1
 		default: {default_image(card.card_color)}
-		mask: {if no_als() and is_tall() then "mask_tall.png" else if is_tall() then "mask_alias_tall.png" else if no_als() and is_short() then "mask_short.png" else if is_short() then "mask_alias_short.png" else if no_als() then "mask.png" else "mask_alias.png"}
+		mask: {"mask" + (if no_als() then "" else "_alias") + (if is_tall() then "_tall" else if is_short() then "_short" else "") + ".png"}
 	############################# Card type
 	indicator:
 		left: 31
@@ -316,15 +355,15 @@ card style:
 		image: { card_identity() }
 	type:
 		left: { if has_identity() then "52" else "32" }
-		top: {if is_tall() then 296 else if is_short() then 366 else 340}
+		top: {(if is_tall() then 296 else if is_short() then 366 else 340) + num(styling.shrink_typeline_text)}
 		width: { (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
 		height: 20
 		alignment: top shrink-overflow
-		z index: 1
+		z index: 3
 		padding top: 2
 		font:
 			name: Beleren Bold
-			size: 13
+			size: {13 - num(styling.shrink_typeline_text)}
 			color: white
 			separator color: red
 	rarity:
@@ -374,7 +413,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 4
 		padding left:   6
 		padding right:  4
 		line height hard: 1.2
@@ -387,14 +426,14 @@ card style:
 		top: {if is_tall() then 321 else if is_short() then 400 else 374}
 		width: 138
 		height: {if is_tall() then 166 else if is_short() then 82 else 108}
-		z index: 1
+		z index: 3
 		render style: image
 		popup style: in place
 		alignment: middle center
 		include file: /magic-watermarks.mse-include/watermarks
 	############################# PT
 	pt:
-		z index: 2
+		z index: 5
 		left: 286
 		top: 469
 		width: 60
@@ -411,7 +450,7 @@ card style:
 		top: 498
 		width: 40
 		height: 10
-		z index: 1
+		z index: 3
 		font:
 			name: Relay-Medium
 			size: 7
@@ -423,7 +462,7 @@ card style:
 		top: 497.5
 		width: 200
 		height: 10
-		z index: 1
+		z index: 3
 		font:
 			name: Beleren Small Caps Bold
 			size: 7.25
@@ -433,7 +472,7 @@ card style:
 		top: { if card.pt != "" then 500 else 488 }
 		width: 140
 		height: 10
-		z index: 2
+		z index: 3
 		visible: {not set.automatic_copyright}
 		alignment: middle right shrink-overflow
 		font:
@@ -472,6 +511,12 @@ extra card field:
 extra card field:
 	type: choice
 	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: cover
 	choice: foil
 	save value: false
 	editable: false
@@ -533,10 +578,6 @@ extra card field:
 	save value: false
 	show statistics: false
 extra card field:
-	type: text
-	name: alstext
-	description: The second name of the card
-extra card field:
 	type: choice
 	name: flavor bar
 	choice: bar
@@ -549,7 +590,7 @@ extra card style:
 		top: 488
 		width: 120
 		height: 10
-		z index: 1
+		z index: 3
 		font:
 			name: Relay-Medium
 			size: 7
@@ -560,7 +601,7 @@ extra card style:
 		top: 500
 		width: 12
 		height: 7
-		z index: 1
+		z index: 3
 		render style: image
 		image: artist_arrow.png
 	pt box:
@@ -568,7 +609,7 @@ extra card style:
 		top: 466
 		width: 81
 		height:	42
-		z index: 1
+		z index: 3
 		visible: { card.pt != "" }
 		render style: image
 		image: { card_ptbox() }
@@ -586,7 +627,7 @@ extra card style:
 		top: 472
 		width: 46
 		height: 26
-		z index: 1
+		z index: 2
 		visible: { is_rare() and styling.use_holofoil_stamps }
 		render style: image
 		image: { card_stamp() }
@@ -596,7 +637,7 @@ extra card style:
 		top: 472
 		width: 46
 		height: 26
-		z index: 2
+		z index: 3
 		visible: { is_rare() and styling.use_holofoil_stamps }
 		render style: image
 		image: foil_stamp.png
@@ -618,7 +659,7 @@ extra card style:
 		top: 0
 		width: 375
 		height: 523
-		z index: 1
+		z index: 2
 		render style: image
 		image: { color_background(type: "crown", base_hybrid: card_hybrid)}
 		visible: {is_legend()}
@@ -630,23 +671,10 @@ extra card style:
 		height: 523
 		render style: image
 		image: {color_background(type: "alias", base_hybrid: card_hybrid)}
-		z index: 1
+		z index: 2
 		visible: {if no_als() then "false" else "true"}
 
-	alstext:
-		left: 54
-		top: 56
-		width: 268
-		height: 20
-		z index: 1
-		visible: {if no_als() then "false" else "true"}
-		font:
-			name: MPlantin-Italic
-			size: 9.25
-			scale down to: 6
-			color: white
-			weight: bold
-		alignment: middle center
+	
 	
 	flavor bar:
 		left: 0
@@ -657,3 +685,11 @@ extra card style:
 		visible: {bar_visibility()}
 		render style: image
 		image: bar.png
+	cover:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		render style: image
+		image: {"cover/mask" + (if no_als() then "" else "_alias") + (if is_tall() then "_tall" else if is_short() then "_short" else "") + ".png"}

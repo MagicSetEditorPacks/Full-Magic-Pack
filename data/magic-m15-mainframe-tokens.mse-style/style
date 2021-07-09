@@ -38,8 +38,8 @@ init script:
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
 	
-	template_prefix := [card: "" card2: "" card3: "" card4: "nyx/" card5: "nyx/" card6:"nyx/" card7: "m20/" card8: "m20/" card9: "m20/" snowtexture:"snow/" pt:""]
-	template_suffix := [card: "card.jpg", card2: "card2.jpg", card3: "card3.jpg", card4: "nyx.png", card5: "card2.jpg", card6: "card3.jpg", card7: "card.png", card8: "card2.png", card9: "card3.png", snowtexture:"snow.png" pt: "pt.png"]
+	template_prefix := [alias: "alias/" crown:"crowns/" card: "" card2: "" card3: "" card4: "nyx/" card5: "nyx/" card6:"nyx/" card7: "m20/" card8: "m20/" card9: "m20/" snowtexture:"snow/" pt:""]
+	template_suffix := [alias: "alias.png", crown:"crown.png" card: "card.jpg", card2: "card2.jpg", card3: "card3.jpg", card4: "nyx.png", card5: "card2.jpg", card6: "card3.jpg", card7: "card.png", card8: "card2.png", card9: "card3.png", snowtexture:"snow.png" pt: "pt.png"]
 	template      := { template_prefix[type] + (if is_m20() and input == "w" and (contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"hybrid")) then "h" else input) + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else if is_m20() and input == "w" then "h" else input) + template_suffix[type] }
 	
@@ -76,6 +76,10 @@ init script:
 		else if is_textless() then ""
 		else "2"
 	}
+	crown_background := {color_background(type:"crown", base_hybrid:card_hybrid)}
+	alias_bar := { color_background(type:"alias",     base_hybrid:card_hybrid) }
+	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar") and not is_skinned()}
+	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
 	########## Mainframe stuff
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
@@ -117,6 +121,8 @@ styling field:
 	choice: prerelease stamp
 	choice: ancestral generic mana
 	choice: vorthos box
+	choice: godzilla style alias
+	choice: pokemon evobar
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -251,6 +257,20 @@ card style:
 			size: { (if is_copy() or mtgo_abil() then 18 else 19) - shrink_name()}
 			color: {if is_m20() and card.card_color == "white" and not is_clear() then "black" else if is_m20() then "white" else rgb(255,239,128)}
 		always symbol: true
+	alias: 
+		left: {if is_skinned() then 45 else 19}
+		top: {if is_m20() and is_skinned() then (if is_legend() then 57 else 51) else 52}
+		width: {if is_skinned() then 285 else if use_evobar() then max(100, card_style.alias.content_width) else 0}
+		height: 20
+		alignment: { (if is_skinned() then "center" else "") + "bottom shrink-overflow"}
+		padding bottom: 0
+		z index: 3
+		font:
+			name: {if use_evobar() then "Matrix" else "MPlantin-Italic"}
+			size: {if use_evobar() then 10 else 9}
+			style: {if use_evobar() then "italic" else "bold"}
+			weight: {if use_evobar() then "italic" else "bold"}
+			color: {if use_evobar() then "black" else "white"}
 	casting cost:
 		right: 344
 		top: 29
@@ -498,7 +518,7 @@ extra card field:
 extra card field:
 	type: choice
 	name: legend crown
-	choice: crown
+	script: card.card_color
 	editable: false
 	save value: false
 	show statistics: false
@@ -544,6 +564,24 @@ extra card field:
 	save value: true
 	editable: true
 	description: Where they put mtgstory.com on story spotlights.
+extra card field:
+	type: choice
+	name: evobar tip
+	choice: evo
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: evobar
+	choice: evo
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: alias bar
+	script: card.card_color
+	save value: false
+	editable: false
 extra card style:
 	card code:
 		left: 24
@@ -610,7 +648,7 @@ extra card style:
 		z index: 2
 		render style: image
 		visible: {is_legend()}
-		image: {"crown" + (if is_m20() then "_m20") + ".png"}
+		image: {if is_m20() then crown_background() else "crown.png"}
 	promo label:
 		left: 40
 		top: { if is_tall() then 262 else if is_textless() then 399 else 324 }
@@ -682,3 +720,31 @@ extra card style:
 			size: 7
 			color: white
 			weight: bold
+	alias bar:
+		left: 38
+		top: {if is_m20() and is_legend() then 61 else if is_m20() then 55 else 56}
+		width: 298
+		height: 21
+		z index: 2
+		render style: image
+		image: {if is_m20() then alias_bar() else "alias/malias.png"}
+		visible: {is_skinned() and not use_evobar()}
+	evobar:
+		left: 15
+		top: 57
+		width: {card_style.alias.content_width}
+		height: 27
+		z index: 2
+		render style: image
+		image: evobar.png
+		visible: {use_evobar()}
+	evobar tip:
+		left: {14.6 + card_style.alias.content_width}
+		top: 57
+		width: 36
+		height: 27
+		z index: 2
+		render style: image
+		image: evobar_tip.png
+		visible: {use_evobar()}
+

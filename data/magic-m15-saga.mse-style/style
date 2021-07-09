@@ -1,7 +1,7 @@
 ﻿mse version: 2.0.0
 game: magic
 short name: M15 Sagas
-full name: Dominaria Sagas
+full name: Sagas and Classes
 installer group: magic/m15 style/sagas
 icon: card-sample.png
 position hint: 010
@@ -97,9 +97,12 @@ init script:
 		5: {[card_style.level_5_text.top, card_style.level_5_text.bottom-card_style.level_5_text.top]}
 	]
 	auto_snap := {
-		out := 0
 		snap_array := split_text(replace(styling.snap_chapter_to_box, match:",[^,]+$", replace:","), match:",")
-		abil := to_number(pull_comma_array(styling.snap_chapter_to_box, cell:input-1, end:true))					###textbox to snap too
+		abil := to_number(pull_comma_array(styling.snap_chapter_to_box, cell:input-1, end:true))					###textbox to snap to
+		if abil == 0 then 600 else snap_calc(input, snap_array:snap_array, abil:abil)
+	}
+	snap_calc := {
+		out := 0
 		abil_array := saga_lore_count(snap_array)																	###chapters in each box
 		ch_count := abil_array[abil-1]																				###chapters in this box
 		self_index := saga_ch_placement(snap_array)[input-1]														###input's index
@@ -121,13 +124,13 @@ init script:
 		out
 	}
 	chapter0 := { if styling.reminder_coordinate != "" then max(60,min(to_number(styling.reminder_coordinate),438)) else 155}
-	chapter1 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:0, end:true)) > 0 then auto_snap(1) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:0, end:true, default:(if two_boxes() then 183 else 185))) }
-	chapter2 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:1, end:true)) > 0 then auto_snap(2) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:1, end:true, default:(if two_boxes() then 223 else 279))) }
-	chapter3 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:2, end:true)) > 0 then auto_snap(3) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:2, end:true, default:(if two_boxes() then 329 else 373))) }
-	chapter4 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:3, end:true)) > 0 then auto_snap(4) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:3, end:true, default:600)) }
-	chapter5 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:4, end:true)) > 0 then auto_snap(5) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:4, end:true, default:600)) }
-	chapter6 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:5, end:true)) > 0 then auto_snap(6) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:5, end:true, default:600)) }
-	chapter_custom := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:6, end:true)) > 0 then auto_snap(7) else to_number(pull_comma_array(styling.custom_chapter_coordinate, cell:0, end:false, default:600)) }
+	chapter1 := { if length(comma_count(styling.snap_chapter_to_box)) > 0 then auto_snap(1) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:0, end:true, default:(if two_boxes() then 183 else 185))) }
+	chapter2 := { if length(comma_count(styling.snap_chapter_to_box)) > 1 then auto_snap(2) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:1, end:true, default:(if two_boxes() then 223 else 279))) }
+	chapter3 := { if length(comma_count(styling.snap_chapter_to_box)) > 2 then auto_snap(3) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:2, end:true, default:(if two_boxes() then 329 else 373))) }
+	chapter4 := { if length(comma_count(styling.snap_chapter_to_box)) > 3 then auto_snap(4) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:3, end:true, default:600)) }
+	chapter5 := { if length(comma_count(styling.snap_chapter_to_box)) > 4 then auto_snap(5) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:4, end:true, default:600)) }
+	chapter6 := { if length(comma_count(styling.snap_chapter_to_box)) > 5 then auto_snap(6) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:5, end:true, default:600)) }
+	chapter_custom := { if length(comma_count(styling.snap_chapter_to_box)) > 6 then auto_snap(7) else to_number(pull_comma_array(styling.custom_chapter_coordinate, cell:0, end:false, default:600)) }
 	custom_chapter_node := {if contains(styling.custom_chapter_location, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_chapter_location else "chapter6.png"}
 	custom_name := {if styling.custom_chapter_name == "" then "C" else styling.custom_chapter_name}
 
@@ -138,28 +141,47 @@ init script:
 	has_identity := { styling.color_indicator_dot}
 	is_unsorted := {styling.remove_from_autocount}
 	build_array := {
-		if input +17 >= (if split_34() != "" then split_34() else 600) then 4
-		else if input +17 >= (if split_23() != "" then split_23() else 343) then 3
-		else if input +17 >= (if split_12() != "" then split_12() else 249) then 2
+		if input > 523 or input < 0 then 0
+		else if four_boxes() and input +17 >= (if split_34() != "" then split_34() else 600) then 4
+		else if (four_boxes() or three_boxes()) and input +17 >= (if split_23() != "" then split_23() else 343) then 3
+		else if not one_box() and input +17 >= (if split_12() != "" then split_12() else 249) then 2
 		else if input +17 <= (if split_12() != "" then split_12() else 249) then 1
 		else 0
 	}
+	alt_leaders := {
+		alt := ["I,","II,","III,","IV,","V,","VI,"]
+		if match(card.notes, match:"!altleader [^,]+,") then
+			alt := break_text(split_text(card.notes, match:"!altleader ").1, match:"[^,]+,")
+		alt
+	}
 	level_leader := {
-		(if build_array((if chapter1() != "" then chapter1() else 185)) == input then "I, " else "")
-		+(if build_array((if chapter2() != "" then chapter2() else 279)) == input then "II, " else "")
-		+(if build_array((if chapter3() != "" then chapter3() else 373)) == input then "III, " else "")
-		+(if build_array((if chapter4() != "" then chapter4() else 600)) == input then "IV, " else "")
-		+(if build_array((if chapter5() != "" then chapter5() else 600)) == input then "V, " else "")
-		+(if build_array((if chapter6() != "" then chapter6() else 600)) == input then "VI, " else "")
+		alt := alt_leaders()
+		(if build_array((if chapter1() != "" then chapter1() else 185)) == input then alt.0 + " " else "")
+		+(if build_array((if chapter2() != "" then chapter2() else 279)) == input then alt.1 + " " else "")
+		+(if build_array((if chapter3() != "" then chapter3() else 373)) == input then alt.2 + " " else "")
+		+(if build_array((if chapter4() != "" then chapter4() else 600)) == input then alt.3 + " " else "")
+		+(if build_array((if chapter5() != "" then chapter5() else 600)) == input then alt.4 + " " else "")
+		+(if build_array((if chapter6() != "" then chapter6() else 600)) == input then alt.5 + " " else "")
 		+(if build_array((if chapter_custom() != "" then chapter_custom() else 600)) == input then custom_name() + ", " else "")
 	}
 	end_leader := replace@(match:", $", replace:" — ")
 	special_text := {
-		card.rule_text
-		+(if card.level_1_text != "" then "\n" + end_leader(level_leader(1)) + card.level_1_text)
-		+(if card.level_2_text != "" then "\n" + end_leader(level_leader(2)) + card.level_2_text)
-		+(if card.level_3_text != "" then "\n" + end_leader(level_leader(3)) + card.level_3_text)
-		+(if card.level_4_text != "" then "\n" + end_leader(level_leader(4)) + card.level_4_text)
+		if is_class() then 
+			(
+				card.chapter_text
+				+(if card.level_1_text != "" then "\n" + card.level_1_text)
+				+(if card.level_2_text != "" then "\n" + card.level_9_text + (if card.level_2 == "" then " Level 2" else " " + card.level_2) + "\n" + card.level_2_text)
+				+(if card.level_3_text != "" then "\n" + card.level_10_text + (if card.level_3 == "" then " Level 3" else " " + card.level_3) + "\n" + card.level_3_text)
+				+(if card.level_4_text != "" then "\n" + card.level_11_text + (if card.level_4 == "" then " Level 4" else " " + card.level_4) + "\n" + card.level_4_text)
+			)
+		else 
+			(
+				card.chapter_text
+				+(if card.level_1_text != "" then "\n" + end_leader(level_leader(1)) + card.level_1_text)
+				+(if card.level_2_text != "" then "\n" + end_leader(level_leader(2)) + card.level_2_text)
+				+(if card.level_3_text != "" then "\n" + end_leader(level_leader(3)) + card.level_3_text)
+				+(if card.level_4_text != "" then "\n" + end_leader(level_leader(4)) + card.level_4_text)
+			)
 	}
 	saga_rules_text := { chapter3() + "|" + (if split_12() != "" then split_12() else 249) + "|" + (if split_23() != "" then split_23() else 343) }
 
@@ -167,14 +189,15 @@ init script:
 	two_boxes := {styling.chapter_textboxes == "two" }
 	three_boxes := {styling.chapter_textboxes == "three" or comma_count(styling.chapter_divider_coordinates) == ",,"}
 	four_boxes := {styling.chapter_textboxes == "four" or comma_count(styling.chapter_divider_coordinates) == ",,,"}
-	use_main_rarity := { contains(styling.mainframe_rarity, match: ".png")}
+	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
 	a_saga := {true}
-	saga_reminder := { if styling.alternate_reminder != "" then styling.alternate_reminder else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
+	saga_reminder := { if styling.alternate_reminder != "" then styling.alternate_reminder else if is_class() then "Gain the next level as a sorcery to add its ability." else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 	is_nyx := {contains(styling.other_options, match:"nyx")}
 	is_snow := {contains(styling.other_options, match:"snow")}
 	is_vehicle := {contains(styling.other_options, match:"vehicle")}
-	un_marked := {contains(styling.other_options, match:"remove bookmark")}
+	is_class := {contains(styling.other_options, match:"class") or contains(card.sub_type, match:"Class")}
+	un_marked := {is_class() or contains(styling.other_options, match:"remove bookmark")}
 	is_legend := {set.auto_legends and contains(card.super_type, match:"Legendary") }
 	nyx_background := { color_background(type:"nyx",     base_hybrid:card_hybrid) }
 	snow_background := { color_background(type:"snowtexture",     base_hybrid:card_hybrid) }
@@ -182,6 +205,29 @@ init script:
 	crown_background := { color_background(type:"crown", base_hybrid: card_hybrid)}
 	alt_loc := { if styling.replacement_chapter_location != "" then styling.replacement_chapter_location else "no"}
 	alt_chapters := { (if match(styling.replacement_chapter_location, match:"/$") then "/magic-mainframe-extras.mse-include/" + styling.replacement_chapter_location else "") + "chapter" + input + ".png"}
+	
+	alt_text := {is_class()}
+	alt_text_script := {
+		combined_editor(field1: card.chapter_text, separator1:"<line>\n</line>", field2: card.level_1_text, separator2: "<line>\n</line>", field3: card.level_2_text, separator3: "<line>\n</line>", field4: card.level_3_text, separator4: "<line>\n</line>", field5: card.level_4_text)
+	}
+	lev0 := {
+		if card_style.text.layout.separator[0] or else 0 > 0 then card_style.text.top+card_style.text.layout.separator[0]-1 else 600
+	}
+	lev2 := {
+		if card_style.text.layout.separator[1] or else 0 > 0 then card_style.text.top+card_style.text.layout.separator[1]-13 else 600
+	}
+	lev3 := {
+		if card_style.text.layout.separator[2] or else 0 > 0 then card_style.text.top+card_style.text.layout.separator[2]-13 else 600
+	}
+	lev4 := {
+		if card_style.text.layout.separator[3] or else 0 > 0 then card_style.text.top+card_style.text.layout.separator[3]-13 else 600
+	}
+	text_filter := text_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
+	margin_top := {
+		if input == "lv2" or (input == "lv3" and card.level_3_text != "​") or (input == "lv4" and card.level_4_text != "") then 30 else 0
+	}
+	###add blank spaces to inner levels so they still are clickable while "empty"
+	add_spacers := { if input == "" and (margin_code == "lv1" or margin_code == "lv2" or margin_code == "lv3") then "​" else input}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -235,6 +281,7 @@ styling field:
 	choice: nyx
 	choice: snow
 	choice: vehicle
+	choice: class
 	choice: use starting loyalty
 	choice: remove bookmark
 styling field:
@@ -415,6 +462,88 @@ card style:
 		always symbol: true
 		z index: 2
 		padding top: 0
+	level 9 text:
+		left: 190
+		width: {if is_class() and card.level_2_text == "​" then 0 else 80}
+		top: {lev2()+4}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 12
+		symbol font:
+			name: magic-mana-small
+			size: 12
+		alignment: middle left
+	level 2:
+		left: 270
+		width: {if is_class() and card.level_2_text == "​" then 0 else 70}
+		top: {lev2()+3}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 11
+			weight: bold
+		symbol font:
+			name: magic-mana-small
+			size: 11
+		alignment: middle right
+	level 10 text:
+		left: 190
+		width: {if is_class() and card.level_3_text == "​" then 0 else 80}
+		top: {lev3()+4}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 12
+		symbol font:
+			name: magic-mana-small
+			size: 12
+			alignment: middle left
+	level 3:
+		left: 270
+		width: {if is_class() and card.level_3_text == "​" then 0 else 70}
+		top: {lev3()+3}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 11
+			weight: bold
+		symbol font:
+			name: magic-mana-small
+			size: 11
+		alignment: middle right
+	level 11 text:
+		left: 190
+		width: {if is_class() and card.level_4_text == "" then 0 else 80}
+		top: {lev4()+4}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 12
+		symbol font:
+			name: magic-mana-small
+			size: 12
+			alignment: middle left
+	level 4:
+		left: 270
+		width: {if is_class() and card.level_4_text == "" then 0 else 70}
+		top: {lev4()+3}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 11
+			weight: bold
+		symbol font:
+			name: magic-mana-small
+			size: 11
+		alignment: middle right
+
 	card symbol:
 		left: {if card.card_symbol=="none" then 20 else 29}
 		top: 31
@@ -426,7 +555,7 @@ card style:
 			tombstone: tombstone.png
 	############################# Image
 	image:
-		left: 188
+		left: {if is_class() then 28 else 188}
 		top: 59
 		width: 157
 		height:	379
@@ -496,17 +625,49 @@ card style:
 					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	watermark:
-		left: { if styling.wider_watermarks then 29 else 45 }
+		left: { (if styling.wider_watermarks then 29 else 45)+if is_class() then 158 else 0}
 		top: 60
 		width: { if styling.wider_watermarks then 157 else 133 }
 		height: 378
-		z index: 5
+		z index: 4
 		render style: image
 		popup style: in place
 		alignment: middle center
 		include file: /magic-watermarks.mse-include/watermarks
+	text:
+		left: 188
+		top: 60
+		width: {if is_class() then 153 else 0}
+		bottom: 437
+		z index: 5
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 5
+		padding left:   3
+		padding right:  1
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.85
+		line height hard max: 1.3
+		line height line max: 1.6
 	chapter text:
-		left: 30
+		left: {30+(if is_class() then 158 else 0)}
 		top: 60
 		width: 153
 		bottom: {if un_marked() then 60 else chapter0()}
@@ -542,7 +703,7 @@ card style:
 	level 1 text:
 		left: {if un_marked() then 30 else 45}
 		top: { if un_marked() then 60 else chapter0()}
-		width: { if un_marked() then 153 else 138}
+		width: { if is_class() then 0 else if un_marked() then 153 else 138}
 		bottom: { if split_12() == "" then 249 else split_12() }
 		font:
 			name: MPlantin
@@ -575,7 +736,7 @@ card style:
 	level 2 text:
 		left: {if un_marked() then 30 else 45}
 		top: { if split_12() == "" then 249 else split_12() }
-		width: { if un_marked() then 153 else 138}
+		width: { if is_class() then 0 else if un_marked() then 153 else 138}
 		bottom: { if split_23() == "" then 343 else split_23() }
 		font:
 			name: MPlantin
@@ -608,7 +769,7 @@ card style:
 	level 3 text:
 		left: {if un_marked() then 30 else 45}
 		top: { if split_23() == "" then 343 else split_23() }
-		width: { if un_marked() then 153 else 138}
+		width: { if is_class() then 0 else if un_marked() then 153 else 138}
 		bottom: {if split_34() == "" then 437 else split_34() }
 		font:
 			name: MPlantin
@@ -641,7 +802,7 @@ card style:
 	level 4 text:
 		left: {if un_marked() then 30 else 45}
 		top: {if split_34() == "" then 437 else split_34() }
-		width: { if un_marked() then 153 else 138}
+		width: { if is_class() then 0 else if un_marked() then 153 else 138}
 		bottom: 437
 		font:
 			name: MPlantin
@@ -933,6 +1094,34 @@ extra card field:
 	editable: false
 	save value: false
 	show statistics: false
+extra card field:
+	type: choice
+	name: paper
+	choice: paper
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: text
+	name: default level 2
+	script: "Level 2"
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: text
+	name: default level 3
+	script: "Level 3"
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: text
+	name: default level 4
+	script: "Level 4"
+	editable: false
+	save value: false
+	show statistics: false
 extra card style:
 	card code:
 		left: 24
@@ -1067,42 +1256,42 @@ extra card style:
 		image: {custom_chapter_node()}
 		visible: {not un_marked()}
 	linebreak 1:
-		left: 30
-		top: {chapter0()}
+		left: {30+if is_class() then 158 else 0}
+		top: {if is_class() then lev0() else chapter0()}
 		width: 156
-		height: 3
+		height: {if is_class() then 2 else 3}
 		render style: image
 		z index: 3
-		image: line.png
-		visible: {not un_marked()}
+		image: {if is_class() then "bar.png" else "line.png"}
+		visible: {is_class() or not un_marked()}
 	linebreak 2:
-		left: 30
-		top: {if split_12() == "" then 248 else split_12()-1}
-		width: 156
-		height: 3
+		left: {30+if is_class() then 158 else 0}
+		top: {if is_class() then lev2() else if split_12() == "" then 248 else split_12()-1}
+		width: {if is_class() and card.level_2_text == "​" then 0 else 156}
+		height: {if is_class() then 25 else 3}
 		render style: image
 		z index: 3
-		image: line.png
+		image: {if is_class() then "level.png" else "line.png"}
 	linebreak 3:
-		left: 30
-		top: {if split_23() == "" then 342 else split_23()-1}
-		width: 156
-		height: 3
+		left: {30+if is_class() then 158 else 0}
+		top: {if is_class() then lev3() else if split_23() == "" then 342 else split_23()-1}
+		width: {if is_class() and card.level_3_text == "​" then 0 else 156}
+		height: {if is_class() then 25 else 3}
 		render style: image
 		z index: 3
-		image: line.png
+		image: {if is_class() then "level.png" else "line.png"}
 		visible: {three_boxes() or four_boxes()}
 	linebreak 4:
-		left: 30
-		top: {if split_34() == "" then 600 else split_34()-1}
-		width: 156
-		height: 3
+		left: {30+if is_class() then 158 else 0}
+		top: {if is_class() then lev4() else if split_34() == "" then 600 else split_34()-1}
+		width: {if is_class() and card.level_4_text == "" then 0 else 156}
+		height: {if is_class() then 25 else 3}
 		render style: image
 		z index: 3
-		image: line.png
-		visible: {four_boxes()}
+		image: {if is_class() then "level.png" else "line.png"}
+		visible: {is_class() or four_boxes()}
 	linebreak 5:
-		left: 30
+		left: {30+if is_class() then 158 else 0}
 		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:3, end:true, default:600))}
 		width: 156
 		height: 3
@@ -1111,7 +1300,7 @@ extra card style:
 		image: line.png
 		visible: {four_boxes()}
 	linebreak 6:
-		left: 30
+		left: {30+if is_class() then 158 else 0}
 		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:4, end:true, default:600))}
 		width: 156
 		height: 3
@@ -1120,7 +1309,7 @@ extra card style:
 		image: line.png
 		visible: {four_boxes()}
 	linebreak 7:
-		left: 30
+		left: {30+if is_class() then 158 else 0}
 		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:5, end:true, default:600))}
 		width: 156
 		height: 3
@@ -1185,3 +1374,57 @@ extra card style:
 		image: bookmark/stripe.png
 		z index: 4
 		visible: {length(write_wubrg(card.card_color))==2 and not un_marked()}
+	paper:
+		left: {if is_class() then 186 else 28}
+		top: 58
+		width: 160
+		height: 380
+		z index: 1
+		render style: image
+		image: paper.png
+	default level 2:
+		left: 270
+		width: {if not is_class() or is_class() and card.level_2_text == "​" then 0 else 70}
+		top: {lev2()+3}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 11
+			weight: bold
+		symbol font:
+			name: magic-mana-small
+			size: 11
+		alignment: middle right
+		visible: {is_class() and card.level_2 == ""}
+	default level 3:
+		left: 270
+		width: {if not is_class() or is_class() and card.level_3_text == "​" then 0 else 70}
+		top: {lev3()+3}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 11
+			weight: bold
+		symbol font:
+			name: magic-mana-small
+			size: 11
+		alignment: middle right
+		visible: {is_class() and card.level_3 == ""}
+	default level 4:
+		left: 270
+		width: {if not is_class() or is_class() and card.level_4_text == "" then 0 else 70}
+		top: {lev4()+3}
+		height: 20
+		z index: 7
+		font:
+			name: MPlantin
+			size: 11
+			weight: bold
+		symbol font:
+			name: magic-mana-small
+			size: 11
+		alignment: middle right
+		visible: {is_class() and card.level_4 == ""}
+

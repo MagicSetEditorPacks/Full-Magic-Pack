@@ -652,7 +652,9 @@ auto_errata :=
 	replace@(match:"converted mana cost", replace:"mana value")
 	+replace@(match:"hen shuffle your library", replace:"hen shuffle")
 	+replace@(match:"this (?:ability )?(?:only )?(?:any ?time you could cast|as) a", in_context: "(Activate|Play) <match>n? (instant|sorcery)", replace:"only as a")
-ex_test := expand_keywords@(
+ex_test := {
+	expand_keywords(
+		input,
 		condition: {
 			correct_case or (mode != "pseudo" and not used_placeholders)
 		}
@@ -664,7 +666,11 @@ ex_test := expand_keywords@(
 			reminder := process_english_hints(if has_pt() then reminder else equip_filter(reminder))
 			if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
 			else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
-		})
+		
+		},
+		margin_code: margin_code
+	)
+}
 text_filter :=
 	# step 1 : remove all automatic tags
 	remove_tag@(tag: "<sym-auto>") +
@@ -746,7 +752,7 @@ text_filter :=
 	# step 3a : expand shortcut word CARDNAME
 	replace@(
 		match: "CARDNAME>?",
-		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", # TODO: Allow any punctuation before
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", # TODO: Allow any punctuation before
 		replace: "<atom-cardname></atom-cardname>"
 		) +
 	# step 3b : expand shortcut word LEGENDNAME
@@ -770,13 +776,13 @@ text_filter :=
 		replace: "<atom-insert\\1></atom-insert\\1>"
 	) +
 	{
-	out := input
-	for x from 1 to 9 do
-		out := tag_contents(out,
-			tag: "<atom-insert"+x+">",
-			contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
-		)
-	out
+		out := input
+		for x from 1 to 9 do
+			out := tag_contents(out,
+				tag: "<atom-insert"+x+">",
+				contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
+			)
+		out
 	} +
 	# step 4 : explict non mana symbols
 	replace@(
@@ -1036,8 +1042,10 @@ primary_card_color := {
 	black    := chosen(choice:"black")
 	red      := chosen(choice:"red")
 	green    := chosen(choice:"green")
+	multi_color := count_chosen(choices:"white, blue, black, red, green")
 	if      land                                      then "land"
 	else if multi                                     then "multicolor"
+	else if multi_color == 2 and chosen(choice:"artifact")	  then "hybrid"		##hybrid artifacts would show as their first color
 	else if hybrid                                    then "hybrid"
 	else if artifact                                  then "artifact"
 	else if white                                     then "white"
@@ -1079,6 +1087,11 @@ mainframe_walker := {false}
 mainframe_walker_text_script := {combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)}
 mainframe_walkerb := {false}
 mainframe_walker_text_scriptb := {combined_editor(field1: card.level_5_text, separator1: "<line>\n</line>", field2: card.level_6_text, separator2: "<line>\n</line>", field3: card.level_7_text)}
+alt_text := {false}
+alt_text_script := {false}
+alt_textb := {false}
+alt_text_scriptb := {false}
+
 mainframe_power := { card.power }
 mainframe_toughness := { card.toughness }
 
@@ -1181,6 +1194,7 @@ transfer_levels_2 := {true}
 a_saga := {false}
 saga_reminder := { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 b_saga := {false}
+saga_reminderb := { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 ############################################################## Watermark Updates
 card_spotlight := { "/magic-mainframe-watermarks.mse-include/spotlight/" + card_new_color() + "spotlight.png" }
 custom_watermark_1 := { if set.custom_watermark_1 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_1 else "/magic-watermarks.mse-include/planeswalker.png" }
@@ -1261,7 +1275,7 @@ uneven_correction := { if lines_of_flavor() == 1 then max(4, (card_style.text.co
 ###add it all up
 ###old_bar_equation is compatibilty for 2.0.0
 old_bar_equation := { top_of_textbox() + padding_height() + card_style.text.content_height - line_height()*(lines_of_flavor() + offset_lines()) + linebreak_height() - uneven_correction() + front_corr() + bar_offset() + hard_flavor_break() +1 }
-bar_equation := {if card_style.text.layout.blocks[0].bottom or else 0 > 0 then card_style.text.top + 0.5*(card_style.text.layout.blocks[0].bottom+card_style.text.layout.blocks[1].top) else old_bar_equation()}
+bar_equation := {if card_style.text.layout.blocks[1].bottom or else 0 > 0 then card_style.text.top + 0.5*(card_style.text.layout.blocks[0].bottom+card_style.text.layout.blocks[1].top) else old_bar_equation()}
 	
 flavor_text2 := {split_text(match:"\n", remove_tags(card.flavor_text_2+"\n"))}						#remove tags, add \n so .1 doesn't explode
 hard_flavor_break2 := { if not contains(card.flavor_text_2, match:"\n") then 0 else if contains(card.flavor_text_2, match:"<soft-line>\n") then 0 else if lines_of_rules2() >= 3 then -3 else -2}
@@ -1574,13 +1588,19 @@ saga_lore_count := {
 	three := 0
 	four := 0
 	five := 0
+	six := 0
+	seven := 0
+	eight := 0
 	for x from 0 to length(input)-1 do
 		if input[x] == "1" then one := one +1
 		else if input[x] == "2" then two := two +1
 		else if input[x] == "3" then three := three +1
 		else if input[x] == "4" then four := four +1
-		else five := five +1
-	[one, two, three, four]
+		else if input[x] == "5" then five := five +1
+		else if input[x] == "6" then six := six +1
+		else if input[x] == "7" then seven := seven +1
+		else eight := eight +1
+	[one, two, three, four, five, six, seven]
 }
 ##index of given chapter number in above array
 ##example, 2,2,3, returns 1,2,1
@@ -1704,4 +1724,11 @@ saga_ch_placement := {
 		)else (seven := seven)
 	)else (seven := seven)
 	[one, two, three, four, five, six, seven]
+}
+
+card_face := {
+	trace(margin_code)
+	front := card[input]
+	back := if card[input+"_2"] or else "" != "" then card[input+"_2"] else card[input]
+	if match(margin_code, match:"(text[2456]|lv[5678])") then back else front
 }
