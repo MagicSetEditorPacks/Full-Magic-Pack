@@ -1,0 +1,472 @@
+﻿############################################################## Sorting mana symbols
+# correctly sort a psi symbol (no guild psi)
+psi_sort       := sort_text@(order: "XYZ[0123456789](WUBRG)")
+# correctly sort guild psi
+psi_sort_guild := sort_text@(order: "[XYZ01234567890WUBRG/]") +
+		replace@(
+			# No lookbehind :(
+			#match: "(?<!/)(./.|././.|./././.|.[|])(?!/)",
+			match: "./.|././.|./././.|.[|]",
+			in_context: "(^|[^/])<match>($|[^/])",
+			replace: {sort_text(order:"in_place((WUBRG)")}
+		)
+psi_has_guild := match@(match: "[/]") # Is there guild psi in the input?
+# A psi cost can contain both regular and hybrid psi
+psi_filter := to_upper + {
+	if psi_has_guild() then psi_sort_guild()
+	else                     psi_sort()
+}
+# Like psi filter, only also allow tap symbols:
+tap_filter := sort_text@(order: "<TQ>")
+psi_filter_t := replace@(               # Remove [] used for forcing psi symbols
+			match: "[\\[\\]]",
+			replace: ""
+		) + { tap_filter() + psi_filter() }
+
+############################################################## Determine card color
+# Names of colors
+color_name := {
+	if      input = "W" then "crystal"
+	else if input = "U" then "cryo"
+	else if input = "B" then "shadow"
+	else if input = "R" then "pyre"
+	else if input = "G" then "xeno"
+	else                     ""
+}
+color_names_1 := { color_name(colors.0) }
+color_names_2 := { color_name(colors.0) + ", " + color_name(colors.1) }
+color_names_3 := { color_name(colors.0) + ", " + color_name(colors.1) + ", " + color_name(colors.2) }
+color_names_4 := { color_name(colors.0) + ", " + color_name(colors.1) + ", " + color_name(colors.2) + ", " + color_name(colors.3) }
+color_names_5 := { color_name(colors.0) + ", " + color_name(colors.1) + ", " + color_name(colors.2) + ", " + color_name(colors.3) + ", " + color_name(colors.4) }
+# color based on mana cost, input = a psi cost
+color_filter  := sort_text@(order: "<WUBRG>")
+color_filterH := sort_text@(order: "</>")
+psi_to_color := {
+	count  := number_of_items(in: colors)
+	if hybrid == "" then
+		# not a hybrid
+		if      count == 0 then  "colorless"
+		else if count == 1 then  color_names_1()
+		else if set.set_info.use_gradient_multicolor == "no"  then "multicolor" # stop here
+		else if count == 2 then  color_names_2() + ", multicolor"
+		else if set.set_info.use_gradient_multicolor != "yes" then "multicolor" # stop here
+		else if count == 3 then  color_names_3() + ", multicolor"
+		else if count == 4 then  color_names_4() + ", multicolor"
+		else if count == 5 then  color_names_5() + ", multicolor"
+		else                     "multicolor"
+	else
+		# hybrid
+		if count == 0 then "colorless"
+		else if count == 1 then color_names_1()
+		else if count == 2 then  color_names_2() + ", hybrid"
+		else if count == 3 then  color_names_3() + ", hybrid"
+		else                     "multicolor"
+}
+
+# color based on resource text box, input = textbox contents
+color_text_filter :=
+	# remove activation costs
+	replace@(
+		match: "<sym[^>]*>[^<]+</sym[^>]*>"
+		in_context: "(?ix) (\\n|^)[^:]*<match>(,|:) | (pays?|additional|costs?)[ ]<match>",
+		replace: ""
+	) +
+	# keep only psi
+	filter_text@(match: "<sym[^>]*>([^<]+)") + color_filter;
+# get the resource frame for a "WUBRG"-style input.
+resource_multicolor := {
+	count  := number_of_items(in: colors)
+	if      count == 0 then "resource"
+	else if count == 1 then color_names_1() + ", resource"
+	else if count == 2 then color_names_2() + ", resource"
+	else if count == 3 then color_names_3() + ", resource"
+	else                    "resource, multicolor"
+}
+# Look for a CDA that defines colors
+text_to_color := {
+	# Note: running filter_text is quite slow, do a quick 'contains' check first
+	if contains(match: card_name) then (
+	  text := filter_text(match: regex_escape(card_name)+"(</[-a-z]+>)? is (colorless|all colors|((cryo|crystal|xeno|pyre|shadow)((,|,? and) (cryo|crystal|xeno|pyre|shadow))*))\\.")
+	  if text != "" then (
+	    if contains(text, match: "all colors") then (
+		colors := "WUBRG"
+		if resource = "resource" then resource_multicolor()
+		else psi_to_color(hybrid: "")
+	    ) else (
+		colors := ""
+		if contains(text, match: "crystal") then colors := colors + "W"
+		if contains(text, match: "cryo")  then colors := colors + "U"
+		if contains(text, match: "shadow") then colors := colors + "B"
+		if contains(text, match: "pyre")   then colors := colors + "R"
+		if contains(text, match: "xeno") then colors := colors + "G"
+		if resource = "resource" then resource_multicolor()
+		else psi_to_color(hybrid: "")
+	    )
+	  )
+	)
+}
+
+# The color of a card
+is_unit    := match@(match: "(?i)Unit")
+is_tribal      := match@(match: "(?i)Tribal")
+is_device    := match@(match: "(?i)Device")
+is_resource        := match@(match: "(?i)Resource")
+is_augment := match@(match: "(?i)Augment")
+is_action       := match@(match: "(?i)Tactic|Strategy")
+card_color := {
+	# usually the color of psi
+	text_color := text_to_color(rules_text, resource: is_resource(type));
+	if text_color == "" then (
+		psi_color := psi_to_color(colors: color_filter(casting_cost), hybrid: color_filterH(casting_cost))
+		if      psi_color == "colorless" and is_resource    (type)  then resource_multicolor(colors:color_text_filter(input: card.rule_text))
+		else if psi_color == "colorless" and is_device(type)  then "device"
+		else psi_color
+	)
+	else text_color
+};
+
+# Number of colors in a card_color
+card_color_color_count := count_chosen@(choices: "crystal,cryo,shadow,pyre,xeno,device")
+# Clean up color field
+card_color_filter := {
+	colors := card_color_color_count()
+	if colors > 2 then
+		input := remove_choice(choice: "overlay")
+	if colors > 1 then (
+		input := require_choice(choices: "multicolor, hybrid, resource, device")
+		input := exclusive_choice(choices: "multicolor, hybrid")
+		input := require_exclusive_choice(choices: "horizontal, vertical, radial, overlay")
+	) else
+		input := remove_choice(choices: "radial, horizontal, vertical, overlay, hybrid, reversed")
+	if chosen(choice:"overlay") then
+		input := remove_choice(choice: "reversed")
+	input
+}
+
+# needed by all style files anyway
+include file: /space-blends.mse-include/new-blends
+############################################################## Card number
+# Index for sorting, white cards are first, so white->A, blue->B, .. ,
+# The code consists of 4 parts:
+# Process the name for sorting rules
+sort_name :=
+	# Remove "The", "A", and "And" at the beginning
+	replace@(match: "^(The|An?) ", replace: "") +
+	# Remove commas and apostrophes
+	replace@(match: "(,|'|’)", replace: "") +
+	# Remove bold and italic tags
+	replace@(match: "(<b>|<i>|</b>|</i>)", replace: "") +
+	# Make lowercase
+	to_lower
+
+is_multicolor := { chosen(choice: "multicolor") and input != "device, multicolor" }
+is_null_cost  := { input == "" or input == "0" }
+is_hybrid_cost := { contains(card.casting_cost, match: "W/") or contains(card.casting_cost, match: "U/") or contains(card.casting_cost, match: "B/") or contains(card.casting_cost, match: "R/") or contains(card.casting_cost, match: "G/") }
+basic_resource_sort := {
+	if contains(card.name, match:"Lux")        then "LB"      # Plains
+	else if contains(card.name, match:"Gelidine")   then "LC"      # Islands
+	else if contains(card.name, match:"Necroleum")    then "LD"      # Swamps
+	else if contains(card.name, match:"Carbos") then "LE"      # Mountains
+	else if contains(card.name, match:"Biolute")   then "LF"      # Forests
+	else                                               "LA"      # other basic lands
+}
+color_of_card := {
+	card_color := card.card_color
+	casting_cost := card.casting_cost
+	if chosen(choice: "resource", card_color) then (
+		if card.rarity != "basic resource" then "K"              # Nonbasic Land
+		else basic_resource_sort()
+	) else if is_null_cost(casting_cost) then (
+		if chosen(choice: "hybrid", card_color)    then "G"  # Hybrids
+		else if is_multicolor(card_color)          then "F"  # Multicolor
+		else if chosen(choice:"crystal", card_color) then "A"  # White
+		else if chosen(choice:"cryo", card_color)  then "B"  # Blue
+		else if chosen(choice:"shadow", card_color) then "C"  # Black
+		else if chosen(choice:"pyre", card_color)   then "D"  # Red
+		else if chosen(choice:"xeno", card_color) then "E"  # Green
+		else                                            "I"  # Colorless / Artifact
+	) else (
+		# use the casting cost
+		colors := sort_text(casting_cost, order: "<WUBRG>")
+		if      colors == ""  then "I"                       # Colorless / Artifact
+		else if colors == "W" then "A"                       # White
+		else if colors == "U" then "B"                       # Blue
+		else if colors == "B" then "C"                       # Black
+		else if colors == "R" then "D"                       # Red
+		else if colors == "G" then "E"                       # Green
+		else if is_hybrid_cost() then "G"                    #Hybrid
+		else if contains(casting_cost, match:"/") and contains(card_color, match:"device") then "I" # Colorless/Artifact
+		else                       "F"                       # Multicolor
+	)
+}
+
+rarity_sort := {
+	if set.sort_special_rarity == "with the rest" or card.rarity != "special" then " "
+	else "S"
+}
+set_filter := {
+	# TODO: what about rulestips?
+	if set.sort_special_rarity != "separate numbering" then
+		nil
+	else if card.rarity == "special" then
+		{ card.rarity == "special" }
+	else
+		{ card.rarity != "special" }
+}
+
+card_number := {
+	position (
+		of: card
+		in: set
+		order_by: { rarity_sort() + color_of_card() + sort_name(card.name) }
+		filter:   set_filter()
+	) + 1
+}
+card_count := {
+	number_of_items(in: set, filter: set_filter())
+}
+
+############################################################## Utilities for keywords
+# replaces — correctly
+add := "" # default is nothing
+separate_words := remove_tags + trim + replace@(match:" ", replace: {spacer})
+for_psi_costs := format_cost := {
+	if input.separator_before == "—" and contains(input.param, match: " ") then (
+		if contains(input.param, match:",") then (
+			if match(match: "^[TQXYZWUBRG0-9/|]+,", input.param) then
+				"{add}<param-cost>{combined_cost(input.param)}</param-cost>"
+			else "<param-cost>{combined_cost(input.param)}</param-cost>"
+		) else
+			"<param-cost>{alternative_cost(input.param)}</param-cost>"
+	) else
+		"{add}<param-psi>{input.param}</param-psi>"
+}
+alternative_cost := replace@(match:"^[A-Z]", replace: { to_lower() })
+combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
+	replace@(match:",", replace:" and")+
+	replace@(match:"^[TQXYZWUBRG0-9/|]", in_context: "(^|[[:space:]])<match>", replace: "<sym-auto>&</sym-auto>")+
+	replace@(match:"^[A-Z]", replace: { to_lower() })
+long_dash := replace@(match:"-", replace:"—")
+# Utilities for keywords
+has_cc := { card.casting_cost != "" }
+has_pt := { card.pt           != "" }
+contains_target := match@(match:"(?i)([^a-z]|^)target([^a-z]|$)")
+is_targeted := { contains_target(card.rule_text) }
+
+############################################################## The text box
+# Filters for the text box
+# context in which mana symbols are found
+psi_context :=
+	"(?ix)				# case insensitive, ignore whitespace
+	 (^|[[:space:]\"(“'])		# start of a word
+	 (  <match>:			# G: something
+	 |  <match>,			# G, tap: something
+	 |  <match>[ ]can[ ]be[ ]pay
+	 |  (pays?|additional|costs?|the	# pay X. creatures cost 1 less. pay an additional G.
+	    |adds?|pay(ed)?[ ](with|using)
+	    )
+	    ([ ]either)?			 # pay either X or Y
+	    ([ ]<sym[^>]*>[TQXYZWUBRG0-9/|]+</sym[^>]*>,)* # pay X, Y or Z
+	    ([ ]<sym[^>]*>[STQXYZWUBRG0-9/|]+</sym[^>]*>[ ](and|or|and/or))* # pay X or Y
+	    [ ]<match> 
+	    ([,.)]|$				# (end of word)
+	    |[ ][^ .,]*$			# still typing...
+	    |[ ]( or | and | in | less | more | to ) # or next word is ...
+	    )
+	    )
+	 |  <param-psi><match></param-psi>		# keyword argument that is declared as mana
+	 |  <param-cost>[ ]*<match></param-cost>		# keyword argument that is declared as cost
+	 |  <param-cost><match>,		# keyword argument that is declared as cost
+	 ";
+# truncates the name of legends
+legend_filter := replace@(match:"(, | of | the ).*", replace: "" )
+# the rule text filter
+#  - adds psi symbols
+#  - makes text in parentheses italic
+text_filter :=
+	# step 1 : remove all automatic tags
+	remove_tag@(tag: "<sym-auto>") +
+	remove_tag@(tag: "<i-auto>")   +
+	remove_tag@(tag: "<nospellcheck") +
+	# step 2 : reminder text for keywords
+	expand_keywords@(
+		condition: {
+			correct_case or (mode != "pseudo" and not used_placeholders)
+		}
+		default_expand: {
+			chosen(choice:if correct_case then mode else "lower case", set.automatic_reminder_text)
+		},
+		combine: {
+			keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+			reminder := process_english_hints(reminder)
+			if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
+			else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>"
+		}) +
+	# step 2b : move action keywords' reminder text to the end of the line
+	replace@(
+		match: "(<atom-reminder-action>(?:(?!<kw-).)*</atom-reminder-action></kw[^>]*>)(((?!<atom-reminder| ?<kw-)[^\n(])+)",
+		replace: "\\2\\1"
+		) +
+	# step 2c : remove duplicate reminder text
+	replace@(
+		match: "(<atom-reminder-[^>]*>[^)]+[)]</atom-reminder-[^>]*>)([^\n]+)\\1"
+		replace: "\\2\\1"
+		) +
+	# step 3a : expand shortcut words ~ and CARDNAME
+	replace@(
+		match: "CARDNAME",
+		in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+		replace: "<atom-cardname></atom-cardname>"
+		) +
+	# step 3b : expand shortcut words ` and shortened LEGENDNAME
+	replace@(
+		match: "LEGENDNAME",
+		in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+		replace: "<atom-legname></atom-legname>"
+		) +
+	# step 3c : fill in atom fields
+	tag_contents@(
+		tag: "<atom-cardname>",
+		contents: { if card_name=="" then "CARDNAME" else card_name }
+		) +
+	tag_contents@(
+		tag: "<atom-legname>",
+		contents: { if card_name=="" then "LEGENDNAME" else legend_filter(card_name) }
+		) +
+	# step 4 : explict non psi symbols
+	replace@(
+		match: "\\][TQXYZWUBRG0-9/|]+\\[",
+		replace: {"<nosym>" + psi_filter_t() + "</nosym>"} ) +
+	# step 5 : add psia & tap symbols
+	replace@(
+		match: "[TQXYZWUBRG0-9/|]+",
+		in_context: psi_context,
+		replace: {"<sym-auto>" + psi_filter_t() + "</sym-auto>"} ) +
+	# step 5b : add explict psi symbols
+	replace@(
+		match: "\\[[TQXYZWUBRG0-9/|]+\\]",
+		replace: {"<sym>" + psi_filter_t() + "</sym>"} ) +
+	# step 7 : italic reminder text
+	replace@(
+	 	match: "[(]([^)\n]|[(][^)\n]*[)])*[)]?",
+		in_context: "(^|[[:space:]])<match>|<atom-keyword><match></",
+	 	replace: "<i-auto>&</i-auto>") +
+	# step 8 : automatic capitalization
+	replace@(
+		match: "[a-z]",
+		in_context: "[ ]*: <match>|—<match>| — <match>",
+		replace: to_upper) +
+	curly_quotes
+
+############################################################## Other boxes
+# the flavor text filter
+#  - makes all text italic
+flavor_text_filter :=
+	# step 1 : remove italic tags
+	remove_tag@(tag: "<i-flavor>")   +
+	# step 2 : surround by <i> tags
+	{ "<i-flavor>" + input + "</i-flavor>" } +
+	# curly quotes
+	curly_quotes
+	
+# Move the cursor past the separator in the p/t and type boxes
+type_over_pt   := replace@(match:"/$", replace:"")
+type_over_type := replace@(match:" ?-$", replace:"")
+
+super_type_filter :=
+	remove_tag@(tag: "<word-list-") +
+	type_over_type +
+	{ "<word-list-type>{input}</word-list-type>" }
+
+space_to_wltags := replace@(match:"( +|<soft> </soft>)",
+                            replace:{"</word-list-{list_type}>{_1}<word-list-{list_type}>"})
+sub_type_filter :=
+	remove_tag@(tag: "<word-list-") +
+	replace@(match: " </soft>$", replace: "") + # remove trailing soft space
+	remove_tag@(tag: "<soft") +
+	{ list_type := if      is_unit(type)    then "class"
+	               else if is_resource(type)        then "resource"
+	               else if is_device(type)    then "device"
+	               else if is_augment(type) then "augment"
+	               else if is_action(type)       then "action"
+	  if is_unit(type) or is_tribal(type) then (
+	      first := "<word-list-race>{ only_first(input) }</word-list-race>"
+	      next  := only_next(input)
+	      if input == ""     then list_type := "" # only edit the race
+	      else if next == "" then first := first + "<soft> </soft>"
+	      else                    first := first + " "
+	      input := next
+	  ) else (
+	      first := ""
+	  )
+	  if list_type != "" then (
+	      if input != "" then input := input + "<soft> </soft>" # Add a new box at the end
+	      first + "<word-list-{list_type}>{ space_to_wltags(input) }</word-list-{list_type}>"
+	  ) else first + input
+	}
+
+# all sub types, for word list
+space_to_comma := replace@(match:" ", replace:",")
+only_first     := replace@(match:" .*", replace:"")
+only_next      := replace@(match:"^[^ ]* ?", replace:"")
+all_sub_types := {
+	for each card in set do
+		if contains(card.super_type) then "," + space_to_comma(to_text(card.sub_type))
+}
+all_races := {
+	for each card in set do
+		if is_unit(card.super_type) or is_tribal(card.super_type) then
+			"," + only_first(to_text(card.sub_type))
+}
+all_classes := {
+	for each card in set do
+		if contains(card.super_type, match:"Unit") then
+			"," + space_to_comma(only_next(to_text(card.sub_type)))
+}
+
+colorless_color := {
+	if card.card_color=="crystal" then "w"
+	else if card.card_color=="cryo" then "u"
+	else if card.card_color=="shadow" then "b"
+	else if card.card_color=="pyre" then "r"
+	else if card.card_color=="xeno" then "g"
+	else "c"
+}
+
+############################################################## Statistics utilities
+# Converted psi cost
+is_half_psi   := match@(match: "1/2|[|][WUBRG]")
+is_colored_psi := match@(match: "[WUBRG]")
+only_numbers    := filter_text@(match: "^[0123456789]+")
+cmc_split := break_text@(match: "(?ix) 1/2 | [|][WUBRG] | [0-9]+(?!/[WUBRGTQ2]) | [WUBRG0-9](/[WUBRG])\{0,4} ")
+cmc := {to_number(
+	for each sym in cmc_split() do (
+		numbers := only_numbers(sym)
+		if is_half_psi(sym)  then 0.5
+		else if numbers != "" then max(1, to_int(numbers))
+		else                       1 # all other symbols are 1
+	))
+}
+
+colored_psi := {to_number(
+	for each sym in cmc_split() do (
+		numbers := only_numbers(sym)
+		if is_colored_psi(sym) then
+			if is_half_psi(sym) then 0.5 else 1
+		else 0
+	))
+}
+
+primary_card_color := {
+	device := chosen(choice:"device")
+	resource     := chosen(choice:"resource")
+	multi    := chosen(choice:"multicolor")
+	hybrid   := chosen(choice:"hybrid")
+	if      resource                                      then "resource"
+	else if multi and input != "device, multicolor" then "multicolor"
+	else if hybrid                                    then "hybrid"
+	else if device                                  then "device"
+	else                                                   input
+}
+
+word_count := break_text@(match:"[^[:space:]]+") + length

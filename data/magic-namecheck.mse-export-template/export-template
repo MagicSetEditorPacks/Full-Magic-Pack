@@ -1,0 +1,62 @@
+﻿mse version: 2.0.0
+short name: Name Check
+full name: Name Check Exporter
+position hint: 009
+icon: icon.png
+version: 2018-01-11
+installer group: magic/Export/Name Check
+
+depends on:
+	package: magic.mse-game
+	version: 2008-08-08
+
+game: magic
+create directory: false
+file type: *.txt|*.txt|*.*|*.*
+
+# By Pichoro
+# Thanks to kiligir for the name list, and twanvl for fixing my code.
+option field:
+	type: choice
+	name: info
+	description: This export template outputs a text list of cards that share names with real Magic cards.
+	choice: This export template outputs a text list of cards that share names with real Magic cards.
+option field:
+	type: choice
+	name: more info
+	description: Ensure a nontoken card is selected before exporting to prevent errors.
+	choice: Ensure a nontoken card is selected before exporting to prevent errors.
+option field:
+	type: boolean
+	name: check for artists
+	description: Should the exporter also check for cards without artists?
+	initial: no
+
+script:
+	include file: namelist
+	# Because MSE gets mad when there are quotation marks in the card list, remove them for comparison.
+	quote_filter := replace@(match:"”", replace:"")+
+		replace@(match:"“", replace:"")+
+		replace@(match:"’", replace:"'")
+
+	
+	matches_name := { to_string(quote_filter(card.name)) } + match@(match: "^{name_list()}$")
+	matches_name_2 := { to_string(quote_filter(card.name_2)) } + match@(match: "^{name_list()}$")
+
+	near_matches_name := { to_string(quote_filter(card.name)) } + match@(match: "^{near_name_list()}$")
+	near_matches_name_2 := { to_string(quote_filter(card.name_2)) } + match@(match: "^{near_name_list()}$")
+
+	art_check := { options.check_for_artists and (card.illustrator == "" or card.illustrator == "([ ]+|[Uu]nknown|[?]+)")}
+	art_check_2 := { card.name_2 != "" and options.check_for_artists and (card.illustrator_2 == "" or card.illustrator_2 == "([ ]+|[Uu]nknown|[?]+)")}
+
+	write_card := {(if matches_name() then card.name + "\n" else "")
+		+ (if matches_name_2() then card.name_2 + "\n" else "")
+	}
+	write_card_2 := { (if art_check() then card.name + "\n" else "")
+		+ (if art_check_2() then card.name_2 + "\n" else "")
+	}
+	write_card_3 := {(if near_matches_name() and not matches_name() then card.name + "\n" else "")
+		+ (if near_matches_name_2() and not matches_name_2() then card.name_2 + "\n" else "")
+	}
+	write_cards := "----- Exact Matches -----\n\n" + to_text(for each card in cards do write_card()) + "----- Near Matches -----\n\n" + to_text(for each card in cards do write_card_3()) + (if options.check_for_artists then "\n\n-----No Illustrators-----\n\n" + to_text(for each card in cards do write_card_2()))
+	to_string(write_cards)

@@ -1,0 +1,340 @@
+﻿mse version: 2.0.0
+game: magic
+short name: M15 Textless Land
+full name: M15 Textless Land
+installer group: magic/m15 style/textless/land
+icon: card-sample.png
+position hint: 015
+
+version: 2018-02-09
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-future-common.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+
+card width: 375
+card height: 523
+card dpi: 150
+
+############################################################## Extra scripts
+init script:
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_prefix := [card: "" pt: "" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" pt: "pt.png" identity: "identity.png"]
+	template      := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	land_template		:= { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	has_identity := { styling.color_indicator_dot }
+	is_unsorted := {styling.remove_from_autocount}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: use holofoil stamps
+	description: Change to no to disable rare holofoil stamps
+styling field:
+	type: boolean
+	name: color indicator dot
+	description: Use the color indicator dot
+	initial: no
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling style:
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 4
+		mask: border_mask.png
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: { if card.card_symbol=="none" then 32 else 50 }
+		top: 30
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+	############################# Image
+	image:
+		#left:	30
+		#top:	61
+		#width:	313
+		#height:	366
+		left: 31
+		top: 61
+		width: 313
+		height: 366
+		z index: 1
+		mask: image_mask.png
+	############################# Card type
+	indicator:
+		left: 31
+		top: 436
+		width: 17
+		height: 17
+		z index: 1
+		render style: image
+		visible: { has_identity() }
+		image: { card_identity() }
+	super type:
+		left: { if has_identity() then 50 else 31 }
+		top : 434
+		width: { if has_identity() then 110 else 117 }
+		height: 18
+		alignment: top shrink-overflow
+		z index: 1
+		font:
+			name: Matrix
+			size: 16
+			color: black
+	watermark:
+		left: 162
+		top : 414
+		width: 54
+		height: 54
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	sub type:
+		left: 220
+		top : 434
+		width: { 122 - max(22,card_style.rarity.content_width) }
+		height: 18
+		alignment: top center shrink-overflow
+		z index: 1
+		font:
+			name: Matrix
+			size: 16
+			color: black
+	rarity:
+		right: 346
+		top : 434
+		width: 44
+		height: 22
+		z index: 2
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# PT
+	pt:
+		z index: 2
+		left: 286
+		top: 469
+		width: 60
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+			separator color: red
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 1
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 1
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: { if card.pt != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 2
+		visible: {not set.automatic_copyright}
+
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card style:
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 1
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 1
+		render style: image
+		image: artist_arrow.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: foil_mask.png
+	pt box:
+		left: 273
+		top: 466
+		width: 81
+		height:	42
+		z index: 1
+		visible: { card.pt != "" }
+		render style: image
+		image: { card_ptbox() }
+	auto copyright:
+		right: 350
+		top: { if card.pt != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 2
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold

@@ -1,0 +1,336 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Unstable Basics
+full name: M15 Un-Basics
+icon: card-sample.png
+installer group: magic/m15 style/normal cards
+position hint: 900
+
+version: 2018-02-08
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	
+	template_prefix := [card: "" card2: "" pt: ""]
+	template_suffix := [card: "card.png" card2: "card2.png" pt: "pt.png"]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+
+	card_background2 := { color_background(type:"card2", base_hybrid:card_hybrid) }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+
+	is_stamped := { styling.holofoil_stamps }
+	template		:= { input + "{type}.png" }
+	land_template		:= { input + "{type}.png" }
+	is_unsorted := {styling.remove_from_autocount}
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: holofoil stamps
+	description: Toggles the holofoil stamp
+styling field:
+	type: boolean
+	name: black names
+	description: Uses a black font for the card name.
+	initial: no
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 1
+		render style: image
+		popup style: in place
+		image: { if is_stamped() then card_background2() else card_background() }
+		mask: { if is_stamped() then "frame_mask_rare.png" else "frame_mask.png" }
+	############################# Name line
+	name:
+		left: 60
+		top: 7
+		width: 255
+		height: 23
+		alignment: center bottom shrink-overflow
+		padding bottom: 0
+		z index: 4
+		font:
+			name: Beleren Bold
+			size: 15
+			color: { if styling.black_names then "black" else "white" }
+	############################# Image
+	image:
+		left: 0
+		top: 0
+		width: 375
+		height:	523
+		z index: 0
+		default: {default_image(card.card_color)}
+		mask: { if is_stamped() then "image_mask_rare.png" else "image_mask.png" }
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 3
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 3
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: 489
+		width: 140
+		height: 12
+		z index: 3
+		visible: {not set.automatic_copyright}
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7.5
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: stamp
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil stamp
+	choice: stamp
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: corner patch
+	choice: patch
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card style:
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 3
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 3
+		render style: image
+		image: artist_arrow.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
+	corner patch:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		render style: image
+		image: correct.png
+	auto copyright:
+		right: 350
+		top: { if card.pt != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 2
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold

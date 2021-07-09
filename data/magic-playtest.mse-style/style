@@ -1,0 +1,295 @@
+mse version: 2.0.0
+game: magic
+short name: Playtest
+full name: Playtest Card
+installer group: magic/playtest style
+icon: card-sample.png
+position hint: 999
+
+version: 2018-02-22
+depends on:
+	package: magic.mse-game
+	version: 2007-12-29
+
+card background: white
+card width: 338
+card height: 497
+card dpi: 150
+
+############################################################## Extra scripts
+init script:
+	# Script for the sort code field.
+	playtest_rarity_code :={
+		rarity := card.rarity
+		if rarity == "basic land" then "B"
+		else if rarity == "common" then "C"
+		else if rarity == "uncommon" then "U"
+		else if rarity == "rare" then "R"
+		else if rarity == "mythic rare" then "M"
+		else if rarity == "special" then "S"
+		else "C"
+	}
+	playtest_color_code := {
+		casting_cost := card.casting_cost
+		card_color := card.card_color
+		colors := sort_text(casting_cost, order: "<WUBRG>")
+		if colors == "W" then "W"
+		else if colors == "U" then "U"
+		else if colors == "B" then "B"
+		else if colors == "G" then "G"
+		else if colors == "R" then "R"
+		else if chosen(choice:"multicolor", card_color) then "M"
+		else if chosen(choice:"hybrid", card_color) then "H"
+		else if chosen(choice:"artifact", card_color) then "A"
+		else if chosen(choice:"land", card_color) then "L"
+		else "A"
+	}
+	playtest_sort_code := { set.title + " - " + playtest_rarity_code () + playtest_color_code() + ", " + playtest_code_number()
+	}
+	
+	playtest_rarity_filter :={
+		rarity := card.rarity
+		if rarity == "basic land" then {card.rarity == "basic land"}
+		else if rarity == "common" then {card.rarity == "common"}
+		else if rarity == "uncommon" then {card.rarity == "uncommon"}
+		else if rarity == "rare" then {card.rarity == "rare"}
+		else if rarity == "mythic rare" then {card.rarity == "mythic rare"}
+		else {card.rarity == "special"}
+	}
+
+	playtest_color_filter :={
+		casting_cost := card.casting_cost
+		card_color := card.card_color
+		card_type := card.type
+		colors := sort_text(casting_cost, order: "<WUBRG>")
+		if chosen(choice:"land", card_color) then { contains(card.card_color, match:"land") }
+		else if chosen(choice:"hybrid", card_color) then { contains(card.card_color, match:"hybrid") }
+		else if chosen(choice:"multicolor", card_color) then { contains(card.card_color, match:"multicolor") }
+		else if colors == "W" then { contains(card.card_color, match:"white") }
+		else if colors == "U" then { contains(card.card_color, match:"blue") }
+		else if colors == "B" then { contains(card.card_color, match:"black") }
+		else if colors == "R" then { contains(card.card_color, match:"red") }
+		else if colors == "G" then { contains(card.card_color, match:"green") }
+		else { contains(card.card_color, match:"artifact") or contains(card.card_color, match:"colorless") }
+	}
+	
+	playtest_code_number := {
+		position (
+			of: card
+			in: set
+			order_by: { to_string(card.time_created,format:"%S%M%H%d%m%y") }
+			filter: playtest_color_filter()
+		) + 1
+	}
+############################################################## Extra style options
+styling field:
+	type: choice
+	name: frame style
+	description: Should the frame be totally blank, or read MTG Confidential?
+	initial: blank
+	choice: blank
+	choice: mtg confidential
+styling style:
+	frame style:
+		render style: both
+		choice images:
+			blank: card2.png
+			mtg confidential:  card.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	338
+		height:	497
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: -1
+	card color:
+		left:	0
+		top:	0
+		width:	338
+		height:	497
+		z index: -2
+		render style: image
+		popup style: in place
+		image:
+			script:
+				if styling.frame_style == "blank" then "card2.png"
+				else "card.png"
+
+	############################# Name line
+	name:
+		left:   29
+		top :   29
+		right:  { 317 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Times New Roman
+			size: 18
+			weight: bold
+			color: rgb(0,0,0)
+	casting cost:
+		right: 317
+		top : 29
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: bottom right
+		font:
+			name: Times New Roman
+			size: 18
+		z index: 2
+		padding top: 0
+
+	############################# Image
+
+	############################# Card type
+
+	type:
+		left: 29
+		top : 202
+		width: 215
+		height: 20
+		alignment: top shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: Times New Roman
+			size: 15
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+
+	rarity:
+		right: 296
+		top : 203
+		width: 44
+		height: 22
+		z index: 1
+		choice images:
+			# Images based on the set symbol
+			basic land: script: symbol_variation(symbol: set.symbol, variation: "common")
+			common:     script: symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "common")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "common")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "common")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "common")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "common")
+
+	############################# Text box
+	text:
+		left: 29
+		top : 252
+		width: 283
+		height: 165
+		font:
+			name: Times New Roman
+			italic name: Times New Roman
+			size: 15
+			scale down to: 6
+			color: rgb(0,0,0)
+		alignment: middle left
+		z index: 2
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+
+
+	############################# PT
+	pt:
+		z index: 4
+		left:	256
+		top:	443
+		width:	60
+		height:	28
+		alignment: center middle
+		font:
+			name: Times New Roman
+			size: 17
+			weight: bold
+			color: rgb(0,0,0)
+			separator color: rgb(200,0,0)
+
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	copyright line:
+		z index: 4
+		left: 29
+		right: 256
+		height: 20
+		top: 453
+		alignment: left middle  shrink-overflow
+		font:
+			name: Times New Roman
+			size: 10
+			scale down to: 4
+			weight: bold
+
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: created
+	editable: false
+	script: "Time Created: " + to_string(card.time_created,format:"%y-%m-%d, %H:%M:%S")
+	save value: false
+extra card field:
+	type: text
+	name: modified
+	editable: false
+	script: "Time Modified: " + to_string(card.time_modified,format:"%y-%m-%d, %H:%M:%S")
+	save value: false
+extra card field:
+	type: text
+	name: sort code
+	save value: false
+	editable: false
+	script: playtest_sort_code()
+extra card style:
+	sort code:
+		left: 20
+		top: 140
+		width: 298
+		height: 20
+		z index: 2
+		alignment: center middle shrink-overflow
+		font:
+			name: Times New Roman
+			size: 14
+			scale down to: 6
+			weight: bold
+			color: rgb(0,0,0)
+	created:
+		left: 20
+		top: 80
+		width: 298
+		height: 20
+		z index: 2
+		alignment: center middle shrink-overflow
+		font:
+			name: Times New Roman
+			size: 14
+			scale down to: 6
+			weight: bold
+			color: rgb(0,0,0)
+	modified:
+		left: 20
+		top: 110
+		width: 298
+		height: 20
+		z index: 2
+		alignment: center middle shrink-overflow
+		font:
+			name: Times New Roman
+			size: 14
+			scale down to: 6
+			weight: bold
+			color: rgb(0,0,0)

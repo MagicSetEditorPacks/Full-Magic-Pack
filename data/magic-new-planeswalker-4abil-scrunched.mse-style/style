@@ -1,0 +1,615 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Scrunched 4 'Walkers
+full name: Modern Planeswalkers (Scrunched Four Abilities)
+installer group: magic/new style/planeswalkers/four abilities/scrunched
+icon: card-sample.png
+position hint: 019
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2009-07-23
+depends on:
+	package: magic-future-common.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-new-planeswalker.mse-style
+	version: 2008-06-02
+
+card width: 375
+card height: 523
+card dpi: 150
+#By Pichoro
+#Images by Artfreakwiu, Buttock1234, Monkeychewtoy, and Twanvl
+############################################################## Extra scripts
+init script:
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	# Which artifact template should be used?
+	template := { "/magic-new-planeswalker.mse-style/" + input + "{type}.jpg" }
+	land_template := { "/magic-new-planeswalker.mse-style/c{type}.jpg" }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }	
+	
+	paintbrush_color := {
+		if to_int(card.border_color) < 96 then "white" else "black"
+	}
+	
+	# Loyalty cost arrows
+	loyalty_image := {
+		if      contains(input, match: "+") then "loyalty up"
+		else if contains(input, match: "-") then "loyalty down"
+		else                                     "loyalty naught"
+	}
+	
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		base := base_hybrid[shape][color_count]()
+		
+		# Put a frame around it?
+		if land and not colored_lands then
+			masked_blend(
+				mask:  "/magic-new-planeswalker.mse-style/multicolor_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else if land and multi and mask_multi_land_with_color() then
+			masked_blend(
+				mask:  "/magic-new-planeswalker.mse-style/hybrid_blend_{type}.png",
+				dark:  base,
+				light:  land_template("m"),
+			)
+		else if multi and artifact then
+			masked_blend(
+				mask: "/magic-new-planeswalker.mse-style/artifact_blend_{type}.png",
+				dark: template("a"),
+				light: masked_blend(
+					mask: "/magic-new-planeswalker.mse-style/multicolor_blend_{type}.png",
+					dark: template("m"),
+					light: base
+				)
+			)
+		else if multi then 
+			masked_blend(
+				mask:  "/magic-new-planeswalker.mse-style/multicolor_blend_{type}.png",
+				dark:  template("m"),
+				light: base,
+			)
+		else if artifact then 
+			masked_blend(
+				mask:  "/magic-new-planeswalker.mse-style/artifact_blend_{type}.png",
+				dark:  template("a"),
+				light: base,
+			)
+		else if color_count > 1 and mask_hybrid_with_land() then
+			masked_blend(
+				mask:  "/magic-new-planeswalker.mse-style/hybrid_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else base
+	}
+	
+	card_shape := { "planeswalker" }
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		mask: /magic-new-planeswalker.mse-style/border_mask.png
+		z index: 5
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left:   { if card.card_symbol=="none" then 32 else 51 }
+		top :   22
+		right:  { 339 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Matrix
+			size: 17
+			weight: bold
+			color: rgb(0,0,0)
+	casting cost:
+		right: 345
+		top : 24
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {if card.card_symbol=="none" then 20 else 32}
+		top : 25
+		height: 20
+		width: 14
+		z index: 1
+		render style: image
+		choice images:
+			tombstone: /magic-new-planeswalker.mse-style/tombstone.png
+	############################# Image
+	image:
+		left:	28
+		top:	54
+		width:	317
+		height:	426
+		z index: 1
+		mask: image_mask.png
+	############################# Card type
+	type:
+		left: 36
+		top : 307
+		width: { 304 - max(22,card_style.rarity.content_width) }
+		height: 20
+		alignment: top shrink-overflow
+		z index: 2
+		padding top: 2
+		font:
+			name: Matrix
+			size: 14
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 342
+		top : 308
+		width: 42
+		height: 21
+		z index: 2
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 66
+		top : 336
+		width: 276
+		height: 140
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: rgb(0,0,0)
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		paragraph height: 36
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 3
+		mask: /magic-new-planeswalker.mse-style/text_mask.png
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	watermark:
+		left: 117
+		top : 331
+		width: 138
+		height: 150
+		z index: 2
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# Loyalty
+	loyalty:
+		z index: 7
+		left:	326
+		top:	467
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: MatrixBoldSmallCaps
+			size: 16
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 1:
+		z index: 7
+		left:	32
+		top:	335
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: Mplantin
+			size: 12
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 2:
+		z index: 7
+		left:	32
+		top:	371
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: Mplantin
+			size: 12
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 3:
+		z index: 7
+		left:	32
+		top:	406
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: Mplantin
+			size: 12
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 4:
+		z index: 7
+		left:	32
+		top:	442
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: Mplantin
+			size: 12
+			weight: bold
+			color: rgb(255,255,255)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		left: 63
+		bottom : 500
+		width: 287
+		height: 16
+		z index: 6
+		alignment: middle center
+		font:
+			name: Matrix
+			size: 10
+			weight: bold
+			color: { paintbrush_color() }
+	copyright line:
+		left: 43
+		top : 497
+		width: 287
+		height: 12
+		z index: 6
+		alignment: middle center
+		font:
+			name: MPlantin
+			size: 7
+			color: { paintbrush_color() }
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: loyalty box
+	editable: false
+	choice: loyalty
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: loyalty cost box 1
+	editable: false
+	script: loyalty_image(card.loyalty_cost_1)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 2
+	editable: false
+	script: loyalty_image(card.loyalty_cost_2)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 3
+	editable: false
+	script: loyalty_image(card.loyalty_cost_3)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 4
+	editable: false
+	script: loyalty_image(card.loyalty_cost_4)
+	save value: false
+extra card field:
+	type: choice
+	name: paintbrush
+	script: paintbrush_color(value)
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: colon 1
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 2
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 3
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 4
+	editable: false
+	script: ":"
+extra card style:
+	paintbrush:
+		right: { 206 + card_style.illustrator.content_width * -0.5 }
+		top : 486
+		width: 30
+		height: 12
+		z index: 6
+		render style: image
+		choice images:
+			black: /magic-future-common.mse-include/paintbrush_black.png
+			white: /magic-future-common.mse-include/paintbrush_white.png
+	loyalty box:
+		right: 362
+		top: 465
+		width: 60
+		height: 38
+		z index: 6
+		render style: image
+		visible: { card.loyalty !="" }
+		choice images:
+			loyalty: /magic-new-planeswalker.mse-style/loyalty.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 4
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	loyalty cost box 1:
+		left: 18
+		top: 333
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_1 !="" }
+		choice images:
+			loyalty up: /magic-new-planeswalker.mse-style/loyaltyup.png
+			loyalty down: /magic-new-planeswalker.mse-style/loyaltydown.png
+			loyalty naught: /magic-new-planeswalker.mse-style/loyaltynaught.png
+	loyalty cost box 2:
+		left: 18
+		top: 369
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_2 !="" }
+		choice images:
+			loyalty up: /magic-new-planeswalker.mse-style/loyaltyup.png
+			loyalty down: /magic-new-planeswalker.mse-style/loyaltydown.png
+			loyalty naught: /magic-new-planeswalker.mse-style/loyaltynaught.png
+	loyalty cost box 3:
+		left: 18
+		top: 404
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_3 !="" }
+		choice images:
+			loyalty up: /magic-new-planeswalker.mse-style/loyaltyup.png
+			loyalty down: /magic-new-planeswalker.mse-style/loyaltydown.png
+			loyalty naught: /magic-new-planeswalker.mse-style/loyaltynaught.png
+	loyalty cost box 4:
+		left: 18
+		top: 440
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_4 !="" }
+		choice images:
+			loyalty up: /magic-new-planeswalker.mse-style/loyaltyup.png
+			loyalty down: /magic-new-planeswalker.mse-style/loyaltydown.png
+			loyalty naught: /magic-new-planeswalker.mse-style/loyaltynaught.png
+	colon 1:
+		left: 59
+		top: 347
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_1 !="" }
+	colon 2:
+		left: 59
+		top: 383
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_2 !="" }
+	colon 3:
+		left: 59
+		top: 418
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_3 !="" }
+	colon 4:
+		left: 59
+		top: 454
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_4 !="" }

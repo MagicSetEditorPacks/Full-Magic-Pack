@@ -1,0 +1,587 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Comic
+full name: Comic Magic
+installer group: magic/Comic style
+icon: card-sample.png
+position hint: 101
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-mana-circleless.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-circleless-inverted.mse-symbol-font
+	version: 2009-07-30
+
+card width: 375
+card height: 523
+card dpi: 150
+# By Pichoro
+############################################################## Extra scripts
+init script:
+	# Use which tap symbol?
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	template := { if input == "c" then "a" +"{type}.jpg" 
+		else input + "{type}.jpg" }
+	land_template := { if input == "c" then "a" +"{type}.jpg" 
+		else input + "{type}.jpg" }
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	text_filter :=
+		# step 1 : remove all automatic tags
+		remove_tag@(tag: "<sym-auto>") +
+		remove_tag@(tag: "<i-auto>")   +
+		remove_tag@(tag: "<b-auto>")   +
+		remove_tag@(tag: "<error-spelling") +
+		remove_tag@(tag: "<nospellcheck") +
+		# step 2 : reminder text for keywords
+		expand_keywords@(
+			condition: {
+				correct_case or (mode != "pseudo" and not used_placeholders)
+			}
+			default_expand: {
+				chosen(choice:if correct_case then mode else "lower case", set.automatic_reminder_text)
+			},
+			combine: {
+				keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+				reminder := process_english_hints(reminder)
+				if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
+				else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>"
+			}) +
+		# step 2b : move action keywords' reminder text to the end of the line
+		replace@(
+			match: "(<atom-reminder-action>(?:(?!<kw-).)*</atom-reminder-action></kw[^>]*>)(((?!<atom-reminder| ?<kw-)[^\n(])+)",
+			replace: "\\2\\1"
+			) +
+		# step 2c : remove duplicate reminder text
+		replace@(
+			match: "(<atom-reminder-[^>]*>[^)]+[)]</atom-reminder-[^>]*>)([^\n]+)\\1"
+			replace: "\\2\\1"
+			) +
+		# step 3a : expand shortcut word CARDNAME
+		replace@(
+			match: "CARDNAME",
+			in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+			replace: "<atom-cardname></atom-cardname>"
+			) +
+		# step 3b : expand shortcut word LEGENDNAME
+		replace@(
+			match: "LEGENDNAME",
+			in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+			replace: "<atom-legname></atom-legname>"
+			) +
+		# step 3c : fill in atom fields
+		tag_contents@(
+			tag: "<atom-cardname>",
+			contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else card_name) + "</nospellcheck>" }
+			) +
+		tag_contents@(
+			tag: "<atom-legname>",
+			contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(card_name)) + "</nospellcheck>" }
+			) +
+		# step 4 : explict non mana symbols
+		replace@(
+			match: "\\][STQXYZIWUBRG0-9/|]+\\[",
+			replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
+		# step 5 : add mana & tap symbols
+		replace@(
+			match: "\\b[STQXYZIWUBRG0-9/|]+\\b",
+			in_context: mana_context,
+			replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
+		# step 5b : add explict mana symbols
+		replace@(
+			match: "\\[[STQXYZIWUBRG0-9/|]+\\]",
+			replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
+		# step 6a : curly double quotes
+		replace@(
+			match: "[[.quotation-mark.]]|“",
+			in_context: "[“][A-Za-z,.!?+$<>:;-— 0-9\\\\]*<match>",
+			replace: "”" )+
+		replace@(
+			match: "[[.quotation-mark.]]",
+			replace: "“" )+
+		# step 6b : curly single quotes
+		replace@(
+			match: "' |‘ ",
+			in_context: "[‘][A-Za-z,.!?+$<>:;-— 0-9\\\\]*<match>",
+			replace: "’ " )+
+		replace@(
+			match: " '",
+			replace: " ‘" )+
+		# step 7 : ???
+		replace@(
+		 	match: "[(]([^)\n]|[(][^)\n]*[)])*[)]?",
+			in_context: "(^|[[:space:]])<match>|<atom-keyword><match></",
+	 		replace: "<i-auto>&</i-auto>") +
+		# step 8 : automatic capitalization, but not after "("
+		replace@(
+			match: "([ ]*: |—| — )" # preceded by this
+			     + "([[:lower:]])" # match this
+			     + "(?![)])",      # not followed by this
+			replace: { _1 + to_upper(_2) }) +
+		# step 8.5 : longdash to regular dash
+		replace@(
+			match:"—",
+			replace:"-")+
+		#curly_quotes +
+		# step 9 : spellcheck
+		{ if set.mark_errors then
+			check_spelling(
+				language: language().spellcheck_code,
+				extra_dictionary: "/magic.mse-game/magic-words",
+				extra_match: additional_text_words
+			)
+		  else input
+		}
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-circleless.mse-symbol-font
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-circleless.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-circleless.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-circleless.mse-symbol-font/mana_t.png
+			old:        /magic-mana-circleless.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-circleless.mse-symbol-font/mana_t_older.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		mask: border_mask.png
+		z index: 4
+	card color:
+		left: 0
+		top: 0
+		width: 375
+		height:523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: 87
+		top: 28
+		width: 262
+		height: 59
+		alignment: middle center shrink-overflow
+		padding bottom: 0
+		z index: 1
+		padding left:   6
+		padding right:  4
+		font:
+			name: Anime Ace 2.0 BB
+			size: 19
+			color: rgb(0,0,0)
+	casting cost:
+		left: 23
+		top: 90
+		width: 57
+		height: {if card.pt !="" then 280 else 370}
+		alignment: top center
+		direction: vertical
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-circleless-inverted
+			size: 30
+			alignment: bottom right
+		always symbol: true
+		z index: 1
+		padding top: 0
+	############################# Image
+	image:
+		left:	99
+		top:	18
+		width: 257
+		height:	480
+		z index: 1
+		mask: image_mask.png
+	############################# Card type
+	rarity:
+		left: 38
+		top : 464
+		width: 27
+		height: 30
+		z index: 1
+		render style: image
+		alignment: bottom center
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					symbol_variation(
+						symbol: "b.mse-symbol",
+						border_radius: 0.10,
+						fill_type: "solid",
+						border_color:   rgb(255,255,255),
+						fill_color: rgb(0,0,0)
+					)
+			common:
+				script:
+					symbol_variation(
+						symbol: "c.mse-symbol",
+						border_radius: 0.10,
+						fill_type: "solid",
+						border_color:   rgb(255,255,255),
+						fill_color: rgb(0,0,0)
+					)
+			uncommon:
+				script:
+					symbol_variation(
+						symbol: "u.mse-symbol",
+						border_radius: 0.07,
+						fill_type: "radial gradient",
+						fill_color_2: rgb(224,224,224),
+						fill_color_1: rgb(84,84,84),
+						border_color_1: rgb(0,0,0),
+						border_color_2: rgb(0,0,0)
+					)
+			rare:
+				script:
+					symbol_variation(
+						symbol: "r.mse-symbol",
+						border_radius: 0.07,
+						fill_type: "radial gradient",
+						fill_color_2: rgb(214,196,94),
+						fill_color_1: rgb(95, 84, 40),
+						border_color_1: rgb(0,0,0),
+						border_color_2: rgb(0,0,0)
+					)
+			mythic rare:
+				script:
+					symbol_variation(
+						symbol: "m.mse-symbol",
+						border_radius: 0.07,
+						fill_type: "radial gradient",
+						fill_color_2: rgb(255,160,40),
+						fill_color_1: rgb(202,49,35),
+						border_color_1: rgb(0,0,0),
+						border_color_2: rgb(0,0,0)
+					)
+			special:
+				script:
+					symbol_variation(
+						symbol: "s.mse-symbol",
+						border_radius: 0.07,
+						fill_type: "radial gradient",
+						fill_color_2: rgb(224,170,247),
+						fill_color_1: rgb(58,7,80),
+						border_color_1: rgb(255,255,255),
+						border_color_2: rgb(255,255,255)
+					)
+	############################# Text box
+	text:
+		left: 87
+		top : 358
+		width: 262
+		height: 124
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 12
+			scale down to: 6
+			color: rgb(0,0,0)
+		symbol font:
+			name:  {styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# PT
+	power:
+		z index: 2
+		left:	35
+		top:	386
+		width:	35
+		height:	29
+		alignment: center middle
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 16
+			weight: bold
+			color: rgb(0,0,0)
+	toughness:
+		z index: 2
+		left:	48
+		top:	435
+		width:	35
+		height:	29
+		alignment: center middle
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 16
+			weight: bold
+			color: rgb(0,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	copyright line:
+		left: 102
+		top : 489
+		width: 247
+		height: 12
+		z index: 2
+		alignment: middle center shrink-overflow
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 5.5
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow blur: 3
+			shadow displacement x: 0
+			shadow displacement y: 0
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: comic type
+	save value: false
+	script:
+		combined_editor(
+				field1: card.super_type,
+				separator: " - ",
+				field2: card.sub_type,
+				soft_before_empty: true,
+				hide_when_empty:   true
+		)
+	description: The type of this card, type - to go the sub type
+extra card field:
+	type: choice
+	name: publisher symbol
+	choice: none
+	choice: Marvel-new
+	choice: Marvel-old
+	choice: DC-new
+	choice: DC-old
+	choice: DC-original
+	choice: Hellboy
+	choice: Top Cow
+	choice: Dark Horse
+	choice: Malibu
+	choice: Amalgam
+	choice: 2000AD
+	choice: Image
+	description: The symbol for the publisher of the character.
+extra card field:
+	type: choice
+	name: set symbol
+	script: "sym"
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: power label
+	script: "Power"
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: toughness label
+	script: "Toughness"
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: artist line
+	save value: false
+	script: forward_editor(prefix: "Illustrated by ", field: card.illustrator)
+	description: The artist of the card.
+extra card style:
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	pt box:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		visible: { card.pt != "" }
+		render style: image
+		image: pt_bubbles.png
+	comic type:
+		left: 90
+		top : 330
+		width: 252
+		height: 20
+		alignment: middle center shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: Anime Ace 2.0 BB
+			size: 9
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+	publisher symbol:
+		left: 23
+		top: 28
+		width: 57
+		height: 59
+		z index: 1
+		alignment: middle center
+		render style: image
+		choice images:
+			Marvel-new: marvelnew.jpg
+			Marvel-old: marvelold.png
+			DC-new:	dcnew.png
+			DC-old:	dcold.png
+			DC-original: dcreallyold.png
+			Hellboy: hellboy.png
+			Top Cow: topcow.png
+			Dark Horse: darkhorse.png
+			Malibu: malibu.png
+			Amalgam: amalgam.png
+			2000AD: 2000ad.png
+			Image: image.png
+	set symbol:
+		right: 357
+		top : 306
+		width: 22
+		height: 30
+		z index: 1
+		render style: image
+		alignment: top center
+		choice images:
+			# Images based on the set symbol
+			sym: script: symbol_variation(symbol: set.symbol, variation: "common")
+	power label:
+		z index: 2
+		left:	35
+		top:	380
+		width:	35
+		height:	29
+		alignment: center top
+		visible: { card.pt != "" }
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 5.5
+			weight: bold
+			color: rgb(0,0,0)
+	toughness label:
+		z index: 2
+		left:	48
+		top:	429
+		width:	35
+		height:	29
+		alignment: center top
+		visible: { card.pt != "" }
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 5.5
+			weight: bold
+			color: rgb(0,0,0)
+	artist line:
+		left: 102
+		top : 479
+		width: 247
+		height: 16
+		z index: 2
+		alignment: middle center
+		font:
+			name: A.C.M.E. Secret Agent
+			size: 5.5
+			weight: bold
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow blur: 3
+			shadow displacement x: 0
+			shadow displacement y: 0

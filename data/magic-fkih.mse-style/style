@@ -1,0 +1,407 @@
+mse version: 2.0.0
+game: magic
+full name: FKiH's Magic template
+short name: FKiH
+installer group: magic/FKiH style
+icon: card-sample.png
+position hint: 202
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-fkih.mse-symbol-font
+	version: 2007-09-30
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+# By Pichoro
+############################################################## Extra scripts
+init script:
+	# Load blend scripts for hybrids/multicolors
+	
+	template_suffix := [card: "card.jpg", typeline: "typeline.png", pt: "pt.png"]
+	template      := { input + template_suffix[type] }
+	land_template := { (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Only white cards use a black font
+	# TODO: also for some overlays involving white
+	font_colors_white := { input != "w" or input != "m" }
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: font color
+	description: Should text fields on the card be black or white?
+	initial: black
+	choice: black
+	choice: white
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   16
+		right width:  16
+		top width:    16
+		bottom width: 16
+		z index: 4
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left:   { if card.card_symbol=="none" then 27 else 43 }
+		top :   17
+		width:  { if card.card_symbol=="none" then 300 else 284 }
+		height: 26
+		direction: horizontal
+		alignment: middle shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: MatrixBoldSmallCaps
+			size: 18
+			color: 
+				{ if styling.font_color = "white" then rgb(255,255,255)
+				else if styling.font_color = "black" then rgb(0,0,0)
+				else rgb(0,0,0) }
+	casting cost:
+		left: 325
+		top : 56
+		width: 30
+		height: 220
+		direction: vertical
+		alignment: top center
+		symbol font:
+			name: magic-mana-fkih
+			size: 20
+			alignment: bottom right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: { if card.card_symbol=="none" then 5 else 24 }
+		top : 21
+		height: 17
+		width: 11
+		render style: image
+		z index: 1
+		choice images:
+			tombstone: tombstone.png
+	############################# Image
+	image:
+		left:	28
+		top:	53
+		width:	318
+		height:	237
+		z index: 1
+	############################# Card type
+	type:
+		left: 30
+		top : 300
+		width: { 320 - max(22,card_style.rarity.content_width) }
+		height: 16
+		direction: horizontal
+		alignment: middle shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: Matrix
+			size: 16
+			color: 
+				{ if styling.font_color = "white" then rgb(255,255,255)
+				else if styling.font_color = "black" then rgb(0,0,0)
+				else rgb(0,0,0) }
+			scale down to: 6
+			separator color: rgb(128,128,128)
+	rarity:
+		left: 276
+		top : 289
+		width: 80
+		height: 40
+		z index: 2
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 27
+		top : 333
+		width: 293
+		height: 148
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 15
+			scale down to: 6
+			color: rgb(0,0,0)
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		direction: horizontal
+		alignment: middle left
+		z index: 2
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+	watermark:
+		left: 117
+		top : 325
+		width: 138
+		height: 156
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# PT
+	power:
+		z index: 2
+		left:	327
+		top:	379
+		width:	21
+		height:	38
+		alignment: center middle
+		font:
+			name: Mplantin
+			size: 19
+			weight: bold
+			color: rgb(0,0,0)
+	toughness:
+		z index: 2
+		left:	327
+		top:	428
+		width:	21
+		height:	33
+		alignment: center middle
+		font:
+			name: Mplantin
+			size: 19
+			weight: bold
+			color: rgb(0,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		left: 51
+		top : 494
+		width: 268
+		height: 10
+		z index: 1
+		direction: horizontal
+		alignment: top left
+		font:
+			name: Matrix
+			size: 8
+			weight: bold
+			color: 
+				{ if styling.font_color = "white" then rgb(255,255,255)
+				else if styling.font_color = "black" then rgb(0,0,0)
+				else rgb(0,0,0) }
+	copyright line:
+		left: 28
+		top: 483
+		height: 7
+		width: 182
+		z index: 1
+		alignment: middle left
+		font:
+			name: MPlantin
+			size: 6
+			color: rgb(0,0,0)
+############################################################## Extra card fields
+extra card field:
+	type: multiple choice
+	name: pt box
+	empty choice: colorless
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice:
+		name: green
+		line below: true
+	choice: artifact
+	choice: land
+	choice: multicolor
+	choice:
+		name: hybrid
+		line below: true
+	choice:
+		name: horizontal
+		type: radio
+	choice:
+		name: vertical
+		type: radio
+	choice:
+		name: radial
+		type: radio
+	choice:
+		name: overlay
+		type: radio
+	choice:
+		name: reversed
+	script: card_color_filter(value)
+	default: card.card_color
+#typeline is used as a casting cost box in these templates
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: multiple choice
+	name: typeline
+	empty choice: colorless
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice:
+		name: green
+		line below: true
+	choice: artifact
+	choice: land
+	choice: multicolor
+	choice:
+		name: hybrid
+		line below: true
+	choice:
+		name: horizontal
+		type: radio
+	choice:
+		name: vertical
+		type: radio
+	choice:
+		name: radial
+		type: radio
+	choice:
+		name: overlay
+		type: radio
+	choice:
+		name: reversed
+	script: card_color_filter(value)
+	default: card.card_color
+extra card style:
+	pt box:
+		right:	357
+		bottom:	507
+		width:	41
+		height:	200
+		z index: 1
+		visible: { card.power != "" or card.toughness != "" }
+		render style: image
+		image: { card_ptbox() }
+#type image is used as a casting cost box in these templates
+	typeline:
+		right: 357
+		top: 16
+		width: 41
+		height: 291
+		render style: image
+		popup style: in place
+		visible: { card.casting_cost != "" }
+		image: { card_typeline() }
+		z index: 1
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+

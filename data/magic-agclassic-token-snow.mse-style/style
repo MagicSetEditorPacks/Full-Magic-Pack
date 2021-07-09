@@ -1,0 +1,510 @@
+## AgClassic Token Snow 2016-01-17
+mse version: 2.0.0
+game: magic
+short name: AgCla Tk Snow
+full name: AgClassic Token Snow
+icon: card-sample.png
+installer group: magic/silvercut/AgClassic/Token Snow
+position hint: 029
+
+version: 2016-01-17
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-agclassic.mse-style
+	version: 2015-11-11
+depends on:
+	package: magic-agclassic-token.mse-style
+	version: 2015-11-12
+depends on:
+	package: magic-agwatermarks.mse-include
+	version: 2015-10-29
+depends on:
+	package: magic-mana-agflat.mse-symbol-font
+	version: 2015-12-28
+
+card width: 374
+card height: 522
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	# Use the 2013 gatherer update inverted snow mana symbol?
+	# http://gatherer.wizards.com/Handlers/Image.ashx?size=large&name=snow&type=symbol
+	mana_s := { 
+		if styling.invert_snow_symbol then "new"
+		else "old"
+	}
+	## Use guild mana symbols?
+	#guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Both snow cards and white cards use a black font
+	font_colors_white := { input != "c" and input != "w" }
+	
+	
+	##extra
+	# Get frames from magic-agclassic-token when needed.
+	magic_agclassic_token_router := {
+		if input == "m" or input == "w" or input == "u" or input == "b" or input == "r" or input == "g" then "/magic-agclassic-token.mse-style/"
+		else ""
+	}
+	magic_agclassic_token_land_router := {
+		if input == "m" or input == "w" or input == "u" or input == "b" or input == "r" or input == "g" then "/magic-agclassic-token.mse-style/"
+		else ""
+	}
+	template      := { magic_agclassic_token_router() + (if input == "c" then "s" else input) + "{type}.jpg" }
+	land_template := { magic_agclassic_token_land_router() + (if input == "a" or input == "c" then "s" else input) + "l{type}.jpg" }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	##
+	
+	
+	#Card color for lands with basic types
+	basic_type_colors := { sort_text( order: "(WUBRG)"
+		, (if contains(card.sub_type, match: "<word-list-land>Plains</word-list-land>")   then "W")
+		+ (if contains(card.sub_type, match: "<word-list-land>Island</word-list-land>")   then "U")
+		+ (if contains(card.sub_type, match: "<word-list-land>Swamp</word-list-land>")    then "B")
+		+ (if contains(card.sub_type, match: "<word-list-land>Mountain</word-list-land>") then "R")
+		+ (if contains(card.sub_type, match: "<word-list-land>Forest</word-list-land>")   then "G"))
+	}
+	basic_type_count := { number_of_items(in: basic_type_colors() ) }
+	
+	has_slash_blending := { 
+		land and shape != "overlay" 
+		and color_count == 2 
+		and styling.dual_land_slash_blending 
+		and styling.basic_type_to_color and basic_type_count() == 2
+	}
+	
+	## redefine land_to_color script to check basic land types instead of watermark
+	land_to_color := {
+		# Derived from basic land type
+		if styling.basic_type_to_color and basic_type_count() > 0 then (
+			colors := basic_type_colors()
+			land_multicolor()
+		)
+		else land_multicolor(colors:color_text_filter(input: card.rule_text))
+	}
+	## finish redefine land_to_color
+	card_color := {
+		# usually the color of mana
+		text_color := text_to_color(rules_text, land: is_land(type));
+		if text_color == "" then (
+			mana_color := mana_to_color(colors: color_filter(casting_cost), hybrid: color_filterH(casting_cost))
+			if mana_color == "colorless" and is_land (type) then land_to_color(card.sub_type)
+			else if mana_color == "colorless" and is_artifact(type)  then "artifact"
+			else if mana_color == "colorless" and contains(card.shape, match:"flip") then default
+			else mana_color
+		)
+		else text_color
+	}
+	
+	# Color blending
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		##base := base_hybrid[shape][color_count]()
+		base := (
+			# Hybrid-mana slash dual land modeled after the code for alpha dual lands in other styles but moved here to so the colorless land pinstripe can still be added later
+			if has_slash_blending() then
+				masked_blend(
+					mask:  "/magic-agclassic-token.mse-style/mask_land_slash.png",
+					dark:  land_template(colors[0]),
+					light: land_template(colors[1]),
+				)
+			# Normal card base
+			else base_hybrid[shape][color_count]()
+		)
+		
+		# Put a frame around it?
+		
+		# Card frame and amount of colored pinstripe for land, multicolor, and artifact cards
+		# Land frame, snow pinstripe
+		if land and not styling.land_pinstripe_colored then
+			masked_blend(
+				mask: "/magic-agclassic-token.mse-style/mask_alt_pin_{type}.png",
+				dark: base,
+				light: land_template("s"),
+			)
+		# Multicolor frame
+		else if multi then 
+			masked_blend(
+				mask: ( if styling.multicolor_pinstripe_colored then "/magic-agclassic-token.mse-style/mask_multicolor_{type}.png"
+					else "/magic-agclassic-token.mse-style/mask_multicolor_text_{type}.png" ),
+				dark:  template("m"),
+				light: base,
+			)
+		# Artifact frame
+		else if artifact then 
+			masked_blend(
+				mask: ( if styling.artifact_pinstripe_colored then "/magic-agclassic-token.mse-style/mask_multicolor_{type}.png"
+					else "/magic-agclassic-token.mse-style/mask_multicolor_text_{type}.png" ),
+				dark:  template("a"),
+				light: base,
+			)
+		else base
+	}
+	
+	card_shape := { "token" }
+
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: olduncommon
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1:   rgb(224,224,224)
+			fill color 2:   rgb(84, 84, 84)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+		variation:
+			name: oldrare
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1:   rgb(214,196,94)
+			fill color 2:   rgb(95, 84, 40)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+############################################################## Extra style options
+#styling field:
+#	type: boolean
+#	name: use guild mana symbols
+#	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+#	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-agflat.mse-symbol-font
+	description: Default: AgFlat
+styling field:
+	type: boolean
+	name: multicolor pinstripe colored
+	description: Color the outer pinstripe for gold? Default: Yes
+	initial: yes
+styling field:
+	type: boolean
+	name: artifact pinstripe colored
+	description: Color the outer pinstripe for artifact? (For colored artifacts vs artifacts that produce a color, like lands.) Default: No
+	initial: no
+styling field:
+	type: boolean
+	name: land pinstripe colored
+	description: Color the outer pinstripe for land? Default: No
+	initial: no
+styling field:
+	type: boolean
+	name: basic type to color
+	description: Use basic land types to set land color? Default: Yes
+	initial: yes
+styling field:
+	type: boolean
+	name: dual land slash blending
+	description: Use hybrid-mana blending for lands with two basic land types? (For use with dual watermarks.) Default: Yes
+	initial: yes
+styling field:
+	type: boolean
+	name: invert snow symbol
+	description: Use the 2013 gatherer update inverted snow mana symbol? Default: Yes
+	initial: yes
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards? Default: Modern
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text? (Short text only means only on one-line cards with no flavor text.) Default: Never
+	choice: always
+	choice: short text only
+	choice: never
+	initial: short text only
+styling field:
+	type: boolean
+	name: colored rarities
+	description: Should rarity symbols be different colors, such as gold, silver, and purple? Default: Yes
+	initial: yes
+#styling field:
+#	type: boolean
+#	name: left align artist
+#	description: Should the artist and copyright lines be left aligned, as seen in Tempest?
+#	initial: yes
+#Had to reduce width of artist field because it was interfering with PT.
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil? Default: None
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: choice
+	name: pt font
+	description: Should the font used for p/t be MPlantin or MPlantin-Bold? (MPlantin was used until Mirage.) Default: MPlantin-Bold
+	initial: MPlantin-Bold
+	choice: MPlantin
+	choice: MPlantin-Bold
+styling style:
+	#use guild mana symbols:
+	#	choice images:
+	#		yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+	#		no:  /magic-mana-agflat.mse-symbol-font/mana_rg.png
+	multicolor pinstripe colored:
+		render style: both
+		choice images:
+			yes: /magic-agclassic.mse-style/icons/M1.png
+			no:  /magic-agclassic.mse-style/icons/M2.png
+	artifact pinstripe colored:
+		render style: both
+		choice images:
+			yes: /magic-agclassic.mse-style/icons/A1.png
+			no:  /magic-agclassic.mse-style/icons/A2.png
+	land pinstripe colored:
+		render style: both
+		choice images:
+			yes: /magic-agclassic.mse-style/icons/L1.png
+			no:  /magic-agclassic.mse-style/icons/L2.png
+	basic type to color:
+		render style: both
+		choice images:
+			yes: /magic-agclassic.mse-style/icons/B1.png
+			no:  /magic-agclassic.mse-style/icons/B2.png
+	dual land slash blending:
+		render style: both
+		choice images:
+			yes: /magic-agclassic.mse-style/icons/D1.png
+			no:  /magic-agclassic.mse-style/icons/D2.png
+	invert snow symbol:
+		render style: both
+		choice images:
+			yes: /magic-mana-agflat.mse-symbol-font/mana_si.png
+			no:  /magic-mana-agflat.mse-symbol-font/mana_s.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-agflat.mse-symbol-font/mana_t.png
+			old:        /magic-mana-agflat.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-agflat.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	colored rarities:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "rare") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width: 374
+		height: 522
+		radius: 15
+		left width:   15
+		right width:  15
+		top width:    15
+		bottom width: 15
+		z index: 4
+	card color:
+		left: 0
+		top: 0
+		width: 374
+		height: 522
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: 20
+		top : 18
+		right: 354
+		height: 23
+		alignment: middle center shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: MPlantin
+			size: 20
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow displacement x: 1
+			shadow displacement y: 1
+	############################# Image
+	image:
+		left:	40
+		top:	46
+		width:	294
+		height:	276
+		z index: 1
+	############################# Card type
+	type:
+		left: 55
+		top : 327
+		right: { 313 - max(22,card_style.rarity.content_width) }
+		height: 17
+		alignment: middle shrink-overflow
+		z index: 3
+		padding top: 2
+		font:
+			name: MPlantin
+			size: 13
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow displacement x: 1
+			shadow displacement y: 1
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 318
+		top : 328
+		width: 44
+		height: 20
+		z index: 2
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land: script: symbol_variation(symbol: set.symbol, variation: "common")
+			common:     script: symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "olduncommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			rare:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "oldrare")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			mythic rare:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "mythic rare")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			special:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "special")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+	############################# Text box
+	text:
+		left: 57
+		top : 354
+		width: 260
+		height: 113
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: rgb(0,0,0)
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2)
+				or styling.center_text == "always"
+				then "middle center shrink-overflow"
+				else "middle left shrink-overflow"
+		z index: 2
+		padding left: 6
+		padding top: 2
+		padding right: 6
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	############################# PT
+	pt:
+		z index: 2
+		right: 330
+		top: 476
+		width: 56
+		height: 24
+		alignment: right middle
+		font:
+			name: { styling.pt_font }
+			size: 18
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow displacement x: 1
+			shadow displacement y: 1
+			separator color: rgb(200,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		left: 55
+		top : 475.5
+		width: 222
+		height: 14
+		z index: 1
+		#alignment: { if styling.left_align_artist then "middle left" else "middle center" }
+		alignment: middle left
+		font:
+			name: MPlantin
+			size: 10.5
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow displacement x: 1
+			shadow displacement y: 1
+	copyright line:
+		left: 55
+		top : 490
+		width: 222
+		height: 10
+		z index: 1
+		#alignment: { if styling.left_align_artist then "middle left" else "middle center" }
+		alignment: middle left
+		font:
+			name: MPlantin
+			size: 6.5
+			color: { font_color(card.card_color) }
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+## custom watermark files
+extra card field:
+	type: choice
+	name: agwatermark
+	include file: /magic-agwatermarks.mse-include/watermark-names
+
+extra card style:
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	## custom watermark files
+	agwatermark:
+		left: 127
+		top : 350
+		width: 120
+		height: 120
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-agwatermarks.mse-include/watermarks-old

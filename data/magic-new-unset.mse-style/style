@@ -1,0 +1,479 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Unhinged
+full name: Unhinged Effects Template
+installer group: magic/new style/unhinged
+icon: card-sample.png
+position hint: 015
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-future-common.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-new.mse-style
+	version: 2008-04-13
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	# Which artifact template should be used?
+	alternate_template := {
+		if input == "a" then (
+			if       styling.artifact_style == "light" then "oa"
+			else if  styling.artifact_style == "brown" then "ba"
+			else                                            "a"
+		) else if input == "m" then (
+			if styling.saturated_multicolor then "m"
+			else "om"
+		) else	input
+	}
+	template      := { "/magic-new.mse-style/" + alternate_template() + "{type}.jpg" }
+	land_template := { "/magic-new.mse-style/" + (if input == "a" then "c" else alternate_template()) + "l{type}.jpg" }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		base := base_hybrid[shape][color_count]()
+		
+		# Put a frame around it?
+		if land and not colored_lands then
+			masked_blend(
+				mask:  "/magic-new.mse-style/multicolor_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else if land and multi and mask_multi_land_with_color() then
+			masked_blend(
+				mask:  "/magic-new.mse-style/hybrid_blend_{type}.png",
+				dark:  base,
+				light:  land_template("m"),
+			)
+		else if multi and artifact then
+			masked_blend(
+				mask: "/magic-new.mse-style/artifact_blend_{type}.png",
+				dark: template("a"),
+				light: masked_blend(
+					mask: "/magic-new.mse-style/multicolor_blend_{type}.png",
+					dark: template("m"),
+					light: base
+				)
+			)
+		else if multi then 
+			masked_blend(
+				mask:  "/magic-new.mse-style/multicolor_blend_{type}.png",
+				dark:  template("m"),
+				light: base,
+			)
+		else if artifact and color_count > 1 and mask_hybrid_with_land() then 
+			masked_blend(
+				mask:  "/magic-new.mse-style/artifact_blend_{type}.png",
+				dark:  template("a"),
+				light: masked_blend(
+					mask: "/magic-new.mse-style/multicolor_blend_{type}.png",
+					dark: template("c"),
+					light: base
+				)
+			)
+		else if artifact then 
+			masked_blend(
+				mask:  "/magic-new.mse-style/artifact_blend_{type}.png",
+				dark:  template("a"),
+				light: base,
+			)
+		else if color_count > 1 and mask_hybrid_with_land() then
+			masked_blend(
+				mask:  "/magic-new.mse-style/hybrid_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else base
+	}
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: choice
+	name: artifact style
+	description: Choose the style of artifacts: light = before Fifth Dawn, dark = used since Fifth Dawn, brown = old rust style.
+	initial: dark
+	choice: light
+	choice: dark
+	choice: brown
+styling field:
+	type: boolean
+	name: saturated multicolor
+	description: Should multicolor cards be more saturated? This is done on real cards.
+	initial: yes
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: boolean
+	name: assquatch art frame
+	description: Should the art be in a photograph frame, like Assquatch?
+	initial: no
+styling field:
+	type: text
+	name: mise flavor box
+	description: The height of the mise-styled flavor box.  To not have one, set this to 0 or leave blank.
+styling style:
+	artifact style:
+		render style: both
+		choice images:
+			light: /magic-new.mse-style/oacard.jpg
+			dark:  /magic-new.mse-style/acard.jpg
+			brown: /magic-new.mse-style/bacard.jpg
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-large.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-large.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 1
+	card color:
+		left:	0
+		top:	0
+		width: 375
+		height: 523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left:   { if card.card_symbol=="none" then 32 else 51 }
+		top :   30
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Matrix
+			size: 17
+			weight: bold
+			color: rgb(0,0,0)
+	casting cost:
+		right: 343
+		top : 31
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 25
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {if card.card_symbol=="none" then 20 else 32}
+		top : 31
+		height: 20
+		width: 14
+		render style: image
+		choice images:
+			tombstone: /magic-new.mse-style/tombstone.png
+		z index: 2
+	############################# Image
+	image:
+		left:	{ if styling.assquatch_art_frame then 26 else 32}
+		top:	{ if styling.assquatch_art_frame then 79 else 62}
+		width:	{ if styling.assquatch_art_frame then 272 else 311}
+		height:	{ if styling.assquatch_art_frame then 211 else 228}
+		angle: { if styling.assquatch_art_frame then 10 else 0}
+		z index: 2
+		default: {default_image(card.card_color)}
+	############################# Card type
+	type:
+		left: 35
+		top : 298
+		width: { 308 - max(22,card_style.rarity.content_width) }
+		height: 20
+		alignment: top shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: Matrix
+			size: 14
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 342
+		top : 297
+		width: 44
+		height: 22
+		z index: 2
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 31
+		top : 328
+		width: 311
+		height: 142
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: rgb(0,0,0)
+		symbol font:
+			name: script: styling.text_box_mana_symbols
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	watermark:
+		left: 117
+		top : 321
+		width: 138
+		height: 156
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# PT
+	pt:
+		z index: 2
+		left:	284
+		top:	466
+		width:	60
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: ModMatrix
+			size: 17
+			weight: bold
+			color: rgb(0,0,0)
+			separator color: rgb(200,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		left: 56
+		top : 478
+		width: 217
+		height: 16
+		z index: 1
+		font:
+			name: Matrix
+			size: 10
+			weight: bold
+			color: { font_color(card.card_color) }
+	copyright line:
+		left: 30
+		top : 493
+		width: 247
+		height: 12
+		z index: 1
+		font:
+			name: MPlantin
+			size: 6.5
+			color: { font_color(card.card_color) }
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: image
+	name: assquatch frame filler
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: assquatch frame
+	choice: image
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: mise flavor box
+	choice: image
+	save value: false
+	editable: false
+extra card style:
+	pt box:
+		left:	271
+		top:	461
+		width:	81
+		height:	42
+		z index: 1
+		visible: { card.pt != "" }
+		render style: image
+		image: { card_ptbox() }
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 4
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	assquatch frame:		
+		left:	5
+		top:	7
+		width:	348
+		height:	311
+		z index: 3
+		render style: image
+		image: frame.png
+		visible: {styling.assquatch_art_frame}
+	assquatch frame filler:
+		left:	32
+		top:	62
+		width:	311
+		height:	228
+		z index: 1
+		default: {default_image(card.card_color)}
+	mise flavor box:
+		left: 34
+		bottom: 470
+		width: 306
+		height: { if styling.mise_flavor_box == "" then 0 else styling.mise_flavor_box}
+		z index: 1
+		render style: image
+		image: flavor.png

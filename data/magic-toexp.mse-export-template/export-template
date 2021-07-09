@@ -1,0 +1,63 @@
+mse version: 0.3.8
+short name: TOExp
+full name: TappedOut Exporter
+position hint: 001
+icon: icon.png
+version: 2012-11-23
+installer group: magic/Export/TOExp
+
+depends on: magic.mse-game 2008-08-08
+
+game: magic
+create directory: true
+file type: *.xml|*.xml|*.*|*.*
+
+# By Seeonee
+# Based on code by Idle Muse
+# Enhanced by Pichoro
+# Overhauled with cheap hacks by http404error
+#
+# Changes Made:
+# New and Correct Version Number
+# MSE Version 0.3.8
+# New Installer Group
+# Spaces to Tabs
+# New Icon
+# Redid tabbing for clarity
+# Changed "<" to "" (that's not a space)
+
+option field:
+	type: choice
+	name: Important!
+	choice: Be sure to name the file set.xml!
+	
+script:
+	kill_spaces := 
+		filter_text@(match: "[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-]")
+		
+	MSEcard := {"  card>\n"
+			+"    name>"+to_text(card.name)+"/name>\n"
+			+"    cost>"+to_text(card.casting_cost)+"/cost>\n"
+			+"    type>\n"
+			+"      supertype>"+to_text(card.super_type)+"/supertype>\n"
+			+"      subtype>"+to_text(card.sub_type)+"/subtype>\n"
+			+"    /type>\n"
+			+"    rarity>"+substring(to_upper(to_text(card.rarity)),end:1)+"/rarity>\n"
+			+"    rules>"+to_text(card.rule_text)+"/rules>\n"
+			+"    flavor>"+to_text(card.flavor_text)+"/flavor>\n"
+			+"    stats>\n"
+			+"      power>"+to_text(card.power)+"/power>\n"
+			+"      toughness>"+to_text(card.toughness)+"/toughness>\n"
+			+"    /stats>\n"
+			+"    illustrator>"+to_text(card.illustrator)+"/illustrator>\n"
+			+"    imagepath>"+to_text(kill_spaces(card.name))+".jpg/imagepath>\n"
+			+"    number>"+to_text(card.card_number)+"/number>\n"
+			+"  /card>\n"
+		}
+	write_card := {
+		MSEcard()
+	}
+	write_cards :=
+		"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<spoiler set=\"" + to_text(set.title)+ "\">\n<description>" + to_text(set.description) + "</description>\n" + to_text( for each card in sort_list( cards, order_by: {input.card_number} ) do write_card() ) + "</spoiler>\n"
+	write_images := for each card in sort_list(cards, order_by: {card.card_number}) do write_image_file(card, directory: "cardimages", file:"{kill_spaces(card.name)}.jpg")
+	to_string(write_cards)

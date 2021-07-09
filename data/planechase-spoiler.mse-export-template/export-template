@@ -1,0 +1,211 @@
+﻿# Simple exporter for HTML files
+mse version: 2.0.0
+game:        planechase
+short name:  Spoiler
+full name:   List of cards
+installer group: Magic Planechase/Export/Spoiler (list of cards)
+icon: preview.png
+create directory: true
+version: 2014-01-21
+depends on: planechase.mse-game 2014-01-21
+
+########################################################################################
+
+option field:
+	type: boolean
+	name: include set file
+	description: Should a link to the MSE set file be included in the spoiler?
+	initial: no
+option field:
+	type: choice
+	name: images
+	choice: no
+	choice: just the image box, linked
+	choice: just the image box, inline
+	choice: full card image, linked
+	choice: full card image, preview
+	choice: full card image only
+	initial: full card image, preview
+option field:
+	type: boolean
+	name: mana symbols
+	description: Should mana symbols be used, or should they be written as text?
+option field:
+	type: boolean
+	name: rarity symbols
+	description: Should rarity be shown using a symbol or as text?
+#doesn't work yet:
+#option field:
+#	type: boolean
+#	name: list keywords
+#	description: Should the keywords be listed?
+#option field:
+#	type: boolean
+#	name: fancy scripts
+#	description: Should fancy scripts be used
+option field:
+	type: choice
+	name: font style
+	choice: default
+	choice: serif
+	choice: sans-serif
+option field:
+	type: color
+	name: background color
+	initial: rgb(255,255,255)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	choice:
+		name: black
+		color: rgb(0,0,0)
+option field:
+	type: color
+	name: text color
+	initial: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	choice:
+		name: black
+		color: rgb(0,0,0)
+
+option style:
+	images:
+		render style: both
+		choice images:
+			no:    { built_in_image("bool_no") }
+	font style:
+		render style: both
+		choice images:
+			serif:       /planechase-spoiler.mse-export-template/serif.png
+			sans-serif:  /planechase-spoiler.mse-export-template/sans-serif.png
+
+script:
+	if options.mana_symbols then (
+		symbol_font      := "magic-mana-small"
+		symbol_font_size := 12
+	) else (
+		symbols_to_html  := to_html
+	)
+	write_card := {
+		if contains(options.images, match:"full card image") then
+			card_image_file := write_image_file(card,       file:"card{position(of:card,in:set)}.jpg")
+		else if contains(options.images, match:"image box") and
+		        card.image != "" then
+			card_image_file := write_image_file(card.image, file:"card{position(of:card,in:set)}.jpg")
+		else
+			card_image_file := ""
+		if options.images == "full card image, preview" then
+			card_image_preview := write_image_file(card, file:"card-preview{position(of:card,in:set)}.jpg", height: 100)
+		else
+			card_image_preview := card_image_file
+		if options.images == "full card image only" then
+		  "<li class='fullcard'><img src='{card_image_file}' alt=''></li>"
+		else
+		  "<li class='card'>
+		     {if options.images == "full card image, preview" then
+		         "<a href='{card_image_file}'><img src='{card_image_preview}' alt='' class='card-image'></a>
+		          <span class='name'    >{  to_html(card.name         ) }</span>"
+		      else if card_image_file != "" and contains(options.images, match:"linked") then
+		         "<span class='name'    ><a href='{card_image_file}'>{  to_html(card.name) }</a></span>"
+		      else
+		         "<span class='name'    >{  to_html(card.name         ) }</span>"
+		    }
+		     {if card_image_file != "" and contains(options.images, match:"inline") then
+		         "<img src='{card_image_preview}' alt='' class='image'>"
+		     }
+		     <span class='type'         >{  to_html(card.type         ) }</span>
+		     <span class='rarity'       >{
+		       code := if card.rarity == "" then "C"
+		               else if card.rarity == "basic land" then "L"
+		               else to_upper(card.rarity[0]) # L,C,U,R,S
+		       if options.rarity_symbols then
+		         "<img src='{ var := if card.rarity == "" then "common"
+		                             else if card.rarity == "basic land" then "common"
+		                             else card.rarity
+		                      write_image_file(
+		                          file:  "set-symbol-{var}.png",
+		                          width: 20,
+		                          symbol_variation(
+		                            symbol:    set.symbol,
+		                            variation: var
+		                          )
+		                    )}' alt='{code}' title='{card.rarity}'>"
+		       else code
+		     }</span>
+		     <span class='rule-text'    >{  to_html(card.rule_text    ) }</span>
+		     <span class='flavor-text'  >{  to_html( remove_tag(tag: "<i-flavor>", card.flavor_text)  ) }</span>
+		     <span class='card-number'  >{  to_html(card.card_number  ) }</span>
+		  </li>"
+	}
+	write_cards := {
+		"<ul class='cards'>{
+		  for each card in sort_list(cards, order_by: {input.card_number}) do
+		     write_card()
+		}</ul>"
+	}
+	write_group := {
+		cards := filter_list(cards, filter:
+				{	# The first character of the color_of_card code must be equal to 'code'
+					substring(color_of_card(card:input), begin:0, end:1) == code
+				}
+		)
+		count := number_of_items(in:cards)
+		if count > 0 then
+		   "<h2>{title} ({count} {if count == 1 then "card" else "cards"})</h2>" +
+		   write_cards()
+	}
+	copy_file("blank.gif")
+	write_image_file(
+		file:  "set-symbol.png",
+		width: 200,
+		symbol_variation(symbol: set.symbol, variation: "rare")
+	)
+	write_image_file(
+		file:  "set-icon.png",
+		width: 16,
+		heght: 16
+		symbol_variation(symbol: set.symbol, variation: "rare")
+	)
+	# the html page
+	html := "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">
+	<html lang='en'>
+	 <head>
+	  <title>{ to_html(set.title) }</title>
+	  <link rel='stylesheet' type='text/css' href='{copy_file("style.css")}'>
+	  <link rel='shortcut icon' type='image/png' href='set-icon.png'>
+	  <script type='text/javascript' src='{copy_file("script.js")}'></script>
+	  <style type='text/css'>
+	   body \{
+	     background: {options.background_color};
+	     color:      {options.text_color};
+	     {if options.font_style != "default" then
+	      "font-family: {options.font_style};"
+	     }
+	   \}
+	  </style>
+	 </head>
+	 <body{if options.images == "full card image, preview" then " class='with-previews'"}>
+	  <img src='{ write_image_file(
+		            file:  "set-symbol.png",
+		            width: 200,
+		            symbol_variation(symbol: set.symbol, variation: "rare")
+		    )}' alt='' class='set-symbol'>
+	  <h1>{ to_html(set.title) }</h1>
+	  <div class='copyright'>{   to_html(set.copyright)   }</div>
+	  <div class='description'>{ to_html(set.description) }</div>
+	  { if options.include_set_file then
+	      "<div class='set-file'><a href='{ write_set_file(file:"set.mse-set") }'>Download set in MSE format</a></div>"
+	  }
+	  { 
+	       write_cards(cards: cards)
+	  }
+	  <script><!--
+	  init();
+	  --></script>
+	 </body>
+	</html>"
+	write_text_file(html, file:"index.html")
+	# make sure the urls are relative to the right directory
+	replace(html, match:"<[^<>]*(href|src)='", replace:"&{directory}/")

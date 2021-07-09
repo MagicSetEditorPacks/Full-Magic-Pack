@@ -1,0 +1,215 @@
+﻿mse version: 0.3.8
+short name: Forum
+full name: Spoiler Exporter
+position hint: 002
+icon: icon.png
+version: 2010-05-11
+installer group: Magic Planes/Export/forum
+
+depends on:
+	package: planechase.mse-game
+	version: 2009-08-11
+
+game: planechase
+file type: *.txt|*.txt|*.*|*.*
+
+# By Pichoro
+# Based on code by Idle Muse, Innuendo and Seeonee
+
+option field:
+	type: choice
+	name: forum
+	choice: mse
+	choice: mtgsalvation
+	description: What forum should the spoiler be formatted for?
+option field:
+	type: boolean
+	name: text costs
+	initial: yes
+	description: Should mana costs be plain text? Symbols usually can't be copied and pasted.
+option field:
+	type: text
+	name: creator
+	description: The creator of the set.
+option field:
+	type: boolean
+	name: include notes
+	description: Should card notes be included?
+	initial: no
+option field:
+	type: boolean
+	name: color rarities
+	description: Should rarities be colored?
+	initial: yes
+script:
+	# Colored rarity markers.
+	rarity_color := {
+		if card.rarity == "basic land" then " (C)"
+		else if card.rarity == "common" then " (C)"
+		else if card.rarity == "uncommon" then " [color=silver](U)[/color]"
+		else if card.rarity == "rare" then " [color=gold](R)[/color]"
+		else if card.rarity == "mythic rare" then " [color=orange](M)[/color]"
+		else if card.rarity == "special" then " [color=purple](S)[/color]"
+		else " (C)"
+	}
+	# Non colored rarity markers.
+	rarity_uncolor := {
+		if card.rarity == "basic land" then " (C)"
+		else if card.rarity == "common" then " (C)"
+		else if card.rarity == "uncommon" then " (U)"
+		else if card.rarity == "rare" then " (R)"
+		else if card.rarity == "mythic rare" then " (M)"
+		else if card.rarity == "special" then " (S)"
+		else " (C)"
+	}
+	# Formats rules text w/ only italic tags.
+	forum_rules_filter_plain := replace@(match:"[(]", replace:"[i](")+
+		replace@(match:"[)]", replace: ")[/i]")
+	# Formats rules text w/ mana symbols.  MSE and mtgsally use same bbcode tags for mana.
+	forum_rules_filter_mtgsally_mse :=
+		# Italics around parenthesis.
+		replace@(match:"[(]", replace:"[i](")+
+		replace@(match:"[)]", replace: ")[/i]")+
+		# 2/C's don't appear in regular english, format them all.
+		replace@(match:"2/W", replace:":sym2w:")+
+		replace@(match:"2/U", replace:":sym2u:")+
+		replace@(match:"2/B", replace:":sym2b:")+
+		replace@(match:"2/R", replace:":sym2r:")+
+		replace@(match:"2/G", replace:":sym2g:")+
+		# C/D's don't appear in regular english, format them all.
+		replace@(match:"W/U", replace:":symwu:")+
+		replace@(match:"W/B", replace:":symwb:")+
+		replace@(match:"U/B", replace:":symub:")+
+		replace@(match:"U/R", replace:":symur:")+
+		replace@(match:"B/R", replace:":symbr:")+
+		replace@(match:"B/G", replace:":symbg:")+
+		replace@(match:"R/G", replace:":symrg:")+
+		replace@(match:"R/W", replace:":symrw:")+
+		replace@(match:"G/W", replace:":symgw:")+
+		replace@(match:"G/U", replace:":symgu:")+
+		# Various positions for taps, untaps and chaos symbols.
+		replace@(match:" T ", replace:" :symtap: ")+
+		replace@(match:" Q ", replace:" :symq: ")+
+		replace@(match:" C ", replace:" :symch: ")+
+		replace@(match:"T,", replace:":symtap:,")+
+		replace@(match:"Q,", replace:":symq:,")+
+		replace@(match:"C,", replace:":symch:,")+
+		replace@(match:"T:", replace:":symtap::")+
+		replace@(match:"Q:", replace:":symq::")+
+		replace@(match:"C:", replace:":symch::")+
+		# Mana right before a space.
+		replace@(match:"G ", replace:":symg: ")+
+		replace@(match:"R ", replace:":symr: ")+
+		replace@(match:"B ", replace:":symb: ")+
+		replace@(match:"U ", replace:":symu: ")+
+		replace@(match:"W ", replace:":symw: ")+
+		replace@(match:"S ", replace:":snow: ")+
+		# Mana right before a comma.
+		replace@(match:"G,", replace:":symg:,")+
+		replace@(match:"R,", replace:":symr:,")+
+		replace@(match:"B,", replace:":symb:,")+
+		replace@(match:"U,", replace:":symu:,")+
+		replace@(match:"W,", replace:":symw:,")+
+		replace@(match:"S,", replace:":snow:,")+
+		# Mana right before a colon.
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		# Drag rules text to search for more mana characters. Reverse color wheel order works better. Repeat several times.
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		# Symbolize snow.
+		replace@(match:"S:", replace:":snow::")+
+		replace@(match:"S:", replace:":snow::")+
+		replace@(match:"S:", replace:":snow::")+
+		# Symbolize numbers from 20-0 when before a comma.
+		replace@(match:"20,", replace:":20mana:,")+
+		replace@(match:"19,", replace:":19mana:,")+
+		replace@(match:"18,", replace:":18mana:,")+
+		replace@(match:"17,", replace:":17mana:,")+
+		replace@(match:"16,", replace:":16mana:,")+
+		replace@(match:"15,", replace:":15mana:,")+
+		replace@(match:"14,", replace:":14mana:,")+
+		replace@(match:"13,", replace:":13mana:,")+
+		replace@(match:"12,", replace:":12mana:,")+
+		replace@(match:"11,", replace:":11mana:,")+
+		replace@(match:"10,", replace:":10mana:,")+
+		replace@(match:"9,", replace:":9mana:,")+
+		replace@(match:"8,", replace:":8mana:,")+
+		replace@(match:"7,", replace:":7mana:,")+
+		replace@(match:"6,", replace:":6mana:,")+
+		replace@(match:"5,", replace:":5mana:,")+
+		replace@(match:"4,", replace:":4mana:,")+
+		replace@(match:"3,", replace:":3mana:,")+
+		replace@(match:"2,", replace:":2mana:,")+
+		replace@(match:"1,", replace:":1mana:,")+
+		replace@(match:"0,", replace:":0mana:,")+
+		# Symbolize numbers from 20-0 when before another symbol or a colon.
+		replace@(match:"20:", replace:":20mana::")+
+		replace@(match:"19:", replace:":19mana::")+
+		replace@(match:"18:", replace:":18mana::")+
+		replace@(match:"17:", replace:":17mana::")+
+		replace@(match:"16:", replace:":16mana::")+
+		replace@(match:"15:", replace:":15mana::")+
+		replace@(match:"14:", replace:":14mana::")+
+		replace@(match:"13:", replace:":13mana::")+
+		replace@(match:"12:", replace:":12mana::")+
+		replace@(match:"11:", replace:":11mana::")+
+		replace@(match:"10:", replace:":10mana::")+
+		replace@(match:"9:", replace:":9mana::")+
+		replace@(match:"8:", replace:":8mana::")+
+		replace@(match:"7:", replace:":7mana::")+
+		replace@(match:"6:", replace:":6mana::")+
+		replace@(match:"5:", replace:":5mana::")+
+		replace@(match:"4:", replace:":4mana::")+
+		replace@(match:"3:", replace:":3mana::")+
+		replace@(match:"2:", replace:":2mana::")+
+		replace@(match:"1:", replace:":1mana::")+
+		replace@(match:"0:", replace:":0mana::")+
+		# Symbolize X and Y when before a comma.
+		replace@(match:"Y,", replace:":symy:,")+
+		replace@(match:"X,", replace:":symx:,")+
+		# Symbolize X and Y when before another symbol or a colon.
+		replace@(match:"Y:", replace:":symy::")+
+		replace@(match:"X:", replace:":symx::")+
+		# Add a Chaos symbol in front of Chaos abilities.
+		replace@(match:"Whenever you roll :symch:,", replace:":symch: - Whenever you roll :symch:,")+
+		# Remove consecutive spaces, as they are meant to adjust text position.
+		replace@(match:"  ", replace:"")
+	# Count the number of paragraphs to detect number of walker abilities.
+	write_card := {
+		# The Name
+		"\n[b]"+card.name+"[/b]"
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		# The Notes
+		+(if options.include_notes and card.notes !="" then "\n[spoiler]Card Notes: ")
+			+(if options.include_notes and card.notes !="" then card.notes)
+			+(if options.include_notes and card.notes !="" then "[/spoiler]")
+		+"\n"
+		}
+	write_cards := to_text(for each card in sort_list(cards, order_by: {input.card_number}) do write_card())
+	to_string("Full Spoiler List for "+set.title+"\nSet by "+options.creator+"\n"+set.description+"\n"+write_cards)

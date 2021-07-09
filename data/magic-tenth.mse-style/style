@@ -1,0 +1,354 @@
+mse version: 2.0.0
+game: magic
+short name: Tenth style
+full name: 10th edition Style
+installer group: magic/tenth edition packaging style
+icon: card-sample.png
+position hint: 102
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card background: white
+card width: 375
+card height: 523
+card dpi: 150
+
+############################################################## Extra scripts
+
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	# There are no lands
+	land_template := { "a{type}.jpg" }
+	
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+		
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: boolean
+	name: center short text
+	description: Center the text on cards with short rule text and no flavor text.
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: choice
+	name: image size
+	description: What is the size of the image for this card?
+	initial: standard
+	choice: standard
+	choice: extended
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	image size:
+		render style: both
+		choice images:
+			standard:     /magic-tenth.mse-style/standard.png
+			extended:     /magic-tenth.mse-style/extended.png
+
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		#mask: border-mask.png
+		z index: -1
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: -2
+		render style: image
+		popup style: in place
+		image: { card_background() }
+
+	############################# Name line
+	name:
+		left:   { if card.card_symbol=="none" then 32 else 51 }
+		top :   30
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Matrix
+			size: 17
+			weight: bold
+			color: rgb(0,0,0)
+	casting cost:
+		right: 343
+		top : 31
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {if card.card_symbol=="none" then 20 else 32}
+		top : 31
+		height: 20
+		width: 14
+		render style: image
+		choice images:
+			tombstone: tombstone.png
+
+	############################# Image
+	image:
+		left:	31
+		top:	62
+		width:	312
+		height:	{ if styling.image_size == "extended" then 426 else 228 }
+		z index: 1
+		mask:
+			script: if styling.image_size == "extended" then "extended.png" else "standard.png"
+		default: {default_image(card.card_color)}
+
+	############################# Card type
+
+	type:
+		left: 35
+		top : 298
+		width: { 308 - max(22,card_style.rarity.content_width) }
+		height: 20
+		alignment: top shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: Matrix
+			size: 14
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+
+	rarity:
+		right: 342
+		top : 297
+		width: 44
+		height: 22
+		z index: 1
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+
+	############################# Text box
+	text:
+		left: 31
+		top : 328
+		width: 311
+		height: 158
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: rgb(0,0,0)
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if styling.center_short_text and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+
+	watermark:
+		left: 
+			script: if card.watermark=="promotional DCI" then 33 else
+			if card.watermark=="promotional FNM" then 33 else 117
+		top : 321
+		width: 
+			script: if card.watermark=="promotional DCI" then 300 else
+			if card.watermark=="promotional FNM" then 300 else 138
+		height: 156
+		z index: 2
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+
+	############################# PT
+
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+
+	illustrator:
+		left: 30
+		top : 493
+		width: 150
+		height: 12
+		z index: 2
+		font:
+			name: Matrix
+			size: 6.5
+			weight: bold
+			color: { font_color(card.card_color) }
+
+	copyright line:
+		left: 150
+		top : 493
+		width: 194
+		height: 12
+		z index: 1
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 6.5
+			color: { font_color(card.card_color) }
+
+############################################################## Extra card fields
+
+extra card field:
+	type: text
+	name: cpower
+	default: card.power
+	editable: true
+extra card field:
+	type: text
+	name: ctoughness
+	default: card.toughness
+	editable: true
+
+extra card style:
+	cpower:
+		left:	36
+		top:	260
+		width:	25
+		height:	30
+		z index: 2
+		alignment: middle center
+		font:
+			name: Matrix
+			size: 24
+			weight: bold
+			color: rgb(0,0,0)
+extra card style:
+	ctoughness:
+		left:	310
+		top:	260
+		width:	25
+		height:	30
+		z index: 2
+		alignment: middle center
+		font:
+			name: Matrix
+			size: 24
+			weight: bold
+			color: rgb(0,0,0)

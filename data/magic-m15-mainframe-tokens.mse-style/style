@@ -1,0 +1,684 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Mainframe Tokens
+full name: Tokens
+icon: card-sample.png
+installer group: magic/m15 style/tokens
+position hint: 004
+
+version: 2020-05-10
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+
+card width: 375
+card height: 523
+card dpi: 150
+##### Nyx Tokens by Honchkrow/ThisisSakon
+##### Flavor Bar image by SirnightNano
+##### M20 base tokens and Vehicle background by silverback_ape
+##### M20 Clear tokens by Femme Fatale
+############################################################## Extra scripts
+init script:
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_typeline }
+	
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	template_prefix := [card: "" card2: "" card3: "" card4: "nyx/" card5: "nyx/" card6:"nyx/" card7: "m20/" card8: "m20/" card9: "m20/" snowtexture:"snow/" pt:""]
+	template_suffix := [card: "card.jpg", card2: "card2.jpg", card3: "card3.jpg", card4: "nyx.png", card5: "card2.jpg", card6: "card3.jpg", card7: "card.png", card8: "card2.png", card9: "card3.png", snowtexture:"snow.png" pt: "pt.png"]
+	template      := { template_prefix[type] + (if is_m20() and input == "w" and (contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"hybrid")) then "h" else input) + template_suffix[type] }
+	land_template := { template_prefix[type] + (if input == "a" then "c" else if is_m20() and input == "w" then "h" else input) + template_suffix[type] }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+
+	is_promo := { styling.promo }
+	########## Frame styling
+	card_shape := { "token" }
+	is_clear := { styling.use_clear_frames }
+	is_unsorted := {styling.remove_from_autocount}
+	is_m20 := {contains(styling.frames, match: "M20")}
+	is_snow := {contains(styling.frames, match: "snow") and not is_m20()}
+	is_tall := {contains(styling.frames, match: "tall")}
+	is_textless := {card.rule_text == "" and remove_tags(card.flavor_text) == ""}
+	is_clear := {contains(styling.frames, match: "clear")}
+	mtgo_abil := {contains(styling.frames, match: "MTGO Ability") and not is_m20()}
+	is_legend := {(contains(styling.frames, match: "legend") or (set.auto_legends and contains(card.super_type, match:"Legendary")))}
+	is_nyx := {contains(styling.frames, match: "nyx") and not is_clear() and not is_m20()}
+	is_vehicle := {contains(styling.frames, match: "vehicle") and not is_m20()}
+	is_copy := {contains(styling.frames, match: "copy")}
+	text_shape := {
+		if is_m20() and is_tall() then "9"
+		else if is_m20() and is_textless() then "7"
+		else if is_m20() then "8"
+		else if is_tall() then "3"
+		else if is_textless() then ""
+		else "2"
+	}
+	########## Mainframe stuff
+	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
+	un_png := replace@(match:".png", replace: "")
+	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
+	center_pt := { contains(styling.other_options, match:"center pt")}
+	remove_rarity := { contains(styling.other_options, match:"remove rarity")}
+	pre_stamp := { contains(styling.other_options, match:"prerelease")}
+	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
+	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+	use_vorthos := {chosen(styling.other_options, choice:"vorthos box")}
+
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style
+styling field:
+	type: multiple choice
+	name: frames
+	choice: copy
+	choice: tall
+	choice: legendary
+	choice: clear
+	choice: M20
+	choice: MTGO Ability
+	choice: vehicle
+	choice: nyx
+	choice: snow
+styling field:
+	type: multiple choice
+	name: other options
+	choice: center pt
+	choice: remove rarity symbol
+	choice: prerelease stamp
+	choice: ancestral generic mana
+	choice: vorthos box
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: text
+	name: shrink name text
+	description: Reduces the name text N points.
+styling field:
+	type: text
+	name: shrink typeline text
+	description: Reduces the typeline text N points.
+styling field:
+	type: text
+	name: shrink font size
+	description: Reduces the fontsize text N points.
+styling field:
+	type: text
+	name: popout image style
+	description: The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
+styling field:
+	type: boolean
+	name: grey hybrid typeline
+	description: Use a grey background for the type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: short text only
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+	frames:
+		render style: checklist
+		direction: vertical
+	other options:
+		render style: checklist
+		direction: vertical
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 4
+		mask: { if is_legend() then "crown_border.png" else "border_mask.png"}
+	card color:
+		left: 0
+		top: 0
+		width: { if is_clear() then 0 else 375 }
+		height: { if is_clear() then 0 else 523 }
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { color_background(type:"card" + text_shape(), base_hybrid:card_hybrid) }
+		mask: {"framemask" + text_shape() + ".png"}
+	############################# Name line
+	name:
+		left: { if is_copy() then 32 else 30}
+		top: { if is_copy() then 24 else 26}
+		width: { 315 - (if is_copy() then card_style.casting_cost.content_width else 0)}
+		height: {28 - (0.5 * shrink_name())}
+		alignment: { if is_copy() or mtgo_abil() then "bottom shrink-overflow" else "bottom center"}
+		padding bottom: -2
+		padding top: 2
+		z index: 5
+		font:
+			name: { if is_copy() or mtgo_abil() then "Beleren Bold" else "Beleren Small Caps Bold" }
+			size: { (if is_copy() or mtgo_abil() then 18 else 19) - shrink_name()}
+			color: {if is_m20() and card.card_color == "white" and not is_clear() then "black" else if is_m20() then "white" else rgb(255,239,128)}
+		always symbol: true
+	casting cost:
+		right: 344
+		top: 29
+		width: { if not is_copy() then 0 else max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 7
+		padding top: 0
+	############################# Image
+	image:
+		left: { if is_clear() or is_m20() then 0 else 29 }
+		top: { if is_clear() or is_m20() then 0 else 62 }
+		width: { if is_clear() or is_m20() then 375 else 317 }
+		height: { if is_clear() or is_m20() then 523 else if is_tall() then 229 else if is_textless() then 363 else 289}
+		mask: { (if is_m20() then "m20_" else if is_clear() then "clear_" else "") + "imagemask" + (if is_clear() and not is_m20() then "" else if is_tall() then "3" else if is_textless() then "" else "2") + ".png" }
+		z index: -1
+		default: { if is_clear() then "" else default_image(card.card_color)}
+	mainframe image:
+		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
+		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
+		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
+		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
+		z index: 8
+	############################# Card type
+	type:
+		left: 32
+		top:
+			{(if is_tall() and is_clear() then 294
+			 else if is_tall() then 296
+			 else if is_textless() and is_clear() then 429
+			 else if is_textless() then 429
+			 else if is_clear() then 354
+			 else 354)
+			 + (if is_m20() and is_textless() then 1 else if is_m20() and not is_tall() then 2 else if is_m20() and is_clear() then 2)
+			 + shrink_type()}
+		width: { 311 - ( if contains(styling.other_options, match:"remove rarity") then 0 else max(22,card_style.rarity.content_width)) }
+		height: { 20 - shrink_type()}
+		alignment: top shrink-overflow
+		z index: 2
+		padding top: 2
+		padding bottom: 4
+		padding right: 2
+		font:
+			name: Beleren Bold
+			size: { 14 - shrink_type() }
+			color: { if mtgo_abil() then rgb(255,239,128) else "black"}
+			separator color: red
+	rarity:
+		right: 344
+		top:
+			{
+				(if is_tall() and is_clear() then 296
+				else if is_tall() then (if is_m20() then 298 else if is_clear() then 296 else 297)
+				else if is_textless() then (if is_m20() then 432 else 431)
+				else if is_m20() then 358
+				else 356)
+			}
+		width: { if contains(styling.other_options, match:"remove rarity") then 0 else 44}
+		height: 22
+		z index: 2
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# Text box
+	text:
+		left: 29
+		top:
+			{ 
+				if is_tall() then 327
+				else if is_textless() then 459
+				else 388}
+		width: 315
+		height:
+			{ if is_tall() then 154
+				else if is_textless() then 27
+				else 94}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.shrink_font_size != "" then 14 - to_number(styling.shrink_font_size) else 14}
+			scale down to: 10
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.shrink_font_size != "" then 14 - to_number(styling.shrink_font_size) else 14}
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   card_style.text.content_lines <= 2 and
+				   not contains(match: ".", card.rule_text) and
+				   not contains(match: ";", card.rule_text) and
+				   not contains(match: ":", card.rule_text) and
+				   not contains(match: "!", card.rule_text) and
+				   not contains(match: "?", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>") or
+				   styling.center_text == "always"
+				then "middle center shrink-overflow"
+				else "middle left shrink-overflow"
+		z index: 2
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	watermark:
+		left: { if is_tall() then 117 else 142 }
+		top: { if is_tall() then 321 else if is_textless() then 600 else 383 }
+		width: { if is_tall() then 138 else 85 }
+		height: { if is_tall() then 166 else 104 }
+		z index: 1
+		render style: image
+		alignment: middle center
+		popup style: in place
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# PT
+	pt:
+		z index: 2
+		left: { if center_pt() then 157.5 else 286}
+		top: 469
+		width:	60
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: {if is_vehicle() then "white" else "black"}
+			separator color: red
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 1
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold			
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 1
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: { if card.pt != "" and not center_pt() then 500 else if use_vorthos() then 500 else 488 }
+		width: {if set.automatic_copyright then 0 else 140}
+		height: 10
+		z index: 2
+		alignment: middle right
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: clear frame
+	choice: clear
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: legend crown
+	choice: crown
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: flavor bar
+	choice: bar
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: text
+	name: promo label
+	save value: true
+	description: The golden promo label.
+extra card field:
+	type: choice
+	name: plate
+	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: snow overlay
+	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: nyx overlay
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: vehicle overlay
+	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: vorthos box
+	save value: true
+	editable: true
+	description: Where they put mtgstory.com on story spotlights.
+extra card style:
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 1
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 1
+		render style: image
+		image: artist_arrow.png
+	pt box:
+		left: {if center_pt() then 144 else 273 }
+		top: 466
+		width:	81
+		height:	42
+		z index: 1
+		visible: { card.pt != "" }
+		render style: image
+		image: { if is_vehicle() then "vpt.png" else if is_clear() then "xpt.png" else card_ptbox() }
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	clear frame:
+		left: 0
+		top: 0
+		width: { if is_clear() then 375 else 0 }
+		height: { if is_clear() then 523 else 0 }
+		z index: 0
+		render style: image
+		image: { "xcard" + text_shape() + ".png" }
+	auto copyright:
+		right: 350
+		top: { if card.pt != "" and not center_pt() then 500 else if use_vorthos() then 500 else 488 }
+		width: {if set.automatic_copyright then 140 else 0}
+		height: 10
+		z index: 2
+		alignment: middle right
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	legend crown:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 2
+		render style: image
+		visible: {is_legend()}
+		image: {"crown" + (if is_m20() then "_m20") + ".png"}
+	promo label:
+		left: 40
+		top: { if is_tall() then 262 else if is_textless() then 399 else 324 }
+		width: {if contains(styling.other_options, match:"prerelease stamp") then 295 else 0}
+		height: 29
+		alignment: middle right
+		z index: 4
+		font:
+			name: ModMatrix
+			size: 14
+			color: rgb(223,169,41)
+	flavor bar:
+		left: 0
+		top: { bar_equation() }
+		width: 375
+		height: 1
+		z index: 1
+		render style: image
+		image: bar.png
+		visible: { card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
+	plate:
+		left: 19
+		top: { if is_tall() then 291 else if is_textless() then 425 else 351 }
+		width: 336
+		height: 37
+		z index: 1
+		render style: image
+		image: plate.png
+		visible: { mtgo_abil() }
+	nyx overlay:
+		left: 15
+		top: 15
+		width: 345
+		height: 471
+		z index: 1
+		render style: image
+		image: {color_background(type:"card4", base_hybrid:card_hybrid)}
+		mask: {"v_" + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		visible: { is_nyx() }
+	snow overlay:
+		left: 15
+		top: 15
+		width: 345
+		height: 471
+		z index: 1
+		render style: image
+		image: {color_background(type:"snowtexture", base_hybrid:card_hybrid)}
+		mask: {"v_" + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		visible: { is_snow() }
+	vehicle overlay:
+		left: 15
+		top: 15
+		width: 345
+		height: 471
+		z index: 1
+		render style: image
+		image: voverlay.png
+		mask: {"v_" + (if is_nyx() or is_snow() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		visible: { is_vehicle() }
+	vorthos box:
+		right: { if card.pt != "" then 275 else 350 }
+		top: 488
+		left: 210
+		height: {if use_vorthos() then 10 else 0}
+		z index: 3
+		alignment: middle right
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold

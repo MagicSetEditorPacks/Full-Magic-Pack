@@ -1,0 +1,528 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Future Promo
+full name: Futureshift Promotional
+installer group: magic/Future/promotional
+icon: card-sample.png
+position hint: 044
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-future-common.mse-include
+	version: 2008-05-21
+depends on:
+	package: magic-mana-future.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-future-textless.mse-style
+	version: 2009-01-10
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+#By: Pichoro
+#Images by Spiderboy4, Buttock1234, and Artfreakwiu
+############################################################## Extra scripts
+init script:
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template      := { "/magic-future-textless.mse-style/" + input + "{type}.jpg" }
+	land_template := { "/magic-future-textless.mse-style/" + (if input == "a" then "c" else input) + "l{type}.jpg" }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	colorless_color := {
+		if card.card_color=="white" then "w"
+		else if card.card_color=="blue" then "u"
+		else if card.card_color=="black" then "b"
+		else if card.card_color=="red" then "r"
+		else if card.card_color=="green" then "g"
+		else "c"
+	}
+	
+	font_colors_white := { input != "w" and input != "c" and input != "a" and input != "l" and input != "m" }
+	
+	paintbrush_font:= { if contains(card.card_color, match:"land") then "white"
+		else if contains(card.card_color, match:"artifact") or contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"white") then "black"
+		else "white"
+	}
+	typesymbol_color:= { if contains(card.card_color, match:"artifact") then "black"
+		else if contains(card.card_color, match:"land") and contains(card.card_color, match:"multicolor") and styling.colored_multicolor_land_name then "black"
+		else if contains(card.card_color, match:"multicolor") then (
+			if card.card_color=="multicolor" then "black"
+			else if not contains(card.card_color, match:"white") then "white"
+			else if contains(card.card_color, match:"red") or contains(card.card_color, match:"green") then "white"
+			else "black"
+		) else if card.card_color == "white" then "black"
+		else if contains(card.card_color, match:"land") then (
+			if contains(card.card_color, match:"green") then "white"
+			else if contains(card.card_color, match:"red") then "white"
+			else if contains(card.card_color, match:"black") then "white"
+			else if contains(card.card_color, match:"blue") then "white"
+			else "black"
+		) else if card.card_color == "colorless" then "black"
+		else "white"
+	}
+	
+	card_shape := { if styling.shifted_sorting then "shifted" else "normal" }
+	
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		base := base_hybrid[shape][color_count]()
+		
+		# Put a frame around it?
+		if land and not colored_lands then
+			masked_blend(
+				mask:  "/magic-future-textless.mse-style/multicolor_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else if land and multi and mask_multi_land_with_color() then
+			masked_blend(
+				mask:  "/magic-future-textless.mse-style/hybrid_blend_{type}.png",
+				dark:  base,
+				light:  land_template("m"),
+			)
+		else if multi then 
+			masked_blend(
+				mask:  "/magic-future-textless.mse-style/multicolor_blend_{type}.png",
+				dark:  template("m"),
+				light: base,
+			)
+		else if artifact then 
+			masked_blend(
+				mask:  "/magic-future-textless.mse-style/artifact_blend_{type}.png",
+				dark:  template("a"),
+				light: base,
+			)
+		else if color_count > 1 and mask_hybrid_with_land() then
+			masked_blend(
+				mask:  "/magic-future-textless.mse-style/hybrid_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else base
+	}
+
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: shifted sorting
+	description: Should this style of card sort as a shifted card (after other cards of that color)?
+	initial: no
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: color
+	name: font color
+	description: The default textbox font color for cards
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-future.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-future.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		mask: /magic-future-textless.mse-style/bordermask.png
+		z index: 5
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: { if card.card_symbol=="none" then 73 else 88 }
+		top : 30
+		width: { if card.card_symbol=="none" then 269 else 254 }
+		height: 30
+		alignment: middle shrink-overflow
+		padding bottom: 0
+		z index: 2
+		font:
+			name: Matrix
+			size: 18
+			color:
+				script:
+					if styling.grey_hybrid_name and contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"horizontal") or
+					   contains(card.card_color, match:"radial") or
+					   contains(card.card_color, match:"vertical") and
+					   not contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") and
+					   contains(card.card_color, match:"black") and
+					   styling.colored_multicolor_land_name then rgb(255,255,255)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if styling.grey_hybrid_name and contains(card.card_color, match:"hybrid") then rgb(0,0,0)
+					else if contains(card.card_color, match:"artifact") or contains(card.card_color, match:"land") then (
+						if contains(card.card_color, match:"blue") or
+						   contains(card.card_color, match:"black") or
+						   contains(card.card_color, match:"red") or
+						   contains(card.card_color, match:"green") then rgb(255,255,255)
+						else rgb(0,0,0)
+					) else font_color(card.card_color)
+	casting cost:
+		left: 18
+		top: 57
+		height: 422
+		width: 75
+		alignment: top left
+		direction: vertical
+		symbol font:
+			name: magic-mana-future
+			size: 22
+			scale down to: 22
+			alignment: bottom right
+		always symbol: true
+		mask: /magic-future-textless.mse-style/costmask.png
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {if card.card_symbol=="none" then 50 else 67}
+		top : 35
+		height: 20
+		width: 14
+		z index: 2
+		render style: image
+		choice images:
+			tombstone: /magic-future-textless.mse-style/tombstone.png
+	type symbol:
+		left: 23
+		top: 25
+		width: 21
+		height: 20
+		z index: 1
+		render style: image
+		choice images:
+			artifact: { "/magic-future-common.mse-include/artifact_" + typesymbol_color(value) + ".png" }
+			creature: { "/magic-future-common.mse-include/creature_" + typesymbol_color(value) + ".png" }
+			enchantment: { "/magic-future-common.mse-include/enchantment_" + typesymbol_color(value) + ".png" }
+			instant: { "/magic-future-common.mse-include/instant_" + typesymbol_color(value) + ".png" }
+			land: { "/magic-future-common.mse-include/land_" + typesymbol_color(value) + ".png" }
+			multitype: { "/magic-future-common.mse-include/multitype_" + typesymbol_color(value) + ".png" }
+			sorcery: { "/magic-future-common.mse-include/sorcery_" + typesymbol_color(value) + ".png" }
+			planeswalker: { "/magic-future-common.mse-include/planeswalker_" + typesymbol_color(value) + ".png" }
+	############################# Image
+	image:
+		left: 37
+		top: 46
+		width: 322
+		height: 418
+		z index: 1
+		mask: /magic-future-textless.mse-style/mask_image.png
+	############################# Card type
+	type:
+		left: 49
+		top : 434
+		width: { 300 - max(18,card_style.rarity.content_width) }
+		height: 28
+		alignment: middle shrink-overflow
+		z index: 2
+		padding top: 2
+		font:
+			name: Matrix
+			size: 14
+			color:
+				script:
+					if styling.grey_hybrid_name and contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"horizontal") or
+					   contains(card.card_color, match:"radial") or
+					   contains(card.card_color, match:"vertical") and
+					   not contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") and
+					   contains(card.card_color, match:"black") and
+					   styling.colored_multicolor_land_name then rgb(255,255,255)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if styling.grey_hybrid_name and contains(card.card_color, match:"hybrid") then rgb(0,0,0)
+					else if contains(card.card_color, match:"artifact") or contains(card.card_color, match:"land") then (
+						if contains(card.card_color, match:"blue") or
+						   contains(card.card_color, match:"black") or
+						   contains(card.card_color, match:"red") or
+						   contains(card.card_color, match:"green") then rgb(255,255,255)
+						else rgb(0,0,0)
+					) else font_color(card.card_color)
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 352
+		top : 439
+		width: 19
+		height: 19
+		z index: 2
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 41
+		top : 290
+		width: 311
+		height: 138
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 13
+			scale down to: 6
+			color: { styling.font_color }
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 13
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 3
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height soft: 0.9
+		line height line: 1.5
+		mask: textbox_mask.png
+	watermark:
+		left: 127
+		top : 281
+		width: 142
+		height: 152
+		z index: 2
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# PT
+	pt:
+		z index: 3
+		left:	287
+		top:	467
+		width:	60
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: ModMatrix
+			size: 17
+			weight: bold
+			color:
+				script:
+					if styling.grey_hybrid_name and contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"horizontal") or
+					   contains(card.card_color, match:"radial") or
+					   contains(card.card_color, match:"vertical") and
+					   not contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if contains(card.card_color, match:"artifact") then (
+						if contains(card.card_color, match:"blue") or
+						   contains(card.card_color, match:"black") or
+						   contains(card.card_color, match:"red") or
+						   contains(card.card_color, match:"green") then rgb(255,255,255)
+						else rgb(0,0,0)
+					) else if contains(card.card_color, match:"hybrid") and contains(card.card_color, match:"white") and
+					   not contains(card.card_color, match:"red") and not contains(card.card_color, match:"green") then rgb(255,255,255)
+					else if contains(card.card_color, match:"hybrid") and contains(card.card_color, match:"white") then rgb(0,0,0)
+					else font_color(card.card_color)
+			separator color: rgb(200,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		right: { if card.pt != "" then 281 else 341 }
+		top : 478
+		left: 30
+		height: 16
+		z index: 1
+		alignment: middle right
+		font:
+			name: Matrix
+			size: 10
+			color:
+				script:
+					if contains(card.card_color, match:"land") then rgb(255,255,255)
+					else if contains(card.card_color, match:"artifact") or
+					contains(card.card_color, match:"multicolor") or
+					contains(card.card_color, match:"white") then rgb(0,0,0)
+					else rgb(255,255,255)
+	copyright line:
+		left: 30
+		top : 491
+		right: { if card.pt != "" then 281 else 341 }
+		height: 12
+		z index: 1
+		alignment: bottom right
+		font:
+			name: MPlantin
+			size: 7
+			color:
+				script:
+					if contains(card.card_color, match:"land") then rgb(255,255,255)
+					else if contains(card.card_color, match:"artifact") or
+					contains(card.card_color, match:"multicolor") or
+					contains(card.card_color, match:"white") then rgb(0,0,0)
+					else rgb(255,255,255)
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: paintbrush
+	script: paintbrush_font(value)
+	editable: false
+	save value: false
+extra card style:
+	pt box:
+		right: 357
+		bottom: 505
+		width: 78
+		height: 51
+		z index: 2
+		visible: { card.pt != "" }
+		render style: image
+		image: { card_ptbox() }
+		mask: /magic-future-textless.mse-style/mask_pt.png
+	paintbrush:
+		right: { ( if card.pt != "" then 281 else 341 ) - card_style.illustrator.content_width }
+		top : 479
+		width: 40
+		height: 15
+		z index: 1
+		render style: image
+		choice images:
+			black: /magic-future-common.mse-include/paintbrush_black.png
+			white: /magic-future-common.mse-include/paintbrush_white.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 4
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}

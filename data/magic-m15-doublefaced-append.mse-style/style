@@ -1,0 +1,1480 @@
+mse version: 2.0.0
+game: magic
+short name: M15 DFC Append
+full name: M15 Double-faced Appended
+icon: card-sample.png
+position hint: 060
+installer group: magic/m15 style/double faced append
+
+version: 2018-02-22
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card width: 752
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_prefix := [card: "" card2: "" nyx: "" mir: "" map: "maps/" dev: "devoid/" dka: "dka/" pt: "" pt2: "" mappt: "maps/" stamp: "" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" card2: "card2.jpg" nyx: "nyx.png" mir: "mir.png" map: "card.png" dev: "card.png" dka: "card.jpg" pt: "pt.png", pt2: "pt2.png" mappt: "pt.png" stamp: "stamp.jpg" identity: "identity.png"]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { 
+		if type == "dev" then template_prefix[type] + input + template_suffix[type] 
+		else template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] 
+	}
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	card_shape := {"double faced"}
+	
+	# This will create two seperate card faces
+	dka_background := { color_background(type:"dka", base_hybrid:card_hybrid) }
+	card_background2 := { color_background(type:"card2", base_hybrid:card_hybrid) }
+	card_ptbox2 := { color_background(type:"pt2", base_hybrid:pt_hybrid) }
+	map_ptbox := { color_background(type:"mappt", base_hybrid:pt_hybrid) }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	typesymbol_for := { "none" }
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	
+	# Is the second card face a creature?
+	has_pt_2 := { card.power_2 != "" or card.toughness_2 != "" }
+	
+	# Special meld and dfc options?
+	is_meld := { contains(styling.meld_and_dfc_options, match:"meld split") or styling.meld == "yes" }
+	remove_ab := { contains(styling.meld_and_dfc_options, match:"remove a/b in card number") }
+	no_pt_copy := { contains(styling.meld_and_dfc_options, match:"remove p/t2 copy") or dka_promo_front() }
+	custom_card_number := { styling.custom_card_number_front != "" }
+	custom_card_number_2 := { styling.custom_card_number_back != "" }
+	separate_rarity_2 := { contains(styling.meld_and_dfc_options, match:"separate rarity (back)") }
+	unknown_rarity := { contains(styling.meld_and_dfc_options, match:"unknown rarity code front") }
+	rarity_code_2 := { 
+		if is_promo() then "P"
+		else if is_masterpiece() then "S"
+		else if contains(card.shape, match:"token") then "T"
+		else if contains(card.shape, match:"emblem") then "E"
+		else if card.rarity_3 == "common" then "C"
+		else if card.rarity_3 == "uncommon" then "U"
+		else if card.rarity_3 == "rare" then "R"
+		else if card.rarity_3 == "mythic rare" then "M"
+		else if card.rarity_3 == "special" then "S"
+		else if card.rarity_3 == "basic land" then "L"
+		else rarity_code()
+	}
+	
+	# Special modes
+	front_clear := { if styling.front_face_mode == "clear" or styling.front_face_mode == "devoid" then "yes" else "no" }
+	back_clear := { if styling.back_face_mode == "clear" or styling.back_face_mode == "devoid" then "yes" else "no" }
+	front_map := { styling.front_face_mode == "ixaland" }
+	back_map := { styling.back_face_mode == "ixaland" }
+	
+	front_vec := { if styling.front_face_mode == "vehicle" then "yes" else "no" }
+	back_vec := { if styling.back_face_mode == "vehicle" then "yes" else "no" }
+	dark_vec := { if styling.vehicle_transformation == "dark" then "yes" else "no" }
+	vecpt := { if dark_vec() then "vecpt2.png" else "vecpt.png" }
+
+	front_mode_overlay := { 
+		if front_map() then color_background(type:"map", base_hybrid:card_hybrid)
+		else if styling.front_face_mode == "devoid" then color_background(type:"dev", base_hybrid:card_hybrid)
+		else if styling.front_face_mode == "miracle" then color_background(type:"mir", base_hybrid:card_hybrid) 
+		else if styling.front_face_mode == "vehicle" then "vec.jpg" 
+		else color_background(type:"nyx", base_hybrid:card_hybrid) 
+	}
+	back_mode_overlay := { 
+		if back_map() then color_background(type:"map", base_hybrid:card_hybrid)
+		else if styling.back_face_mode == "devoid" then color_background(type:"dev", base_hybrid:card_hybrid)  
+		else if styling.back_face_mode == "vehicle" then "vec.jpg" 
+		else color_background(type:"nyx", base_hybrid:card_hybrid) 
+	}
+	front_special_mode := { if front_vec() or styling.front_face_mode == "god" or styling.front_face_mode == "miracle" or front_map() then "yes" else "no" }
+	back_special_mode := { if back_vec() or styling.back_face_mode == "god" or back_map() then "yes" else "no" }
+	front_reversed := { if styling.front_face_mode == "reversed" then "yes" else "no" }
+	back_reversed := { if styling.back_face_mode == "reversed" then "yes" else "no" }
+	default_corner := {
+		if front_map() then "blank.png"
+		else if back_clear() then "moon.png"
+		else if contains(card.super_type_2, match:"Noble Phantasm") then "champion.png"
+		else if back_map() then "compass.png"
+		else if contains(card.sub_type, match:"Incognito") then "incognito.png"
+		else if styling.front_face_mode == "reversed" then "night_circle.png"
+		else "sun_circle.png"
+	}
+	default_corner2 := {
+		if back_clear() then "eldrazi.png"
+		else if contains(card.super_type_2, match:"Noble Phantasm") then "noble_phantasm.png"
+		else if back_map() then "blank.png"
+		else if styling.back_face_mode == "reversed" then "sun_circle.png"
+		else "night_circle.png"
+	}
+	
+	# Select imagemask
+	block_extend_front := { front_clear() or front_map() or front_vec() }
+	block_extend_back := { back_clear() or back_map() or back_vec() }
+	extended_art_default := { if styling.extended_art_styles == "default" and styling.image_size == "extended" then "yes" else "no" }
+	extended_art_front := { if styling.extended_art_styles == "extended art front" or styling.extended_art_styles == "extended art both" or extended_art_default() then "yes" else "no" }
+	extended_art_back := { if styling.extended_art_styles == "extended art back" or styling.extended_art_styles == "extended art both" or extended_art_default() then "yes" else "no" }
+	dka_promo_front := { if block_extend_front() then "no" else if styling.extended_art_styles == "dka promo front" or styling.extended_art_styles == "dka promo both" then "yes" else "no" }
+	dka_promo_back := { if block_extend_back() then "no" else if styling.extended_art_styles == "dka promo back" or styling.extended_art_styles == "dka promo both" then "yes" else "no" }
+	imagemask_front := { 
+		if front_clear() then "imagemask_clear.png" 
+		else if front_map() then "imagemask_map.png" 
+		else if extended_art_front() then "imagemask_extended.png"
+		else if dka_promo_front() then "imagemask_dka" + (if is_rare() then "_rare" else "") + ".png"
+		else "imagemask_standard.png"
+	}
+	imagemask_back := { 
+		if back_clear() then "imagemask_clear.png" 
+		else if back_map() then "imagemask_map.png" 
+		else if extended_art_back() then "imagemask_extended_2.png" 
+		else if dka_promo_back() then "imagemask_dka_2.png"
+		else "imagemask_standard.png" 
+	}
+	popout_image_front := { styling.popout_image_mask != "" and contains(styling.popout_style_options, match:"activate popout images") }
+	popout_image_back := { styling.popout_image_mask_2 != "" and contains(styling.popout_style_options, match:"activate popout images") }
+	
+	# Text ajustment settings settings
+	chop_top := { if styling.chop_top != "" then to_number(styling.chop_top) else 0 }
+	chop_bottom := { if styling.chop_bottom != "" then to_number(styling.chop_bottom) else 0 }
+	title_mode := {
+		if styling.center_title_text == "center front" then "f" 
+		else if styling.center_title_text == "center back" then "b"
+		else if styling.center_title_text == "center both" then "fb"
+		else "n"
+	}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: text
+	name: chop top
+	description: Shrinks the textbox from the top.
+styling field:
+	type: text
+	name: chop bottom
+	description: Shrinks the textbox from the bottom.
+styling field:
+	type: choice
+	name: front face mode
+	description: Choose card style for front face.
+	initial: normal
+	choice: normal
+	choice: reversed
+	choice: clear
+	choice: devoid
+	choice: god
+	choice: vehicle
+	choice: miracle
+	choice: ixaland
+styling field:
+	type: choice
+	name: back face mode
+	description: Choose card style for second face.
+	initial: normal
+	choice: normal
+	choice: reversed
+	choice: clear
+	choice: devoid
+	choice: god
+	choice: vehicle
+	choice: ixaland
+styling field:
+	type: multiple choice
+	name: meld and dfc options
+	description: Should the card use any of these meld and doublefaced card features?
+	choice: meld split
+	choice: remove a/b in card number
+	choice: remove p/t2 copy
+	choice: separate rarity (back)
+	choice: unknown rarity code front
+styling field:
+	type: text
+	name: custom card number front
+	description: If the front card has custom card number, what will it be?
+styling field:
+	type: text
+	name: custom card number back
+	description: If the back card has custom card number, what will it be?
+styling field:
+	type: choice
+	name: extended art styles
+	description: Should the cards use an extended art style?
+	initial: default
+	choice: default
+	choice: no
+	choice: extended art front
+	choice: extended art back
+	choice: extended art both
+	choice: dka promo front
+	choice: dka promo back
+	choice: dka promo both
+styling field:
+	type: choice
+	name: vehicle transformation
+	description: Should a second face vehicle be light or dark?
+	initial: dark
+	choice: dark
+	choice: light
+styling field:
+	type: text
+	name: popout image mask
+	description: If you want a popout style art, what image mask should be used for the front face? (The mask you want to use must be stored in "data/magic-m15-doublefaced-append.mse-style/popout-masks" or you must define the path yourself).
+styling field:
+	type: text
+	name: popout image mask 2
+	description: If you want a popout style art, what image mask should be used for the front face? (The mask you want to use must be stored in "data/magic-m15-doublefaced-append.mse-style/popout-masks" or you must define the path yourself).
+styling field:
+	type: multiple choice
+	name: popout style options
+	choice: activate popout images
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: front face only
+	choice: back face only
+	choice: never
+	initial: never
+styling field:
+	type: choice
+	name: center title text
+	description: Should the Name and Type fields be centered?
+	choice: no
+	choice: center front
+	choice: center back
+	choice: center both
+	initial: no
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: choice
+	name: meld
+	description: This field is only here to prevent a bug. Choose "no" if you want to remove a meld split that won't go away otherwise.
+	choice: no
+	script: if value != "" then value else "no"
+styling field:
+	type: text
+	name: image size
+	description: This field is to maintain settings from earlier style versions.
+	script: if value == "extended" then value else "no"
+	editable: false
+styling style:
+	meld and dfc options:
+		render style: checklist
+		direction: vertical
+	extended art styles
+		render style: both
+		choice images:
+			default:		icons/large-image.png
+			no:			icons/small-image.png
+			extended art front:	icons/extended-art-front.png
+			extended art back:	icons/extended-art-back.png
+			extended art both:	icons/extended-art-both.png
+			dka promo front:	icons/dka-promo-front.png
+			dka promo back:		icons/dka-promo-back.png
+			dka promo both:		icons/dka-promo-both.png
+	vehicle transformation
+		render style: both
+		choice images:
+			dark:		icons/vec-pt-dark.png
+			light:		icons/vec-pt-light.png
+	popout style options:
+		render style: checklist
+		direction: vertical
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          icons/center-all-text.png
+			short text only: icons/center-short-text.png
+			front face only: icons/left.png
+			back face only:  icons/right.png
+			never:           icons/center-no-text.png
+	center title text:
+		render style: both
+		choice images:
+			no:		icons/center-no-text.png
+			center front:	icons/center-all-text.png
+			center back:	icons/center-all-text.png
+			center both:	icons/center-all-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 5
+		mask: border_mask.png
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { if dka_promo_front() then dka_background() else card_background() }
+	card color 2:
+		left: 377
+		top: 0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { if dka_promo_back() then dka_background() else card_background2() }
+	############################# Name line
+	name:
+		left: { if front_map() then 59 else 58 }
+		top: { if front_map() then 27 else 30 }
+		right: { if front_map() then 323 else 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: { if contains(title_mode(), match: "f") or front_map() then "bottom center shrink-overflow" else "bottom shrink-overflow" }
+		padding bottom: 0
+		z index: 5
+		font:
+			name: { if front_map() then "Beleren Small Caps" else "Beleren Bold" }
+			size: { if front_map() then 14.8 else 16 }
+			color: { if front_reversed() then rgb(255,255,255) else rgb(0,0,0) }
+	name 2:
+		left: { if back_map() then 436 else 435 }
+		top: { if back_map() then 27 else 30 }
+		right: { if back_map() then 696 else  714 - card_style.casting_cost_2.content_width }
+		height: 23
+		alignment: { if contains(title_mode(), match: "b") or back_map() then "bottom center shrink-overflow" else "bottom shrink-overflow" }
+		padding bottom: 0
+		z index: 5
+		font:
+			name: { if back_map() then "Beleren Small Caps" else "Beleren Bold" }
+			size: { if back_map() then 14.8 else 16 }
+			color: { if back_map() or back_clear() or back_reversed() then rgb(0,0,0) else rgb(255,255,255) }
+	casting cost:
+		right: 346
+		top: 29
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 5
+		padding top: 0
+	casting cost 2:
+		right: 722
+		top: 29
+		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 5
+		padding top: 0
+	############################# Image
+	image:
+		left: { if front_clear() or front_map() then 0 else if dka_promo_front() then 23 else 29 }
+		top: { if front_clear() then 0 else if front_map() then 57 else if dka_promo_front() then 59 else 60 }
+		width: { if front_clear() or front_map() then 375 else if extended_art_front() then 327 else if dka_promo_front() then 328 else 316 }
+		height:	{ if front_clear() then 523 else if front_map() then 241 else if extended_art_front() or dka_promo_front() then 423 else 231 }
+		z index: 1
+		mask: { imagemask_front() }
+		default: { default_image(card.card_color) }
+	image 2:
+		left: { if back_clear() or back_map() then 377 else if dka_promo_back() then 400 else 406 }
+		top: { if back_clear() then 0 else if back_map() then 57 else if dka_promo_back() then 59 else 60 }
+		width: { if back_clear() or back_map() then 375 else if dka_promo_back() then 328 else 316 }
+		height:	{ if back_clear() then 523 else if back_map() then 241 else if extended_art_back() or dka_promo_back() then 423 else 231 }
+		z index: 1
+		mask: { imagemask_back() }
+		default: { default_image(card.card_color_2) }
+	############################# Card type
+	type:
+		left: { if front_map() then 82 else if has_identity() then "52" else "33" }
+		top: { if dka_promo_front() then 329 else if front_map() then 297 else if styling.front_face_mode == "devoid" then 294 else 296 }
+		width: { if front_map() then 205 else (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
+		height: { if front_map() then 18 else 20 }
+		alignment: { if contains(title_mode(), match: "f") or front_map() then "top center shrink-overflow" else "top shrink-overflow" }
+		z index: 5
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: { if front_map() then 12.5 else 13 }
+			color: { if front_reversed() then rgb(255,255,255) else rgb(0,0,0) }
+			separator color: red
+	type 2:
+		left: { if back_map() then 462 else if has_identity_2() then "429" else "411" }
+		top: { if dka_promo_back() then 329 else if back_map() then 297 else if styling.back_face_mode == "devoid" then 294 else 296 }
+		width: { if back_map() then 205 else (if has_identity_2() then "290" else "304") - max(22,card_style.rarity.content_width) }
+		height: { if back_map() then 18 else 20 }
+		alignment: { if contains(title_mode(), match: "b") or back_map() then "top center shrink-overflow" else "top shrink-overflow" }
+		z index: 5
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: { if back_map() then 12.5 else 13 }
+			color: { if back_map() or back_clear() or back_reversed() or dka_promo_back() then rgb(0,0,0) else rgb(255,255,255) }
+			separator color: red
+	rarity:
+		right: { if front_map() then 201 else 344 }
+		top: { if dka_promo_front() then 329 else if front_map() then 53 else if styling.front_face_mode == "devoid" then 295 else 297 }
+		width: 44
+		height: 22
+		z index: 5
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	rarity 2:
+		right: { if back_map() then 576 else 719 }
+		top: { if dka_promo_back() then 329 else if back_map() then 53 else if styling.back_face_mode == "devoid" then 295 else 297 }
+		width: 44
+		height: 22
+		z index: 5
+		visible: { not separate_rarity_2() }
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	rarity 3:
+		right: { if back_map() then 576 else 719 }
+		top: { if dka_promo_back() then 329 else if back_map() then 53 else if styling.back_face_mode == "devoid" then 295 else 297 }
+		width: 44
+		height: 22
+		z index: 5
+		visible: { separate_rarity_2() }
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	indicator:
+		left: 31
+		top: { if dka_promo_front() then 332 else if styling.front_face_mode == "devoid" then 298 else 300 }
+		width: 17
+		height: 17
+		z index: 3
+		render style: image
+		visible: { has_identity() and not front_map() }
+		image: { card_identity() }
+	indicator 2:
+		left: 408
+		top: { if dka_promo_back() then 332 else if styling.back_face_mode == "devoid" then 298 else 300 }
+		width: 17
+		height: 17
+		z index: 3
+		render style: image
+		visible: { has_identity_2() and not back_map() }
+		image: { card_identity() }
+	############################# Text box
+	text:
+		left: { if front_map() then 38 else 29 }
+		top: { (if dka_promo_front() then 359 else if front_map() then 340 else 327) + chop_top() }
+		width: { if front_map() then 287 else 314 }
+		height: { (if dka_promo_front() then 120 else if front_map() then 135 else 154) - chop_top() - chop_bottom() }
+		z index: 6
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "front face only"
+				then "middle center"
+				else "middle left"
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	text 2:
+		left: { if back_map() then 417 else 408 }
+		top: { (if dka_promo_back() then 359 else if back_map() then 340 else 327) + chop_top() }
+		width: { if back_map() then 287 else 314 }
+		height: { (if dka_promo_back() then 120 else if back_map() then 135 else 154) - chop_top() - chop_bottom() }
+		z index: 6
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text_2) and
+				   card.flavor_text_2 == "<i-flavor></i-flavor>" and
+				   card_style.text_2.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "back face only"
+				then "middle center"
+				else "middle left"
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	watermark:
+		left: { if dka_promo_front() then 134 else if front_map() then 132 else 117 }
+		top: { if dka_promo_front() then 353 else if front_map() then 320 else 321 }
+		width: { if dka_promo_front() then 111 else if front_map() then 112 else 138 }
+		height: { if dka_promo_front() then 134 else if front_map() then 170 else 166 }
+		z index: 5
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	watermark 2:
+		left: { if dka_promo_back() then 509 else if back_map() then 507 else 492 }
+		top: { if dka_promo_back() then 353 else if back_map() then 320 else 321 }
+		width: { if dka_promo_back() then 111 else if back_map() then 112 else 138 }
+		height: { if dka_promo_back() then 134 else if back_map() then 170 else 166 }
+		z index: 5
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# PT
+	pt:
+		z index: 8
+		left: 286
+		top: { if front_map() then 467 else 469 }
+		width: 60
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: { if front_map() then 14 else 16 }
+			color: { if front_vec() or front_reversed() then rgb(255,255,255) else rgb(0,0,0) }
+			separator color: red
+	pt 2:
+		z index: 8
+		left: 661
+		top: { if back_map() then 467 else 469 }
+		width: 60
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: { if back_map() then 14 else 16 }
+			color: { if back_map() or back_clear() or styling.back_face_mode == "reversed" then rgb(0,0,0) else rgb(255,255,255) }
+			separator color: red
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 7
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	set code 2:
+		left: 399
+		top: 498
+		width: 40
+		height: 10
+		z index: 7
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 7
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: { if card.pt != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 7
+		visible: {not set.automatic_copyright}
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	illustrator 2:
+		left: { 419 + card_style.set_code_2.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 7
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright 2:
+		right: 728
+		top: { if card.pt_2 != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 7
+		visible: {not set.automatic_copyright}
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: color
+	name: border color 2
+	script: card.border_color
+	editable: false
+	save value: false
+extra card field:
+	type: image
+	name: popout image
+	show statistics: false
+	description: The image of the card
+extra card field:
+	type: image
+	name: popout image 2
+	show statistics: false
+	description: The image of the card
+extra card field:
+	type: choice
+	name: special mode
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: special mode 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: clear frame
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: clear frame 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: clear frame b
+	script: front_clear()
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: clear frame b2
+	script: back_clear()
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: devoid overlay
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: devoid overlay 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: reversed frame
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: reversed frame 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: dka type
+	save value: false
+	editable: false
+	script: card.type
+extra card field:
+	type: text
+	name: dka type 2
+	save value: false
+	editable: false
+	script: card.type_2
+extra card field:
+	type: text
+	name: dka text
+	multi line: true
+	save value: false
+	editable: false
+	script: card.text
+extra card field:
+	type: text
+	name: dka text 2
+	multi line: true
+	save value: false
+	editable: false
+	script: card.text_2
+extra card field:
+	type: choice
+	name: meld split
+	script: is_meld()
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: card code
+	editable: false
+	save value: false
+	script: forward_editor(prefix: (if custom_card_number() then styling.custom_card_number_front else card_number_m15()) + (if remove_ab() then "/" else "a/") + card_count_m15() + " " + (if unknown_rarity() then "?" else rarity_code()) + " ", field: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: text
+	name: auto copyright 2
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: text
+	name: card code 2
+	editable: false
+	save value: false
+	script: forward_editor(prefix: (if custom_card_number_2() then styling.custom_card_number_back else card_number_m15()) + (if remove_ab() then "/" else "b/") + card_count_m15() + " " + (if separate_rarity_2() then rarity_code_2() else rarity_code()) + " ", field: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow 2
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: text
+	name: set code 2
+	editable: false
+	save value: false
+	script: card.set_code
+extra card field:
+	type: choice
+	name: stamp
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil stamp
+	choice: stamp
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer 2
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: pt 2 copy
+	script: card.pt_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: pt box 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: corner
+	choice:
+		name: default
+		line below: true
+	choice: day
+	choice: night
+	choice: moon
+	choice: eldrazi
+	choice: compass
+	choice: artifact
+	choice: creature
+	choice: enchantment
+	choice: instant
+	choice: land
+	choice: multitype
+	choice: sorcery
+	choice: planeswalker
+	choice: aetherprint
+	choice: structure
+	choice: incognito
+	choice: champion
+	choice: none
+	initial: default
+	save value: true
+	editable: true
+extra card field:
+	type: choice
+	name: corner 2
+	choice:
+		name: default
+		line below: true
+	choice: day
+	choice: night
+	choice: moon
+	choice: eldrazi
+	choice: compass
+	choice: artifact
+	choice: creature
+	choice: enchantment
+	choice: instant
+	choice: land
+	choice: multitype
+	choice: sorcery
+	choice: planeswalker
+	choice: aetherprint
+	choice: structure
+	choice: champion
+	choice: noble phantasm
+	choice: none
+	initial: default
+	save value: true
+	editable: true
+extra card style:
+	border color 2:
+		left: 377
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 5
+		mask: border_mask.png
+	popout image:
+		left: 0
+		top: 0
+		width: { if styling.popout_image_mask != "" then 375 else 0 }
+		height:	{ if styling.popout_image_mask != "" then 523 else 0 }
+		visible: { popout_image_front() }
+		z index: 6
+		mask: { if styling.popout_image_mask == "" then "popout-masks/popout_mask_full-art.png" else (if contains(styling.popout_image_mask, match:"/") then "" else "popout-masks/") + styling.popout_image_mask }
+		default: { card.image }
+	popout image 2:
+		left: 377
+		top: 0
+		width: { if styling.popout_image_mask_2 != "" then 375 else 0 }
+		height:	{ if styling.popout_image_mask_2 != "" then 523 else 0 }
+		visible: { popout_image_back() }
+		z index: 6
+		mask: { if styling.popout_image_mask_2 == "" then "popout-masks/popout_mask_full-art_2.png" else (if contains(styling.popout_image_mask_2, match:"/") then "" else "popout-masks/") + styling.popout_image_mask_2 }
+		default: { card.image_2 }
+	special mode:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 4
+		visible: { front_special_mode() }
+		render style: image
+		image: { front_mode_overlay() }
+		mask: { if styling.front_face_mode == "vehicle" then "vec_mask.png" else if front_map() then "overlay_mask_map.png" else if dka_promo_front() then "overlay_mask_dka.png" else "overlay_mask.png" }
+	special mode 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 4
+		visible: { back_special_mode() }
+		render style: image
+		image: { back_mode_overlay() }
+		mask: { if styling.back_face_mode == "vehicle" then "vec_mask_2.png" else if back_map() then "overlay_mask_map.png" else if dka_promo_back() then "overlay_mask_dka2.png" else "overlay_mask_2.png" }
+	clear frame:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 2
+		visible: { front_clear() }
+		render style: image
+		image: { if styling.front_face_mode == "devoid" then front_mode_overlay() else "clear.png" }
+		mask: clear_mask_top.png
+	clear frame 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 2
+		visible: { back_clear() }
+		render style: image
+		image: { if styling.back_face_mode == "devoid" then back_mode_overlay() else "clear2.png" }
+		mask: clear_mask_top.png
+	clear frame b:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 2
+		visible: { front_clear() }
+		render style: image
+		image: { if styling.front_face_mode == "devoid" then "dev.png" else "clear.png" }
+		mask: clear_mask_bottom.png
+	clear frame b2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 2
+		visible: { back_clear() }
+		render style: image
+		image: { if styling.back_face_mode == "devoid" then "dev2.png" else "clear2.png" }
+		mask: clear_mask_bottom.png
+	devoid overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 3
+		visible: { if styling.front_face_mode == "devoid" or dka_promo_front() then "yes" else "no" }
+		render style: image
+		image: { if front_reversed() then card_background2() else card_background() }
+		mask: overlay_mask_devoid.png
+	devoid overlay 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 3
+		visible: { if styling.back_face_mode == "devoid" or dka_promo_back() then "yes" else "no" }
+		render style: image
+		image: { if back_reversed() then card_background() else card_background2() }
+		mask: overlay_mask_devoid.png
+	reversed frame:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		visible: { front_reversed() and not dka_promo_front() }
+		render style: image
+		image: { card_background2() }
+		mask: reverse_mask.png
+	reversed frame 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		visible: { back_reversed() and not dka_promo_back() }
+		render style: image
+		image: { card_background() }
+		mask: reverse_mask.png
+	dka type:
+		left: { if has_identity() then "52" else "33" }
+		top: 329
+		width: { (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
+		height: 20
+		visible: { dka_promo_front() }
+		alignment: { if contains(title_mode(), match: "f") or front_map() then "top center shrink-overflow" else "top shrink-overflow" }
+		z index: 6
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: 13
+			color: white
+			shadow color: black
+			shadow displacement x: -1
+			shadow displacement y: 1
+			separator color: red
+	dka type 2:
+		left: { if has_identity_2() then "429" else "411" }
+		top: 329
+		width: { (if has_identity_2() then "290" else "304") - max(22,card_style.rarity.content_width) }
+		height: 20
+		visible: { dka_promo_back() }
+		alignment: { if contains(title_mode(), match: "b") or back_map() then "top center shrink-overflow" else "top shrink-overflow" }
+		z index: 6
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: 13
+			color: white
+			shadow color: black
+			shadow displacement x: -1
+			shadow displacement y: 1
+			separator color: red
+	dka text:
+		left: 29
+		top: { 359 + chop_top() }
+		width: 314
+		height: { 120 - chop_top() - chop_bottom() }
+		visible: { dka_promo_front() }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: white
+			shadow color: black
+			shadow displacement x: -1
+			shadow displacement y: 1
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "front face only"
+				then "middle center"
+				else "middle left"
+		z index: 7
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	dka text 2:
+		left: 408
+		top: { 359 + chop_top() }
+		width: 314
+		height: { 120 - chop_top() - chop_bottom() }
+		visible: { dka_promo_back() }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: white
+			shadow color: black
+			shadow displacement x: -1
+			shadow displacement y: 1
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text_2) and
+				   card.flavor_text_2 == "<i-flavor></i-flavor>" and
+				   card_style.text_2.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "back face only"
+				then "middle center"
+				else "middle left"
+		z index: 7
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	meld split:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 10
+		visible: { is_meld() }
+		render style: image
+		image: meld_border.png
+	foil layer:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 9
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: { "foil_mask" + ( if is_rare() then "_rare" else "" ) + ( if has_pt() then "_pt" else "" ) + ".png" }
+	foil layer 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 9
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: { "foil_mask" + ( if has_pt_2() then "_pt" else "" ) + ".png" }
+	pt 2 copy:
+		z index: 4
+		left: 311
+		top: 447
+		width: 30
+		height:	12
+		visible: { not no_pt_copy() }
+		alignment: bottom right
+		font:
+			name: ModMatrix
+			size: 12
+			weight: bold
+			color: black
+			separator color: red
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 7
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold		
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 7
+		render style: image
+		image: artist_arrow.png
+	artist arrow 2:
+		left: { 403 + card_style.set_code_2.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 7
+		render style: image
+		image: artist_arrow.png
+	auto copyright:
+		right: 350
+		top: { if card.pt != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 7
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	auto copyright 2:
+		right: 728
+		top: { if card.pt_2 != "" then 500 else 488 }
+		width: 140
+		height: 10
+		z index: 7
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	card code 2:
+		left: 399
+		top: 488
+		width: 120
+		height: 10
+		z index: 7
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	pt box:
+		left: { if front_map() then 272 else 273 }
+		top: { if front_map() then 453 else 466 }
+		width: { if front_map() then 90 else 81 }
+		height:	{ if front_map() then 54 else 42 }
+		z index: 7
+		visible: { card.pt != "" }
+		render style: image
+		image: { if front_clear() then "clearpt.png" else if front_vec() then "vecpt.png" else if front_map() then map_ptbox() else if front_reversed() then card_ptbox2() else card_ptbox() }
+	pt box 2:
+		left: { if back_map() then 647 else 648 }
+		top: { if back_map() then 453 else 466 }
+		width: { if back_map() then 90 else 81 }
+		height:	{ if back_map() then 54 else 42 }
+		z index: 7
+		visible: { card.pt_2 != "" }
+		render style: image
+		image: { if back_clear() then "clearpt.png" else if back_vec() then vecpt() else if back_map() then map_ptbox() else if back_reversed() then card_ptbox() else card_ptbox2() }
+	stamp:
+		left: { if front_map() then 169 else 165 }
+		top: { if front_map() then 473 else 472 }
+		width: { if front_map() then 38 else 46 }
+		height: { if front_map() then 24 else 26 }
+		z index: 3
+		visible: { is_rare() or is_masterpiece() }
+		render style: image
+		image: { if front_clear() then "clearstamp.jpg" else if front_map() then "map_stamp.png" else card_stamp() }
+		mask: stamp_mask.png
+	foil stamp:
+		left: 165
+		top: 472
+		width: 46
+		height: 26
+		z index: 7
+		visible: { (is_rare() or is_masterpiece()) and not front_map() }
+		render style: image
+		image: foil_stamp.png
+	corner:
+		left: { if front_map() then 22 else 19 }
+		top: 25
+		height: { if front_map() then 30 else 31 }
+		width: { if front_map() then 30 else 31 }
+		z index: 4
+		render style: image
+		choice images:
+			default: { default_corner() }
+			day: sun_circle.png
+			night: night_circle.png
+			eldrazi: eldrazi.png
+			moon: moon.png
+			compass: compass.png
+			artifact: artifact.png
+			test: border_mask.png
+			creature: creature.png
+			enchantment: enchantment.png
+			instant: instant.png
+			land: land.png
+			multitype: multitype.png
+			sorcery: sorcery.png
+			planeswalker: planeswalker.png
+			aetherprint: aetherprint.png
+			structure: structure.png
+			incognito: incognito.png
+			champion: champion.png
+			none: blank.png
+	corner 2:
+		left: { if back_map() then 399 else 396 }
+		top: 25
+		height: { if back_map() then 30 else 31 }
+		width: { if back_map() then 30 else 31 }
+		z index: 4
+		render style: image
+		choice images:
+			default: { default_corner2() }
+			day: sun_circle.png
+			night: night_circle.png
+			eldrazi: eldrazi.png
+			moon: moon.png
+			compass: compass.png
+			artifact: artifact.png
+			test: border_mask.png
+			creature: creature.png
+			enchantment: enchantment.png
+			instant: instant.png
+			land: land.png
+			multitype: multitype.png
+			sorcery: sorcery.png
+			planeswalker: planeswalker.png
+			aetherprint: aetherprint.png
+			structure: structure.png
+			champion: champion.png
+			noble phantasm: noble_phantasm.png
+			none: blank.png

@@ -1,0 +1,594 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Invocation
+full name: Amonkhet Invocations
+icon: card-sample.png
+installer group: magic/m15 style/amonkhet/invocations
+position hint: 092
+
+
+version: 2018-01-10
+depends on:
+	package: magic.mse-game
+	version: 2015-04-08
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small-invocation.mse-symbol-font
+	version: 2017-03-31
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { contains(styling.regular_options, match:"grey hybrid names") }
+	
+	# Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { contains(styling.regular_options, match:"colored multicolor land names") }
+	
+	# Build the template, new frames need to be added here
+	template_prefix := [card: "" identity: ""]
+	template_suffix := [card: "card.png" identity: "identity.png"]
+	template      := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
+	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+
+	# Use guild mana symbols?
+	guild_mana := { contains(styling.regular_options, match:"guild mana symbols") }
+
+	# Is the card a promo card?
+	is_promo := { contains(styling.regular_options, match:"promo") }
+	
+	# Should the frame be rendered in grayscale?
+	frame_saturation := { if contains(styling.regular_options, match:"grayscale") then -1 else 0 }
+
+
+	is_beleren := { contains(styling.regular_options, match: "Beleren") }
+	is_papyrus := { contains(styling.regular_options, match: "Papyrus") }
+	is_gothic := { contains(styling.regular_options, match: "ShangoGothic") }
+
+	is_unsorted := {styling.remove_from_autocount}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: multiple choice
+	name: regular options
+	description: Which regular styling options would you like to use?
+	choice: center typeline
+	choice: show normal rarity
+	choice: guild mana symbols
+	choice: promo rarity
+	choice: grayscale
+	choice: silver border
+	choice: snap cartouche to name
+	choice: nonexistent mana cost
+	choice: Papyrus font
+	choice: Beleren font
+	choice: ShangoGothic font
+	initial: center typeline
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small-invocation.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small-invocation.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small-invocation.mse-symbol-font/mana_t_older.png
+	regular options:
+		render style: checklist
+		direction: vertical
+############################################################## Card fields
+card style:
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { saturate(card_background(), amount: frame_saturation()) }
+	############################# Background stuff
+	############################# Name line
+	name: 
+		left: 35
+		top: { if is_beleren() then 36 else if is_papyrus() then 38 else if is_gothic() then 35 else 33 }
+		right: { if contains(styling.regular_options, match:"nonexistent") then 320 else if contains(styling.regular_options, match:"snap") then max(30, card_style.name.content_width) + 35 else 320 - card_style.casting_cost.content_width }
+		height: 18
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		padding top: 0
+		z index: 3
+		font:
+			name: { if contains(styling.regular_options, match: "Beleren") then "Beleren Small Caps" else if contains(styling.regular_options, match: "Papyrus") then "Papyrus" else if is_gothic() then "ShangoGothic-Bold" else "Invocation Calligraphr" }
+			size: { if contains(styling.regular_options, match: "Beleren") then 15 else if contains(styling.regular_options, match: "Papyrus") then 12 else 16 }
+			weight: { if is_papyrus() then "bold" else "" }
+			color: { rgb(40,10,6) }
+		
+	casting cost:
+		right: 346
+		top: 29
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-small-invocation
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 3
+		padding top: 0
+		visible: { not contains(styling.regular_options, match:"nonexistent") }
+	############################# Image
+	image:
+		left: 44
+		top: 79
+		width: 287
+		height:	202
+		z index: 2
+		default: { default_image(card.card_color) }
+		mask:  imagemask.png
+	############################# Card type
+	casting cost 2:
+		left: 31
+		top: 300
+		width: { max(5,card_style.casting_cost_2.content_width) + 5 }
+		height: 20
+		symbol font:
+			name: magic-mana-small-invocation
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 3
+		padding top: 0
+		
+	type:
+		left: { 33 + card_style.casting_cost_2.content_width }
+		top: { if is_gothic() then 298 else 299 }
+		right: 302
+		height: 20
+		alignment: { if contains(styling.regular_options, match:"center typeline") then "center middle shrink-overflow" else "middle shrink-overflow" }
+		z index: 3
+		padding top: 2
+		font:
+			name: { if contains(styling.regular_options, match: "Beleren") then "Beleren Small Caps" else if contains(styling.regular_options, match: "Papyrus") then "Papyrus" else if is_gothic() then "ShangoGothic-Bold" else "Invocation Calligraphr" }
+			size: { if is_beleren() then 14 else if is_papyrus() then 13 else 15 }
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+			weight: { if is_papyrus() then "bold" else "" }
+			separator color: red
+	rarity:
+		right: 344
+		top: 297
+		width: 44
+		height: 22
+		z index: 3
+		render style: image
+		alignment: middle right
+		visible: { contains(styling.regular_options, match:"show normal rarity") }
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if contains(styling.regular_options, match:"inverted common symbol") then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if contains(styling.regular_options, match:"inverted common symbol") then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# Text box
+	text:
+		left: 31
+		top: 355
+		width: 310
+		bottom: 460
+		font:
+			name: ShangoGothic-Bold
+			size: 12
+			scale down to: 6
+			color: { rgb(40,20,6) }
+		symbol font:
+			name: magic-mana-small-invocation
+			size: 14
+		alignment: middle center
+		z index: 4
+		mask: { if card.power != "" or card.toughness != "" then "text_mask.png" else "" }
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# PT
+	power:
+		z index: 6
+		left: 326
+		top: 432
+		width: 15
+		height: 25
+		alignment: center middle shrink-overflow
+		font:
+			name: MPlantin
+			size: 15
+			weight: bold
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(16,16,0) }
+	toughness:
+		z index: 6
+		left: 326
+		top: 460
+		width: 15
+		height: 25
+		alignment: center middle shrink-overflow
+		font:
+			name: MPlantin
+			size: 15
+			weight: bold
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(16,16,0) }
+	############################# Copyright stuff
+	illustrator:
+		left: 48
+		top: 486
+		width: 90
+		height: 10
+		z index: 3
+		alignment: middle left shrink-overflow
+		font:
+			name: ShangoGothic-Bold
+			size: 7.5
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+	copyright:
+		right: 350
+		top: 492
+		width: 129
+		height: 10
+		z index: 5
+		visible: {not set.automatic_copyright}
+		alignment: middle right shrink-overflow
+		font:
+			name: ShangoGothic-Bold
+			size: 6
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script: 
+		if set.automatic_card_numbers and not styling.remove_from_autocount then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + ( set.set_code ) + " * " + set.set_language + " " + rarity_code() + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+	save value: false
+extra card field:
+	type: choice
+	name: pt box
+	choice: ptbox
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: invocation symbol
+	choice: none
+	choice: invocation
+	initial: invocation
+	editable: false
+extra card field:
+	type: choice
+	name: invocation symbol 2
+	choice: none
+	choice: invocation
+	initial: invocation
+	editable: false
+extra card field:
+	type: choice
+	name: glow
+	choice: none
+	choice: glow
+	initial: glow
+	editable: false
+extra card field:
+	type: choice
+	name: invocation name start
+	choice: name
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: invocation name
+	choice: name
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: invocation name end
+	choice: name
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: invocation cost start
+	choice: cost
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: invocation cost
+	choice: cost
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: invocation cost end
+	choice: cost
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: silver border
+	choice: silver
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: invocation symbol master
+	choice: none
+	choice: invocationmaster
+	initial: invocationmaster
+	editable: false
+extra card field:
+	type: choice
+	name: invocation symbol master 2
+	choice: none
+	choice: invocationmaster
+	initial: invocationmaster
+	editable: false
+extra card field:
+	type: choice
+	name: glow master
+	choice: none
+	choice: glowmaster
+	initial: glowmaster
+	editable: false
+extra card style:
+	artist arrow:
+		left: 34
+		top: 489
+		width: 12
+		height: 7
+		z index: 3
+		render style: image
+		image: { saturate("artist_arrow.png", amount: frame_saturation()) }
+	pt box:
+		left: 318
+		top: 422
+		width: 32
+		height: 71
+		z index: 5
+		visible: { card.pt != "" }
+		render style: image
+		image: { saturate("ivcpt.png", amount: frame_saturation()) }
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: foil_mask.png
+	invocation symbol:
+		right: 347
+		top: 296
+		width: 23
+		height: 23
+		z index: 6
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: invocation
+		visible: { card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+	invocation symbol 2:
+		right: 347
+		top: 296
+		width: 23
+		height: 23
+		z index: 6
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: invocation
+		visible: { card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+	glow:
+		right: 346
+		top: 298
+		width: 24
+		height: 24
+		z index: 3
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: invocation
+		visible: { card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+	invocation symbol master:
+		right: 347
+		top: 296
+		width: 23
+		height: 23
+		z index: 6
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: invocation
+		visible: { card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+	invocation symbol master 2:
+		right: 347
+		top: 296
+		width: 23
+		height: 23
+		z index: 6
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: invocation
+		visible: { card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+	glow master:
+		right: 346
+		top: 298
+		width: 24
+		height: 24
+		z index: 3
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: invocation
+		visible: { card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+	invocation name start:
+		z index: 2
+		left: 25
+		top: 28
+		width: 45
+		height: 25
+		render style: image
+		image: { saturate("namestart.png", amount:frame_saturation()) }
+	invocation name:
+		z index: 2
+		left: 70
+		top: 27
+		width: { if contains(styling.regular_options, match:"snap") then max(58, card_style.name.content_width) - 58 else if contains(styling.regular_options, match:"nonexistent") then 265 else 220 - max(20,card_style.casting_cost.content_width) }
+		height: 27
+		render style: image
+		image: { saturate("namemiddle.png", amount:frame_saturation()) }
+	invocation name end:
+		z index: 2
+		left: { if contains(styling.regular_options, match:"snap") then 7 + max(33, card_style.name.content_width) else if contains(styling.regular_options, match:"nonexistent") then 305 else 290 - max(20,card_style.casting_cost.content_width) }
+		top: 28
+		width: 45
+		height: 25
+		render style: image
+		image: { saturate("nameend.png", amount:frame_saturation()) }
+	invocation cost end:
+		z index: 2
+		right: 353
+		top: 28
+		height: 25
+		width: 15
+		render style: image
+		image: { saturate("costend.png", amount:frame_saturation()) }
+		visible: { not contains(styling.regular_options, match:"nonexistent") }
+	invocation cost:
+		z index: 2
+		right: 339
+		top: 28
+		height: 25
+		width: { 2 + max(0,card_style.casting_cost.content_width - 17) }
+		render style: image
+		image: { saturate("costmid.png", amount:frame_saturation()) }
+		visible: { not contains(styling.regular_options, match:"nonexistent") }
+	invocation cost start:
+		z index: 2
+		top: 28
+		right: { 338 - max(0,card_style.casting_cost.content_width - 17) }
+		height: 25
+		width: 15
+		render style: image
+		image: { saturate("coststart.png", amount:frame_saturation()) }
+		visible: { not contains(styling.regular_options, match:"nonexistent") }
+	card code:
+		left: 34
+		top: 476
+		width: 104
+		height: 10
+		z index: 3
+		font:
+			name: ShangoGothic-Bold
+			size: 6.75
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+	silver border:
+		left: 0
+		top: 0
+		height: 523
+		width: 375
+		z index: 1
+		render style: image
+		image: silver_border.png
+		visible: { contains(styling.regular_options, match:"silver border") }
+	auto copyright:
+		right: 350
+		top: 492
+		width: 129
+		height: 10
+		z index: 5
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: ShangoGothic-Bold
+			size: 6
+			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }

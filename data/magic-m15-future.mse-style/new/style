@@ -1,0 +1,882 @@
+﻿mse version: 2.0.0
+game: magic
+short name: M15 Futurewalk
+full name: Future Planeswalkers
+installer group: magic/Future/planeswalkers
+icon: card-sample.png
+position hint: 074
+
+version: 2018-02-08
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-future-common.mse-include
+	version: 2008-05-21
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-future.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-m15-future.mse-style
+	version: 2014-02-22
+
+card width: 375
+card height: 523
+card dpi: 150
+#By: Pichoro
+#Images by Spiderboy4, Buttock1234, and Artfreakwiu
+#M15 update by Cajun
+############################################################## Extra scripts
+init script:
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_suffix := [card: "card.jpg", pt: "pt.png", textbox: "textbox.png", typeline: "typeline.png", stamp: "stamp.jpg"]
+	template := { "/magic-m15-future.mse-style/" + input + template_suffix[type] }
+	land_template := { "/magic-m15-future.mse-style/" + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	colorless_color := {
+		if card.card_color=="white" then "w"
+		else if card.card_color=="blue" then "u"
+		else if card.card_color=="black" then "b"
+		else if card.card_color=="red" then "r"
+		else if card.card_color=="green" then "g"
+		else "c"
+	}
+	
+	font_colors_white := { input == "b" or input == "bl" or input == "u" or input == "ul" or input == "r" or input == "rl" or input == "g" or input == "gl" }
+	
+	font_white := {
+		hybrid   := chosen(choice:"hybrid")
+		artifact := chosen(choice:"artifact")
+		colors := sort_text( order: "(wubrg)"
+			           , (if chosen(choice:"white") then "w")
+			           + (if chosen(choice:"blue")  then "u")
+			           + (if chosen(choice:"black") then "b")
+			           + (if chosen(choice:"red")   then "r")
+			           + (if chosen(choice:"green") then "g"))
+			           + (if artifact               then "a")
+		font_colors_white(
+			if chosen(choice:"land") and chosen(choice:"white") then "wl"
+			else if chosen(choice:"land") and chosen(choice:"blue") then "ul"
+			else if chosen(choice:"land") and chosen(choice:"black") then "bl"
+			else if chosen(choice:"land") and chosen(choice:"red") then "rl"
+			else if chosen(choice:"land") and chosen(choice:"green") then "gl"
+			else if chosen(choice:"land") then "l"
+			else if input == "artifact, multicolor" then "a"
+			else if chosen(choice:"multicolor")     then "m"
+			else if artifact and not hybrid         then "a"
+			else if colors == ""                    then "c"
+			else colors[
+				font_color_positions[
+					if      chosen(choice:"horizontal") then "horizontal"
+					else if chosen(choice:"vertical")   then "vertical"
+					else if chosen(choice:"overlay")    then "overlay"
+					else                                     "radial"
+				][number_of_items(in: colors)]
+			]
+		)
+	}
+	
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		base := base_hybrid[shape][color_count]()
+		
+		# Put a frame around it?
+		if land and not colored_lands then
+			masked_blend(
+				mask:  "/magic-m15-future.mse-style/multicolor_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else if land and multi and mask_multi_land_with_color() then
+			masked_blend(
+				mask:  "/magic-m15-future.mse-style/hybrid_blend_{type}.png",
+				dark:  base,
+				light:  land_template("m"),
+			)
+		else if multi and artifact then
+			masked_blend(
+				mask: "/magic-m15-future.mse-style/artifact_blend_{type}.png",
+				dark: template("a"),
+				light: masked_blend(
+					mask: "/magic-m15-future.mse-style/multicolor_blend_{type}.png",
+					dark: template("m"),
+					light: base
+				)
+			)
+		else if multi then 
+			masked_blend(
+				mask:  "/magic-m15-future.mse-style/multicolor_blend_{type}.png",
+				dark:  template("m"),
+				light: base,
+			)
+		else if artifact then 
+			masked_blend(
+				mask:  "/magic-m15-future.mse-style/artifact_blend_{type}.png",
+				dark:  template("a"),
+				light: base,
+			)
+		else if color_count > 1 and mask_hybrid_with_land() then
+			masked_blend(
+				mask:  "/magic-m15-future.mse-style/hybrid_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else base
+	}
+	
+	paintbrush_color:= { if contains(card.card_color, match:"land") then "white"
+		else if contains(card.card_color, match:"artifact") or contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"white") then "black"
+		else "white"
+	}
+	typesymbol_color:= { if contains(card.card_color, match:"artifact") then "black"
+		else if contains(card.card_color, match:"land") and contains(card.card_color, match:"multicolor") and styling.colored_multicolor_land_name then "black"
+		else if contains(card.card_color, match:"multicolor") then (
+			if card.card_color=="multicolor" then "black"
+			else if not contains(card.card_color, match:"white") then "white"
+			else if contains(card.card_color, match:"red") or contains(card.card_color, match:"green") then "white"
+			else "black"
+		) else if card.card_color == "white" then "black"
+		else if contains(card.card_color, match:"land") then (
+			if contains(card.card_color, match:"green") then "white"
+			else if contains(card.card_color, match:"red") then "white"
+			else if contains(card.card_color, match:"black") then "white"
+			else if contains(card.card_color, match:"blue") then "white"
+			else "black"
+		) else if card.card_color == "colorless" then "black"
+		else "white"
+	}
+	
+	card_shape := { if styling.shifted_sorting then "shifted planeswalker" else "planeswalker" }
+	
+	# Loyalty cost arrows
+	loyalty_image := {
+		if      contains(input, match: "+") then "loyalty up"
+		else if contains(input, match: "-") then "loyalty down"
+		else                                     "loyalty naught"
+	}
+	has_identity := { styling.color_indicator_dot }
+	is_unsorted := {styling.remove_from_autocount}
+	is_hybrid := {contains(card.card_color, match:"hybrid")}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: original symbols
+	description: Should these cards use the original type symbol?
+	initial: no
+styling field:
+	type: boolean
+	name: beleren
+	description: Should these cards use Beleren or the original font?
+	initial: yes
+styling field:
+	type: boolean
+	name: shifted sorting
+	description: Should this style of card sort as a shifted card (after other cards of that color)?
+	initial: no
+styling field:
+	type: boolean
+	name: use holofoil stamps
+	description: Change to no to disable rare holofoil stamps
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		mask: /magic-m15-future.mse-style/bordermask.png
+		z index: 3
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: { if card.card_symbol=="none" then 73 else 88 }
+		top : 30
+		width: { if card.card_symbol=="none" then 269 else 254 }
+		height: 26
+		alignment: middle shrink-overflow
+		padding bottom: 0
+		z index: 4
+		font:
+			name: { if styling.beleren then "Beleren" else "Matrix" }
+			size: { if styling.beleren then "16" else "18" }
+			color:
+				script:
+					if is_hybrid() then "black" else
+					if styling.grey_hybrid_name and contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"horizontal") or
+					   contains(card.card_color, match:"radial") or
+					   contains(card.card_color, match:"vertical") and
+					   not contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") and
+					   contains(card.card_color, match:"black") and
+					   styling.colored_multicolor_land_name then rgb(255,255,255)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if styling.grey_hybrid_name and contains(card.card_color, match:"hybrid") then rgb(0,0,0)
+					else if contains(card.card_color, match:"artifact") then (
+						if contains(card.card_color, match:"blue") or
+						   contains(card.card_color, match:"black") or
+						   contains(card.card_color, match:"red") or
+						   contains(card.card_color, match:"green") then rgb(255,255,255)
+						else rgb(0,0,0)
+					) else font_color(card.card_color)
+	casting cost:
+		left: 4
+		top: 39
+		height: 254
+		width: 82
+		alignment: top left
+		direction: vertical
+		symbol font:
+			name: magic-mana-future
+			size: 22
+			scale down to: 22
+			alignment: bottom right
+		always symbol: true
+		z index: 4
+		padding top: 0
+		mask: /magic-m15-future.mse-style/costmask.png
+	card symbol:
+		left: {if card.card_symbol=="none" then 50 else 67}
+		top : 31
+		height: 20
+		width: 14
+		z index: 5
+		render style: image
+		choice images:
+			tombstone: /magic-m15-future.mse-style/tombstone.png
+	type symbol:
+		left: 24
+		top: 24
+		width: 21
+		height: 20
+		z index: 4
+		render style: image
+		choice images:
+			
+			artifact: { if styling.original_symbols then "/magic-future-common.mse-include/artifact_" + typesymbol_color(value) + ".png" }
+			creature: { if styling.original_symbols then "/magic-future-common.mse-include/creature_" + typesymbol_color(value) + ".png" }
+			enchantment: { if styling.original_symbols then "/magic-future-common.mse-include/enchantment_" + typesymbol_color(value) + ".png" }
+			instant: { if styling.original_symbols then "/magic-future-common.mse-include/instant_" + typesymbol_color(value) + ".png"}
+			land: { if styling.original_symbols then "/magic-future-common.mse-include/land_" + typesymbol_color(value) + ".png" }
+			multitype: { if styling.original_symbols then "/magic-future-common.mse-include/multitype_" + typesymbol_color(value) + ".png" }
+			sorcery: { if styling.original_symbols then "/magic-future-common.mse-include/sorcery_" + typesymbol_color(value) + ".png" }
+			planeswalker: { if styling.original_symbols then "/magic-future-common.mse-include/planeswalker_" + typesymbol_color(value) + ".png" }
+	############################# Image
+	image:
+		left: 32
+		top: 44
+		width: 327
+		height: 250
+		z index: 1
+		mask: /magic-m15-future.mse-style/mask_image.png
+	############################# Card type
+	type:
+		left: 49
+		top : 300
+		width: { 300 - max(21,card_style.rarity.content_width) }
+		height: 20
+		alignment: middle shrink-overflow
+		z index: 4
+		padding top: 2
+		font:
+			name: { if styling.beleren then "Beleren" else "Matrix" }
+			size: { if styling.beleren then "12" else "14" }
+			color:
+				script:
+					if is_hybrid() then "black" else
+					if styling.grey_hybrid_name and contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"horizontal") or
+					   contains(card.card_color, match:"radial") or
+					   contains(card.card_color, match:"vertical") and
+					   not contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") and
+					   contains(card.card_color, match:"black") and
+					   styling.colored_multicolor_land_name then rgb(255,255,255)
+					else if contains(card.card_color, match:"land") and
+					   contains(card.card_color, match:"multicolor") then rgb(0,0,0)
+					else if styling.grey_hybrid_name and contains(card.card_color, match:"hybrid") then rgb(0,0,0)
+					else if contains(card.card_color, match:"artifact") then (
+						if contains(card.card_color, match:"blue") or
+						   contains(card.card_color, match:"black") or
+						   contains(card.card_color, match:"red") or
+						   contains(card.card_color, match:"green") then rgb(255,255,255)
+						else rgb(0,0,0)
+					) else font_color(card.card_color)
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 353
+		top : 303
+		width: 22
+		height: 22
+		z index: 4
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# Text box
+	text:
+		left: 66
+		top : 330
+		width: 276
+		height: 135
+		font:
+			name: MPlantin
+			size: 14
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		paragraph height: 46
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 4
+		mask: text_mask.png
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	watermark:
+		left: 127
+		top : 321
+		width: 132
+		height: 152
+		z index: 3
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# Loyalty
+	loyalty:
+		z index: 5
+		left:	307
+		top:	460
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: { if styling.beleren then "Beleren Bold" else "MatrixBoldSmallCaps" }
+			size: { if styling.beleren then 14 else 16 }
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 1:
+		z index: 5
+		left:	{ if card.loyalty_cost_1 == "0" then 33 else 32 }
+		top:	334
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: { if styling.beleren then "Beleren Bold" else "MPlantin" }
+			size: { if styling.beleren then 12 else 11 }
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 2:
+		z index: 5
+		left:	{ if card.loyalty_cost_2 == "0" then 33 else 32 }
+		top:	381
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: { if styling.beleren then "Beleren Bold" else "MPlantin" }
+			size: { if styling.beleren then 12 else 11 }
+			weight: bold
+			color: rgb(255,255,255)
+	loyalty cost 3:
+		z index: 5
+		left:	{ if card.loyalty_cost_3 == "0" then 33 else 32 }
+		top:	426
+		width:	13.16
+		height:	34.63
+		alignment: center middle
+		font:
+			name: { if styling.beleren then "Beleren Bold" else "MPlantin" }
+			size: { if styling.beleren then 12 else 11 }
+			weight: bold
+			color: rgb(255,255,255)
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 4
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top : 497.5
+		width: 200
+		height: 10
+		z index: 4
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.5
+			color: white
+	copyright:
+		right: 350
+		top : { if card.loyalty != "" then 495 else 488 }
+		width: 140
+		height: 10
+		visible: {not set.automatic_copyright}
+		alignment: bottom right
+		z index: 4
+		font:
+			name: Matrix
+			size: 7
+			color: white
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: loyalty box
+	save value: false
+	editable: false
+	choice: loyalty
+extra card field:
+	type: choice
+	name: loyalty cost box 1
+	save value: false
+	editable: false
+	script: loyalty_image(card.loyalty_cost_1)
+extra card field:
+	type: choice
+	name: loyalty cost box 2
+	editable: false
+	script: loyalty_image(card.loyalty_cost_2)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 3
+	editable: false
+	script: loyalty_image(card.loyalty_cost_3)
+	save value: false
+extra card field:
+	type: choice
+	name: textbox
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: typeline
+	script: if is_hybrid() then "colorless, land" else card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: stamp
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: colon 1
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 2
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 3
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: choice
+	name: artist arrow
+	choice: artist arrow
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: future node
+	default: typesymbol_type(type: card.super_type)
+	card list visible: false
+	show statistics: false
+	choice: artifact
+	choice: creature
+	choice: enchantment
+	choice: fortress
+	choice: instant
+	choice: land
+	choice: multitype
+	choice: planeswalker
+	choice: sorcery
+	choice: aetherprint
+	choice: none
+	description: The card type symbol for this card
+extra card field:
+	type: choice
+	name: foil stamp
+	choice: stamp
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: legend symbol
+	default: "none"
+	choice: none
+	choice: legend
+	description: the legend symbol for this card.
+extra card style:
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 4
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	textbox:
+		left: 23
+		top: 320
+		width: 335
+		height: 152
+		render style: image
+		popup style: in place
+		image: { card_textbox() }
+		z index: 2
+	typeline:
+		left: 18
+		top: 17
+		width: 339
+		height: 464
+		render style: image
+		popup style: in place
+		image: { card_typeline() }
+		z index: 3
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top : 500
+		width: 12
+		height: 7
+		z index: 4
+		render style: image
+		image: artist_arrow.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 6
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	loyalty box:
+		right: 343
+		top: 457
+		width: 60
+		height: 38
+		z index: 4
+		render style: image
+		visible: { card.loyalty !="" }
+		choice images:
+			loyalty: loyalty.png
+	loyalty cost box 1:
+		left: 18
+		top: 332
+		width: 42
+		height: 40
+		z index: 4
+		render style: image
+		visible: { card.loyalty_cost_1 !="" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 2:
+		left: 18
+		top: 379
+		width: 42
+		height: 40
+		z index: 4
+		render style: image
+		visible: { card.loyalty_cost_2 !="" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 3:
+		left: 18
+		top: 424
+		width: 42
+		height: 40
+		z index: 4
+		render style: image
+		visible: { card.loyalty_cost_3 !="" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	colon 1:
+		left: 59
+		top: 346
+		width: 5
+		height: 10
+		z index: 4
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_1 !="" }
+	colon 2:
+		left: 59
+		top: 392
+		width: 5
+		height: 10
+		z index: 4
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_2 !="" }
+	colon 3:
+		left: 59
+		top: 437
+		width: 5
+		height: 10
+		z index: 4
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: rgb(0,0,0)
+		alignment: middle center
+		visible: { card.loyalty_cost_3 !="" }
+	future node:
+		left: { if styling.original_symbols then 0 else 19 }
+		top: { if styling.original_symbols then 0 else 18 }
+		width: { if styling.original_symbols then 0 else 30 }
+		height: { if styling.original_symbols then 0 else 30 }
+		z index: 4
+		render style: image
+		choice images:
+			artifact: artifact.png
+			creature: creature.png
+			enchantment: enchantment.png
+			fortress: fortress.png
+			instant: instant.png
+			land: land.png
+			multitype: multitype.png
+			sorcery: sorcery.png
+			planeswalker: planeswalker.png
+			aetherprint: aetherprint.png
+	stamp:
+		left: 170
+		top: 472
+		width: 36.5
+		height: 22.5
+		z index: 3
+		visible: { is_rare() and styling.use_holofoil_stamps }
+		render style: image
+		mask: futurestampmask.png
+		image: { card_stamp() }
+	foil stamp:
+		left: 170
+		top: 475
+		width: 36.5
+		height: 22.5
+		z index: 4
+		visible: { is_rare() and styling.use_holofoil_stamps }
+		render style: image
+		image: foil_stamp.png
+	auto copyright:
+		right: 350
+		top : { if card.loyalty != "" then 495 else 488 }
+		width: 140
+		height: 10
+		visible: {set.automatic_copyright}
+		alignment: bottom right
+		z index: 4
+		font:
+			name: Matrix
+			size: 7
+			color: white
+	legend symbol:
+		left: 19
+		top: 296
+		width: 29
+		height: 29
+		z index: 6
+		alignment: middle right
+		render style: image
+		choice images:
+			legend: legend.png

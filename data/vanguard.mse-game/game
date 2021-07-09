@@ -1,0 +1,1292 @@
+﻿mse version: 2.0.0
+short name: Vanguard
+full name: Magic Vanguard
+installer group: Magic Vanguard/game files
+icon: card-sample.png
+position hint: 02
+
+version: 2014-03-25
+
+############################################################## Functions & filters
+# General functions
+init script:
+	############################################################## Sorting mana symbols
+	
+	# correctly sort a mana symbol (no guild mana)
+	mana_sort       := sort_text@(order: "XYZI[0123456789]HS(WUBRG)")
+	# correctly sort guild mana
+	mana_sort_guild := sort_text@(order: "[XYZI01234567890HSWUBRG/|]") +
+			replace@(
+				match: "./.|././.|./././.|.[|]",
+				in_context: "(^|[^/])<match>($|[^/])",
+				replace: {sort_text(order:"in_place((WUBRG)")}
+			)
+	mana_has_guild := match@(match: "[/|]") # Is there guild or half mana in the input?
+	# A mana cost can contain both normal and guild mana
+	mana_filter := to_upper + {
+		if mana_has_guild() then mana_sort_guild()
+		else                     mana_sort()
+	}
+	# Like mana filter, only also allow tap symbols:
+	tap_filter := sort_text@(order: "<CTQ>")
+	mana_filter_t := replace@(               # Remove [] used for forcing mana symbols
+				match: "[\\[\\]]",
+				replace: ""
+			) + { tap_filter() + mana_filter() }
+	
+	############################################################## Utilities for keywords
+	
+	# replaces — correctly
+	add := "" # default is nothing
+	for_mana_costs := format_cost := {
+		if input.separator_before == "—" and contains(input.param, " ") then (
+			if contains(input.param, match:",") then (
+				if match(match: "^[HSCTQXYZIWUBRG0-9/|]+,", input.param) then
+					"{add}<param-cost>{combined_cost(input.param)}</param-cost>"
+				else "<param-cost>{combined_cost(input.param)}</param-cost>"
+			) else
+				"<param-cost>{alternative_cost(input.param)}</param-cost>"
+		) else
+			"{add}<param-mana>{input.param}</param-mana>"
+	}
+	alternative_cost := replace@(match:"^[A-Z]", replace: { to_lower() })
+	combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
+		replace@(match:",", replace:" and")+
+		replace@(match:"^[HSCTQXYZIWUBRG0-9/|]", in_context: "(^|[[:space:]])<match>", replace: "<sym-auto>&</sym-auto>")+
+		replace@(match:"^[A-Z]", replace: { to_lower() })
+	long_dash := replace@(match:"-", replace:"—")
+	
+	# Converted mana cost
+	is_half_mana    := match@(match: "1/2|[|][WUBRGS]")
+	is_colored_mana := match@(match: "[WUBRG]")
+	only_numbers    := filter_text@(match: "^[0123456789]+")
+	cmc_split := break_text@(match: "(?ix) 1/2 | [|][WUBRG] | [0-9]+(?!/[WUBRGSCTQ2]) | [WUBRGHS0-9](/[WUBRGS])\{0,4} ")
+	cmc := {to_number(
+		for each sym in cmc_split() do (
+			numbers := only_numbers(sym)
+			if is_half_mana(sym)  then 0.5
+			else if numbers != "" then max(1, to_int(numbers))
+			else                       1 # all other symbols are 1
+		))
+	}
+
+	colored_mana := {to_number(
+		for each sym in cmc_split() do (
+			numbers := only_numbers(sym)
+			if is_colored_mana(sym) then
+				if is_half_mana(sym) then 0.5 else 1
+			else 0
+		))
+	}
+	
+	############################################################## The text box
+	
+	# Filters for the text box
+	# context in which mana symbols are found
+	mana_context :=
+		"(?ix)				# case insensitive, ignore whitespace
+		 (^|[[:space:]\"(])		# start of a word
+		 (  <match>:			# G: something
+		 |  <match>,			# G, tap: something
+		 |  <match>[ ]can[ ]be[ ]pay
+		 |  (pays?|additional|costs?|the	# pay X. creatures cost 1 less. pay an additional G.
+		    |adds?|pay(ed)?[ ](with|using)
+		    )
+		    ([ ]either)?			 # pay either X or Y
+		    ([ ]<sym[^>]*>[CTQHSXYZIWUBRG0-9/|]+</sym[^>]*>[ ](and|or))* # pay X or Y
+		    [ ]<match> 
+		    ([,.)]|$				# (end of word)
+		    |[ ][^ .,]*$			# still typing...
+		    |[ ]( or | and | in | less | more | to ) # or next word is ...
+		    )
+	         )
+		 |  <param-mana><match></param-mana>	# keyword argument that is declared as mana
+		 |  <param-cost>[ ]*<match></param-cost>	# keyword argument that is declared as cost
+		 |  <param-cost><match>,		# keyword argument that is declared as cost
+		 ";
+	# the rule text filter
+	#  - adds mana symbols
+	#  - makes text in parentheses italic
+	text_filter := 
+		# step 1 : remove all automatic tags
+		remove_tag@(tag: "<sym-auto>") +
+		remove_tag@(tag: "<i-auto>")   +
+		remove_tag@(tag: "<nospellcheck") +
+		# step 2 : reminder text for keywords
+		expand_keywords@(
+			condition: {
+				correct_case or (mode != "pseudo" and not used_placeholders)
+			}
+			default_expand: {
+				chosen(choice:if correct_case then mode else "lower case", set.automatic_reminder_text)
+			},
+			combine: {
+				keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+				reminder := process_english_hints(reminder)
+				if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
+				else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" }
+			) +
+		# step 2b : move inline keywords' reminder text to the end of the line
+		replace@(
+			match: "(<atom-reminder-core>.*</atom-reminder-core></kw[^>]*>)([^\n(]+)",
+			replace: "\\2\\1"
+			) +
+		replace@(
+			match: "(<atom-reminder-old>.*</atom-reminder-old></kw[^>]*>)([^\n(]+)",
+			replace: "\\2\\1"
+			) +
+		replace@(
+			match: "(<atom-reminder-expert>.*</atom-reminder-expert></kw[^>]*>)([^\n(]+)",
+			replace: "\\2\\1"
+			) +
+		# step 3 : expand shortcut words ~ and CARDNAME
+		replace@(
+			match: "CARDNAME",
+			in_context: "(^|[[:space:]]|\\()<match>",
+			replace: "<atom-cardname></atom-cardname>"
+			) +
+		# step 4 : fill in atom fields
+		tag_contents@(
+			tag: "<atom-cardname>",
+			contents: { if card.name=="" then "CARDNAME" else card.type + " - " + card.name }
+			) +
+		# step 4.5 : explict non mana symbols
+		replace@(
+			match: "\\][HSCTQXYZIWUBRG0-9/|]+\\[",
+			replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
+		# step 5 : add mana & tap symbols
+		replace@(
+			match: "[HSCTQXYZIWUBRG0-9/|]+",
+			in_context: mana_context,
+			replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
+		# step 5b : add explict mana symbols
+		replace@(
+			match: "\\[[HSCTQXYZIWUBRG0-9/|]+\\]",
+			replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
+		# step 7 : italic reminder text
+		replace@(
+		 	match: "[(][^)\n]*[)]?",
+			in_context: "(^|[[:space:]])<match>|<atom-keyword><match></>",
+		 	replace: "<i-auto>&</i-auto>") +
+		# step 8 : automatic capitalization, but not after "("
+		replace@(
+			match: "[a-z]",
+			in_context: "[ ]*: <match>|—<match>| — <match>",
+			replace: { to_upper() })+
+		curly_quotes
+	
+	############################################################## Other boxes
+	# the flavor text filter
+	#  - makes all text italic
+	flavor_text_filter :=
+		# step 2 : remove italic tags
+		remove_tag@(tag: "<i-flavor>")   +
+		# step 3 : surround by <i> tags
+		{ "<i-flavor>" + input + "</i-flavor>" } +
+		# curly quotes
+		curly_quotes
+	
+	# Process the name for sorting rules
+	sort_name :=
+		# Remove "The", "A", and "And" at the beginning
+		replace@(match: "^(The|An?) ", replace: "") +
+		# Remove commas and apostrophes
+		replace@(match: "(,|'|’)", replace: "") +
+		# Remove bold and italic tags
+		replace@(match: "(<b>|<i>|</b>|</i>)", replace: "") +
+		# Make lowercase
+		to_lower
+	
+	#Necessary to make magic-mana-future play nicely
+	colorless_color := { "c" }
+	
+	word_count := break_text@(match:"[^[:space:]]+") + length
+	line_count := split_text@(match:"\n+",include_empty:false) + length
+	
+############################################################## Set fields
+set field:
+	type: info
+	name: Set Information
+set field:
+	type: text
+	name: title
+set field:
+	type: text
+	name: description
+	multi line: true
+set field:
+	type: text
+	name: artist
+set field:
+	type: text
+	name: copyright
+set field:
+	type: info
+	name: Defaults and Automation
+set field:
+	type: color
+	name: border color
+	description: The default border color for cards
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	choice:
+		name: silver
+		color: rgb(128,128,128)
+	choice:
+		name: gold
+		color: rgb(200,180,0)
+set field:
+	type: multiple choice
+	name: automatic reminder text
+	choice: old
+	choice: core
+	choice: expert
+	choice: pseudo
+	choice: custom
+	initial: old, pseudo, custom
+	# Convert from older mse versions
+	script:
+		if value = "yes" then "old, core, expert, custom"
+		else if value = "no" then ""
+		else value
+	description: For which kinds of keywords should reminder text be added by default? Note: you can enable/disable reminder text by right clicking the keyword.
+set field:
+	type: boolean
+	name: automatic card numbers
+	initial: no
+	description: Should card numbers be shown on the cards?
+############################# Default style
+default set style:
+	title:
+		padding left: 2
+		font:
+			size: 16
+	automatic reminder text:
+		render style: checklist
+		direction: vertical
+############################################################## Card fields
+############################# Background stuff
+card field:
+	type: color
+	name: border color
+	default: set.border_color
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	choice:
+		name: silver
+		color: rgb(128,128,128)
+	choice:
+		name: gold
+		color: rgb(200,180,0)
+	show statistics: false
+	description: The border of the card; can be any solid color
+card field:
+	type: choice
+	name: background
+	choice: normal
+	show statistics: false
+	editable: false
+############################# Name line
+card field:
+	type: text
+	name: name
+	identifying: true
+	show statistics: false
+	card list visible: true
+	card list column: 1
+	card list width: 150
+	description: The name of the card
+############################# Image
+card field:
+	type: image
+	name: image
+	show statistics: false
+	description: The image of the card
+############################# Card type
+card field:
+	type: text
+	name: type
+	card list visible: true
+	card list column: 2
+	description: The type of the card
+	icon: stats/card_type.png
+############################# Text box
+card field:
+	type: text
+	name: rule text
+	script: text_filter(value)
+	show statistics: false
+	multi line: true
+	description: The rules text of the card
+card field:
+	type: text
+	name: flavor text
+	script: flavor_text_filter(value)
+	show statistics: false
+	multi line: true
+	description: The flavor text of the card
+############################# PT
+card field:
+	type: text
+	name: handmod
+	card list visible: true
+	card list column: 3
+	card list width: 50
+	card list name: hand
+	show statistics: false
+	description: The starting and maximum hand size modifier
+card field:
+	type: text
+	name: lifemod
+	card list visible: true
+	card list column: 4
+	card list width: 50
+	card list name: life
+	show statistics: false
+	description: The starting life total modifier
+############################# Card sorting / numbering
+card field:
+	type: text
+	name: card number
+	save value: false
+	script:
+		position(
+			of: card
+			in: set
+			order_by: { sort_name(card.name) }
+		) + 1
+		+ "/" +
+		number_of_items(in: set)
+	card list visible: true
+	card list column: 10
+	card list width: 50
+	card list name: #
+	editable: false
+	show statistics: false
+############################# Copyright stuff
+card field:
+	type: text
+	name: illustrator
+	default: set.artist
+	description: The illustrator of the image
+	icon: stats/illustrator.png
+card field:
+	type: text
+	name: copyright
+	default: set.copyright
+	show statistics: false
+	editable: false
+card field:
+	type: text
+	name: copyright line
+	save value: false
+	show statistics: false
+	script:
+		if set.automatic_card_numbers then
+			combined_editor(field1: card.copyright, separator: " ", field2: card.card_number)
+		else
+			forward_editor(field: card.copyright)
+	description: The copyright and card number of the card
+############################################################### Extra Statistics
+statistics dimension:
+	name: hand size modifier
+	script: card.handmod
+	icon: stats/number.png
+statistics dimension:
+	name: life total modifier
+	script: card.lifemod
+	icon: stats/number.png
+statistics dimension:
+	name: text length (words)
+	position hint: 100
+	script: word_count(to_text(card.rule_text))
+	numeric: true
+	bin size: 5
+	icon: stats/text_length.png
+statistics dimension:
+	name: text length (lines)
+	position hint: 101
+	script: line_count(to_text(card.rule_text))
+	numeric: true
+	icon: stats/text_length.png
+statistics dimension:
+	name: keywords
+	position hint: 1000
+	script: keyword_usage(unique:true)
+	show empty: false
+	split list: true
+	icon: stats/keywords.png
+statistics dimension:
+	name: style
+	position hint: 1001
+	script: stylesheet.short_name
+	icon: stats/stylesheet.png
+############################################################## Auto replace
+# Do we need categories?
+#auto replace category: text box
+#auto replace category: copyright
+#auto replace category: everywhere
+auto replace:
+	match: (C)
+	replace: ©
+auto replace:
+	match: AE
+	replace: Æ
+	whole word: false
+auto replace:
+	match: TM
+	replace: ™
+	whole word: false
+auto replace:
+	match: --
+	replace: —
+auto replace:
+	# note the spaces
+	match:
+		 - 
+	replace:
+		 — 
+auto replace:
+	match: CIP
+	replace: enters the battlefield
+auto replace:
+	match: AAA
+	replace: as an additional cost to cast
+auto replace:
+	match: ~
+	replace: CARDNAME
+auto replace:
+	match: '
+	replace: ’
+############################################################## Card pack items
+pack type:
+	name: card
+	filter: card.name != ""
+############################################################## Card packs
+pack type:
+	name: booster pack
+	item:
+		name: card
+		amount: 1
+############################################################## Keywords
+############################# Keyword rules
+
+has keywords: true
+
+#keyword preview: {keyword} <i>({reminder})</i>
+
+keyword mode:
+	name: old
+	description: Old keywords (Banding, Phasing, etc.)
+keyword mode:
+	name: core
+	description: Core set keywords (Flying, Regenerate, etc.)
+keyword mode:
+	name: expert
+	description: Expert level keywords (Scry, Vanishing, etc.)
+keyword mode:
+	name: pseudo
+	description: Pseudo keyword / named ability (Hellbent, Threshold, etc.)
+keyword mode:
+	is default: true
+	name: custom
+	description: Custom keywords
+
+keyword parameter type:
+	name: mana
+	match: [HSCTQXYZI0-9WUBRG/|]+
+	refer script:
+		name: normal
+		description: No changes made
+		script: \{{input}\}
+	refer script:
+		name: converted mana cost
+		description: Converts mana to number
+		# "0" left in so users can easily see how to edit script.
+		script: \{cmc({input}) + 0\}
+	refer script:
+		name: colored mana cost
+		description: Converts mana to number of colored mana
+		# "0" left in so users can easily see how to edit script.
+		script: \{colored_mana({input}) + 0\}
+# By pichoro and bunnierein
+keyword parameter type:
+	name: cost
+	match: [ ][HSCTQXYZI0-9WUBRG/|]*|[-—][^(\n]*
+	separator before is: [ —-]
+	separator after is: [.]
+	optional: false
+	# note: the separator is part of match
+	refer script:
+		name: normal
+		description: When using mana only costs, doesn't include anything extra in the reminder text
+		script: \{{input}\}
+	refer script:
+		name: add "pay an additional " for mana costs
+		description: When using mana only costs, words the reminder text as "pay an additional <cost>"
+		script: \{for_mana_costs(add:"pay an additional ",{input})\}
+	refer script:
+		name: add "pay " for mana costs
+		description: When using mana only costs, words the reminder text as "pay <cost>"
+		script: \{for_mana_costs(add:"pay ",{input})\}
+	separator script: long_dash()
+keyword parameter type:
+	name: number
+	match: [XYZ0-9]+
+	refer script:
+		name: normal
+		description: (1,2,3)
+		script: \{{input}\}
+	refer script:
+		name: as words
+		description: (one, two, three)
+		script: \{english_number({input})\}
+	refer script:
+		name: as words, use "a" for 1
+		description: (a, two, three)
+		script: \{english_number_a({input})\}
+	refer script:
+		name: as words, use "" for 1
+		description: (, two, three)
+		script: \{english_number_multiple({input})\}
+keyword parameter type:
+	name: action
+	match: [^(:\n]+
+	separator after is: [.]
+	reminder script: alternative_cost()
+keyword parameter type:
+	name: one_word
+	match: [A-Za-z0-9]+
+keyword parameter type:
+	name: name
+	match: [^(.:;\n—]+
+	refer script:
+		name: normal
+		description: No changes made.
+		script: \{{input}\}
+	refer script:
+		name: singular
+		description: Removes plurality from words.
+		script: \{english_singular({input})\}
+keyword parameter type:
+	name: english_number
+	match: [ upto]*[(an? |one |two |three |four |five |six |seven |eight |nine |ten )]*
+keyword parameter type:
+	name: prefix
+	description: Prefix for things like "<something>walk"
+	optional: false
+	match: [A-Z][A-Z,a-z’ ]*
+	example: Forest
+keyword parameter type:
+	name: a
+	match: [an?]*
+keyword parameter type:
+	name: nonland
+	match: ( n?o?n?l?a?n?d? ?)
+############################# All Magic keywords
+# By JrEye and Neko_Asakami, Updated by Pichoro and Buttock1234
+keyword:
+	keyword: Flying
+	match: flying
+	mode: core
+	reminder: It can’t be blocked except by creatures with flying or reach.
+keyword:
+	keyword: First strike
+	match: first strike
+	mode: core
+	reminder: It deals combat damage before creatures without first strike.
+keyword:
+	keyword: Trample
+	match: trample
+	mode: core
+	reminder: If it would deal enough combat damage to its blockers to destroy them, you may have it deal the rest of its damage to defending player or planeswalker.
+keyword:
+	keyword: Banding
+	match: banding
+	mode: old
+	reminder: Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature’s combat damage, not its controller, among any of the creatures it’s being blocked by or is blocking.
+keyword:
+	keyword: Landwalk
+	match: <atom-param>prefix</atom-param>walk
+	mode: core
+	reminder: This creature is unblockable as long as defending player controls a {if match(param1.value, match: " land$") or contains(param1.value, match: "Snow") or contains(param1.value, match:"Basic") or contains(param1.value, match:"Legendary") then "{to_lower(param1)}" else "{param1}"}.
+keyword:
+	keyword: Protection from
+	match: protection from <atom-param>name</atom-param>
+	mode: core
+	reminder: It can’t be blocked, targeted, dealt damage, enchanted, or equipped by anything {english_singular(param1)}.
+keyword:
+	keyword: Regeneration
+	match: Regenerate
+	mode: core
+	reminder: The next time it would be destroyed this turn, it isn’t. If it is a creature, instead tap it, remove all damage from it, and remove it from combat.
+keyword:
+	keyword: Bands with other
+	match: bands with other <atom-param>name</atom-param>
+	mode: old
+	reminder: Any {param1} can attack in a band as long as at least one has “bands with other {param1}.” Bands are blocked as a group. If at least two {param1} you control, one of which has “bands with other {param1},” are blocking or being blocked by the same creature, you divide that creature’s combat damage, not its controller, among any of the creatures it’s being blocked by or is blocking.
+keyword:
+	keyword: Rampage
+	match: rampage <atom-param>number</atom-param>
+	mode: old
+	reminder: Whenever it becomes blocked, it gets +{param1}/+{param1} until end of turn for each creature blocking it beyond the first.
+keyword:
+	keyword: Cumulative upkeep
+	match: cumulative upkeep <atom-param>cost</atom-param>
+	mode: old
+	reminder: At the beginning of your upkeep, put an age counter on it, then sacrifice it unless you pay its upkeep cost for each age counter on it.
+keyword:
+	keyword: Phasing
+	match: phasing
+	mode: old
+	reminder: It phases in or out before you untap during each of your untap steps. While it’s phased out, it’s treated as though it doesn’t exist.
+keyword:
+	keyword: Flanking
+	match: flanking
+	mode: expert
+	reminder: Whenever a creature without flanking blocks the creature, the blocking creature gets -1/-1 until end of turn.
+keyword:
+	keyword: Shadow
+	match: shadow
+	mode: expert
+	reminder: It can block or be blocked by only creatures with shadow.
+keyword:
+	keyword: Denimwalk
+	match: denimwalk
+	mode: old
+	reminder: If defending player is wearing any clothing made of denim, the creature is unblockable.
+keyword:
+	keyword: Buyback
+	match: buyback <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may {for_mana_costs(add:"pay an additional ",param1)} as you cast it. If you do, put it into your hand as it resolves.
+keyword:
+	keyword: Echo
+	match: echo <atom-param>cost</atom-param>
+	mode: expert
+	reminder: At the beginning of your upkeep, if the permanent came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.
+keyword:
+	keyword: Cycling
+	match: cycling <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}, Discard it: Draw a card.
+keyword:
+	keyword: Haste
+	match: haste
+	mode: core
+	reminder: It can attack and <sym>T</sym> as soon as it comes under your control.
+keyword:
+	keyword: Horsemanship
+	match: horsemanship
+	mode: old
+	reminder: It can’t be blocked except by creatures with horsemanship.
+keyword:
+	keyword: Fading
+	match: fading <atom-param>number</atom-param>
+	mode: expert
+	reminder: It enters the battlefield with {english_number_a(param1)} fade counter(s) on it. At the beginning of your upkeep, remove a fade counter from it. If you can’t, sacrifice it.
+keyword:
+	keyword: Kicker
+	match: kicker <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may {for_mana_costs(add:"pay an additional ",param1)} as you cast the card.
+keyword:
+	keyword: Flashback
+	match: flashback <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may cast it from your graveyard for its flashback cost. Then exile it.
+keyword:
+	keyword: Threshold
+	match: Threshold
+	mode: pseudo
+	rules: Threshold — [effect] as long as seven or more cards are in your graveyard.
+keyword:
+	keyword: Madness
+	match: madness <atom-param>cost</atom-param>
+	mode: expert
+	reminder: If you discard it, you may cast it for its madness cost instead of putting it into your graveyard.
+keyword:
+	keyword: Morph
+	match: morph <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may cast it face down as a 2/2 creature for <sym>3</sym>. Turn it face up any time for its morph cost.
+keyword:
+	keyword: Fear
+	match: fear
+	mode: old
+	reminder: It can’t be blocked except by artifact creatures and/or black creatures.
+keyword:
+	keyword: Amplify
+	match: amplify <atom-param>number</atom-param>
+	mode: expert
+	reminder: As it enters the battlefield, put {english_number_a(param1)} +1/+1 counter(s) on it for each creature that shares a type with it that you reveal in your hand.
+keyword:
+	keyword: Double strike
+	match: double strike
+	mode: core
+	reminder: It deals both first-strike and regular combat damage.
+keyword:
+	keyword: Provoke
+	match: provoke
+	mode: expert
+	reminder: When it attacks, you may have target creature defending player controls untap and block it if able.
+keyword:
+	keyword: Typecycling
+	match: <atom-param>prefix</atom-param>cycling <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param2}, Discard it: Search your library for a {param1} card, reveal it, and put it into your hand. Then shuffle your library.
+keyword:
+	keyword: Storm
+	match: storm
+	mode: expert
+	reminder: When you cast it, copy it for each spell cast before it this turn. You may choose new targets for the copies.
+keyword:
+	keyword: Affinity for
+	match: affinity for <atom-param>name</atom-param>
+	mode: expert
+	reminder: It costs <sym>1</sym> less to cast for each {english_singular(param1)} you control.
+keyword:
+	keyword: Entwine
+	match: entwine <atom-param>cost</atom-param>
+	mode: expert
+	reminder: Choose both if you pay the entwine cost.
+keyword:
+	keyword: Equip
+	match: equip <atom-param>cost</atom-param>
+	mode: core
+	reminder: {param1}: Attach to target creature you control. Equip only as a sorcery.
+keyword:
+	keyword: Imprint
+	match: Imprint
+	mode: pseudo
+	rules: Imprint — When it enters the battlefield, you may exile a [something] from [somewhere].
+keyword:
+	keyword: Modular
+	match: modular <atom-param>number</atom-param>
+	mode: expert
+	reminder: It enters the battlefield with {english_number_a(param1)} +1/+1 counter(s) on it. When it’s put into a graveyard, you may put its +1/+1 counters on target artifact creature.
+keyword:
+	keyword: Scry
+	match: Scry <atom-param>number</atom-param>
+	mode: expert
+	reminder:
+		To scry {param1}, look at the top {
+		 if param1.value==1 then "card of your library, then you may put that card on the bottom of your library."
+		 else "{english_number(param1)} cards of your library. Put any number of them on the bottom of your library in any order and the rest on top in any order."
+		}
+keyword:
+	keyword: Sunburst
+	match: sunburst
+	mode: expert
+	reminder: It enters the battlefield with a +1/+1 counter on it for each color of mana spent to cast it. If it isn’t a creature, use charge counters instead.
+keyword:
+	keyword: Art rampage
+	match: art rampage <atom-param>number</atom-param>
+	mode: expert
+	reminder: Whenever it blocked by a creature, it gets +{param1}/+{param1} for each creature in the blocker’s art beyond the first.
+keyword:
+	keyword: Super haste
+	match: Super haste
+	mode: expert
+	reminder: It may attack the turn before you cast it. (You may have it enter the battlefield from your hand, tapped and attacking, during your declare attackers step. If you do, you lose the game at the end of your next turn unless you pay its mana cost during that turn.)
+keyword:
+	keyword: Gotcha
+	match: Gotcha
+	mode: pseudo
+	rules: Gotcha — Whenever an opponent [does something], you may say “Gotcha!”. If you do, return [something] from your graveyard to your hand.
+keyword:
+	keyword: Splice
+	match: splice onto <atom-param>name</atom-param> <atom-param>cost</atom-param>
+	mode: expert
+	reminder: As you cast a {param1} spell, you may reveal the card from your hand and pay its splice cost. If you do, add its effects to that spell.
+keyword:
+	keyword: Bushido
+	match: bushido <atom-param>number</atom-param>
+	mode: expert
+	reminder: When it blocks or becomes blocked, it gets +{param1}/+{param1} until end of turn.
+keyword:
+	keyword: Soulshift
+	match: soulshift <atom-param>number</atom-param>
+	mode: expert
+	reminder: When it is put into a graveyard from the battlefield, you may return target Spirit card with converted mana cost {param1} or less from your graveyard to your hand.
+keyword:
+	keyword: Enchant
+	match: enchant <atom-param>name</atom-param>
+	mode: core
+	reminder: Target a {param1} as you cast the card. The card enters the battlefield attached to that {param1}.
+keyword:
+	keyword: Vigilance
+	match: vigilance
+	mode: core
+	reminder: Attacking doesn’t cause it to tap.
+keyword:
+	keyword: Defender
+	match: defender
+	mode: core
+	reminder: It can’t attack.
+keyword:
+	keyword: Offering
+	match: <atom-param>prefix</atom-param> offering
+	mode: expert
+	reminder: You may cast it any time you could cast an instant by sacrificing a {param1} and paying the difference in mana costs between it and the sacrificed {param1}. Mana cost includes color.
+keyword:
+	keyword: Ninjutsu
+	match: ninjutsu <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}, Return an unblocked attacker you control to hand: Put it onto the battlefield from your hand tapped and attacking.
+keyword:
+	keyword: Epic
+	match: epic
+	mode: expert
+	reminder: For the rest of the game, you can’t cast spells. At the beginning of each of your upkeeps, copy the card except for its epic ability. If it has any targets, you may choose new targets for the copy.
+keyword:
+	keyword: Channel
+	match: Channel
+	mode: pseudo
+	rules: Channel — [cost], Discard a card: [effect].
+keyword:
+	keyword: Sweep
+	match: Sweep
+	mode: pseudo
+	rules: Sweep — Return any number of [basic land type] you control to their owner’s hand. [effect based on number of lands returned].
+keyword:
+	keyword: Convoke
+	match: convoke
+	mode: expert
+	reminder: Each creature you tap while casting the card reduces its cost by <sym>1</sym> or by one mana of that creature’s color.
+keyword:
+	keyword: Transmute
+	match: transmute <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}, Discard it: Search your library for a card with the same converted mana cost as the discarded card, reveal it, and put it into your hand. Then shuffle your library. Transmute only as a sorcery.
+keyword:
+	keyword: Dredge
+	match: dredge <atom-param>number</atom-param>
+	mode: expert
+	reminder: If you would draw a card, instead you may put exactly {english_number(param1)} card(s) from the top of your library into your graveyard. If you do, return the card from your graveyard to your hand. Otherwise, draw a card.
+keyword:
+	keyword: Radiance
+	match: Radiance
+	mode: pseudo
+	rules: Radiance — [effect to target permanent or spell and all cards of same card type that share a color with it].
+keyword:
+	keyword: Haunt
+	match: haunt
+	mode: expert
+	reminder: When it is put into a graveyard from the battlefield, or when it resolves if it is not a permanent, exile it haunting target creature.
+keyword:
+	keyword: Bloodthirst
+	match: bloodthirst <atom-param>number</atom-param>
+	mode: expert
+	reminder: If an opponent was dealt damage this turn, the permanent enters the battlefield with {english_number_a(param1)} +1/+1 counter(s) on it.
+keyword:
+	keyword: Replicate
+	match: replicate <atom-param>cost</atom-param>
+	mode: expert
+	reminder: When you cast it, copy it for each time you paid its replicate cost. You may choose new targets for the copies.
+keyword:
+	keyword: Graft
+	match: graft <atom-param>number</atom-param>
+	mode: expert
+	reminder: It enters the battlefield with {english_number_a(param1)} +1/+1 counter(s) on it. Whenever a creature enters the battlefield, you may move a +1/+1 counter from the permanent onto it.
+keyword:
+	keyword: Forecast
+	match: forecast — <atom-param>action</atom-param>, Reveal <atom-param>name</atom-param> from your hand: <atom-param>action</atom-param>
+	mode: expert
+	reminder: Activate the ability only during your upkeep and only once each turn.
+keyword:
+	keyword: Hellbent
+	match: Hellbent
+	mode: pseudo
+	rules: Hellbent — [effect] if you have no cards in hand.
+keyword:
+	keyword: Recover
+	match: recover <atom-param>cost</atom-param>
+	mode: expert
+	reminder: When a creature is put into your graveyard from the battlefield, you may {for_mana_costs(add:"pay ",param1)}. If you do, return the card from your graveyard to your hand. Otherwise, exile this card.
+keyword:
+	keyword: Ripple
+	match: ripple <atom-param>number</atom-param>
+	mode: expert
+	reminder: When you cast it, you may reveal the top {english_number_multiple(param1)} card(s) of your library. You may cast any revealed cards with the same name as the card without paying their mana costs. Put the rest on the bottom of your library.
+keyword:
+	keyword: Flash
+	match: flash
+	mode: core
+	reminder: You may cast it any time you could cast an instant.
+keyword:
+	keyword: Split second
+	match: split second
+	mode: expert
+	reminder: As long as it is on the stack, players can’t cast spells or activate abilities that aren’t mana abilities.
+keyword:
+	keyword: Suspend
+	match: suspend <atom-param>number</atom-param>—<atom-param>cost</atom-param>
+	mode: expert
+	reminder: Rather than cast it from your hand, you may pay {param2} and exile it with {english_number_a(param1)} time counter(s) on it. At the beginning of your upkeep, remove a time counter. When the last is removed, cast it without paying its mana cost. If it is a creature, it has haste.
+keyword:
+	keyword: Vanishing
+	match: vanishing <atom-param>number</atom-param>
+	mode: expert
+	reminder: It enters the battlefield with {english_number_a(param1)} time counter(s) on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.
+keyword:
+	keyword: Deathtouch
+	match: deathtouch
+	mode: expert
+	reminder: Any amount of damage it deals to a creature is enough to destroy it.
+keyword:
+	keyword: Reach
+	match: reach
+	mode: core
+	reminder: It can block creatures with flying.
+keyword:
+	keyword: Gravestorm
+	match: gravestorm
+	mode: expert
+	reminder: When you cast it, copy it for each permanent put into a graveyard this turn. You may choose new targets for the copies.
+keyword:
+	keyword: Lifelink
+	match: lifelink
+	mode: core
+	reminder: Damage dealt by it also causes you to gain that much life.
+keyword:
+	keyword: Absorb
+	match: absorb <atom-param>number</atom-param>
+	mode: expert
+	reminder: If a source would deal damage to it, prevent {param1} of that damage.
+keyword:
+	keyword: Fateseal
+	match: fateseal <atom-param>number</atom-param>
+	mode: expert
+	reminder:
+		Look at the top {
+		 if param1.value==1 then "card of an opponent’s library, then you may put it on the bottom of that player’s library."
+		 else "{english_number(param1)} cards of an opponent’s library, then put any number of them on the bottom of that player’s library and the rest on top in any order."
+		}
+keyword:
+	keyword: Transfigure
+	match: transfigure <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}, Sacrifice it: Search your library for a creature card with the same converted mana cost as the sacrificed card and put that card onto the battlefield. Then shuffle your library. Transfigure only as a sorcery.
+keyword:
+	keyword: Aura swap
+	match: aura swap <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}: Exchange it with an Aura card in your hand.
+keyword:
+	keyword: Frenzy
+	match: frenzy <atom-param>number</atom-param>
+	mode: expert
+	reminder: Whenever it attacks and isn’t blocked, it gets +{param1}/+0 until end of turn.
+keyword:
+	keyword: Delve
+	match: delve
+	mode: expert
+	reminder: You may exile any number of cards in your graveyard as you cast it. It costs <sym>1</sym> less to cast for each card exiled this way.
+keyword:
+	keyword: Poisonous
+	match: poisonous <atom-param>number</atom-param>
+	mode: expert
+	reminder: Whenever it deals combat damage to a player, that player gets {english_number_a(param1)} poison counter(s). A player with ten or more poison counters loses the game.
+keyword:
+	keyword: Shroud
+	match: shroud
+	mode: core
+	reminder: It can’t be the target of spells or abilities.
+keyword:
+	keyword: Fortify
+	match: fortify <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}: Attach to target land you control. Fortify only as a sorcery. It enters the battlefield unattached and stays on the battlefield if the land leaves.
+keyword:
+	keyword: Grandeur
+	match: Grandeur
+	mode: pseudo
+	rules: Grandeur — Discard another card named [something]: [effect].
+keyword:
+	keyword: Evoke
+	match: evoke <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may cast it for its evoke cost. If you do, it’s sacrificed when it enters the battlefield.
+keyword:
+	keyword: Champion
+	match: champion <atom-param>a</atom-param> <atom-param>name</atom-param>
+	mode: expert
+	reminder: When it enters the battlefield, sacrifice it unless you exile another {param2} you control. When it leaves the battlefield, return that card to the battlefield.
+keyword:
+	keyword: Clash
+	match: clash
+	mode: expert
+	reminder: Each clashing player reveals the top card of his or her library, then puts that card on the top or bottom. A player wins if his or her card had a higher converted mana cost.
+keyword:
+	keyword: Changeling
+	match: changeling
+	mode: expert
+	reminder: It is every creature type at all times.
+keyword:
+	keyword: Hideaway
+	match: hideaway
+	mode: expert
+	reminder: The land enters the battlefield tapped. When it does, look at the top four cards of your library, exile one face down, then put the rest on the bottom of your library.
+keyword:
+	keyword: Prowl
+	match: prowl <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may cast it for its prowl cost if you dealt combat damage to a player this turn with a creature that shares a type with it.
+keyword:
+	keyword: Reinforce
+	match: reinforce <atom-param>number</atom-param>—<atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param2}, Discard it: Put {english_number_a(param1)} +1/+1 counter(s) on target creature.
+keyword:
+	keyword: Kinship
+	match: Kinship
+	mode: pseudo
+	rules: Kinship — At the beginning of your upkeep, you may look at the top card of your library. If that card shares a creature type with it, you may reveal it. If you do, [effect].
+keyword:
+	keyword: Persist
+	match: persist
+	mode: expert
+	reminder: When it is put into a graveyard from the battlefield, if it had no -1/-1 counters on it, return it to the battlefield under its owner’s control with a -1/-1 counter on it.
+keyword:
+	keyword: Wither
+	match: wither
+	mode: expert
+	reminder: It deals damage to creatures in the form of -1/-1 counters.
+keyword:
+	keyword: Conspire
+	match: conspire
+	mode: expert
+	reminder: As you cast it, you may tap two untapped creatures you control that share a color with it. When you do, copy it and you may choose a new target for the copy.
+keyword:
+	keyword: Retrace
+	match: retrace
+	mode: expert
+	reminder: You may cast it from your graveyard by discarding a land card in addition to paying its other costs.
+keyword:
+	keyword: Chroma
+	match: Chroma
+	mode: pseudo
+	rules: Chroma — [effect] based on the number of [color] mana symbols [in graveyard, under your control, in cards you discard].
+keyword:
+	keyword: Unearth
+	match: unearth <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}: Return it from your graveyard to the battlefield. If it is a creature, it gains haste. Exile it at the beginning of the end step or if it would leave the battlefield. Unearth only as a sorcery.
+keyword:
+	keyword: Devour
+	match: devour <atom-param>number</atom-param>
+	mode: expert
+	reminder: As it enters the battlefield, you may sacrifice any number of creatures. It enters the battlefield with { if param1.value == 1 then "" else if param1.value == 2 then "twice " else english_number(param1) + " times " }that many +1/+1 counters on it.
+keyword:
+	keyword: Exalted
+	match: exalted
+	mode: expert
+	reminder: Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.
+keyword:
+	keyword: Domain
+	match: Domain
+	mode: pseudo
+	rules: Domain — [effect] for each basic land type among lands you control.
+keyword:
+	keyword: Cascade
+	match: cascade
+	mode: expert
+	reminder: When you cast it, exile the top card of your library until you remove a nonland card that costs less. You may cast that card without paying its mana cost. Put the exiled cards on the bottom of your library at random.
+keyword:
+	keyword: Intimidate
+	match: intimidate
+	mode: core
+	reminder: It can’t be blocked except by artifact creatures and/or creatures that share a color with it.
+keyword:
+	keyword: Landfall
+	match: Landfall
+	mode: pseudo
+	rules: Landfall — Whenever a land enters the battlefield under your control, [effect].
+keyword:
+	keyword: Multikicker
+	match: multikicker <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may {for_mana_costs(add:"pay an additional ", param1)} any number of times as you cast it.
+keyword:
+	keyword: Annihilator
+	match: annihilator <atom-param>number</atom-param>
+	mode: expert
+	reminder: Whenever it attacks, defending player sacrifices {english_number_a(param1)} permanent(s).
+keyword:
+	keyword: Rebound
+	match: rebound
+	mode: expert
+	reminder: If you cast it from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast it from exile without paying its mana cost.
+keyword:
+	keyword: Totem armor
+	match: totem armor
+	mode: expert
+	reminder: If enchanted creature would be destroyed, instead remove all damage from the creature and destroy it.
+keyword:
+	keyword: Level up
+	match: level up <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}: Put a level counter on it. Level up only as a sorcery.
+keyword:
+	keyword: Infect
+	match: infect
+	mode: expert
+	reminder: This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.
+keyword:
+	keyword: Proliferate
+	match: proliferate
+	mode: expert
+	reminder: You may choose any number of permanents and/or players with counters on them, then give each another counter of a kind already there.
+keyword:
+	keyword: Metalcraft
+	match: Metalcraft
+	mode: pseudo
+	rules: Metalcraft — As long as you control three or more artifacts, [effect].
+keyword:
+	keyword: Battlecry
+	match: battlecry
+	mode: expert
+	reminder: Whenever it attacks, each other attacking creature gets +1/+0 until end of turn.
+keyword:
+	keyword: Living weapon
+	match: living weapon
+	mode: expert
+	reminder: When it enters the battlefield, put a 0/0 black Germ creature token onto the battlefield, then attach it to the creature.
+keyword:
+	keyword: Hexproof
+	match: hexproof
+	mode: core
+	reminder: It can't be the target of spells or abilities your opponents control.
+keyword:
+	keyword: Morbid
+	match: Morbid
+	mode: pseudo
+	rules: Morbid — If a creature died this turn, [effect].
+keyword:
+	keyword: Fight
+	match: fight
+	mode: action
+	reminder: Each deals damage equal to its power to the other.
+keyword:
+	keyword: Undying
+	match: undying
+	mode: expert
+	reminder: When it dies, if it had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter on it.
+keyword:
+	keyword: Fateful hour
+	match: Fateful hour
+	mode: pseudo
+	rules: Fateful hour — As long as you have 5 or less life, [effect].
+keyword:
+	keyword: Miracle
+	match: miracle <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may cast it for its miracle cost when you draw it if it's the first card you drew this turn.
+keyword:
+	keyword: Soulbond
+	match: soulbond
+	mode: expert
+	reminder: You may pair it with another unpaired creature when either enters the battlefield. They remain paired for as long as you control both of them.
+keyword:
+	keyword: Detain
+	match: detain<atom-param>english_number</atom-param>target<atom-param>nonland</atom-param><atom-param>one_word</atom-param>
+	mode: action
+	reminder: Until your next turn, {if contains(param1.value, match:"one") or param1.value == " " then "that" else "those"} {param3} can't attack or block and its activated abilities can't be activated.
+keyword:
+	keyword: Overload
+	match: overload <atom-param>cost</atom-param>
+	mode: expert
+	reminder: You may cast it for its overload cost. If you do, change its text by replacing all instances of "target" with "each".
+keyword:
+	keyword: Unleash
+	match: unleash
+	mode: expert
+	reminder: You may have it enter the battlefield with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.
+keyword:
+	keyword: Scavenge
+	match: scavenge <atom-param>cost</atom-param>
+	mode: expert
+	reminder: {param1}, Exile it from your graveyard: Put a number of +1/+1 counters equal to its power on target creature. Scavenge only as a sorcery.
+keyword:
+	keyword: Populate
+	match: populate
+	mode: action
+	reminder: Put a token onto the battlefield that's a copy of a creature token you control.
+keyword:
+	keyword: Extort
+	match: extort
+	mode: expert
+	reminder: Whenever you cast spell, you may pay [W/B]. If you do, each opponent loses 1 life and you gain that much life.
+keyword:
+	keyword: Cipher
+	match: cipher
+	mode: expert
+	reminder: Then you may exile it encoded on a creature you control. Whenever that creature deals combat damage to a player, its controller may cast a copy of the encoded card without paying its mana cost.
+keyword:
+	keyword: Bloodrush
+	match: Bloodrush
+	mode: pseudo
+	rules: Bloodrush — [cost], Discard ~: Target attacking creature gets [effect].
+keyword:
+	keyword: Battalion
+	match: Battalion
+	mode: pseudo
+	rules: Battalion — Whenever ~ and at least two other creatures attack, [effect].
+keyword:
+	keyword: Evolve
+	match: evolve
+	mode: expert
+	reminder: Whenever a creature enters the battlefield under your control, if that creature has greater power or toughness than it, put a +1/+1 counter on it.
+keyword:
+	keyword: Fuse
+	match: fuse
+	mode: expert
+	reminder: You may cast one or both halves of it from your hand.
+keyword:
+	keyword: Indestructible
+	match: indestructible
+	mode: core
+	reminder: Damage and effects that say "destroy" don't destroy it.
+keyword:
+	keyword: Hero's Reward
+	match: Hero's Reward
+	mode: pseudo
+keyword:
+	keyword: Monstrosity
+	match: monstrosity <atom-param>number</atom-param>
+	mode: expert
+	reminder: If it isn’t monstrous, put {english_number_a(param1)} +1/+1 counter(s) on it and it becomes monstrous.
+keyword:
+	keyword: Heroic
+	match: Heroic
+	mode: pseudo
+	rules: Whenever you cast a spell that targets ~, [effect].
+keyword:
+	keyword: Bestow
+	match: bestow <atom-param>cost</atom-param>
+	mode: expert
+	reminder: If you cast it for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached to a creature.
+keyword:
+	keyword: Devotion
+	match: devotion to <atom-param>action</atom-param>
+	mode: action
+	reminder: Each {color_to_mana(param1)} in the mana costs of permanents you control counts toward your devotion to {param1}.
+keyword:
+	keyword: Tribute
+	match: tribute <atom-param>number</atom-param>
+	mode: expert
+	reminder: As it enters the battlefield, an opponent of your choice may put {english_number_a(param1)} +1/+1 counter(s) on it.
+keyword:
+	keyword: Inspiration
+	match: Inspiration
+	mode: pseudo
+	rules: Inspiration - Whenever ~ becomes untapped, [effect].

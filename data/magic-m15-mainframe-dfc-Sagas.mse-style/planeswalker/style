@@ -1,0 +1,1704 @@
+mse version: 2.0.0
+game: magic
+short name: DFC Walkers Append
+full name: M15 Doublefaced Planeswalkers Append
+installer group: magic/M15 style/double faced/dfc planeswalker append
+icon: card-sample.png
+position hint: 0060
+
+version: 2018-02-22
+depends on:
+	package: magic.mse-game
+	version: 2014-07-02
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card width: 752
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_prefix := [card: "" card2: "" card3: "" card4: "" nor: "" nor2: "" nyx: "" mir: "" map: "maps/" pt: "" pt2: "" mappt: "maps/" stamp: "" cardstamp: "" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" card2: "card2.jpg" card3: "card3.jpg" card4: "card4.jpg" nor: "nor.jpg" nor2: "nor2.jpg" nyx: "nyx.jpg" mir: "mir.jpg" map: "card.png" pt: "pt.png" pt2: "pt2.png" mappt: "pt.png" stamp: "stamp.jpg" cardstamp: "cardstamp.jpg" identity: "identity.png"]
+	template := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { 
+		if contains(type, match: "card") then "c{type}.jpg"
+		else template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] 
+	}
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Is the secont face an Ixaland?
+	is_map := { if styling.dfc_mode == "sacrificer" and styling.normal_face_style == "miracle/ixaland" then "yes" else "no" }
+	
+	# This will create four seperate card faces and a fift face for sparkers and sacrificers
+	card_background2 := { color_background(type:"card2",     base_hybrid:card_hybrid) }
+	card_background3 := { color_background(type:"card3",     base_hybrid:card_hybrid) }
+	card_background4 := { color_background(type:"card4",	 base_hybrid:card_hybrid) }
+	nor_background := { color_background(type:"nor", base_hybrid:card_hybrid) }
+	nor_background2 := { color_background(type:"nor2", base_hybrid:card_hybrid) }
+	pcard_stamp := { color_background(type:"cardstamp", base_hybrid:stamp_hybrid) }
+	card_ptbox2 := { 
+		if is_map() then color_background(type:"mappt", base_hybrid:pt_hybrid) 
+		else color_background(type:"pt2", base_hybrid:pt_hybrid) 
+	}
+	
+	# Loyalty cost arrows
+	loyalty_image := {
+		if      contains(input, match: "+") then "loyalty up"
+		else if contains(input, match: "-") then "loyalty down"
+		else                                     "loyalty naught"
+	}
+	
+	card_shape := {"double faced planeswalker"}
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	
+	# Does the card have four abilities?
+	has_four_abilities := { contains(paragraph_count(card.rule_text), match: "\n\n\n") and styling.dfc_mode != "sparker" }
+	has_four_abilities2 := { contains(paragraph_count(card.rule_text_2), match: "\n\n\n") and styling.dfc_mode != "sacrificer" }
+	paragraph_count := 
+		replace@(match:"<soft-line>\n", replace:"")+
+		filter_text@(match:"\n")
+	
+	# Corner scripts
+	corner_style := { if (styling.dfc_mode == "dfc planeswalker" and styling.corner_type != "sparker/sacrificer") or styling.corner_type == "doublefaced symbols" then "d" else "s" }
+	normal_card := { if styling.dfc_mode == "sacrificer" then card.card_color_2 else card.card_color }
+	corner_color := {
+			if contains(normal_card(), match:"multicolor") or contains(normal_card(), match:"hybrid") then "multicolor"
+			else if contains(normal_card(), match:"white") then "white"
+			else if contains(normal_card(), match:"blue") then "blue"
+			else if contains(normal_card(), match:"black") then "black"
+			else if contains(normal_card(), match:"red") then "red"
+			else if contains(normal_card(), match:"green") then "green"
+			else "colorless"
+	}
+	
+	## Append scripts:
+	# Clear modes
+	front_clear := { styling.clear_face == "front" or styling.clear_face == "both" }
+	back_clear := { styling.clear_face == "back" or styling.clear_face == "both" }
+	front_clear_nor := { if front_clear() and styling.dfc_mode == "sparker" then "yes" else "no" }
+	back_clear_nor := { if back_clear() and styling.dfc_mode == "sacrificer" then "yes" else "no" }
+	front_clear_pl := { if front_clear() and styling.dfc_mode != "sparker" then "yes" else "no" }
+	
+	# Image settings
+	image_mode := {
+		if styling.fortress_and_extended_art == "extended art on normal face" then "e"
+		else if styling.fortress_and_extended_art == "front face fortress" then "f"
+		else if styling.fortress_and_extended_art == "back face fortress" then "b"
+		else if styling.fortress_and_extended_art == "both faces fortress" then "fb"
+		else if styling.fortress_and_extended_art == "fortress and extended art" then "fbe"
+		else "n"
+	}
+	extended_art_front := { if styling.dfc_mode == "sparker" and contains(image_mode(), match: "e") then "yes" else "no" }
+	extended_art_back := { if styling.dfc_mode == "sacrificer" and contains(image_mode(), match: "e") then "yes" else "no" }
+	fortress_front := { if contains(image_mode(), match: "f") and styling.dfc_mode != "sparker" then "yes" else "no" }
+	fortress_back := { if contains(image_mode(), match: "b") and styling.dfc_mode != "sacrificer" then "yes" else "no" }
+	
+	fortress_mask := { if has_four_abilities() then "imagemask_4tress.png" else "imagemask_fortress.png" }
+	fortress_mask2 := { if has_four_abilities2() then "imagemask_4tress.png" else "imagemask_fortress.png" }
+	
+	image_mask := { 
+		if fortress_front() and front_clear() then "imagemask_full.png" 
+		else if fortress_front() then fortress_mask() 
+		else if front_clear() then "imagemask_clear.png" 
+		else if extended_art_front() then "imagemask_extended.png" 
+		else if styling.dfc_mode == "sparker" then "imagemask_standard.png" 
+		else ("imagemask" + ( if has_four_abilities() then "_4abil" else "" ) + ( if is_rare() then "_rare" else "" ) + ".png") 
+	}
+	image_mask_2 := { 
+		if fortress_back() and back_clear() then "imagemask_full.png" 
+		else if fortress_back() then fortress_mask2()
+		else if back_clear() then "imagemask_clear.png" 
+		else if is_map() then "imagemask_map.png" 
+		else if extended_art_back() then "imagemask_extended_2.png" 
+		else if styling.dfc_mode == "sacrificer" then "imagemask_standard.png" 
+		else ("imagemask" + ( if has_four_abilities2() then "_4abil" else "" ) + ".png") 
+	}
+	
+	# Normal card settings
+	front_mode_overlay := { 
+		if styling.normal_face_style == "miracle/ixaland" then color_background(type:"mir", base_hybrid:card_hybrid) 
+		else if styling.normal_face_style == "vehicle" then "vec.jpg" 
+		else color_background(type:"nyx", base_hybrid:card_hybrid) 
+	}
+	back_mode_overlay := { 
+		if styling.normal_face_style == "miracle/ixaland" then color_background(type:"map", base_hybrid:card_hybrid)  
+		else if styling.normal_face_style == "vehicle" then "vec.jpg" 
+		else color_background(type:"nyx", base_hybrid:card_hybrid) 
+	}
+	
+	front_vec := { if styling.dfc_mode == "sparker" and styling.normal_face_style == "vehicle" and not front_clear() then "yes" else "no" }
+	dark_vec := { if styling.vehicle_transformation == "dark pt" then "yes" else "no" }
+	vecpt := { if dark_vec() then "vecpt2.png" else "vecpt.png" }
+	
+	# Center title text settings
+	text_mode := {
+		if styling.center_title_text == "center front" then "f"
+		else if styling.center_title_text == "center back" then "b"
+		else if styling.center_title_text == "center both" then "fb"
+		else "n" 
+	}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Special Style Options
+styling field:
+	type: choice
+	name: dfc mode
+	description: Which doublefaced planeswalker-style should be used?
+	initial: dfc planeswalker
+	choice: dfc planeswalker
+	choice: sparker
+	choice: sacrificer
+styling field:
+	type: choice
+	name: corner type
+	choice: sparker/sacrificer
+	choice: doublefaced symbols
+	choice: default
+	initial: default
+styling field:
+	type: choice
+	name: clear face
+	description: Should any of the planeswalker faces have clear frames?
+	initial: none
+	choice: none
+	choice: front
+	choice: back
+	choice: both
+styling field:
+	type: choice
+	name: normal face style
+	description: If the card is a sparker or sacrificer, what should the non-planeswalker face look like?
+	initial: normal
+	choice: normal
+	choice: god
+	choice: vehicle
+	choice: miracle/ixaland
+styling field:
+	type: choice
+	name: vehicle transformation
+	description: Should a second face vehicle be light or dark?
+	initial: dark pt
+	choice: dark pt
+	choice: light pt
+styling field:
+	type: choice
+	name: fortress and extended art
+	description: Options for fortress cards and extended art
+	choice: none
+	choice: extended art on normal face
+	choice: front face fortress
+	choice: back face fortress
+	choice: both faces fortress
+	choice: fortress and extended art
+	initial: none
+styling field:
+	type: boolean
+	name: meld split
+	description: Should the second face be split like a meld card?
+	initial: no
+############################################################## Extra style options
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: front face only
+	choice: back face only
+	choice: normal face only
+	choice: never
+	initial: never
+styling field:
+	type: choice
+	name: center title text
+	description: Do you want to center the text of the name and type field on any of your cards?
+	initial: no
+	choice: no
+	choice: center front
+	choice: center back
+	choice: center both
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	dfc mode:
+		render style: both
+		choice images:
+			dfc planeswalker:	icons/dfc-planeswalker.png
+			sparker:		icons/sparker.png
+			sacrificer:		icons/sacrificer.png
+	corner type:
+		render style: both
+		choice images:
+			sparker/sacrificer:	icons/pl-icon.png
+			doublefaced symbols:	icons/sun-icon.png
+			default:		icons/default-icon.png
+	clear face:
+		render style: both
+		choice images:
+			none:		icons/none.png
+			front:		icons/left.png
+			back:		icons/right.png
+			both:		icons/both.png
+	vehicle transformation:
+		render style: both
+		choice images:
+			dark pt:	icons/vec-pt-dark.png
+			light pt:	icons/vec-pt-light.png
+	fortress and extended art:
+		render style: both
+		choice images:
+			none:				/magic.mse-game/icons/small-image.png
+			extended art on normal face:	/magic.mse-game/icons/large-image.png
+			front face fortress:		icons/fortress-front.png
+			back face fortress:		icons/fortress-back.png
+			both faces fortress:		icons/fortress-both.png
+			fortress and extended art:	icons/fortress-and-extended-art.png
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:           icons/center-all-text.png
+			short text only:  icons/center-short-text.png
+			front face only:  icons/left.png
+			back face only:	  icons/right.png
+			normal face only: icons/normal-face.png
+			never:            icons/center-no-text.png
+	center title text:
+		render style: both
+		choice images:
+			no:		icons/center-no-text.png
+			center front:	icons/center-all-text.png
+			center back:	icons/center-all-text.png
+			center both:	icons/center-all-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		visible: { if fortress_front() then "no" else "yes" }
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 1
+		mask: border_mask.png
+	card color:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { if styling.dfc_mode == "sparker" then nor_background() else if has_four_abilities() then card_background3() else card_background() }
+	card color 2:
+		left: 377
+		top: 0
+		width: 375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { if styling.dfc_mode == "sacrificer" then nor_background2() else if has_four_abilities2() then card_background4() else card_background2() }
+	############################# Name line
+	name:
+		left: { if styling.dfc_mode == "sparker" then 58 else 60 }
+		top: { if styling.dfc_mode == "sparker" then 30 else 23 }
+		right: { 339 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: { if contains(text_mode(), match: "f") then "bottom center shrink-overflow" else "bottom shrink-overflow" }
+		padding bottom: 0
+		z index: 4
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+	name 2:
+		left: { if is_map() then 434 else if styling.dfc_mode == "sacrificer" then 435 else 437 }
+		top: { if is_map() then 27 else if styling.dfc_mode == "sacrificer" then 30 else 23 }
+		right: { if is_map() then 696 else 714 - card_style.casting_cost_2.content_width }
+		height: 23
+		alignment: { if contains(text_mode(), match: "b") or is_map() then "bottom center shrink-overflow" else "bottom shrink-overflow" }
+		padding bottom: 0
+		z index: 4
+		font:
+			name: { if is_map() then "Beleren Small Caps" else "Beleren Bold" }
+			size: { if is_map() then 14.8 else 16 }
+			color: { if back_clear() or is_map() then rgb(0,0,0) else rgb(255,255,255) }
+	casting cost:
+		right: 347
+		top: { if styling.dfc_mode == "sparker" then 29 else 22 }
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 4
+		padding top: 0
+	casting cost 2:
+		right: 722
+		top : { if styling.dfc_mode == "sacrificer" then 29 else 22 }
+		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
+		height: 23
+		visible: { if is_map() then "no" else "yes" }
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 4
+		padding top: 0
+	############################# Image
+	image:
+		left: { if front_clear() or fortress_front() then 0 else if styling.dfc_mode == "sparker" then 29 else 25 }
+		top: { if front_clear() or fortress_front() then 0 else if styling.dfc_mode == "sparker" then 60 else 52 }
+		width: { if front_clear() or fortress_front() then 375 else if extended_art_front() then 327 else if styling.dfc_mode == "sparker" then 316 else 324 }
+		height: { if front_clear() or fortress_front() then 523 else if extended_art_front() then 423 else if styling.dfc_mode == "sparker" then 231 else 427.5 }
+		z index: 2
+		mask: { image_mask() }
+		default: { default_image(card.card_color) }
+	image 2:
+		left: { if back_clear() or fortress_back() or is_map() then 377  else if styling.dfc_mode == "sacrificer" then 406 else 402 }
+		top: { if back_clear() or fortress_back() then 0 else if is_map() then 57 else if styling.dfc_mode == "sacrificer" then 60 else 52 }
+		width: { if back_clear() or fortress_back() or is_map() then 375 else if styling.dfc_mode == "sacrificer" then 316 else 324 }
+		height: { if back_clear() or fortress_back() then 523 else if is_map() then 241 else if extended_art_back() then 423 else if styling.dfc_mode == "sacrificer" then 231 else 427.5 }
+		z index: 2
+		mask: { image_mask_2() }
+		default: { default_image(card.card_color_2) }
+	############################# Card type
+	indicator:
+		left: 31
+		top: { if has_four_abilities() then 265 else 300 }
+		width: 17
+		height: 17
+		z index: 4
+		render style: image
+		visible: { has_identity() }
+		image: { card_identity() }
+	indicator 2:
+		#left: { if is_map() then 395 else 407 }
+		#top: { if is_map() then 298 else if has_four_abilities2() then 265 else 300 }
+		left: 407
+		top: { if has_four_abilities2() then 265 else 300 }
+		width: 17
+		height: 17
+		z index: 4
+		render style: image
+		visible: { if is_map() then "no" else has_identity_2() }
+		image: { card_identity() }
+	type:
+		left: { if has_identity() then "53" else "33" }
+		top: { if has_four_abilities() then 261 else 296 }
+		width: { 304 - max(22,card_style.rarity.content_width) }
+		height: 20
+		alignment: { if contains(text_mode(), match: "f") then "top center shrink-overflow" else "top shrink-overflow" }
+		z index: 4
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: 13
+			color: black
+			separator color: red
+	type 2:
+		left: { if is_map() then 462 else if has_identity_2() then "427" else "413" }
+		top: { if is_map() then 297 else if has_four_abilities2() then 261 else 296 }
+		width: { if is_map() then 205 else (if has_identity_2() then "290" else "304") - max(22,card_style.rarity.content_width) }
+		height: { if is_map() then 18 else 20 }
+		alignment: { if contains(text_mode(), match: "b") or is_map() then "top center shrink-overflow" else "top shrink-overflow" }
+		z index: 4
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: { if is_map() then 12.5 else 13 }
+			color: { if back_clear() or is_map() then rgb(0,0,0) else rgb(255,255,255) }
+			separator color: red
+	rarity:
+		right: 345
+		top: { if has_four_abilities() and styling.dfc_mode != "sparker" then 263 else 298 }
+		width: 42
+		height: 21
+		z index: 4
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	rarity 2:
+		right: { if is_map() then 576 else 719 }
+		top : { if is_map() then 53 else if has_four_abilities2() and styling.dfc_mode != "sacrificer" then 263 else 298 }
+		width: { if is_map() then 44 else 42 }
+		height: { if is_map() then 22 else 21 }
+		z index: 4
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 63
+		top: { if has_four_abilities() then 289 else 330 }
+		width: { if styling.dfc_mode == "sparker" then 0 else 282 }
+		height: { if styling.dfc_mode == "sparker" then 0 else if has_four_abilities() then 183 else 148 }
+		visible: { if styling.dfc_mode != "sparker" then "yes" else "no" }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if has_four_abilities() then 13.8 else 14 }
+			scale down to: 6
+			color: { if has_four_abilities() then rgba(0,0,0,0) else "black" }
+		symbol font:
+			name: { if has_four_abilities() then "" else styling.text_box_mana_symbols }
+			size: 14
+		paragraph height: 49
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always" or
+				   styling.center_text == "front face only" 
+				then "middle center"
+				else "middle left"
+		z index: 5
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: { if has_four_abilities() then 0.895 else 0.9 }
+		line height hard max: 1.3
+		line height line max: 1.6
+	text 2:
+		left: 443
+		top: { if has_four_abilities2() then 289 else 330 }
+		width: { if styling.dfc_mode == "sacrificer" then 0 else 282 }
+		height: { if styling.dfc_mode == "sacrificer" then 0 else if has_four_abilities2() then 183 else 148 }
+		visible: { if styling.dfc_mode != "sacrificer" then "yes" else "no" }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if has_four_abilities2() then 13.8 else 14 }
+			scale down to: 6
+			color: { if has_four_abilities2() then rgba(0,0,0,0) else "black" }
+		symbol font:
+			name: { if has_four_abilities2() then "" else styling.text_box_mana_symbols }
+			size: 14
+		paragraph height: 49
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text_2) and
+				   card.flavor_text_2 == "<i-flavor></i-flavor>" and
+				   card_style.text_2.content_lines <= 2) or
+				   styling.center_text == "always" or
+				   styling.center_text == "back face only" 
+				then "middle center"
+				else "middle left"
+		z index: 5
+		mask: text_mask.png
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: { if has_four_abilities2() then 0.895 else 0.9 }
+		line height hard max: 1.3
+		line height line max: 1.6
+	text 3:
+		left: { if is_map() then 417 else if styling.dfc_mode == "sacrificer" then 408 else 29 }
+		top: { if is_map() then 340 else 327 }
+		width: { if styling.dfc_mode == "dfc planeswalker" then 0 else if is_map() then 287 else 314 }
+		height: { if styling.dfc_mode == "dfc planeswalker" then 0 else if is_map() then 135 else 150 }
+		visible: { if styling.dfc_mode != "dfc planeswalker" then "yes" else "no" }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text_3) and
+				   card.flavor_text_3 == "<i-flavor></i-flavor>" and
+				   card_style.text_3.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "normal face only" 
+				then "middle center"
+				else "middle left"
+		z index: 6
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	watermark:
+		left: 117
+		top : { if has_four_abilities() then 296 else 331 }
+		width: 138
+		height: { if has_four_abilities() then 185 else 150 }
+		z index: 4
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	watermark 2:
+		left: { if is_map() then 507 else 494 }
+		top : { if is_map() then 320 else if has_four_abilities2() then 296 else 331 }
+		width: { if is_map() then 112 else 138 }
+		height: { if is_map() then 170 else if has_four_abilities2() then 185 else 150 }
+		z index: 4
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	pt:
+		left: { if styling.dfc_mode == "sacrificer" then 661 else 286 }
+		top: { if is_map() then 467 else 469 }
+		width: { if styling.dfc_mode == "dfc planeswalker" then 0 else 60 }
+		height:	{ if styling.dfc_mode == "dfc planeswalker" then 0 else 28 }
+		visible: { if styling.dfc_mode != "dfc planeswalker" then "yes" else "no" }
+		z index: 5
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: { if is_map() then 14 else 16 }
+			color: { if (styling.dfc_mode == "sacrificer" and not (back_clear() or is_map())) or front_vec() then rgb(255,255,255) else rgb(0,0,0) }
+			separator color: red
+	############################# Loyalty
+	loyalty:
+		z index: 7
+		left: 326
+		top: 462
+		width: { if styling.dfc_mode == "sparker" then 0 else 13.16 }
+		height:	{ if styling.dfc_mode == "sparker" then 0 else 34.63 }
+		visible: { if styling.dfc_mode != "sparker" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 14
+			color: white
+	loyalty 2:
+		z index: 7
+		left: 703
+		top: 462
+		width: { if styling.dfc_mode == "sacrificer" then 0 else 13.16 }
+		height: { if styling.dfc_mode == "sacrificer" then 0 else 34.63 }
+		visible: { if styling.dfc_mode != "sacrificer" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 14
+			color: white
+	loyalty cost 1:
+		z index: 7
+		left: 32
+		top: { if has_four_abilities() then 297 else 335 }
+		width:  { if styling.dfc_mode == "sparker" then 0 else 13.16 }
+		height:	 { if styling.dfc_mode == "sparker" then 0 else 34.63 }
+		visible:  { if styling.dfc_mode != "sparker" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 2:
+		z index: 7
+		left: 32
+		top: { if has_four_abilities() then 344 else 386 }
+		width:  { if styling.dfc_mode == "sparker" then 0 else 13.16 }
+		height:	 { if styling.dfc_mode == "sparker" then 0 else 34.63 }
+		visible:  { if styling.dfc_mode != "sparker" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 3:
+		z index: 7
+		left: 32
+		top: { if has_four_abilities() then 391 else 435 }
+		width:  { if styling.dfc_mode == "sparker" then 0 else 13.16 }
+		height:	 { if styling.dfc_mode == "sparker" then 0 else 34.63 }
+		visible:  { if styling.dfc_mode != "sparker" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 4:
+		z index: 7
+		left: 32
+		top: 438
+		width: { if styling.dfc_mode != "sparker" and has_four_abilities() then 13.16 else 0 }
+		height:	{ if styling.dfc_mode != "sparker" and has_four_abilities() then 34.63 else 0 }
+		visible: { if styling.dfc_mode != "sparker" and has_four_abilities() then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 5:
+		z index: 7
+		left: 409
+		top: { if has_four_abilities2() then 297 else 335 }
+		width:  { if styling.dfc_mode == "sacrificer" then 0 else 13.16 }
+		height:	{ if styling.dfc_mode == "sacrificer" then 0 else 34.63 }
+		visible: { if styling.dfc_mode != "sacrificer" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 6:
+		z index: 7
+		left: 409
+		top: { if has_four_abilities2() then 344 else 386 }
+		width: { if styling.dfc_mode == "sacrificer" then 0 else 13.16 }
+		height:	{ if styling.dfc_mode == "sacrificer" then 0 else 34.63 }
+		visible: { if styling.dfc_mode != "sacrificer" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 7:
+		z index: 7
+		left: 409
+		top: { if has_four_abilities2() then 391 else 435 }
+		width: { if styling.dfc_mode == "sacrificer" then 0 else 13.16 }
+		height:	{ if styling.dfc_mode == "sacrificer" then 0 else 34.63 }
+		visible: { if styling.dfc_mode != "sacrificer" then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	loyalty cost 8:
+		z index: 7
+		left: 409
+		top: 438
+		width: { if styling.dfc_mode != "sacrificer" and has_four_abilities2() then 13.16 else 0 }
+		height:	{ if styling.dfc_mode != "sacrificer" and has_four_abilities2() then 34.63 else 0 }
+		visible: { if styling.dfc_mode != "sacrificer" and has_four_abilities2() then "yes" else "no" }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 11
+			color: white
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 6
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	set code 2:
+		left: 399
+		top: 498
+		width: 40
+		height: 10
+		z index: 6
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 4
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	illustrator 2:
+		left: { 419 + card_style.set_code_2.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 4
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright 2:
+		right: 725
+		top: 498
+		width: 140
+		height: 10
+		z index: 4
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold			
+	copyright:
+		right: 350
+		top: 498
+		width: 140
+		height: 10
+		z index: 4
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: color
+	name: border color 2
+	script: card.border_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: special mode
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: special mode 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: clear frame
+	script: front_clear()
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: clear frame 2
+	script: back_clear()
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: meld card
+	script: styling.meld_split
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script: forward_editor(prefix: card_number_m15() + "a/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+extra card field:
+	type: text
+	name: card code 2
+	editable: false
+	save value: false
+	script: forward_editor(prefix: card_number_m15() + "b/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: artist arrow 2
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: pt box 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty box
+	editable: false
+	choice: loyalty
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty box 2
+	editable: false
+	choice: loyalty
+	save value: false
+extra card field:
+	type: choice
+	name: stamp
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil stamp
+	choice: stamp
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer 2
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: loyalty cost box 1
+	editable: false
+	script: loyalty_image(card.loyalty_cost_1)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 2
+	editable: false
+	script: loyalty_image(card.loyalty_cost_2)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 3
+	editable: false
+	script: loyalty_image(card.loyalty_cost_3)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 4
+	editable: false
+	script: loyalty_image(card.loyalty_cost_4)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 5
+	editable: false
+	script: loyalty_image(card.loyalty_cost_5)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 6
+	editable: false
+	script: loyalty_image(card.loyalty_cost_6)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 7
+	editable: false
+	script: loyalty_image(card.loyalty_cost_7)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 8
+	editable: false
+	script: loyalty_image(card.loyalty_cost_8)
+	save value: false
+extra card field:
+	type: text
+	name: colon 1
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 2
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 3
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 4
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 5
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 6
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 7
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 8
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: second text
+	editable: false
+	multi line: true
+	save value: false
+	script: card.text
+extra card field:
+	type: text
+	name: third text
+	editable: false
+	multi line: true
+	save value: false
+	script: card.text_2
+extra card field:
+	type: choice
+	name: sparker corner
+	choice: colorless
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: multicolor
+	choice: planeswalker
+	choice: none
+	default: corner_color()
+	save value: true
+	editable: true
+extra card field:
+	type: choice
+	name: planeswalker corner
+	choice: planeswalker
+	choice: colorless
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: multicolor
+	initial: planeswalker
+	save value: true
+	editable: true
+extra card field:
+	type: choice
+	name: corner
+	choice: day
+	choice: night
+	choice: moon
+	choice: eldrazi
+	choice: compass
+	choice: artifact
+	choice: creature
+	choice: enchantment
+	choice: instant
+	choice: land
+	choice: multitype
+	choice: sorcery
+	choice: planeswalker
+	choice: structure
+	choice: champion
+	default: "day"
+	save value: true
+	editable: true
+extra card field:
+	type: choice
+	name: corner 2
+	choice: none
+	choice: day
+	choice: night
+	choice: moon
+	choice: eldrazi
+	choice: artifact
+	choice: creature
+	choice: enchantment
+	choice: instant
+	choice: land
+	choice: multitype
+	choice: sorcery
+	choice: planeswalker
+	choice: structure
+	choice: noble phantasm
+	default: "night"
+	save value: true
+	editable: true
+extra card style:
+	border color 2:
+		left: 377
+		top : 0
+		width:	375
+		height:	523
+		visible: { if fortress_back() then "no" else "yes" }
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 1
+		mask: border_mask.png
+	special mode:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 3
+		visible: { if styling.dfc_mode == "sparker" and styling.normal_face_style != "normal" and not front_clear() then "yes" else "no" }
+		render style: image
+		image: { front_mode_overlay() }
+		mask: { if styling.normal_face_style == "vehicle" then "vec_mask.png" else "overlay_mask.png" }
+	special mode 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 3
+		visible: { if styling.dfc_mode == "sacrificer" and styling.normal_face_style != "normal" and not back_clear() then "yes" else "no" }
+		render style: image
+		image: { back_mode_overlay() }
+		mask: { if is_map() then "overlay_mask_map.png" else if styling.normal_face_style == "vehicle" then "vec_mask_2.png" else "overlay_mask_2.png" }
+	clear frame:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 3
+		visible: { if front_clear() then "yes" else "no" }
+		render style: image
+		image: { if front_clear_nor() then "clear_nor.png" else if has_four_abilities() then "clear_pl3.png" else "clear_pl.png" }
+		mask: { if fortress_front() then "clear_" + fortress_mask() else "imagemask_clear.png" }
+	clear frame 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 3
+		visible: { if back_clear() then "yes" else "no" }
+		render style: image
+		image: { if back_clear_nor() then "clear_nor2.png" else if has_four_abilities2() then "clear_pl4.png" else "clear_pl2.png" }
+		mask: { if fortress_back() then "clear_" + fortress_mask2() else "imagemask_clear.png" }
+	meld card:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 10
+		visible: { styling.meld_split }
+		render style: image
+		image: meld_split.png
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 4
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	card code 2:
+		left: 399
+		top: 488
+		width: 120
+		height: 10
+		z index: 4
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold	
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 4
+		render style: image
+		image: artist_arrow.png
+	artist arrow 2:
+		left: { 403 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 6
+		render style: image
+		image: artist_arrow.png
+	pt box:
+		left: 273
+		top: 466
+		width: 81
+		height:	42
+		z index: 4
+		visible: { card.pt != "" and styling.dfc_mode == "sparker" }
+		render style: image
+		image: { if front_clear() then "clearpt.png" else if styling.normal_face_style == "vehicle" then "vecpt.png" else card_ptbox() }
+	pt box 2:
+		left: { if is_map() then 647 else 648 }
+		top: { if is_map() then 453 else 466 }
+		width: { if is_map() then 90 else 81 }
+		height:	{ if is_map() then 54 else 42 }
+		z index: 4
+		visible: { card.pt != "" and styling.dfc_mode == "sacrificer" }
+		render style: image
+		image: { if back_clear() then "clearpt.png" else if styling.normal_face_style == "vehicle" then vecpt() else card_ptbox2() }
+	loyalty box:
+		right: 362
+		top: 460
+		width: 60
+		height: 38
+		z index: 6
+		render style: image
+		visible: { card.loyalty !="" and styling.dfc_mode != "sparker" }
+		choice images:
+			loyalty: loyalty.png
+	loyalty box 2:
+		right: 739
+		top: 460
+		width: 60
+		height: 38
+		z index: 6
+		render style: image
+		visible: { card.loyalty_2 !="" and styling.dfc_mode != "sacrificer" }
+		choice images:
+			loyalty: loyalty.png
+	stamp:
+		left: 170
+		top: 473
+		width: 36.5
+		height: 22.5
+		z index: 6
+		visible: { is_rare() }
+		render style: image
+		image: { if front_clear_nor() then "clearstamp.jpg" else if front_clear_pl() then "pclearstamp.jpg" else if styling.dfc_mode == "sparker" then card_stamp() else pcard_stamp() }
+		mask: { if styling.dfc_mode == "sparker" then "stamp_mask.png" else "cardstamp_mask.png" }
+	foil stamp:
+		left: 170
+		top: 473
+		width: 36.5
+		height: 22.5
+		z index: 7
+		visible: { is_rare() }
+		render style: image
+		image: foil_stamp.png
+	foil layer 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 9
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 9
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	loyalty cost box 1:
+		left: 18
+		top: { if has_four_abilities() then 295 else 333 }
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_1 !="" and styling.dfc_mode != "sparker" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 2:
+		left: 18
+		top: { if has_four_abilities() then 342 else 383 }
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_2 !="" and styling.dfc_mode != "sparker" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 3:
+		left: 18
+		top: { if has_four_abilities() then 389 else 432 }
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_3 !="" and styling.dfc_mode != "sparker" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 4:
+		left: 18
+		top: 436
+		width: { if has_four_abilities() then 42 else 0 }
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_4 !="" and styling.dfc_mode != "sparker" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 5:
+		left: 395
+		top: { if has_four_abilities2() then 295 else 333 }
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_5 !="" and styling.dfc_mode != "sacrificer" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 6:
+		left: 395
+		top: { if has_four_abilities2() then 342 else 383 }
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_6 !="" and styling.dfc_mode != "sacrificer" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 7:
+		left: 395
+		top: { if has_four_abilities2() then 389 else 432 }
+		width: 42
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_7 !="" and styling.dfc_mode != "sacrificer" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	loyalty cost box 8:
+		left: 395
+		top: 436
+		width: { if has_four_abilities2() then 42 else 0 }
+		height: 40
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_8 !="" and styling.dfc_mode != "sacrificer" }
+		choice images:
+			loyalty up: loyaltyup.png
+			loyalty down: loyaltydown.png
+			loyalty naught: loyaltynaught.png
+	colon 1:
+		left: 59
+		top: { if has_four_abilities() then 309 else 347 }
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_1 !="" and styling.dfc_mode != "sparker" }
+	colon 2:
+		left: 59
+		top: { if has_four_abilities() then 356 else 397 }
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_2 !="" and styling.dfc_mode != "sparker" }
+	colon 3:
+		left: 59
+		top: { if has_four_abilities() then 403 else 446 }
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_3 !="" and styling.dfc_mode != "sparker" }
+	colon 4:
+		left: 59
+		top: 450
+		width: { if has_four_abilities() then 5 else 0 }
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_4 !="" and styling.dfc_mode != "sparker" }
+	colon 5:
+		left: 436
+		top: { if has_four_abilities2() then 309 else 347 }
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_5 !="" and styling.dfc_mode != "sacrificer" }
+	colon 6:
+		left: 436
+		top: { if has_four_abilities2() then 356 else 397 }
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_6 !="" and styling.dfc_mode != "sacrificer" }
+	colon 7:
+		left: 436
+		top: { if has_four_abilities2() then 403 else 446 }
+		width: 5
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_7 !="" and styling.dfc_mode != "sacrificer" }
+	colon 8:
+		left: 436
+		top: 450
+		width: { if has_four_abilities2() then 5 else 0 }
+		height: 10
+		z index: 6
+		font:
+			name: MPlantin
+			size: 15
+			scale down to: 15
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_8 !="" and styling.dfc_mode != "sacrificer" }
+	second text:
+		left: 63
+		top: 293
+		width: 282
+		height: 183
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		paragraph height: 47
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "front face only" 
+				then "middle center"
+				else "middle left"
+		z index: 5
+		mask: text_mask.png
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+		visible: { has_four_abilities() }
+	third text:
+		left: 443
+		top: 293
+		width: 282
+		height: 183
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		paragraph height: 47
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text_2) and
+				   card.flavor_text_2 == "<i-flavor></i-flavor>" and
+				   card_style.text_2.content_lines <= 2) or
+				   styling.center_text == "always" or 
+				   styling.center_text == "back face only" 
+				then "middle center"
+				else "middle left"
+		z index: 5
+		mask: text_mask.png
+		padding left:   6
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+		visible: { has_four_abilities2() }
+	sparker corner:
+		left: { if is_map() then 399 else if styling.dfc_mode == "sacrificer" then 397 else 19 }
+		top: { if styling.dfc_mode == "dfc planeswalker" then 18 else 25 }
+		height: { if corner_style() == "d" then 0 else if is_map() then 30 else if styling.dfc_mode == "dfc planeswalker" then 32 else 31 }
+		width: { if corner_style() == "d" then 0 else if is_map() then 30 else if styling.dfc_mode == "dfc planeswalker" then 32 else 31 }
+		z index: 4
+		visible: { if corner_style() == "s" then "yes" else "no" }
+		render style: image
+		choice images:
+			colorless: ccorner.png
+			white: wcorner.png
+			blue: ucorner.png
+			black: bcorner.png
+			red: rcorner.png
+			green: gcorner.png
+			multicolor: mcorner.png
+			planeswalker: planeswalker.png
+			none: blank.png
+	planeswalker corner:
+		left: { if styling.dfc_mode == "sacrificer" then 19 else 397 }
+		top: 18
+		height: { if corner_style() == "d" then 0 else 32 }
+		width: { if corner_style() == "d" then 0 else 32 }
+		z index: 4
+		visible: { if corner_style() == "s" then "yes" else "no" }
+		render style: image
+		#image: planeswalker.png
+		choice images:
+			planeswalker: planeswalker.png
+			colorless: ccorner.png
+			white: wcorner.png
+			blue: ucorner.png
+			black: bcorner.png
+			red: rcorner.png
+			green: gcorner.png
+			multicolor: mcorner.png
+	corner:
+		left: 19
+		top: { if styling.dfc_mode == "sparker" then 25 else 18 }
+		height: { if corner_style() == "s" then 0 else if styling.dfc_mode == "sparker" then 31 else 32 }
+		width: { if corner_style() == "s" then 0 else if styling.dfc_mode == "sparker" then 31 else 32 }
+		z index: 5
+		visible: { if corner_style() == "d" then "yes" else "no" }
+		render style: image
+		choice images:
+			day: sun_circle.png
+			night: night_circle.png
+			eldrazi: eldrazi.png
+			moon: moon.png
+			compass: compass.png
+			artifact: artifact.png
+			creature: creature.png
+			enchantment: enchantment.png
+			instant: instant.png
+			land: land.png
+			multitype: multitype.png
+			sorcery: sorcery.png
+			planeswalker: planeswalker.png
+			structure: structure.png
+			champion: champion.png
+	corner 2:
+		left: { if is_map() then 399 else 396 }
+		top: { if styling.dfc_mode == "sacrificer" then 25 else 18 }
+		height: { if corner_style() == "s" then 0 else if is_map() then 30 else if styling.dfc_mode == "sacrificer" then 31 else 32 }
+		width: { if corner_style() == "s" then 0 else if is_map() then 30 else if styling.dfc_mode == "sacrificer" then 31 else 32 }
+		z index: 5
+		visible: { if corner_style() == "d" then "yes" else "no" }
+		render style: image
+		choice images:
+			none: blank.png
+			day: sun_circle.png
+			night: night_circle.png
+			eldrazi: eldrazi.png
+			moon: moon.png
+			artifact: artifact.png
+			creature: creature.png
+			enchantment: enchantment.png
+			instant: instant.png
+			land: land.png
+			multitype: multitype.png
+			sorcery: sorcery.png
+			planeswalker: planeswalker.png
+			structure: structure.png
+			noble phantasm: noble_phantasm.png

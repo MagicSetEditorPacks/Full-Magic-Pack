@@ -1,0 +1,469 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Vanguard
+full name: New Vanguards
+icon: card-sample.png
+installer group: magic/m15 style/promotional/dark ascension
+position hint: 089
+
+version: 2020-03-20
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+		
+	template_prefix := [card: "" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" pt: "pt.png", stamp: "stamp.jpg" identity: "identity.png"]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	comma_count := filter_text@(match:",")
+	is_token := { styling.token == "text" or styling.token == "textless" }
+	is_blank_token := { styling.token == "textless" }
+	has_identity := {styling.color_indicator_dot }
+	ancestral_mana := { styling.ancestral_mana_symbols }
+
+	bar_offset := {if styling_offset() == "-" then 0 else if styling_offset() != "" then -styling_offset() else 0}
+	styling_offset := { replace(styling.flavor_bar_offset, match:"(u|d)+", replace: "") }
+	offset_lines := {offset_counter(styling.flavor_bar_offset)}
+	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
+	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: text
+	name: chop top
+	description: Shrinks the textbox from the top.
+styling field:
+	type: text
+	name: chop bottom
+	description: Shrinks the textbox from the bottom.
+styling field:
+	type: text
+	name: flavor bar offset
+	description: Move the flavor bar up X pixels. Use negative to move down.
+styling field:
+	type: text
+	name: shrink name text
+	description: Reduces the name text N points.
+styling field:
+	type: text
+	name: shrink typeline text
+	description: Reduces the typeline text N points.
+styling field:
+	type: boolean
+	name: ancestral mana symbols
+	description: Enables ancestral's modified generic mana.
+	initial: no
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: yes
+styling field:
+	type: boolean
+	name: stamp
+	description: Force this card to have a holofoil promotional stamp?
+	initial: yes
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 1
+		mask: border_mask.png
+	############################# Name line
+	name:
+		left: 52
+		top: 28
+		width: 272
+		height: {24-(0.5*shrink_name())}
+		alignment: middle center shrink-overflow
+		padding bottom: 0
+		z index: 5
+		font:
+			name: Beleren Bold
+			size: {16-shrink_name()}
+			color: black
+	############################# Image
+	image:
+		left: 41
+		top: 60
+		width: 293
+		height:	241
+		z index: 1
+	############################# Card type
+	type:
+		left: 43
+		top: {304+(0.5*shrink_type())}
+		width: 292
+		height: {22-shrink_type()}
+		alignment: top shrink-overflow
+		z index: 3
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: {13-shrink_type()}
+			color: black
+			separator color: red
+	############################# Text box
+	text:
+		left: 42
+		top: { if styling.chop_top != "" then (337 - (-styling.chop_top)) else 337 }
+		width: 291
+		bottom: { if styling.chop_bottom != "" then (461 - styling.chop_bottom) else 461 }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 4
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# PT
+	power:
+		z index: -4
+		left: 81
+		top: 472
+		width: 38
+		height:	20
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+	toughness:
+		z index: -4
+		left: 256
+		top: 472
+		width: 38
+		height:	20
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+	############################# Card sorting / numbering
+	set code:
+		left: 74
+		top: 500
+		width: 40
+		height: 10
+		z index: 5
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: 165
+		top: 490
+		width: 80
+		height: 10
+		z index: 5
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: 500
+		width: {if set.automatic_copyright then 140 else 0}
+		height: 10
+		z index: 5
+		alignment: middle right shrink-overflow
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		if set.automatic_card_numbers then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: frame
+	script: "frame"
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: background
+	choice: background
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: glow
+	choice: glow
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: hand modifier
+	editable: true
+	save value: false
+	script: forward_editor(field:card.power)
+	description: The hand modifier for the card
+extra card field:
+	type: text
+	name: life modifier
+	editable: true
+	save value: false
+	script: forward_editor(field:card.toughness)
+	description: The life modifier for the card
+extra card field:
+	type: choice
+	name: flavor bar
+	choice: bar
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+
+extra card style:
+	card code:
+		left: 24
+		top: 500
+		width: 120
+		height: 10
+		z index: 5
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	artist arrow:
+		left: 151
+		top: 492
+		width: 12
+		height: 7
+		z index: 5
+		render style: image
+		image: artist_arrow.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: { if is_rare() or styling.stamp then "foil_mask_rare.png" else "foil_mask.png" }
+	frame:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		image: frame.png
+	hand modifier:
+		z index: 4
+		left: 81
+		top: 472
+		width: 38
+		height:	20
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+	life modifier:
+		z index: 4
+		left: 256
+		top: 472
+		width: 38
+		height:	20
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+	flavor bar:
+		left: 0
+		top: { bar_equation() }
+		width: 375
+		height: 1
+		z index: 1
+		render style: image
+		image: bar.png
+		visible: { card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
+	auto copyright:
+		right: 350
+		top: 500
+		width: {if set.automatic_copyright then 0 else 140}
+		height: 10
+		z index: 5
+		alignment: middle right shrink-overflow
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold

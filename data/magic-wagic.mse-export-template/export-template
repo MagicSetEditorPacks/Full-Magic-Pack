@@ -1,0 +1,411 @@
+﻿mse version: 0.3.8
+short name: Wagic
+full name: Plugin Exporter
+position hint: 007
+icon: icon.png
+version: 2009-11-14
+#Remember to update version at bottom of file.
+installer group: magic/Export/wagic
+
+depends on:
+	package: magic.mse-game
+	version: 2008-08-08
+
+game: magic
+create directory: true
+file type: *.dat|*.dat|*.*|*.*
+
+# By Pichoro
+# Based on code by Idle Muse, Innuendo and Seeonee
+
+option field:
+	type: text
+	name: date created
+	description: The date this spoiler was first created.
+option field:
+	type: text
+	name: date modified
+	description: The date this spoiler was last modified.
+option field:
+	type: text
+	name: set number
+	description: Choose a number that will be used for ID codes. An integer above 1000 is recommended. If you do not choose a number, random numbers will be used.
+script:
+	#Filter certain characters out of the card's name.
+	wagic_name := replace@(match:"‘", replace:"'")+
+		replace@(match:"’", replace:"'")+
+		replace@(match:"“", replace:"\"")+
+		replace@(match:"”", replace:"\"")
+	#Put curly brackets around the symbols in the casting cost.
+	wagic_cost := replace@(match:"2/W", replace:"⌠2W⌡")+
+		replace@(match:"2/U", replace:"⌠2U⌡")+
+		replace@(match:"2/B", replace:"⌠2B⌡")+
+		replace@(match:"2/R", replace:"⌠2R⌡")+
+		replace@(match:"2/G", replace:"⌠2G⌡")+
+		replace@(match:"W/U", replace:"⌠WU⌡")+
+		replace@(match:"W/B", replace:"⌠WB⌡")+
+		replace@(match:"U/B", replace:"⌠UB⌡")+
+		replace@(match:"U/R", replace:"⌠UR⌡")+
+		replace@(match:"B/R", replace:"⌠BR⌡")+
+		replace@(match:"B/G", replace:"⌠BG⌡")+
+		replace@(match:"R/G", replace:"⌠RG⌡")+
+		replace@(match:"R/W", replace:"⌠RW⌡")+
+		replace@(match:"G/W", replace:"⌠GW⌡")+
+		replace@(match:"G/U", replace:"⌠GU⌡")+
+		replace@(match:"W", replace:"⌠W⌡")+
+		replace@(match:"U", replace:"⌠U⌡")+
+		replace@(match:"B", replace:"⌠B⌡")+
+		replace@(match:"R", replace:"⌠R⌡")+
+		replace@(match:"G", replace:"⌠G⌡")+
+		replace@(match:"20", replace:"⌠20⌡")+
+		replace@(match:"19", replace:"⌠19⌡")+
+		replace@(match:"18", replace:"⌠18⌡")+
+		replace@(match:"17", replace:"⌠17⌡")+
+		replace@(match:"16", replace:"⌠16⌡")+
+		replace@(match:"15", replace:"⌠15⌡")+
+		replace@(match:"14", replace:"⌠14⌡")+
+		replace@(match:"13", replace:"⌠13⌡")+
+		replace@(match:"12", replace:"⌠12⌡")+
+		replace@(match:"11", replace:"⌠11⌡")+
+		replace@(match:"10", replace:"⌠10⌡")+
+		replace@(match:"9", replace:"⌠9⌡")+
+		replace@(match:"8", replace:"⌠8⌡")+
+		replace@(match:"7", replace:"⌠7⌡")+
+		replace@(match:"6", replace:"⌠6⌡")+
+		replace@(match:"5", replace:"⌠5⌡")+
+		replace@(match:"4", replace:"⌠4⌡")+
+		replace@(match:"3", replace:"⌠3⌡")+
+		replace@(match:"2", replace:"⌠2⌡")+
+		replace@(match:"1", replace:"⌠1⌡")+
+		replace@(match:"0", replace:"⌠0⌡")
+	#Filter certain characters out of the rules text and put curly brackets around mana symbols.
+	wagic_rules :=
+		# Longdashes should be short.
+		replace@(match:"—", replace:"-")+
+		# Linebreaks should be triple spaces.
+		replace@(match:"\n", replace:"   ")+
+		# No curly quotes or apostrophes.
+		replace@(match:"‘", replace:"'")+
+		replace@(match:"’", replace:"'")+
+		replace@(match:"“", replace:"\"")+
+		replace@(match:"”", replace:"\"")+
+		# Just automatically symbolize all hybrids.
+		replace@(match:"2/W", replace:"⌠2W⌡")+
+		replace@(match:"2/U", replace:"⌠2U⌡")+
+		replace@(match:"2/B", replace:"⌠2B⌡")+
+		replace@(match:"2/R", replace:"⌠2R⌡")+
+		replace@(match:"2/G", replace:"⌠2G⌡")+
+		replace@(match:"W/U", replace:"⌠WU⌡")+
+		replace@(match:"W/B", replace:"⌠WB⌡")+
+		replace@(match:"U/B", replace:"⌠UB⌡")+
+		replace@(match:"U/R", replace:"⌠UR⌡")+
+		replace@(match:"B/R", replace:"⌠BR⌡")+
+		replace@(match:"B/G", replace:"⌠BG⌡")+
+		replace@(match:"R/G", replace:"⌠RG⌡")+
+		replace@(match:"R/W", replace:"⌠RW⌡")+
+		replace@(match:"G/W", replace:"⌠GW⌡")+
+		replace@(match:"G/U", replace:"⌠GU⌡")+
+		# Various positions for taps.
+		replace@(match:" T ", replace:" ⌠T⌡ ")+
+		replace@(match:"T,", replace:"⌠T⌡,")+
+		replace@(match:"T:", replace:"⌠T⌡:")+
+		# Mana right before a space.
+		replace@(match:"G ", replace:"⌠G⌡ ")+
+		replace@(match:"R ", replace:"⌠R⌡ ")+
+		replace@(match:"B ", replace:"⌠B⌡ ")+
+		replace@(match:"U ", replace:"⌠U⌡ ")+
+		replace@(match:"W ", replace:"⌠W⌡ ")+
+		# Mana right before a comma.
+		replace@(match:"G,", replace:"⌠G⌡,")+
+		replace@(match:"R,", replace:"⌠R⌡,")+
+		replace@(match:"B,", replace:"⌠B⌡,")+
+		replace@(match:"U,", replace:"⌠U⌡,")+
+		replace@(match:"W,", replace:"⌠W⌡,")+
+		# Mana right before a colon.
+		replace@(match:"G:", replace:"⌠G⌡:")+
+		replace@(match:"R:", replace:"⌠R⌡:")+
+		replace@(match:"B:", replace:"⌠B⌡:")+
+		replace@(match:"U:", replace:"⌠U⌡:")+
+		replace@(match:"W:", replace:"⌠W⌡:")+
+		replace@(match:"X:", replace:"⌠X⌡:")+
+		# Drag rules text to search for more mana characters. Reverse color wheel order works better. Repeat several times.
+		replace@(match:"G⌠", replace:"⌠G⌡⌠")+
+		replace@(match:"R⌠", replace:"⌠R⌡⌠")+
+		replace@(match:"B⌠", replace:"⌠B⌡⌠")+
+		replace@(match:"U⌠", replace:"⌠U⌡⌠")+
+		replace@(match:"W⌠", replace:"⌠W⌡⌠")+
+		replace@(match:"G⌠", replace:"⌠G⌡⌠")+
+		replace@(match:"R⌠", replace:"⌠R⌡⌠")+
+		replace@(match:"B⌠", replace:"⌠B⌡⌠")+
+		replace@(match:"U⌠", replace:"⌠U⌡⌠")+
+		replace@(match:"W⌠", replace:"⌠W⌡⌠")+
+		replace@(match:"G⌠", replace:"⌠G⌡⌠")+
+		replace@(match:"R⌠", replace:"⌠R⌡⌠")+
+		replace@(match:"B⌠", replace:"⌠B⌡⌠")+
+		replace@(match:"U⌠", replace:"⌠U⌡⌠")+
+		replace@(match:"W⌠", replace:"⌠W⌡⌠")+
+		# Symbolize numbers from 20-0 that are before other symbols.
+		replace@(match:"20⌠", replace:"⌠20⌡⌠")+
+		replace@(match:"19⌠", replace:"⌠19⌡⌠")+
+		replace@(match:"18⌠", replace:"⌠18⌡⌠")+
+		replace@(match:"17⌠", replace:"⌠17⌡⌠")+
+		replace@(match:"16⌠", replace:"⌠16⌡⌠")+
+		replace@(match:"15⌠", replace:"⌠15⌡⌠")+
+		replace@(match:"14⌠", replace:"⌠14⌡⌠")+
+		replace@(match:"13⌠", replace:"⌠13⌡⌠")+
+		replace@(match:"12⌠", replace:"⌠12⌡⌠")+
+		replace@(match:"11⌠", replace:"⌠11⌡⌠")+
+		replace@(match:"10⌠", replace:"⌠10⌡⌠")+
+		replace@(match:"9⌠", replace:"⌠9⌡⌠")+
+		replace@(match:"8⌠", replace:"⌠8⌡⌠")+
+		replace@(match:"7⌠", replace:"⌠7⌡⌠")+
+		replace@(match:"6⌠", replace:"⌠6⌡⌠")+
+		replace@(match:"5⌠", replace:"⌠5⌡⌠")+
+		replace@(match:"4⌠", replace:"⌠4⌡⌠")+
+		replace@(match:"3⌠", replace:"⌠3⌡⌠")+
+		replace@(match:"2⌠", replace:"⌠2⌡⌠")+
+		replace@(match:"1⌠", replace:"⌠1⌡⌠")+
+		replace@(match:"0⌠", replace:"⌠0⌡⌠")+
+		# Symbolize numbers from 20-0 that are before colons.
+		replace@(match:"20:", replace:"⌠20⌡:")+
+		replace@(match:"19:", replace:"⌠19⌡:")+
+		replace@(match:"18:", replace:"⌠18⌡:")+
+		replace@(match:"17:", replace:"⌠17⌡:")+
+		replace@(match:"16:", replace:"⌠16⌡:")+
+		replace@(match:"15:", replace:"⌠15⌡:")+
+		replace@(match:"14:", replace:"⌠14⌡:")+
+		replace@(match:"13:", replace:"⌠13⌡:")+
+		replace@(match:"12:", replace:"⌠12⌡:")+
+		replace@(match:"11:", replace:"⌠11⌡:")+
+		replace@(match:"10:", replace:"⌠10⌡:")+
+		replace@(match:"9:", replace:"⌠9⌡:")+
+		replace@(match:"8:", replace:"⌠8⌡:")+
+		replace@(match:"7:", replace:"⌠7⌡:")+
+		replace@(match:"6:", replace:"⌠6⌡:")+
+		replace@(match:"5:", replace:"⌠5⌡:")+
+		replace@(match:"4:", replace:"⌠4⌡:")+
+		replace@(match:"3:", replace:"⌠3⌡:")+
+		replace@(match:"2:", replace:"⌠2⌡:")+
+		replace@(match:"1:", replace:"⌠1⌡:")+
+		replace@(match:"0:", replace:"⌠0⌡:")+
+		# Symbolize X.
+		replace@(match:"X⌠", replace:"⌠X⌡")
+	#Change rarity to match Wagic's format.
+	wagic_rarity := {
+		if contains(card.rarity, match:"basic land") then "L"
+		else if contains(card.rarity, match:"uncommon") then "U"
+		else if contains(card.rarity, match:"common") then "C"
+		else if contains(card.rarity, match:"mythic rare") then "M"
+		else if contains(card.rarity, match:"rare") then "R"
+		else if contains(card.rarity, match:"special") then "R"
+		else "C"
+	}
+	#For basic lands, detect what color mana they produce. (basics in MSE have no rules text)
+	wagic_basic_mana := {
+		if card.sub_type == "Plains" then "W"
+		else if card.sub_type == "Island" then "U"
+		else if card.sub_type == "Swamp" then "B"
+		else if card.sub_type == "Mountain" then "R"
+		else if card.sub_type == "Forest" then "G"
+		else "1"
+	}
+	#Use the user selected prefix number for ID, or pick (not so) really big random ones.
+	wagic_id_prefix := {
+		if options.set_number != "" then options.set_number
+		else random_int(begin:10000, end:99999)
+	}
+	#Add enough 0's to make the card number three digits.
+	wagic_card_number := {
+		if card_number() < 10 then "00"+card_number()
+		else if card_number() < 100 then "0"+card_number()
+		else card_number()
+	}
+	#Comment out the description paragraph in the header, so Wagic doesn't get angry.
+	wagic_comment_out := replace@(match:"\n", replace:"\n#")
+	#Filter out the "keyword" abilities recognized by Wagic from the rules text.
+	#Todo: Try to make more precise so you don't catch things like "Enchanted creature has flying."
+	wagic_abilities := {
+		(if contains(card.rule_text, match:"Flying") then "flying,")
+		+(if contains(card.rule_text, match:"flying") then "flying,")
+		+(if contains(card.rule_text, match:"Trample") then "trample,")
+		+(if contains(card.rule_text, match:"trample") then "trample,")
+		+(if contains(card.rule_text, match:"Plainswalk") then "plainwalk,")
+		+(if contains(card.rule_text, match:"Plainswalk") then "plainwalk,")
+		+(if contains(card.rule_text, match:"Islandwalk") then "islandwalk,")
+		+(if contains(card.rule_text, match:"Islandwalk") then "islandwalk,")
+		+(if contains(card.rule_text, match:"Swampwalk") then "swampwalk,")
+		+(if contains(card.rule_text, match:"Swampwalk") then "swampwalk,")
+		+(if contains(card.rule_text, match:"Mountainwalk") then "mountainwalk,")
+		+(if contains(card.rule_text, match:"Mountainwalk") then "mountainwalk,")
+		+(if contains(card.rule_text, match:"Forestwalk") then "forestwalk,")
+		+(if contains(card.rule_text, match:"Forestwalk") then "forestwalk,")
+		+(if contains(card.rule_text, match:"First strike") then "first strike,")
+		+(if contains(card.rule_text, match:"first strike") then "first strike,")
+		+(if contains(card.rule_text, match:"Double strike") then "double strike,")
+		+(if contains(card.rule_text, match:"double strike") then "double strike,")
+		+(if contains(card.rule_text, match:"Fear") then "fear,")
+		+(if contains(card.rule_text, match:"fear") then "fear,")
+		+(if contains(card.rule_text, match:"Flash") then "flash,")
+		+(if contains(card.rule_text, match:"flash") then "flash,")
+		+(if contains(card.rule_text, match:"Haste") then "haste,")
+		+(if contains(card.rule_text, match:"haste") then "haste,")
+		+(if contains(card.rule_text, match:"Lifelink") then "lifelink,")
+		+(if contains(card.rule_text, match:"lifelink") then "lifelink,")
+		+(if contains(card.rule_text, match:"Reach") then "reach,")
+		+(if contains(card.rule_text, match:"reach") then "reach,")
+		+(if contains(card.rule_text, match:"Shroud") then "shroud,")
+		+(if contains(card.rule_text, match:"shroud") then "shroud,")
+		+(if contains(card.rule_text, match:"Vigilance") then "vigilance,")
+		+(if contains(card.rule_text, match:"vigilance") then "vigilance,")
+		+(if contains(card.rule_text, match:"Defender") then "defender,")
+		+(if contains(card.rule_text, match:"defender") then "defender,")
+		+(if contains(card.rule_text, match:"Banding") then "banding,")
+		+(if contains(card.rule_text, match:"banding") then "banding,")
+		+(if contains(card.rule_text, match:"Protection from white") then "protection from white,")
+		+(if contains(card.rule_text, match:"protection from white") then "protection from white,")
+		+(if contains(card.rule_text, match:"Protection from blue") then "protection from blue,")
+		+(if contains(card.rule_text, match:"protection from blue") then "protection from blue,")
+		+(if contains(card.rule_text, match:"Protection from black") then "protection from black,")
+		+(if contains(card.rule_text, match:"protection from black") then "protection from black,")
+		+(if contains(card.rule_text, match:"Protection from red") then "protection from red,")
+		+(if contains(card.rule_text, match:"protection from red") then "protection from red,")
+		+(if contains(card.rule_text, match:"Protection from green") then "protection from green,")
+		+(if contains(card.rule_text, match:"protection from green") then "protection from green,")
+		+(if contains(card.rule_text, match:" is unblockable.") then "unblockable,")
+		+(if contains(card.rule_text, match:"Wither") then "wither,")
+		+(if contains(card.rule_text, match:"wither") then "wither,")
+		+(if contains(card.rule_text, match:"Persist") then "persist,")
+		+(if contains(card.rule_text, match:"persist") then "persist,")
+		+(if contains(card.rule_text, match:"Retrace") then "retrace,")
+		+(if contains(card.rule_text, match:"retrace") then "retrace,")
+		+(if contains(card.rule_text, match:"Exalted") then "exalted,")
+		+(if contains(card.rule_text, match:"exalted") then "exalted,")
+		+(if contains(card.super_type, match:"Legendary") then "legendary,")
+		+(if contains(card.rule_text, match:"Shadow") then "shadow,")
+		+(if contains(card.rule_text, match:"shadow") then "shadow,")
+		+(if contains(card.rule_text, match:" can block creatures with shadow as though they didn't have shadow.") then "reachshadow,")
+		+(if contains(card.rule_text, match:" can’t attack unless defending player controls an Plains.") and contains(card.rule_text, match:"When you control no Plains, sacrifice ") then "plainshome,")
+		+(if contains(card.rule_text, match:" can’t attack unless defending player controls an Island.") and contains(card.rule_text, match:"When you control no Islands, sacrifice ") then "islandhome,")
+		+(if contains(card.rule_text, match:" can’t attack unless defending player controls an Swamp.") and contains(card.rule_text, match:"When you control no Swamps, sacrifice ") then "swamphome,")
+		+(if contains(card.rule_text, match:" can’t attack unless defending player controls an Mountain.") and contains(card.rule_text, match:"When you control no Mountains, sacrifice ") then "mountainhome,")
+		+(if contains(card.rule_text, match:" can’t attack unless defending player controls an Forest.") and contains(card.rule_text, match:"When you control no Forests, sacrifice ") then "foresthome,")
+		+(if contains(card.rule_text, match:"Flanking") then "flanking,")
+		+(if contains(card.rule_text, match:"flanking") then "flanking,")
+		+(if contains(card.rule_text, match:"Rampage") then "rampage,")
+		+(if contains(card.rule_text, match:"rampage") then "rampage,")
+		+(if contains(card.rule_text, match:" can block only creatures with flying.") then "cloud,")
+		+(if contains(card.rule_text, match:" attacks each turn if able.") then "mustattack,")
+		+(if contains(card.rule_text, match:" can't attack.") then "cantattack,")
+		+(if contains(card.rule_text, match:" can't block.") then "cantblock,")
+		+(if contains(card.rule_text, match:" doesn't untap during your untap step.") then "doesnotuntap,")
+		+(if contains(card.rule_text, match:" can't be the targets of spells or abilities your opponents control.") then "opponentshroud,")
+		+(if contains(card.rule_text, match:" is indestructible.") then "indestructible,")
+	}
+	#Take the trailing comma off the end of the abilities line.
+	wagic_remove_trailing_comma := replace@(match:",$", replace:"")
+	#Filter targets out of rules text, and process them to match Wagic's language.
+	#Todo: Finish this.
+	#Todo: Figure out why its not showing up in exported file.
+	wagic_target_filter := replace@(match:"Target ", replace:"::")+
+		replace@(match:"target ", replace:"::")+
+		replace@(match:" gets ", replace:"::")+
+		replace@(match:" gains ", replace:"::")+
+		replace@(match:" is ", replace:"::")+
+		replace@(match:".$", replace:"::")+
+		replace@(match:" or ", replace:",")+
+		replace@(match:"non", replace:"-")+
+		replace@(match:"--", replace:"-")
+	#Filter "Enchant" out of target line for Auras, and do some other filtering too.
+	wagic_enchant_filter := replace@(match:"Enchant ", replace:"")+
+		replace@(match:" or ", replace:",")+
+		replace@(match:"non", replace:"-")+
+		replace@(match:"--", replace:"-")
+	wagic_comma_to_semicolon := replace@(match:",", replace:";")
+	#Switch ⌠ and ⌡ for curly brackets at the end. If you do it sooner, MSE gets angry.
+	curly_bracket_filter := replace@(match:"⌡", replace:"}")+
+		replace@(match:"⌠", replace:"\{")
+	#Write normal cards.
+	#Todo: More target lines.
+	#Todo: Auto lines.
+	write_normal := {"\n[card]"
+		#Rules Text
+		+"\ntext="+wagic_rules(remove_tags(card.rule_text))
+		#ID
+		+"\nid="+wagic_id_prefix()+wagic_card_number()
+		#Name
+		+"\nname="+wagic_name(card.name)
+		#Rarity
+		+"\nrarity="+wagic_rarity()
+		#Cost
+		+(if card.casting_cost != "" then "\nmana="+wagic_cost(card.casting_cost) else "")
+		#Auto
+		+"\nauto="
+		#Type
+		+"\ntype="+card.super_type
+		#Subtype
+		+(if remove_tags(card.sub_type) != "" then "\nsubtype="+card.sub_type else "")
+		#Target for Auras
+		+(if contains(remove_tags(card.rule_text), match:"Enchant ") then
+			"\ntarget="
+			+(if contains(wagic_enchant_filter(split_text(match:"\n", card.rule_text).0), match:" ") then
+				split_text(match:" ", wagic_enchant_filter(split_text(match:"\n", card.rule_text).0)).1
+				+"["+wagic_comma_to_semicolon(split_text(match:" ", wagic_enchant_filter(split_text(match:"\n", card.rule_text).0)).0)+"]"
+			else wagic_enchant_filter(split_text(match:"\n", card.rule_text).0))
+		else "")
+		#Target for non-Auras
+		+(if is_spell(card.super_type) and is_targeted() then
+			"\ntarget="
+			+(if contains(split_text(match:"::", wagic_target_filter(to_string(card.rule_text))).1, match:" ") then
+				split_text(match:" ", split_text(match:"::", wagic_target_filter(to_string(card.rule_text))).1).1
+				+"["+wagic_comma_to_semicolon(split_text(match:" ", split_text(match:"::", wagic_target_filter(to_string(card.rule_text))).1).0)+"]"
+			else split_text(match:"::", wagic_target_filter(to_string(card.rule_text))).1))
+		#Power
+		+(if card.power != "" then "\npower="+card.power else "")
+		#Toughness
+		+(if card.toughness != "" then "\ntoughness="+card.toughness else "")
+		#Abilities
+		+(if wagic_abilities() != "" then "\nabilities="+wagic_remove_trailing_comma(wagic_abilities()) else "")
+		+"\n[/card]"
+	}
+	#Write basic lands.
+	write_basic := {"\n[card]"
+		#Rules Text
+		+"\ntext=⌠T⌡: Add ⌠"+(wagic_basic_mana())+"⌡ to your mana pool."
+		#ID
+		+"\nid="+wagic_id_prefix()+wagic_card_number()
+		#Name
+		+"\nname="+wagic_name(card.name)
+		#Rarity
+		+"\nrarity=L"
+		#Auto
+		+"\nauto=⌠T⌡: Add ⌠"+(wagic_basic_mana())+"⌡"
+		#Type
+		+"\ntype=Basic Land"
+		#Subtype
+		+(if remove_tags(card.sub_type) != "" then "\nsubtype="+card.sub_type else "")
+		+"\n[/card]"
+	}
+	#Do not write tokens, rulestips, splits, flips, or planeswalkers.
+	write_card := { if contains(card.shape, match:"token") or contains(card.shape, match:"rulestip") or contains(card.shape, match:"split") or card.name_2 != "" or card.loyalty != "" then ""
+		else if card.rarity == "basic land" then write_basic()
+		else write_normal()
+	}
+	#Write cards.
+	write_cards := to_text(for each card in sort_list(cards, order_by: {card.card_number}) do write_card())
+	#Render images.
+	#write_images := for each card in cards do write_image_file(card, file:"{wagic_id_prefix()}{wagic_card_number()}{if card.shape == "token" then "t"}{if card.shape == "rulestip" then "tip"}.jpg")
+	#Write header, then write the cards.
+	#Todo: Add instructions for manual processing of exported files.
+	to_string("#"+set.title+" Spoiler List\n#"
+		+wagic_comment_out(set.description)+"\n#"
+		+"Spoiler List created on "+options.date_created+"\n#"
+		+"Last Updated on: "+options.date_modified
+		+"\n#\n#Spoiler generated by Magic Set Editor 2 Beta 0.3.8 Using the Wagic Export Template version 2009-11-14"
+		+"\n#Export Template by Pichoro"
+		+"\n#"
+		+"\n#To Use This Output, You Must:"
+		+"\n#1.) Rename the token images accordingly."
+		+"\n#2.) Check the file for errors."
+		+"\n#"
+		+"\n#The only person who assumes any liability for damages from the use of this file is the user.\n"
+		+curly_bracket_filter(write_cards))

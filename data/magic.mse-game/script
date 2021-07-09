@@ -1,0 +1,1707 @@
+﻿############################################################## Localization
+
+include file: language
+# needed by all style files anyway
+include file: /magic-blends.mse-include/new-blends
+
+############################################################## Sorting mana symbols
+
+# correctly sort a mana symbol (no guild mana)
+mana_sort       := sort_text@(order: "\\?XYZI[0123456789]VLHSCAIE(WUBRG)") 
+# correctly sort wedge mana
+mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VLHSCAIE(WBGUR)")
+mana_unsort := sort_text@(order:"[/\\?XYZI0123456789VLHSCAIEWUBRG]")
+# correctly sort guild mana
+mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VLHSCAIEWUBRG/|]") +
+		replace@(
+			# No lookbehind :(
+			#match: "(?<!/)(./.|././.|./././.|.[|])(?!/)",
+			match: "./.|././.|./././.|.[|]",
+			in_context: "(^|[^/])<match>($|[^/])",
+			replace: {sort_text(order:"in_place((WUBRG))")}
+		)
+mana_has_guild := match@(match: "[/|]") # Is there guild or half mana in the input?
+mana_is_wedge := { chosen(set.mana_cost_sorting, choice: "tarkir wedge sorting") and ( number_of_items(in: sort_text(order:"<WUBRG>", input), filter: "<WUBRG>") == 3 ) }
+mana_has_wedge := {  mana_is_wedge() and (sort_text(order:"<WUBRG>", input) == "WUR" or sort_text(order:"<WUBRG>", input) == "WBR" or sort_text(order:"<WUBRG>", input) == "WBG" or sort_text(order:"<WUBRG>", input) == "UBG" or sort_text(order:"<WUBRG>", input) == "URG")}
+# convert card.card_color to WUBRG
+card_color_to_letters := {
+	color_string := trim_colors(input)
+	out_string := (if contains(color_string, match:"white") then "W" else "")+(if contains(color_string, match:"blue") then "U" else "")+(if contains(color_string, match:"black") then "B" else "")+(if contains(color_string, match:"red") then "R" else "")+(if contains(color_string, match:"green") then "G" else "")
+	out_string
+}
+card_is_wedge := {
+	color_string := card_color_to_letters(input)
+	if color_string == "WUR" or color_string == "WBR" or color_string == "WBG" or color_string == "UBG" or color_string == "URG" then true else false
+}
+# A mana cost can contain both normal and guild mana
+mana_filter := to_upper + {
+	if chosen(set.mana_cost_sorting, choice: "unsorted") then mana_unsort()
+	else if mana_has_guild() then mana_sort_guild()
+	else if mana_has_wedge(input) then mana_sort_wedge(input)
+	else                     mana_sort()
+}
+# Like mana filter, only also allow tap symbols:
+tap_reduction :=
+	replace@(match:"T+", replace:"T")+
+	replace@(match:"Q+", replace:"Q")
+tap_filter := sort_text@(order: "<TQ>")
+mana_filter_t := replace@(               # Remove [] used for forcing mana symbols
+			match: "[\\[\\]]",
+			replace: ""
+		) + { tap_reduction(tap_filter()) + mana_filter() }
+
+
+############################################################## Determine card color
+
+# Names of colors
+color_name := {
+	if      input == "W" then "white"
+	else if input == "U" then "blue"
+	else if input == "B" then "black"
+	else if input == "R" then "red"
+	else if input == "G" then "green"
+	else                     ""
+}
+mana_name := {
+	if      input == "white" then "W"
+	else if input == "blue" then "U"
+	else if input == "black" then "B"
+	else if input == "red" then "R"
+	else if input == "green" then "G"
+	else                     "C"
+}
+color_names_1 := { color_name(colors.0) }
+color_names_2 := { color_name(colors.0) + ", " + color_name(colors.1) }
+color_names_3 := { color_name(colors.0) + ", " + color_name(colors.1) + ", " + color_name(colors.2) }
+color_names_4 := { color_name(colors.0) + ", " + color_name(colors.1) + ", " + color_name(colors.2) + ", " + color_name(colors.3) }
+color_names_5 := { color_name(colors.0) + ", " + color_name(colors.1) + ", " + color_name(colors.2) + ", " + color_name(colors.3) + ", " + color_name(colors.4) }
+# color based on mana cost, input == a mana cost
+color_filter  := sort_text@(order: "<WUBRG>")
+color_filterH := sort_text@(order: "</>")
+mana_to_color := {
+	count  := number_of_items(in: colors)
+	if hybrid == "" and contains(type, match:"Artifact") then
+		# not a hybrid, but artifact
+		if      count == 0 then  "artifact"
+		else if count == 1 then  color_names_1() + ", artifact"
+		else if set.set_info.use_gradient_multicolor == "no"  then "artifact, multicolor" # stop here
+		else if count == 2 then  color_names_2() + ", artifact, multicolor"
+		else if set.set_info.use_gradient_multicolor != "yes" then "artifact, multicolor" # stop here
+		else if count == 3 then  color_names_3() + ", artifact, multicolor"
+		else if count == 4 then  color_names_4() + ", artifact, multicolor"
+		else if count == 5 then  color_names_5() + ", artifact, multicolor"
+		else                     "artifact, multicolor"
+	else if hybrid == "" then
+		# not a hybrid, not artifact
+		if      count == 0 then  "colorless"
+		else if count == 1 then  color_names_1()
+		else if set.set_info.use_gradient_multicolor == "no"  then "multicolor" # stop here
+		else if count == 2 then  color_names_2() + ", multicolor"
+		else if set.set_info.use_gradient_multicolor != "yes" then "multicolor" # stop here
+		else if count == 3 then  color_names_3() + ", multicolor"
+		else if count == 4 then  color_names_4() + ", multicolor"
+		else if count == 5 then  color_names_5() + ", multicolor"
+		else                     "multicolor"
+	else if contains(type, match:"Artifact") then
+		# hybrid, but artifact
+		if count == 0 then "artifact"
+		else if count == 1 then color_names_1() + ", artifact"
+		else if count == 2 then  color_names_2() + ", artifact"
+		else                     "artifact, multicolor"
+	else
+		# hybrid, not artifact
+		if count == 0 then "colorless"
+		else if count == 1 then color_names_1()
+		else if count == 2 then  color_names_2() + ", hybrid"
+		else                     "multicolor"
+}
+
+# color based on land text box, input == textbox contents
+color_text_filter :=
+	# remove activation costs
+	replace@(
+		match: "<sym[^>]*>[^<]+</sym[^>]*>"
+		in_context: "(?ix) (\\n|^)[^:]*<match>(,|:) | (pays?|additional|costs?)[ ]<match>",
+		replace: ""
+	) +
+	# keep only mana
+	filter_text@(match: "<sym[^>]*>([^<]+)") + color_filter;
+# get the land frame for a "WUBRG"-style input.
+land_multicolor := {
+	count  := number_of_items(in: colors)
+	if      count == 0 then "land"
+	else if count == 1 then color_names_1() + ", land"
+	else if count == 2 then color_names_2() + ", land"
+	else                    "land, multicolor"
+}
+land_to_color := {
+	# Based on watermark
+	if      watermark == "mana symbol white" then "white, land"
+	else if watermark == "mana symbol blue"  then "blue, land"
+	else if watermark == "mana symbol black" then "black, land"
+	else if watermark == "mana symbol red"   then "red, land"
+	else if watermark == "mana symbol green" then "green, land"
+	else land_multicolor(colors:color_text_filter(input: rules))
+}@(rules:card.rule_text)
+
+# Look for a CDA that defines colors
+text_to_color := {
+	# Note: running filter_text is quite slow, do a quick 'contains' check first
+	if contains(match: card_name + " is") then (
+	  text := filter_text(match: "is (colorless|all colors|((blue|white|green|red|black)((,|,? and) (blue|white|green|red|black))*))", in_context: regex_escape(card_name)+"(</[-a-z]+>)* <match>\\.")
+	  if text != "" then (
+	    if contains(text, match: "all colors") then (
+		colors := "WUBRG"
+		if land == "true" then land_multicolor()
+		else mana_to_color(hybrid: "")
+	    ) else (
+		colors := ""
+		if contains(text, match: "white") then colors := colors + "W"
+		if contains(text, match: "blue")  then colors := colors + "U"
+		if contains(text, match: "black") then colors := colors + "B"
+		if contains(text, match: "red")   then colors := colors + "R"
+		if contains(text, match: "green") then colors := colors + "G"
+		if land == "true" then land_multicolor()
+		else mana_to_color(hybrid: "")
+	    )
+	  )
+	  else ""
+	)
+	else ""
+}
+
+is_creature    := match@(match: "(?i)Creature")
+is_creaturish  := match@(match: "(?i)(Creature|Vehicle)")
+is_tribal      := match@(match: "(?i)Tribal")
+is_artifact    := match@(match: "(?i)Artifact")
+is_land        := match@(match: "(?i)Land")
+is_enchantment := match@(match: "(?i)Enchantment")
+is_aura        := match@(match: "(?i)Aura")
+is_spell       := match@(match: "(?i)Instant|Sorcery")
+is_sorcery     := match@(match: "(?i)Sorcery")
+is_instant     := match@(match: "(?i)Instant")
+is_planeswalker := match@(match: "(?i)Planeswalker")
+is_legendary := match@(match: "(?i)Legendary")
+match_vehicle := contains@(match:"Vehicle")
+match_snow := contains@(match:"Snow")
+
+# The color of a card
+card_color := {
+	# usually the color of mana
+	text_color := text_to_color(rules_text, land: is_land(type));
+	if text_color == "" then (
+		mana_color := mana_to_color(colors: color_filter(casting_cost), hybrid: color_filterH(casting_cost))
+		if      mana_color == "colorless" and is_land    (type)  then land_to_color(watermark, rules:rules_text)
+		else if mana_color == "colorless" and is_artifact(type)  then "artifact"
+		else if mana_color == "colorless" and contains(card.shape, match:"flip") then default
+		else mana_color
+	)
+	else text_color
+};
+##todo check nil
+has_two_names := {contains(card.shape, match:"split") or contains(card.shape, match:"adventure") or contains(card.shape, match:"flip") or contains(card.shape, match:"double faced") or contains(card.shape, match:"aftermath")}
+# Number of colors in a card_color
+card_color_color_count := count_chosen@(choices: "white,blue,black,red,green,artifact")
+# Clean up color field
+card_color_filter := {
+	colors := card_color_color_count()
+	if colors > 2 then
+		input := remove_choice(choice: "overlay")
+	if colors > 1 then (
+		input := require_choice(choices: "multicolor, hybrid, land, artifact")
+		input := exclusive_choice(choices: "multicolor, hybrid")
+		input := require_exclusive_choice(choices: "horizontal, vertical, radial, overlay")
+	) else
+		input := remove_choice(choices: "radial, horizontal, vertical, overlay, hybrid, reversed")
+	if chosen(choice:"overlay") then
+		input := remove_choice(choice: "reversed")
+	input
+}
+
+
+############################################################## Card number
+# exportname
+	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
+	exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
+	export_name := { exporter_name_grabber(exporter_name_filter(card.notes))}
+	
+# Index for sorting, white cards are first, so white->A, blue->B, .. ,
+# The code consists of 3 parts:
+#   color,  shifted,   split
+sort_index := {
+	color_of_card() +
+	(if contains(card.shape, match:"shifted") then "S" else " ") + # planeshifted cards come after normal ones
+	(if contains(card.shape, match:"split")   then "S" else " ") + # split cards come after normal ones
+	":"
+}
+# Process the name for sorting rules
+sort_name :=
+	# Remove "The", "A", and "An" at the beginning
+	replace@(match: "^(The|An?) ", replace: "") +
+	# Remove commas and apostrophes
+	replace@(match: "(,|'|’)", replace: "") +
+	# Remove bold and italic tags
+	replace@(match: "(<b>|<i>|</b>|</i>)", replace: "") +
+	# Make lowercase
+	to_lower
+
+is_multicolor := { chosen(choice: "multicolor") and input != "artifact, multicolor" }
+is_null_cost  := { input == "" or input == "0" }
+is_hybrid_cost := { contains(card.casting_cost, match: "W/") or contains(card.casting_cost, match: "U/") or contains(card.casting_cost, match: "B/") or contains(card.casting_cost, match: "R/") or contains(card.casting_cost, match: "G/") }
+basic_land_sort := {
+	if contains(card.name, match:"Plains")        then "MB"      # Plains
+	else if contains(card.name, match:"Island")   then "MC"      # Islands
+	else if contains(card.name, match:"Swamp")    then "MD"      # Swamps
+	else if contains(card.name, match:"Mountain") then "ME"      # Mountains
+	else if contains(card.name, match:"Forest")   then "MF"      # Forests
+	else                                               "MA"      # other basic lands
+}
+hybrid_color_pair_sort := {
+	colors := sort_text(casting_cost, order: "<WUBRG>")
+	if not set.sort_hybrid_in_pairs then "HK"
+	else if colors == "WU" then "HA"
+	else if colors == "UB" then "HB"
+	else if colors == "BR" then "HC"
+	else if colors == "RG" then "HD"
+	else if colors == "WG" then "HE"
+	else if colors == "WB" then "HF"
+	else if colors == "UR" then "HG"
+	else if colors == "BG" then "HH"
+	else if colors == "WR" then "HI"
+	else if colors == "UG" then "HJ"
+	else "HK"
+}
+multi_color_pair_sort := {
+	colors := sort_text(casting_cost, order: "<WUBRG>")
+	if not set.sort_multicolor_in_pairs then "GK"
+	else if colors == "WU" then "GA"
+	else if colors == "UB" then "GB"
+	else if colors == "BR" then "GC"
+	else if colors == "RG" then "GD"
+	else if colors == "WG" then "GE"
+	else if colors == "WB" then "GF"
+	else if colors == "UR" then "GG"
+	else if colors == "BG" then "GH"
+	else if colors == "WR" then "GI"
+	else if colors == "UG" then "GJ"
+	else if contains(card.casting_cost, match:"/") then "GL"
+	else "GK"
+}
+# A code for the color of the card
+color_of_card := {
+	card_color := card.card_color
+	casting_cost := card.casting_cost
+	type := card.super_type
+	if contains(card.shape, match: "split") and
+	   card_color != card.card_color_2 then "I"                              # Diff Color Splits
+	else if chosen(choice: "land", card_color) then (                   # Lands
+		if card.rarity != "basic land" then "L"                          # Nonbasic Land
+		else basic_land_sort()                                           # Basic Land
+	) else if is_null_cost(casting_cost) then (                         # Non-Land Cards with no or zero costs.
+		if chosen(choice: "colorless", card_color) then "A"              # Clear Colorless
+		else if chosen(choice: "hybrid", card_color)    then "HK"        # Hybrids
+		else if is_multicolor(card_color)          then "GK"             # Multicolor
+		else if chosen(choice:"white", card_color) then "B"              # White
+		else if chosen(choice:"blue", card_color)  then "C"              # Blue
+		else if chosen(choice:"black", card_color) then "D"              # Black
+		else if chosen(choice:"red", card_color)   then "E"              # Red
+		else if chosen(choice:"green", card_color) then "F"              # Green
+		else                                            "J"              # Artifact
+	) else (
+		                                                            # Cards with costs.
+		colors := sort_text(casting_cost, order: "<WUBRG>")
+		if colors == "" and contains(type, match:"Artifact") then "J"    # Artifact
+		else if colors == ""  then "A"                                   # Clear Colorless
+		else if colors == "W" then "B"                                   # White
+		else if colors == "U" then "C"                                   # Blue
+		else if colors == "B" then "D"                                   # Black
+		else if colors == "R" then "E"                                   # Red
+		else if colors == "G" then "F"                                   # Green
+		else if is_hybrid_cost() then hybrid_color_pair_sort()           # Hybrid (by pairs)
+		else if contains(casting_cost, match:"/") and contains(type, match:"Artifact") then "I" # Hybrid Artifacts
+		else                       multi_color_pair_sort()               # Multicolor (by pairs)
+	)
+}
+
+rarity_sort := {
+	if card.shape == "token" then "T1"
+	else if card.shape == "emblem" then "T2"
+	else if card.shape == "rulestip" then "T3"
+	else if card.shape == "counter" then "T4"
+	else if card.shape == "checklist" then "T5"
+	else if is_masterpiece() then "T6"
+	else if set.sort_special_rarity == "with the rest" or card.rarity != "special" then " "
+	else "S"
+}
+set_filter := {
+	# TODO: what about rulestips?
+	if is_unsorted() then 
+		{ is_unsorted() }
+	else if card.shape == "token" or card.shape == "emblem" then
+		{ card.shape == "token" or card.shape == "emblem" }
+	else if card.shape == "rulestip" then
+		{ card.shape == "rulestip" }
+	else if card.shape == "counter" then
+		{ card.shape == "counter" }
+	else if card.shape == "checklist" then
+		{ card.shape == "checklist" }
+	else if is_masterpiece() and card.shape != "token" and card.shape != "emblem" then
+		{ is_masterpiece() and card.shape != "token" and card.shape != "emblem" }
+	else if set.sort_special_rarity != "separate numbering" then
+		{ not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist"}
+	else if card.rarity == "special" then
+		{ not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity == "special" }
+	else
+		{ not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity != "special" }
+}
+card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:false, default:0)}
+set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
+card_number := {
+	position (
+		of: card
+		in: set
+		order_by: { rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
+		filter:   set_filter()
+	) + 1 + to_number(card_number_offset())
+}
+card_count := {
+	number_of_items(in: set, filter: set_filter()) + to_number(set_number_offset())
+}
+
+#Starting with M15, zero digits in card numbers should be shown up to three.
+card_number_m15 := { (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
+card_count_m15 := { (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
+
+# used by pack scripts
+is_token_card   := { card.shape == "token" or card.shape == "rulestip" or card.shape == "counter" or card.shape == "checklist" or card.shape == "emblem"}
+is_shifted_card := { contains(card.shape, match:"shifted") }
+is_masterpiece := { card.rarity == "masterpiece" }
+is_nightbreak := { card.shape == "nightbreak" }
+
+
+############################################################## Utilities for keywords
+
+comma_count := filter_text@(match:",")
+# Replace spaces by a spacer
+separate_words := remove_tags + trim + replace@(match:" ", replace: {spacer})
+
+# replaces — correctly
+add := "" # default is nothing
+
+trim_reminder_x := replace@(match: ". X can’t be 0.", replace: "")
+
+# If the 'input' parameter is a mana costs, then adds 'add'
+for_mana_costs := {
+	if input.separator_before == "—" and contains(input.param, match: " ") then (										##multi word
+		if comma_count(input.param) == "," then (																			##two part
+			if match(match: "^[VLHSCAIETQ\\?XYZIWUBRG0-9/|]+,", input.param) then													##starts with mana
+				"{add}<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>"					##"add" mana 
+			else "<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"					## else cost "non"
+		) else if contains(input.param, match: ",") then (																	##three+ parts
+			if match(match: "^[VLHSCAIETQ\\?XYZIWUBRG0-9/|]+,", input.param) then													##starts with mana
+				"{add}<param-cost>{alternative_cost(input.param, trim:long_cost, s:action)}</param-cost>"						##"add" mana with long formatting
+			else "<param-cost>{alternative_cost(input.param, trim:long_nomana_cost, s:action)}</param-cost>{non}"				## else cost "non" with long formatting
+		) else
+			"<param-cost>{alternative_cost(input.param, s:action, trim:lower_first)}{non}</param-cost>"						##one, nonmana, part
+	) else if match(match: "^[VLHSCAIETQ\\?XYZIWUBRG0-9/|]+$", input.param) then											##one word
+		"{add}<param-mana>{input.param}</param-mana>"																		##mana
+	else
+		"<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"						##nonmana
+}@(non:" in addition to any other costs", action:false)
+
+# Convert extra costs
+long_cost := replace@(match:", [A-Z]", replace: { to_lower() } )
+long_nomana_cost := replace@(match:"[A-Z]", replace: { to_lower() })
+# Convert first character to lower case
+lower_first := replace@(match:"^[A-Z]", replace: { to_lower() })
+combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
+	replace@(match:",", replace:" and")+
+	replace@(match:"^[VLHSCETQ\\?XYZIWUBRG0-9/|]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
+	replace@(match:"^[A-Z]", replace: { to_lower() })
+alternative_cost := {
+	input := trim(input)
+	if s then
+		input := actionize(input)
+	input
+}@(trim: lower_first, s:false, trim:{input})
+actionize := replace@(match:"(activate|ante|cast|choose|create|destroy|discard|double|draw|exchange|exile|fight|mill|play|put|regenerate|return|reveal|sacrifice|shuffle|tap|untap|transform|vote|exert|pay)(?=($| |,|\\.))", replace:"\\1s")
+	+replace@(match:"(attach)", replace:"\\1es")
+	+replace@(match:"scry", replace:"scries")
+	+replace@(match:"your", replace:"their")
+#
+protection_code := {
+	 output := if match(input, match:"(artifacts|creatures|enchantments|instants|lands|planeswalkers|sorceries|tribals|planes|schemes|emblems|conspiracies|^[A-Z]|^[^ ]* named)") then replace(input, match:"and from", replace:"or", in_context:" <match> ")
+		else if match(input, match:"^(converted|mana|power|toughness)") then "anything with " + replace(input, match:"and from", replace:"or", in_context:" <match> ")
+		else if contains(input, match:"the chosen player") then "anything " + replace(input, match:"the chosen", replace:"controlled by that")
+		else if contains(input, match:"the chosen") then "anything with " + replace(input, match:"the chosen", replace:"that")
+		else if contains(input, match:"all colors") then "anything " + replace(input, match:"all colors", replace:"that's white, blue, black, red, or green")
+		else if match(input, match:"^you$") then "anything you control"
+		else if match(input, match:"^its owner$") then "anything its owner controls"
+		else if match(input, match:"^(each of )?your opponents$") then "anything " + replace(input, match:"(each of )?your opponents", replace:"controlled by those players")
+		else if match(input, match:"(the|a) [^\n]* of your choice") then "anything " + replace(input, match:"(the|a) ([^\n]*) of your choice", replace:"of that \\2")
+		else "anything " + replace(english_singular(input), match:"and from", replace:"or", in_context:" <match> ")
+	output := " targeted, dealt damage, enchanted, equipped by " + output
+	if match(output, match:"(artifacts|creatures|instants|lands|planeswalkers|sorceries|tribals|planes|schemes|emblems|conspiracies|by [A-Z])") and not match(output, match:"(enchantmentsAura|Curse)") then
+		output := replace(output, match:", enchanted", replace:"")
+		else output := output
+	if match(output, match:"(enchantments|creatures|instants|lands|planeswalkers|sorceries|tribals|planes|schemes|emblems|conspiracies|by [A-Z])") and not match(output, match:"(artifacts|Equipment)") then
+		output := replace(output, match:" equipped", replace:"")
+		else output := output
+	if match(output, match:"equipped by") then output := replace(output, match:"equipped by", replace:"or equipped by")
+	else if match(output, match:"enchanted, by") then output := replace(output, match:"enchanted, by", replace:"or enchanted by")
+	else if match(output, match:"dealt damage, by") then output := replace(output, match:"dealt damage, by", replace:"or dealt damage by")
+	else ""
+	if match(output, match:"^ targeted, or dealt damage by") then output := replace(output, match:"^ targeted, or dealt damage by", replace:" targeted or dealt damage by")
+	if match(output, match:"anything [A-Z]") then output := replace(output, match:"anything ", replace:"")
+	if match(output, match:"or les") then output := replace(output, match:"or les$", replace:"or less")
+	if match(output, match:"(anything )?everything") then output := replace(output, match:"(anything )?everything", replace:"anything")
+	output := (if self_pro_check(card.text) then "You can't be" else if is_spell(card.type) then "It can't be blocked," else if is_creaturish(card.type) then "This creature can't be blocked," else "This permanent can't be") + output
+	output
+}
+self_pro_check := match@(match:"You ha(ve|s) <kw-A><nospellcheck>protection")
+long_dash := replace@(match:"-", replace:"—")
+
+# Utilities for keywords
+
+has_cc := { card.casting_cost != "" }
+
+has_pt := { card.power != "" or card.toughness != "" }
+
+contains_target := match@(match:"(?i)([^a-z]|^)targets?([^a-z]|$)")
+
+is_spell := { contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") }
+
+is_targeted := { contains_target(card.rule_text) }
+
+color_to_mana := replace@(match: "white", replace: "[W]")+
+	replace@(match: "blue", replace: "[U]")+
+	replace@(match: "black", replace: "[B]")+
+	replace@(match: "red", replace: "[R]")+
+	replace@(match: "green", replace: "[G]")
+
+iterate_fix := remove_tags
+	+replace@(match: "^\\.", replace:"")
+	+replace@(match: "^,", replace:"")
+	+replace@(match: "^[ ]$", replace:"")
+iterate_trim := replace@(match:" times", replace:"");
+iterate_digits := {
+	if iterate_trim(iterate_fix(input)) == "" then "1"
+	else if iterate_trim(iterate_fix(input)) == " one" then "1"
+	else if iterate_trim(iterate_fix(input)) == " once" then "1"
+	else if iterate_trim(iterate_fix(input)) == " two" then "2"
+	else if iterate_trim(iterate_fix(input)) == " twice" then "2"
+	else if iterate_trim(iterate_fix(input)) == " three" then "3"
+	else if iterate_trim(iterate_fix(input)) == " four" then "4"
+	else if iterate_trim(iterate_fix(input)) == " five" then "5"
+	else if iterate_trim(iterate_fix(input)) == " six" then "6"
+	else if iterate_trim(iterate_fix(input)) == " seven" then "7"
+	else if iterate_trim(iterate_fix(input)) == " eight" then "8"
+	else if iterate_trim(iterate_fix(input)) == " nine" then "9"
+	else if iterate_trim(iterate_fix(input)) == " ten" then "10"
+	else if iterate_trim(iterate_fix(input)) == " eleven" then "11"
+	else if iterate_trim(iterate_fix(input)) == " twelve" then "12"
+	else if iterate_trim(iterate_fix(input)) == " thirteen" then "13"
+	else if iterate_trim(iterate_fix(input)) == " fourteen" then "14"
+	else if iterate_trim(iterate_fix(input)) == " fifteen" then "15"
+	else if iterate_trim(iterate_fix(input)) == " sixteen" then "16"
+	else if iterate_trim(iterate_fix(input)) == " seventeen" then "17"
+	else if iterate_trim(iterate_fix(input)) == " eighteen" then "18"
+	else if iterate_trim(iterate_fix(input)) == " nineteen" then "19"
+	else if iterate_trim(iterate_fix(input)) == " twenty" then "20"
+	else iterate_trim(iterate_fix(input))
+}
+digital_number := {
+	input := replace(input, match:"up to ", replace:"")
+	if input == "zero" then 0
+	else if input == "one" or input == "a" or input == "an" then 1
+	else if input == "two" then 2
+	else if input == "three" then 3
+	else if input == "four" then 4
+	else if input == "five" then 5
+	else if input == "six" then 6
+	else if input == "seven" then 7
+	else if input == "eight" then 8
+	else if input == "nine" then 9
+	else if input == "ten" then 10
+	else if input == "eleven" then 11
+	else if input == "twelve" then 12
+	else if input == "thirteen" then 13
+	else if input == "fourteen" then 14
+	else if input == "fifteen" then 15
+	else if input == "sixteen" then 16
+	else if input == "seventeen" then 17
+	else if input == "eighteen" then 18
+	else if input == "nineteen" then 19
+	else if input == "twenty" then 20
+	else input
+}
+reverse_elements := {for element from 1 to length(input) do input[length(input) - element] + " "}
+######################## Level Margins
+#### these will be determined by the style affecting the margins and otherwise be 0
+margin_left := {0}
+margin_right := {0}
+margin_top := {0}
+remove_margins := replace@(
+	match: "</?margin:[0-9]+(:+[0-9]+)?(:+[0-9]+)?>",
+	replace:""
+)
+##remove 0 margins and margins with no text
+cull_margins := replace@(match:"</?margin:0(:+0)?(:+0)?>", replace:"")+
+	replace@(match:"<margin:[0-9]+:?[0-9]*:?[0-9]*></margin:[0-9]+:?[0-9]*:?[0-9]*>", replace:"")
+	
+#### this gives a big array so we can grab_margins["lv1"] etc anywhere
+grab_margins := {[ lv1: [margin_left("lv1"), margin_right("lv1"), margin_top("lv1")], 
+	lv2: [margin_left("lv2"), margin_right("lv2"), margin_top("lv2")], 
+	lv3: [margin_left("lv3"), margin_right("lv3"), margin_top("lv3")], 
+	lv4: [margin_left("lv4"), margin_right("lv4"), margin_top("lv4")], 
+	lv5: [margin_left("lv5"), margin_right("lv5"), margin_top("lv5")], 
+	lv6: [margin_left("lv6"), margin_right("lv6"), margin_top("lv6")], 
+	lv7: [margin_left("lv7"), margin_right("lv7"), margin_top("lv7")], 
+	lv8: [margin_left("lv8"), margin_right("lv8"), margin_top("lv8")], 
+	text: [margin_left("text"), margin_right("text"), margin_top("text")], 
+	text2: [margin_left("text2"), margin_right("text2"), margin_top("text2")], 
+	text3: [margin_left("text3"), margin_right("text3"), margin_top("text3")], 
+	text4: [margin_left("text4"), margin_right("text4"), margin_top("text4")], 
+	text5: [margin_left("text5"), margin_right("text5"), margin_top("text5")],
+	text6: [margin_left("text6"), margin_right("text6"), margin_top("text6")],
+	unknown: [0,0,0]
+]}
+#### then with apply_margins(field, name:fieldname), add the margins into the text
+apply_margins := {
+	margin_data := grab_margins()[name] or else [0,0,0]
+	cull_margins("<margin:" + margin_data[0] + ":" + margin_data[1] + ":" + margin_data[2] + ">" + remove_margins(input) + "</margin:" + margin_data[0] + ":" + margin_data[1] + ":" + margin_data[2] + ">")
+}
+is_modal := contains@(match:"<li>")
+
+bump_text := {
+	blocks := split_text(input, match:"\n");
+	new_text := blocks[0];
+	for x from 1 to length(blocks)-1 do new_text := new_text + "\n" + bumper(blocks[x])
+	new_text
+}
+bumper := {
+	#if this text isn't modal, at a 5 px margin
+	if is_modal(input) then input else
+	cull_margins("<margin:0:0:5>" + remove_margins(input) + "</margin:0:0:5>")
+	 
+}
+inserts_values := {
+	split_text(set.inserts+";;;;;;;;;", match:";")
+}
+############################################################## The text box
+
+# Filters for the text box
+# context in which mana symbols are found
+mana_context :=
+	"(?ix)				# case insensitive, ignore whitespace
+	 (^|[[:space:]\"(“'])		# start of a word
+		 (
+			<match>:			# G: something
+		 |  <match>,			# G, tap: something
+		 |  or[ ]<match>		# Add X, Y, or Z.
+		 |  <match>[ ]to[ ]your		# Add X, Y, or Z to your mana pool.
+		 |  <match>[ ]was[ ]spent		# if G was spent to cast
+		 |  <match>[ ]can[ ]be[ ]paid
+		 |  (pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using))	# pay X. creatures cost 1 less. pay an additional G.
+			([ ]either)?			 # pay either X or Y
+			([ ](<sym[^>]*>)?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)* # pay X, Y or Z
+			([ ](<sym[^>]*>)?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
+			[ ]<match>
+			([,.)\"”]|$				# (end of word)
+			|[ ][^ .,]*$			# still typing...
+			|[ ]( or | and | in | less | more | to ) # or next word is ...
+		 )
+	 )
+	 |  <param-mana><match></param-mana>		# keyword argument that is declared as mana
+	 |  <param-cost>[ ]*<match></param-cost>	# keyword argument that is declared as cost
+	 |  <param-cost><match>,			# keyword argument that is declared as cost
+	 ";
+mana_un_context := "(converted mana costs? <match>|<match> life)"
+
+# truncates the name of legends
+legend_filter := replace@(match:"(, | of | the | \"| “).*", replace: "" )
+
+# these are considered a correct 'word' for spellchecking in the text box:
+additional_text_words := match@(match:
+	"(?ix)^(?:                         # match whole word
+	  <atom-[^>]*>.*?</atom-[^>]*>     # cardnames and stuff
+	| [+-]?[0-9X]+ / [+-]?[0-9X]+      # '3/3', '+X/+X'
+	)$")
+
+# the rule text filter
+#  - adds mana symbols
+#  - makes text in parentheses italic
+equip_filter :=
+	replace@(match:"This creature", replace:"It")
+	+replace@(match:"this creature", replace:"it")
+softline_ripper :=
+	replace@(match:"</?soft-line>", replace:"")
+auto_correct :=
+	replace@(match:" it’s (controller|owner|power|toughness|converted|other)", replace:" its \\1")
+	+replace@(match:"Then, if" replace:"Then if")
+	+replace@(match:"([Ff]irst|[Dd]ouble) Strike" replace:"\\1 strike")
+	+replace@(match:"Splice (Ont|unt|int)" replace:"Splice ont")
+	+replace@(match:"(ecomes?) the Monarch" replace:"\\1 the monarch")
+	+replace@(match:"does (combat|[X0-9]+) damage" replace:"deals \\1 damage")
+	+replace@(
+		match: "(gains |gain |have |has )" # preceded by this
+		     + "(<kw-[^<]><nospellcheck>)" # inside a kw
+			 + "([A-Z])" # match this
+		replace: { _1 + _2 + to_lower(_3)})
+auto_errata :=
+	replace@(match:"converted mana cost", replace:"mana value")
+	+replace@(match:"hen shuffle your library", replace:"hen shuffle")
+	+replace@(match:"this (?:ability )?(?:only )?(?:any ?time you could cast|as) a", in_context: "(Activate|Play) <match>n? (instant|sorcery)", replace:"only as a")
+ex_test := expand_keywords@(
+		condition: {
+			correct_case or (mode != "pseudo" and not used_placeholders)
+		}
+		default_expand: {
+			chosen(choice:if correct_case or mode == "action" then mode else "lower case", set.automatic_reminder_text) and chosen(choice:mode, set.automatic_reminder_text)
+		},
+		combine: {
+			keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+			reminder := process_english_hints(if has_pt() then reminder else equip_filter(reminder))
+			if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
+			else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
+		})
+text_filter :=
+	# step 1 : remove all automatic tags
+	remove_tag@(tag: "<sym-auto>") +
+	remove_tag@(tag: "<i-auto>")   +
+	remove_tag@(tag: "<b-auto>")   +
+	remove_tag@(tag: "<error-spelling") +
+	remove_tag@(tag: "<nospellcheck") +
+	remove_tag@(tag: "<li>") +
+	remove_tag@(tag: "<bullet>") +
+	remove_tag@(tag: "<align") +
+	remove_tag@(tag: "<margin") +
+	# step 1b : remove zero-width space used for level spacers
+	replace@(match:"​", replace:"")+
+	# step 2a : temp fix for formatting buttons
+	replace@(
+		match:"<b></b>",
+		replace:"BOLDAROUND"
+	)+
+	replace@(
+		match:"<i></i>",
+		replace:"ITALAROUND"
+	)+
+	replace@(
+		match:"<sym></sym>",
+		replace:"SYMAROUND"
+	)+
+	# step 2 : reminder text for keywords
+	expand_keywords@(
+		condition: {
+			correct_case or (mode != "pseudo" and not used_placeholders)
+		}
+		default_expand: {
+			chosen(choice:if correct_case or mode == "action" then mode else "lower case", set.automatic_reminder_text) and chosen(choice:mode, set.automatic_reminder_text)
+		},
+		combine: {
+			keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+			reminder := process_english_hints(if is_creaturish(card.type) then reminder else equip_filter(reminder))
+			if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
+			else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
+		}) +
+	# step 2b : move action keywords' reminder text to the end of the line
+	replace@(
+		match: "(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)", #######removed "| ?<kw-" from lookahead
+		replace: "\\2\\1"
+		) +
+	# step 2c : when there's an action keyword and another one, then move that to the end of the line
+	replace@(
+		match: "(<atom-reminder-[^>]+> (?:(?!</kw)[^\n]*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*?)(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)",
+		replace: "\\2\\4\\3\\1"
+		) +
+	# step 2c : allow a sentence after lowercase reminder text for equips etc.
+	#replace@(
+	#	match: "(<kw[^>]+><nospellcheck>[a-z][^<]+</nospellcheck>)(<atom-reminder-(?:expert|custom|old|core)>(?:(?!<kw-).)*</atom-reminder-(?:expert|custom|old|core)></kw[^>]*>)([^\n]+)$",
+	#	replace: "\\1\\3\\2"
+	#	) +
+	# step 2d : remove duplicate reminder text
+	replace@(
+		match: "(<atom-reminder-[^>]*>[^)]+[)]</atom-reminder-[^>]*>)([^\n]+)\\1"
+		replace: "\\2\\1"
+		) +
+	# step 2e : combine reminder texts
+	replace@(
+		match: "[)](</atom-reminder-[^>]+></kw-[^>]><atom-reminder-[^>]+> )[(]"
+		replace: "\\1"
+	) +
+	# step 2f : temp fix for formatting buttons
+	replace@(
+		match:"BOLDAROUND",
+		replace:"<b></b>"
+	)+
+	replace@(
+		match:"ITALAROUND",
+		replace:"<i></i>"
+	)+
+	replace@(
+		match:"SYMAROUND",
+		replace:"<sym></sym>"
+	)+
+	# step 3a : expand shortcut word CARDNAME
+	replace@(
+		match: "CARDNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", # TODO: Allow any punctuation before
+		replace: "<atom-cardname></atom-cardname>"
+		) +
+	# step 3b : expand shortcut word LEGENDNAME
+	replace@(
+		match: "LEGENDNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", # TODO: Allow any punctuation before
+		replace: "<atom-legname></atom-legname>"
+		) +
+	# step 3c : fill in atom fields
+	tag_contents@(
+		tag: "<atom-cardname>",
+		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else card_name) + "</nospellcheck>" }
+		) +
+	tag_contents@(
+		tag: "<atom-legname>",
+		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(card_name)) + "</nospellcheck>" }
+		) +
+	replace@(
+		match: "INS([1-9])",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>",
+		replace: "<atom-insert\\1></atom-insert\\1>"
+	) +
+	{
+	out := input
+	for x from 1 to 9 do
+		out := tag_contents(out,
+			tag: "<atom-insert"+x+">",
+			contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
+		)
+	out
+	} +
+	# step 4 : explict non mana symbols
+	replace@(
+		match: "\\][VLHSCETQ\\?XYZIWUBRG0-9/|]+\\[",
+		replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
+	# step 5 : add mana & tap symbols
+	replace@(
+		match: "\\b[VLHSCETQ\\?XYZIWUBRG0-9/|]+\\b",
+		in_context: mana_context,
+		replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
+	# step 5b : remove false positive mana & tap symbols
+	replace@(
+		match: "<sym-auto>([VLHSCETQ\\?XYZIWUBRG0-9/|]+)</sym-auto>",
+		in_context: mana_un_context,
+		replace: "\\1" ) +
+	# step 5c : add explicit mana symbols
+	replace@(
+		match: "\\[[VLHSCETQE\\?XYZIWUBRG0-9/|]+\\]",
+		replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
+	# step 6 : curly quotes
+	{if set.curly_quotes then curly_quotes(input) else input} +
+	# step 7 : italicize text in parenthesis
+	replace@(
+	 	match: "[(]([^)\n]|[(][^)\n]*[)])*[)]?",
+		in_context: "(^|[[:space:]])<match>|<atom-keyword><match></",
+	 	replace: "<i-auto>&</i-auto>") +
+	# step 7b : indent bullets
+	 replace@(
+	 	match: "^(• )([^•]+)",
+	 	replace: {"<li><bullet>" + _1 + "</bullet>" + _2 + "</li>"}
+	 )+
+	# step 7c : clean up modals
+	 {
+		if is_modal(input)
+			then bump_text(softline_ripper(input))
+		else input
+	 }+
+	# step 8 : automatic capitalization, but not after "("
+	replace@(
+		match: "([ ]*: |—| — )" # preceded by this
+		     + "([[:lower:]])" # match this
+		     + "(?![)])",      # not followed by this
+		replace: { _1 + to_upper(_2) }) +
+	# step 9 : spellcheck
+	{
+		if set.auto_correct then
+			auto_correct(input)
+		else input } +
+	{
+		if set.auto_errata then
+			auto_errata(input)
+		else input } +
+	{ if set.mark_errors then
+		check_spelling(
+			language: language().spellcheck_code,
+			extra_dictionary: "/magic.mse-game/magic-words",
+			extra_match: additional_text_words
+		)
+	  else input
+	}
+
+modal_lines := replace@(match:"</?soft-line>", replace:"")
+	+replace@(match:"(.+)", replace:"<soft-line>\\1</soft-line>")
+	
+modal_text_filter := text_filter + modal_lines
+
+############################################################## Other boxes
+
+# the flavor text filter
+#  - makes all text italic
+flavor_text_filter :=
+	# step 1 : remove italic tags
+	remove_tag@(tag: "<i-flavor>")   +
+	# step 2 : surround by <i> tags
+	{ "<i-flavor>" + input + "</i-flavor>" } +
+	# curly quotes
+	{if set.curly_quotes then curly_quotes(input) else input} +
+	# spellcheck
+	{ if set.mark_errors
+	  then check_spelling(language:language().spellcheck_code)
+	  else input
+	}
+
+# Move the cursor past the separator in the p/t and type boxes
+type_over_pt   := replace@(match:"/$", replace:"")
+type_over_type := replace@(match:" ?[-:]$", replace:"")
+
+super_type_filter := {
+	input := remove_tag(tag: "<word-list-")
+	input := type_over_type()
+	tag := "word-list-type" # TODO: localize
+	"<{tag}>{input}</{tag}>"
+}
+
+break_subtypes := split_text@(match: " +|<atom-sep>[^<]*</atom-sep>", include_empty:false)
+sub_type_filter := {
+	input := remove_tag(tag: "<word-list-")
+	input := remove_tag(tag: "<soft")
+	lang  := language()
+	# What word list to use?
+	list_type_rest := if      lang.is_creature(type)    then "class"
+	                  else if lang.is_land(type)        then "land"
+	                  else if lang.is_artifact(type)    then "artifact"
+	                  else if lang.is_enchantment(type) then "enchantment"
+	                  else if lang.is_spell(type)       then "spell"
+	                  else if lang.is_planeswalker(type)       then "planeswalker"
+	                  else if lang.is_plane(type)       then "plane"
+					  else nil
+	if list_type_rest != nil then (
+		if lang.is_creature(type) or lang.is_tribal(type) then (
+			list_type_first := "race"
+		) else (
+			list_type_first := list_type_rest
+		);
+		# wrap wordlist tag around each part
+		parts := break_subtypes()
+		(for each i:part in parts do
+			if i == 0 then
+				"<word-list-{list_type_first}>{part}</word-list-{list_type_first}>"
+			else
+				lang.subtype_separator + "<word-list-{list_type_rest}>{part}</word-list-{list_type_rest}>"
+		) +
+		(if length(parts) > 0 then
+			# Add a new box at the end
+			"<soft>{lang.subtype_separator}</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
+		 else
+			"<word-list-{list_type_first}></word-list-{list_type_first}>"
+		)
+	) else input # do nothing
+}
+
+# all sub types, for word list
+space_to_comma := replace@(match:" ", replace:",")
+only_first     := replace@(match:" .*", replace:"")
+only_next      := replace@(match:"^[^ ]* ?", replace:"")
+all_sub_types := {
+	for each card in set do
+		if contains(card.super_type) then "," + space_to_comma(to_text(card.sub_type)) else ""
+}
+all_races := {
+	for each card in set do
+		if is_creature(card.super_type) or is_tribal(card.super_type) then
+			"," + only_first(to_text(card.sub_type))
+		else ""
+}
+all_classes := {
+	for each card in set do
+		if contains(card.super_type, match:"Creature") then
+			"," + space_to_comma(only_next(to_text(card.sub_type)))
+		else ""
+}
+
+# Determine a rarity code for M15 styles.
+rarity_code := {
+	if not set.rarity_codes then ""
+	else if is_promo() then "P"
+	else if is_masterpiece() then "S"
+	else if contains(card.shape, match:"token") then "T"
+	else if contains(card.shape, match:"emblem") then "E"
+	else if card.rarity == "common" then "C"
+	else if card.rarity == "uncommon" then "U"
+	else if card.rarity == "rare" then "R"
+	else if card.rarity == "mythic rare" then "M"
+	else if card.rarity == "special" then "S"
+	else if card.rarity == "basic land" then "L" 
+	else ""}
+
+# Determine if the card is a promo card.
+is_promo := { "false" }
+
+# Determine if the card is a rare.
+is_rare := { card.rarity == "rare" or card.rarity == "mythic rare" or card.rarity == "masterpiece" }
+
+# Shape of cards, can be changed in style files
+card_shape := { "normal" }
+
+typesymbol_for :=
+	to_text +
+	replace@(match: "(Legendary|Basic|Snow|World| )", replace: "") +
+	{ if      input == "Creature"    then "creature"
+	  else if input == "Sorcery"     then "sorcery"
+	  else if input == "Instant"     then "instant"
+	  else if input == "Artifact"    then "artifact"
+	  else if input == "Enchantment" then "enchantment"
+	  else if input == "Land"        then "land"
+	  else if input == "Planeswalker" then "planeswalker"
+	  else                                "multitype"
+	}
+typesymbol_type := { typesymbol_for(type) }
+
+#Script to make magic-mana-future compatible w/ other templates
+colorless_color := {
+		if contains(card.card_color, match:"hybrid") or contains(card.card_color, match:"multicolor") then "c"
+		else if card.card_color=="white" then "w"
+		else if card.card_color=="blue" then "u"
+		else if card.card_color=="black" then "b"
+		else if card.card_color=="red" then "r"
+		else if card.card_color=="green" then "g"
+		else "c"
+	}
+
+#Indicators never appear if the indicator would be colorless, colorless land, or colorless artifact.
+#Indicators do appear if the chosen frame doesn't match the default.
+#Indicators do appear if the chosen color for the indicator doesn't match the default.
+
+has_identity := { ( ( card.card_color != card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless") ) or ( card.indicator != card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless") ) ) and card.indicator != "colorless" and card.indicator != "artifact" and card.indicator != "land"}
+
+has_identity_2 := { ( ( card.card_color_2 != card_color(casting_cost: card.casting_cost_2, rules_text: card.rule_text_2, type: card.super_type_2, watermark: card.watermark_2, card_name: card.name_2, default: "colorless") ) or ( card.indicator_2 != card_color(casting_cost: card.casting_cost_2, rules_text: card.rule_text_2, type: card.super_type_2, watermark: card.watermark_2, card_name: card.name_2, default: "colorless") ) ) and card.indicator_2 != "colorless" and card.indicator_2 != "artifact" and card.indicator_2 != "land"}
+
+############################################################## Statistics utilities
+
+# Converted mana cost
+is_half_mana    := match@(match: "1/2|[|][WUBRGS]")
+is_half_generic    := match@(match: "1/2")
+is_colored_mana := match@(match: "[WUBRG]")
+only_numbers    := filter_text@(match: "^[0123456789]+")
+cmc_split := break_text@(match: "(?ix) 1/2 | [|][WUBRGC] | [0-9](/[WUBRGCVLHSCETQ2]) | [0-9]+(?!/[WUBRGCVLHSCETQ2]) | [WUBRGCVLHS0-9](/[WUBRGCVLHS])\{0,4} ")
+cmc := {to_number(
+	for each sym in cmc_split(to_text()) do (
+		numbers := only_numbers(sym)
+		if is_half_mana(sym)  then 0.5
+		else if numbers != "" then to_int(numbers)
+		else                       1 # all other symbols are 1
+	))
+}
+write_wubrg := {
+	(if match(input, match:"white") then "W" else "")+
+	(if match(input, match:"blue") then "U" else "")+
+	(if match(input, match:"black") then "B" else "")+
+	(if match(input, match:"red") then "R" else "")+
+	(if match(input, match:"green") then "G" else "")
+}
+colored_mana := {to_number(
+	for each sym in cmc_split(to_text()) do (
+		numbers := only_numbers(sym)
+		if is_colored_mana(sym) then
+			if is_half_mana(sym) then 0.5 else 1
+		else 0
+	))
+}
+generic_mana := {to_number(
+	for each sym in cmc_split(to_text()) do (
+		numbers := only_numbers(sym)
+		if is_half_generic(sym)  then 0.5
+		else if numbers != "" then to_int(numbers)
+		else                       0 # all other symbols are 1
+	))
+}
+
+primary_card_color := {
+	artifact := chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
+	land     := chosen(choice:"land")
+	multi    := chosen(choice:"multicolor")
+	hybrid   := chosen(choice:"hybrid")
+	white    := chosen(choice:"white")
+	blue     := chosen(choice:"blue")
+	black    := chosen(choice:"black")
+	red      := chosen(choice:"red")
+	green    := chosen(choice:"green")
+	if      land                                      then "land"
+	else if multi                                     then "multicolor"
+	else if hybrid                                    then "hybrid"
+	else if artifact                                  then "artifact"
+	else if white                                     then "white"
+	else if blue                                      then "blue"
+	else if black                                     then "black"
+	else if red                                       then "red"
+	else if green                                     then "green"
+	else                                                   input
+}
+mainframe_stat_color := {
+	artifact := chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
+	land     := chosen(choice:"land")
+	multi    := chosen(choice:"multicolor")
+	hybrid   := chosen(choice:"hybrid")
+	white    := chosen(choice:"white")
+	blue     := chosen(choice:"blue")
+	black    := chosen(choice:"black")
+	red      := chosen(choice:"red")
+	green    := chosen(choice:"green")
+	pink	 := chosen(choice:"pink")
+	purple	 := chosen(choice:"purple")
+	if      land                                      then "land"
+	else if multi                                     then "multicolor"
+	else if hybrid                                    then "hybrid"
+	else if artifact                                  then "artifact"
+	else if white                                     then "white"
+	else if blue                                      then "blue"
+	else if black                                     then "black"
+	else if red                                       then "red"
+	else if green                                     then "green"
+	else if pink					  then "pink"
+	else if purple					  then "purple"
+	else                                                   input
+}
+is_mainframe := { false }
+is_walker := { contains(card.super_type, match:"Planeswalker") }
+is_legend := { true }
+mainframe_walker := {false}
+mainframe_walker_text_script := {combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)}
+mainframe_walkerb := {false}
+mainframe_walker_text_scriptb := {combined_editor(field1: card.level_5_text, separator1: "<line>\n</line>", field2: card.level_6_text, separator2: "<line>\n</line>", field3: card.level_7_text)}
+mainframe_power := { card.power }
+mainframe_toughness := { card.toughness }
+
+word_count := break_text@(match:"[^[:space:]]+") + length
+line_count := split_text@(match:"\n+",include_empty:false) + length
+
+#Remove supertypes or types to look at parts of the super_type field by themselves.
+remove_supertype := replace@(match: "(Legendary|Basic|Snow|World|Tribal|Token)", replace: "")+
+	replace@(match: "[ ]+", in_context: "^<match>", replace: "")+
+	replace@(match: "[ ]+", in_context: "<match>$", replace: "")
+remove_type := replace@(match: "(Artifact|Creature|Enchantment|Instant|Land|Planeswalker|Sorcery)", replace: "")+
+	replace@(match: "[ ]+", in_context: "^<match>", replace: "")+
+	replace@(match: "[ ]+", in_context: "<match>$", replace: "")
+node_script := { if card.shape == "double faced" then "transform day"  else "none" }
+
+card_new_color := {
+	if card.card_color == "white" then "w"
+	else if card.card_color == "blue" then "u"
+	else if card.card_color == "black" then "b"
+	else if card.card_color == "red" then "r"
+	else if card.card_color == "green" then "g"
+	else if contains(card.card_color, match:"artifact") then "a"
+	else if contains(card.card_color, match:"multi") or contains(card.card_color, match:"hybrid") then "m"
+	else "c"
+}
+spark_color := {
+	if card.card_color == "white" then "w"
+	else if card.card_color == "blue" then "u"
+	else if card.card_color == "black" then "b"
+	else if card.card_color == "red" then "r"
+	else if card.card_color == "green" then "g"
+	else if contains(card.card_color, match:"multi") or contains(card.card_color, match:"hybrid") then "m"
+	else ""
+}
+
+ancestral_mana := { card.pt != "" and card.pt == "" }
+is_unsorted := {"false"}
+special_text := { "" }
+special_text2 := { "" }
+exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
+exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
+card_name := { replace(if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else card.name, match:" $", replace:"") }
+exporter_num_filter := filter_text@(match:"!num [^\n!]+")
+exporter_num_grabber := replace@(match:"!num ", replace:"")
+trim_zeroes := replace@(match: "^00?", replace: "")+
+	replace@(match: "a?/[0-9b]+", replace: "")
+corrected_card_number := { if exporter_num_grabber(exporter_num_filter(card.notes)) != "" then exporter_num_grabber(exporter_num_filter(card.notes)) else if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number() }
+
+comma_count := filter_text@(match:",")
+round_up := {to_int(0.99999999999998+input)}
+round_near := {to_int(0.5+input)}
+to_title := replace@(match:"(^| )([A-z])([^ ]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
+to_sentence := replace@(match:"(^|\n)([A-z])([^\n]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
+join := {
+	string := ""
+	if length(input) == 2 then spacer := " "
+	if length(input) == 1 then closing := ""
+	for x from 0 to length(input)-1 do
+		string := string + (if x == length(input)-1 then closing else "") + input[x] + (if x == length(input)-1 then "" else spacer)
+	string
+}@(spacer:", ", closing:"and ")
+includes := { flagged := false
+	for x from 0 to length(array)-1 do
+		if array[x] == input then flagged := true;
+	flagged
+}
+pull_comma_array := {
+	array := split_text(input, match:divider)
+	length := length(comma_count(input))
+	ending := to_number(end)
+	if (cell >= (length + (1-ending)))
+		then default
+	else if array[cell] == "" or array[cell] == nil or array[cell] == "-"
+		then default
+	else array[cell]
+}@(default:0, end: 1, divider:",", cell:0)
+##todo check nil
+#### standard is pull_comma_array("X,Y,Z,", cell: 0)
+#### returns "X"
+#### ending true for coordinates (requires a final divider to ensure element is complete)
+#### ending false for moving (doesn't require divider, moving 1 then 11 is fine)
+#### divider is "," by default, can change
+#### can also add default to return in case of errors
+
+##a workaround for the crop offset function that doesn't appear to work
+##slice_chop(input:image, height:(final height), width:(final width), distance:(length from bottom to top of final image))
+slice_crop := {
+	img := flip_vertical(input)
+	img := crop(img, height:distance, width:width, offset_x:0, offset_y:0)
+	img := flip_vertical(img)
+	img
+	if(height != 0 and height != distance) then
+		img := crop(img, height:height, width:width, offset_x:0, offset_y:0)
+	img
+}@(height:0)
+
+#juryrig fix for level defaults. janky because MSE hates {true}
+transfer_levels := {true}
+transfer_levels_2 := {true}
+a_saga := {false}
+saga_reminder := { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
+b_saga := {false}
+############################################################## Watermark Updates
+card_spotlight := { "/magic-mainframe-watermarks.mse-include/spotlight/" + card_new_color() + "spotlight.png" }
+custom_watermark_1 := { if set.custom_watermark_1 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_1 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_2 := { if set.custom_watermark_2 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_2 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_3 := { if set.custom_watermark_3 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_3 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_4 := { if set.custom_watermark_4 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_4 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_5 := { if set.custom_watermark_5 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_5 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_6 := { if set.custom_watermark_6 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_6 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_7 := { if set.custom_watermark_7 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_7 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_8 := { if set.custom_watermark_8 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_8 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_9 := { if set.custom_watermark_9 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_9 else "/magic-watermarks.mse-include/planeswalker.png" }
+custom_watermark_10 := { if set.custom_watermark_10 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_10 else "/magic-watermarks.mse-include/planeswalker.png" }
+
+############################################################## Flavor Bar Equation
+
+
+chop_top := {0}
+chop_bot := {0}
+bar_offset := {0}
+offset_lines := {0}
+chop_top2 := {0}
+chop_bot2 := {0}
+bar_offset2 := {0}
+offset_lines2 := {0}
+
+##### Set chop_top(), chop_bot(), bar_offset(), and offset_lines to 0 to reduce replacements in chopping frames
+##### Full equations to use in chopping templates below
+##### chop_top := {if styling.chop_top == "" then 0 else if comma_count(styling.chop_top) == "," or comma_count(styling.chop_top) == ",," then split_text(match:",", styling.chop_top).0 else styling.chop_top}
+##### chop_bot := {if comma_count(styling.chop_top) == ",," then split_text(match:",", styling.chop_top).1 else if styling.chop_bottom == "" then 0 else styling.chop_bottom}
+##### bar_offset := {if styling.flavor_bar_offset == "-" or styling.flavor_bar_offset == "+" then 0 else to_number(styling.flavor_bar_offset)}
+##### offset_lines := {offset_counter(styling.flavor_bar_offset)}
+
+top_of_textbox := {card_style.text.top }
+bottom_of_textbox := {card_style.text.bottom }
+top_of_textbox2 := {card_style.text_2.top }
+bottom_of_textbox2 := {card_style.text_2.bottom }
+offset_counter := {length(filter_text(input, match:"u")) - length(filter_text(input, match:"d"))}
+paragraph_count := filter_text@(match:"\n")
+hard_paragraph_count := 
+	replace@(match:"<soft-line>\n", replace:"")+				#count hard breaks for their extra space
+	filter_text@(match:"\n")
+soft_break_filter :=
+	filter_text @(match:"<", in_context: "<match>soft-line>")	#count soft breaks for quotes
+word_split := split_text@(match:" ")							#split words to better calculate line lengths
+small_filter := filter_text@(match:"[\\.,\\?!il’]")				#grab the tiny characters
+fb_length := {length(input) - 0.3 * length(small_filter(input))}#reduce the effect of tiny characters
+calc_lines := { sum := 0										#estimate lines by character limit
+	lines := 1													#minimum of 1
+	for e from 0 to length(input)-1 do (
+		sum := sum + fb_length(input[e]);
+		if sum > char then (									#if new word is over the limit
+			lines := lines + 1;									#add new line
+			sum := fb_length(input[e]))							#reset the sum
+		else
+			sum := sum + 1;										#else add it and a space to the sum
+	)
+	lines														#return number of lines
+}
+lines_of_text := {												#estimate lines in break blocks
+	lines := 0													#further improves the previous eq
+	for x from 0 to length(input)-1 do
+		if input[x] or else "" != "" then							#if the break isn't empty, check it
+			lines := lines + calc_lines(word_split(input[x]), char:char)
+	lines
+}
+flavor_text := {split_text(match:"\n", remove_tags(card.flavor_text+"\n"))}						#remove tags, add \n so .1 doesn't explode
+hard_flavor_break := { if not contains(card.flavor_text, match:"\n") then 0 else if contains(card.flavor_text, match:"<soft-line>\n") then 0 else if lines_of_rules() >= 3 then -3 else -2}
+font_size := {min(14,round_near(card_style.text.content_height / card_style.text.content_lines) - 8)}	#approximate font size
+adj_char_width := {7.35 * min(14, font_size()+0.95) / 14}										#average char width, adjusted for font size
+char_per_line := {min(52,round_up(card_style.text.content_width / adj_char_width())+1.5)}		#approximate character limit. very rarely over 52 but standard eq can reach 60+
+lines_of_flavor := {lines_of_text(flavor_text(), char:char_per_line())}												
+lines_of_rules := { card_style.text.content_lines - lines_of_flavor() }							#rules of lines for ratio weirdness
+line_height := {(card_style.text.content_height / card_style.text.content_lines)}
+padding_height := { 0.5*(bottom_of_textbox() - top_of_textbox() - card_style.text.content_height) }	#space between top of textbox and text
+linebreak_height := { 2*length(hard_paragraph_count(card.rule_text)) }
+###correction for ratio of rules/flavor causing weirdness
+uneven_correction := { if lines_of_flavor() == 1 then max(4, (card_style.text.content_lines - (2*lines_of_flavor()))) else (card_style.text.content_lines - (2*lines_of_flavor())) }
+###add it all up
+###old_bar_equation is compatibilty for 2.0.0
+old_bar_equation := { top_of_textbox() + padding_height() + card_style.text.content_height - line_height()*(lines_of_flavor() + offset_lines()) + linebreak_height() - uneven_correction() + front_corr() + bar_offset() + hard_flavor_break() +1 }
+bar_equation := {if card_style.text.layout.blocks[0].bottom or else 0 > 0 then card_style.text.top + 0.5*(card_style.text.layout.blocks[0].bottom+card_style.text.layout.blocks[1].top) else old_bar_equation()}
+	
+flavor_text2 := {split_text(match:"\n", remove_tags(card.flavor_text_2+"\n"))}						#remove tags, add \n so .1 doesn't explode
+hard_flavor_break2 := { if not contains(card.flavor_text_2, match:"\n") then 0 else if contains(card.flavor_text_2, match:"<soft-line>\n") then 0 else if lines_of_rules2() >= 3 then -3 else -2}
+font_size2 := {min(14,round_near(card_style.text_2.content_height / card_style.text_2.content_lines) - 8)}	#approximate font size
+adj_char_width2 := {7.35 * min(14, font_size2()+0.95) / 14}										#average char width, adjusted for font size
+char_per_line2 := {min(52,round_up(card_style.text_2.content_width / adj_char_width2())+1.5)}		#approximate character limit. very rarely over 52 but standard eq can reach 60+
+lines_of_flavor2 := {lines_of_text(flavor_text2(), char:char_per_line2())}												
+lines_of_rules2 := { card_style.text_2.content_lines - lines_of_flavor2() }							#rules of lines for ratio weirdness
+line_height2 := {(card_style.text_2.content_height / card_style.text_2.content_lines)}
+padding_height2 := { 0.5*(bottom_of_textbox2() - top_of_textbox2() - card_style.text_2.content_height) }	#space between top of textbox and text
+linebreak_height2 := { 2*length(hard_paragraph_count(card.rule_text_2)) }
+###correction for ratio of rules/flavor causing weirdness
+uneven_correction2 := { if lines_of_flavor2() == 1 then max(4, (card_style.text_2.content_lines - (2*lines_of_flavor2()))) else (card_style.text_2.content_lines - (2*lines_of_flavor2())) }
+###add it all up
+old_bar_equation2 := { top_of_textbox2() + padding_height2() + card_style.text_2.content_height - line_height2()*(lines_of_flavor2() + offset_lines2()) + linebreak_height2() - uneven_correction2() + back_corr() + bar_offset2() + hard_flavor_break2() +1 }
+bar_equation2 := {if card_style.text_2.layout.blocks[0].bottom or else 0 > 0 then card_style.text_2.top + 0.5*(card_style.text_2.layout.blocks[0].bottom+card_style.text_2.layout.blocks[1].top) else old_bar_equation2()}
+
+##### long correction coefficient based off several sets of data
+front_corr := {correction_coeff(lof:lines_of_flavor(), lor:lines_of_rules(), lbh:linebreak_height())}
+back_corr := {correction_coeff(lof:lines_of_flavor2(), lor:lines_of_rules2(), lbh:linebreak_height2())}
+correction_coeff := {
+	(if lor == 1 then
+		(if lof == 1 then 3
+		else if lof == 2 then 1
+		else if lof == 3 then 1.5
+		else if lof == 4 then 0
+		else 5 - lof)
+	else if lor == 2 and lbh == 2 then
+		(if lof == 1 then 1
+		else if lof == 2 then 1
+		else if lof == 3 then 2
+		else if lof == 4 then 2
+		else 3)
+	else if lor == 2 then
+		(if lof == 1 then 1
+		else if lof == 2 then 0
+		else if lof == 3 then 0
+		else if lof == 4 then 0
+		else -1)
+	else if lor == 3 and lbh == 2 then
+		(if lof == 1 then 0
+		else if lof == 2 then 0
+		else if lof == 3 then 1
+		else if lof == 4 then 1
+		else 2)
+	else if lor == 3 then
+		(if lof == 1 then 0
+		else if lof == 2 then -1
+		else if lof == 3 then -0.5
+		else if lof == 4 then -1
+		else 0)
+	else if lor == 4 and lbh == 2 then
+		(-2 + lof)
+	else if lor == 4 then
+		(if lof == 1 then -1
+		else if lof == 2 then 0
+		else if lof == 3 then -0.5
+		else -1)
+	else if lor == 5 and lbh == 4 then
+		(-5 + lof)
+	else if lor == 5 and lbh == 2 then
+		(-2 + lof)
+	else if lor == 5 then
+		(2 - lof)
+	else if lor == 6 and lbh == 2 then
+		(-1 - lof)
+		else if lor == 6 then
+		(2 - lof)
+	else 0) + (if lbh >= 4 then 0.5*lbh-1)
+}
+######################## Modal DFC hints
+auto_flags := {true}
+front_modal_hint := {
+	if not auto_flags() then ["", "", 10.5]
+	else if remove_tags(card.sub_type_2) != "" then [card.sub_type_2, "<sym>"+card.casting_cost_2+"</sym>", 10.5]
+	else if card.casting_cost_2 != "" then [main_types(card.super_type_2), "<sym>"+card.casting_cost_2+"</sym>", 10.5]
+	else [main_types(card.super_type_2), mana_ability(card.rule_text_2), 10.5]
+}
+back_modal_hint := {
+	if not auto_flags() then ["", "", 10.5]
+	else if remove_tags(card.sub_type) != "" then [card.sub_type, "<sym>"+card.casting_cost+"</sym>", 10.5]
+	else if card.casting_cost != "" then [main_types(card.super_type), "<sym>"+card.casting_cost+"</sym>", 10.5]
+	else [main_types(card.super_type), mana_ability(card.rule_text), 10.5]
+}
+mana_ability := {
+	abils := break_text(input, match:"(</?sym(-auto)?>)?T(</?sym(-auto)?>)?: Add (</?sym(-auto)?>)?(W|U|B|R|G|C)(</?sym(-auto)?>)?(, | or )?(</?sym(-auto)?>)?(W|U|B|R|G|C)?(</?sym(-auto)?>)?(, or )?(</?sym(-auto)?>)?(W|U|B|R|G|C)?(</?sym(-auto)?>)?.")
+	abils[0] or else ""
+}
+main_types := {
+	types := break_text(input, match:"(Land|Instant|Sorcery|Artifact|Enchantment|Creature|Planeswalker)")
+	types[0] or else ""
+}
+######################## Mainframe mana
+use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
+use_large_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"enable in casting costs")}
+use_small_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"enable in text boxes")}
+use_color_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"colored mana symbols") and not use_hybrid_v_mana()}
+use_hybrid_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"hybrid with colors")}
+v_mana_name := {if not use_v_mana() then "" else replace(set.custom_mana_symbol_name, match:"(.+/|\\.png)", replace:"")}
+v_mana_loc := {if not use_v_mana() then "" else replace(set.custom_mana_symbol_name, match:"{v_mana_name()}\\.png", replace:"")}
+searchPull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
+searchSnip := replace@(match:"search(name|mana|type|rules|flavor|text|notes)_", replace:"")
+
+custom_index := {
+	sortIndex := split_text(set.custom_index, match:",")
+	for each field in sortIndex do 
+			applyIndex(to_lower(field))
+		or else (
+			searchIndex(to_lower(searchPull(field)), query:searchSnip(field))
+		)
+		or else ""
+}
+applyIndex := {
+	[
+		name: {
+			fill_len(to_string(position (
+				of: card
+				in: set
+				order_by: { sort_name(card.name) + sort_name(export_name())}
+				filter:   set_filter()
+			)), lead:"0", fill_to:3)
+		},
+		alias: {
+			fill_len(to_string(position (
+				of: card
+				in: set
+				order_by: { sort_name(card.alias) + sort_name(export_name())}
+				filter:   set_filter()
+			)), lead:"0", fill_to:3)
+		}
+		name2: {
+			fill_len(to_string(position (
+				of: card
+				in: set
+				order_by: { sort_name(card.name_2) + sort_name(export_name())}
+				filter:   set_filter()
+			)), lead:"0", fill_to:3)
+		},
+		alias2: {
+			fill_len(to_string(position (
+				of: card
+				in: set
+				order_by: { sort_name(card.alias_2) + sort_name(export_name())}
+				filter:   set_filter()
+			)), lead:"0", fill_to:3)
+		}
+		color: {fill_len(color_of_card(), lead:"A")},
+		artist: {fill_len(substring(card.illustrator, end:7), follow:" ", fill_to:7)},
+		artist2: {fill_len(substring(card.illustrator_2, end:7), follow:" ", fill_to:7)},
+		design: {fill_len(substring(card.card_code_text, end:7), follow:" ", fill_to:7)},
+		mv: {fill_len(to_string(cmc(card.casting_cost)), lead:"0")},
+		"mana value": {fill_len(to_string(cmc(card.casting_cost)), lead:"0")},
+		cmc: {fill_len(to_string(cmc(card.casting_cost)), lead:"0")},
+		"converted mana cost": {fill_len(to_string(cmc(card.casting_cost)), lead:"0")},
+		rarity: {index_of_rarity()},
+		power: {fill_len(card.power, lead:"0")},
+		toughness: {fill_len(card.toughness, lead:"0")},
+		pt: {fill_len(card.power, lead:"0") + fill_len(card.toughness, lead:"0")},
+		loyalty: {fill_len(card.loyalty, lead:"0")},
+		type: {fill_len(filter_text(match:"[A-Z][A-Z]?[A-Z]?", filter_text(match:"[A-Z]", card.super_type)), follow:"0", fill_to:3)},
+		hasrules: {if remove_tags(card.rule_text) != "" then "A" else "B"},
+		hasflavor: {if remove_tags(card.flavor_text) != "" then "A" else "B"},
+		hasrules2: {if remove_tags(card.rule_text_2) != "" then "A" else "B"},
+		hasflavor2: {if remove_tags(card.flavor_text_2) != "" then "A" else "B"},
+	][input]()
+}
+searchIndex := {
+	[
+		searchname: { if contains(card.name, match:query) or contains(card.name_2, match:query) then "A" else "B"},
+		searchmana: { if contains(card.casting_cost, match:query) or contains(card.casting_cost_2, match:query) then "A" else "B"},
+		searchtype: { if contains(card.type, match:query) or contains(card.type_2, match:query) then "A" else "B"},
+		searchrules: { if contains(card.rule_text, match:query) or contains(card.rule_text_2, match:query) then "A" else "B"},
+		searchflavor: { if contains(card.flavor_text, match:query) or contains(card.flavor_text_2, match:query) then "A" else "B"},
+		searchartist: { if contains(card.illustrator, match:query) or contains(card.illustrator_2, match:query) then "A" else "B"},
+		searchdesign: { if contains(card.card_code_text, match:query) then "A" else "B"},
+		searchtext: { if contains(card.text, match:query) or contains(card.text_2, match:query) then "A" else "B"},
+		searchnotes: { if contains(card.notes, match:query) then "A" else "B"},
+		unsearchname: { if contains(card.name, match:query) or contains(card.name_2, match:query) then "B" else "A"},
+		unsearchmana: { if contains(card.casting_cost, match:query) or contains(card.casting_cost_2, match:query) then "B" else "A"},
+		unsearchtype: { if contains(card.type, match:query) or contains(card.type_2, match:query) then "B" else "A"},
+		unsearchrules: { if contains(card.rule_text, match:query) or contains(card.rule_text_2, match:query) then "B" else "A"},
+		unsearchflavor: { if contains(card.flavor_text, match:query) or contains(card.flavor_text_2, match:query) then "B" else "A"},
+		unsearchartist: { if contains(card.illustrator, match:query) or contains(card.illustrator_2, match:query) then "B" else "A"},
+		unsearchdesign: { if contains(card.card_code_text, match:query) then "B" else "A"},
+		unsearchtext: { if contains(card.text, match:query) or contains(card.text_2, match:query) then "B" else "A"},
+		unsearchnotes: { if contains(card.notes, match:query) then "B" else "A"}
+	][input]()
+}
+index_of_rarity := {
+	if card.rarity == "basic land" then "A"
+	else if card.rarity == "common" then "C"
+	else if card.rarity == "uncommon" then "D"
+	else if card.rarity == "rare" then "E"
+	else if card.rarity == "mythic rare" then "F"
+	else if card.rarity == "special" then "G"
+	else "J"
+}
+fill_len := {
+	output := to_string(input)
+	if output == "" then output := "0"
+	fill := max(0,fill_to - length(output))
+	for x from 1 to fill do output := lead + output + follow;
+	output	
+}@(fill_to:2, lead:"", follow:"")
+
+skeleton_commons := 19
+skeleton_uncommons := 11
+skeleton_rares := 7
+skeleton_mythics := 2
+skeleton_land_commons := 1
+skeleton_land_uncommons := 5
+skeleton_land_rares := 0
+skeleton_gold_commons := 0
+skeleton_gold_uncommons := 1
+skeleton_gold_rares := 1
+skeleton_shard_commons := 0
+skeleton_shard_uncommons := 0
+skeleton_shard_rares := 0
+skeleton_wedge_commons := 0
+skeleton_wedge_uncommons := 0
+skeleton_wedge_rares := 0
+skeleton_artifact_commons := 5
+skeleton_artifact_uncommons := 5
+skeleton_artifact_rares := 0
+skeleton_blank_commons := 0
+skeleton_blank_uncommons := 5
+skeleton_blank_rares := 8
+skeleton_blank_mythics := 5
+#### generates a set of CC00 Skeleton cards for each color
+#### by insertnamehere and cajun
+skeleton_runner := {
+	cards:=[]
+	for x from 0 to length(letter_list)-1 do
+	(
+		for y from 1 to count do
+			if mana_list == "nope" then
+				(cards := cards + [new_card([name:prefix+letter_list[x]+fill_len(y, lead:"0"), rarity:rarity, card_color:color_list[x], super_type:super_type])];)
+			else
+				(cards := cards + [new_card([name:prefix+letter_list[x]+fill_len(y, lead:"0"), rarity:rarity, super_type:super_type, casting_cost:mana_list[x]])];)
+	)
+	cards
+}@(count:1, rarity:"common", type:"", prefix:"C", super_type:"", color_list:["white", "blue", "black", "red", "green"], letter_list:["W", "U", "B", "R", "G"], mana_list:"nope")
+###outside to make singleton scripts easier
+blank_list_5 := ["","","","",""]
+blank_list_10 := ["","","","","","","","","",""]
+mana_list_ally := ["WU","UB","BR","RG","GW"]
+mana_list_enemy := ["WB","UR","BG","RW","GU"]
+mana_list_shard := ["WUB","UBR","BRG","RGW","GWU"]
+mana_list_wedge := ["WBG","URW","BGU","RWB","GUR"]
+skeleton_script := {
+	cards := [];
+	cards := cards + skeleton_runner(count:skeleton_commons);
+	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon");
+	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare");
+	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare");
+	cards := cards + skeleton_runner(count:skeleton_gold_commons, prefix:"CM", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
+	cards := cards + skeleton_runner(count:skeleton_gold_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
+	cards := cards + skeleton_runner(count:skeleton_gold_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
+	cards := cards + skeleton_runner(count:skeleton_shard_commons, prefix:"CM", rarity:"common", letter_list:blank_list_5, mana_list:mana_list_shard);
+	cards := cards + skeleton_runner(count:skeleton_shard_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_5, mana_list:mana_list_shard);
+	cards := cards + skeleton_runner(count:skeleton_shard_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_5, mana_list:mana_list_shard);
+	cards := cards + skeleton_runner(count:skeleton_wedge_commons, prefix:"CM", rarity:"common", letter_list:blank_list_5, mana_list:mana_list_wedge);
+	cards := cards + skeleton_runner(count:skeleton_wedge_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_5, mana_list:mana_list_wedge);
+	cards := cards + skeleton_runner(count:skeleton_wedge_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_5, mana_list:mana_list_wedge);
+	for i from 1 to skeleton_artifact_commons do cards := cards + [new_card([name:"CA"+fill_len(i, lead:"0"), rarity:"common", super_type:"Artifact"])];
+	for i from 1 to skeleton_artifact_uncommons do cards := cards + [new_card([name:"UA"+fill_len(i, lead:"0"), rarity:"uncommon", super_type:"Artifact"])];
+	for i from 1 to skeleton_artifact_rares do cards := cards + [new_card([name:"RA"+fill_len(i, lead:"0"), rarity:"rare", super_type:"Artifact"])];
+	for i from 1 to skeleton_land_commons do cards := cards + [new_card([name:"CL"+fill_len(i, lead:"0"), super_type:"Land", rarity:"common"])];
+	for i from 1 to skeleton_land_uncommons do cards := cards + [new_card([name:"UL"+fill_len(i, lead:"0"), super_type:"Land", rarity:"uncommon"])];
+	for i from 1 to skeleton_land_rares do cards := cards + [new_card([name:"RL"+fill_len(i, lead:"0"), super_type:"Land", rarity:"rare"])];
+	for i from 1 to skeleton_blank_commons do cards := cards + [new_card([name:"CX"+fill_len(i, lead:"0"), rarity:"common"])];
+	for i from 1 to skeleton_blank_uncommons do cards := cards + [new_card([name:"UX"+fill_len(i, lead:"0"), rarity:"uncommon"])];
+	for i from 1 to skeleton_blank_rares do cards := cards + [new_card([name:"RX"+fill_len(i, lead:"0"), rarity:"rare"])];
+	for i from 1 to skeleton_blank_mythics do cards := cards + [new_card([name:"MX"+fill_len(i, lead:"0"), rarity:"mythic rare"])];
+	cards
+}
+skeleton_info := {
+	trace("Set Skeleton Generator Help:"
+	+"\nSet variables here to modify the Skeleton Add Cards script, for example 'skeleton_commons := 10'"
+	+"\nCurrent variables:\n"
+	+"skeleton_commons: " + skeleton_commons + " (of each color)\n"
+	+"skeleton_uncommons: " +  skeleton_uncommons + " (of each color)\n"
+	+"skeleton_rares: " + skeleton_rares + " (of each color)\n"
+	+"skeleton_mythics: " + skeleton_mythics + " (of each color)\n"
+	+"skeleton_gold_commons: " + skeleton_gold_commons + " (of each color pair)\n"
+	+"skeleton_gold_uncommons: " + skeleton_gold_uncommons + " (of each color pair)\n"
+	+"skeleton_gold_rares: " + skeleton_gold_rares + " (of each color pair)\n"
+	+"skeleton_artifact_commons: " + skeleton_artifact_commons + "\n"
+	+"skeleton_artifact_uncommons: " + skeleton_artifact_uncommons + "\n"
+	+"skeleton_artifact_rares: " + skeleton_artifact_rares + "\n"
+	+"skeleton_land_commons: " + skeleton_land_commons + "\n"
+	+"skeleton_land_uncommons: " + skeleton_land_uncommons + "\n"
+	+"skeleton_land_rares: " + skeleton_land_rares + "\n"
+	+"skeleton_blank_commons: " + skeleton_blank_commons + "\n"
+	+"skeleton_blank_uncommons: " + skeleton_blank_uncommons + "\n"
+	+"skeleton_blank_rares: " + skeleton_blank_rares + "\n"
+	+"skeleton_blank_mythics: " + skeleton_blank_mythics + "\n"
+	+"skeleton_shard_commons: " + skeleton_shard_commons + "\n"
+	+"skeleton_shard_uncommons: " + skeleton_shard_uncommons + "\n"
+	+"skeleton_shard_rares: " + skeleton_shard_rares + "\n"
+	+"skeleton_wedge_commons: " + skeleton_wedge_commons + "\n"
+	+"skeleton_wedge_uncommons: " + skeleton_wedge_uncommons + "\n"
+	+"skeleton_wedge_rares: " + skeleton_wedge_rares)
+}
+##number of chapter symbols each chapter textbox has
+##example, symbols on abilities 2,2,3 returns [0,2,1]
+saga_lore_count := {
+	one := 0
+	two := 0
+	three := 0
+	four := 0
+	five := 0
+	for x from 0 to length(input)-1 do
+		if input[x] == "1" then one := one +1
+		else if input[x] == "2" then two := two +1
+		else if input[x] == "3" then three := three +1
+		else if input[x] == "4" then four := four +1
+		else five := five +1
+	[one, two, three, four]
+}
+##index of given chapter number in above array
+##example, 2,2,3, returns 1,2,1
+##i tried to make this shorter but this is the only one that deigned to function
+saga_ch_placement := {
+	box1 := 0
+	box2 := 0
+	box3 := 0
+	box4 := 0
+	one := 0
+	two := 0
+	three := 0
+	four := 0
+	five := 0
+	six := 0
+	seven := 0
+	len := length(input)
+	if len >= 1 then (
+		if input[0] == "1" then (
+			box1 := box1 +1
+			one := box1+0
+		)else if input[0] == "2" then (
+			box2 := box2 +1
+			one := box2+0
+		)else if input[0] == "3" then (
+			box3 := box3 +1
+			one := box3+0
+		)else if input[0] == "4" then (
+			box4 := box4 +1
+			one := box4+0
+		)else (one := one)
+	)else (one := one)
+	if len >= 2 then (
+		if input[1] == "1" then (
+			box1 := box1 +1
+			two := box1+0
+		)else if input[1] == "2" then (
+			box2 := box2 +1
+			two := box2+0
+		)else if input[1] == "3" then (
+			box3 := box3 +1
+			two := box3+0
+		)else if input[1] == "4" then (
+			box4 := box4 +1
+			two := box4+0
+		)else (two := two)
+	)else (two := two)
+	if len >= 3 then (
+		if input[2] == "1" then (
+			box1 := box1 +1
+			three := box1+0
+		)else if input[2] == "2" then (
+			box2 := box2 +1
+			three := box2+0
+		)else if input[2] == "3" then (
+			box3 := box3 +1
+			three := box3+0
+		)else if input[2] == "4" then (
+			box4 := box4 +1
+			three := box4+0
+		)else (three := three)
+	)else (three := three)
+	if len >= 4 then (
+		if input[3] == "1" then (
+			box1 := box1 +1
+			four := box1+0
+		)else if input[3] == "2" then (
+			box2 := box2 +1
+			four := box2+0
+		)else if input[3] == "3" then (
+			box3 := box3 +1
+			four := box3+0
+		)else if input[3] == "4" then (
+			box4 := box4 +1
+			four := box4+0
+		)else (four := four)
+	)else (four := four)
+	if len >= 5 then (
+		if input[4] == "1" then (
+			box1 := box1 +1
+			five := box1+0
+		)else if input[4] == "2" then (
+			box2 := box2 +1
+			five := box2+0
+		)else if input[4] == "3" then (
+			box3 := box3 +1
+			five := box3+0
+		)else if input[4] == "4" then (
+			box4 := box4 +1
+			five := box4+0
+		)else (five := five)
+	)else (five := five)
+	if len >= 6 then (
+		if input[5] == "1" then (
+			box1 := box1 +1
+			six := box1+0
+		)else if input[5] == "2" then (
+			box2 := box2 +1
+			six := box2+0
+		)else if input[5] == "3" then (
+			box3 := box3 +1
+			six := box3+0
+		)else if input[5] == "4" then (
+			box4 := box4 +1
+			six := box4+0
+		)else (six := six)
+	)else (six := six)
+	if len >= 7 then (
+		if input[6] == "1" then (
+			box1 := box1 +1
+			seven := box1+0
+		)else if input[6] == "2" then (
+			box2 := box2 +1
+			seven := box2+0
+		)else if input[6] == "3" then (
+			box3 := box3 +1
+			seven := box3+0
+		)else if input[6] == "4" then (
+			box4 := box4 +1
+			seven := box4+0
+		)else (seven := seven)
+	)else (seven := seven)
+	[one, two, three, four, five, six, seven]
+}

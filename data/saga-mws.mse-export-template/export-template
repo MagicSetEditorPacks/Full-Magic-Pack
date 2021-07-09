@@ -1,0 +1,214 @@
+﻿mse version: 0.3.8
+short name: MWS
+full name: Plugin Exporter
+position hint: 001
+icon: icon.png
+version: 2010-05-11
+#Remember to update version at bottom of file.
+installer group: Magic Saga/Export/mws
+
+depends on:
+	package: saga.mse-game
+	version: 2010-04-23
+
+game: saga
+create directory: true
+file type: *.txt|*.txt|*.*|*.*
+
+# By Pichoro
+# Based on code by Idle Muse, Innuendo and Seeonee
+
+option field:
+	type: choice
+	name: image type
+	choice: full
+	choice: crop
+	description: Should the images exported be full card renders or art crops?
+option field:
+	type: text
+	name: date created
+	description: The date this spoiler was first created.
+option field:
+	type: text
+	name: date modified
+	description: The date this spoiler was last modified.
+option field:
+	type: boolean
+	name: export images
+	description: Should images be exported?
+	initial: yes
+script:
+	mws_name := replace@(match:"‘", replace:"'")+
+		replace@(match:"’", replace:"'")+
+		replace@(match:"“", replace:"\"")+
+		replace@(match:"”", replace:"\"")
+	mws_rules :=
+		# Longdashes should be short.
+		replace@(match:"—", replace:"-")+
+		# Linebreaks should be double spaces.
+		replace@(match:"\n", replace:"  ")+
+		# No curly quotes or apostrophes.
+		replace@(match:"‘", replace:"'")+
+		replace@(match:"’", replace:"'")+
+		replace@(match:"“", replace:"\"")+
+		replace@(match:"”", replace:"\"")+
+		# Pound signs around parenthesis.
+		replace@(match:"[(]", replace:"#(")+
+		replace@(match:"[)]", replace:")#")+
+		# Just automatically symbolize all hybrids.
+		replace@(match:"2/W", replace:"%E")+
+		replace@(match:"2/U", replace:"%F")+
+		replace@(match:"2/B", replace:"%H")+
+		replace@(match:"2/R", replace:"%J")+
+		replace@(match:"2/G", replace:"%M")+
+		replace@(match:"W/U", replace:"%D")+
+		replace@(match:"W/B", replace:"%O")+
+		replace@(match:"U/B", replace:"%V")+
+		replace@(match:"U/R", replace:"%I")+
+		replace@(match:"B/R", replace:"%K")+
+		replace@(match:"B/G", replace:"%Q")+
+		replace@(match:"R/G", replace:"%L")+
+		replace@(match:"R/W", replace:"%P")+
+		replace@(match:"G/W", replace:"%A")+
+		replace@(match:"G/U", replace:"%S")+
+		# Various positions for taps and untaps.
+		replace@(match:" T ", replace:" %T ")+
+		replace@(match:" Q ", replace:" %C ")+
+		replace@(match:"T,", replace:"%T,")+
+		replace@(match:"Q,", replace:"%C,")+
+		replace@(match:"T:", replace:"%T:")+
+		replace@(match:"Q:", replace:"%C:")+
+		# Mana right before a space.
+		replace@(match:"G ", replace:"%G ")+
+		replace@(match:"R ", replace:"%R ")+
+		replace@(match:"B ", replace:"%B ")+
+		replace@(match:"U ", replace:"%U ")+
+		replace@(match:"W ", replace:"%W ")+
+		replace@(match:"S ", replace:"%N ")+
+		# Mana right before a comma.
+		replace@(match:"G,", replace:"%G,")+
+		replace@(match:"R,", replace:"%R,")+
+		replace@(match:"B,", replace:"%B,")+
+		replace@(match:"U,", replace:"%U,")+
+		replace@(match:"W,", replace:"%W,")+
+		replace@(match:"S,", replace:"%N,")+
+		# Mana right before a colon.
+		replace@(match:"G:", replace:"%G:")+
+		replace@(match:"R:", replace:"%R:")+
+		replace@(match:"B:", replace:"%B:")+
+		replace@(match:"U:", replace:"%U:")+
+		replace@(match:"W:", replace:"%W:")+
+		replace@(match:"S:", replace:"%N:")+
+		replace@(match:"Y:", replace:"%Y:")+
+		replace@(match:"X:", replace:"%X:")+
+		# Drag rules text to search for more mana characters. Reverse color wheel order works better. Repeat several times.
+		replace@(match:"G%", replace:"%G%")+
+		replace@(match:"R%", replace:"%R%")+
+		replace@(match:"B%", replace:"%B%")+
+		replace@(match:"U%", replace:"%U%")+
+		replace@(match:"W%", replace:"%W%")+
+		replace@(match:"G%", replace:"%G%")+
+		replace@(match:"R%", replace:"%R%")+
+		replace@(match:"B%", replace:"%B%")+
+		replace@(match:"U%", replace:"%U%")+
+		replace@(match:"W%", replace:"%W%")+
+		replace@(match:"G%", replace:"%G%")+
+		replace@(match:"R%", replace:"%R%")+
+		replace@(match:"B%", replace:"%B%")+
+		replace@(match:"U%", replace:"%U%")+
+		replace@(match:"W%", replace:"%W%")+
+		# Symbolize snow.
+		replace@(match:"S%", replace:"%N%")+
+		replace@(match:"S%", replace:"%N%")+
+		replace@(match:"S%", replace:"%N%")+
+		# Symbolize numbers from 10-0 that are before other symbols.
+		replace@(match:"10%", replace:"%10%")+
+		replace@(match:"9%", replace:"%9%")+
+		replace@(match:"8%", replace:"%8%")+
+		replace@(match:"7%", replace:"%7%")+
+		replace@(match:"6%", replace:"%6%")+
+		replace@(match:"5%", replace:"%5%")+
+		replace@(match:"4%", replace:"%4%")+
+		replace@(match:"3%", replace:"%3%")+
+		replace@(match:"2%", replace:"%2%")+
+		replace@(match:"1%", replace:"%1%")+
+		replace@(match:"0%", replace:"%0%")+
+		# Symbolize numbers from 10-0 that are before colons.
+		replace@(match:"10:", replace:"%10:")+
+		replace@(match:"9:", replace:"%9:")+
+		replace@(match:"8:", replace:"%8:")+
+		replace@(match:"7:", replace:"%7:")+
+		replace@(match:"6:", replace:"%6:")+
+		replace@(match:"5:", replace:"%5:")+
+		replace@(match:"4:", replace:"%4:")+
+		replace@(match:"3:", replace:"%3:")+
+		replace@(match:"2:", replace:"%2:")+
+		replace@(match:"1:", replace:"%1:")+
+		replace@(match:"0:", replace:"%0:")+
+		# Symbolize numbers from 10-0 that are before commas.
+		replace@(match:"10,", replace:"%10,")+
+		replace@(match:"9,", replace:"%9,")+
+		replace@(match:"8,", replace:"%8,")+
+		replace@(match:"7,", replace:"%7,")+
+		replace@(match:"6,", replace:"%6,")+
+		replace@(match:"5,", replace:"%5,")+
+		replace@(match:"4,", replace:"%4,")+
+		replace@(match:"3,", replace:"%3,")+
+		replace@(match:"2,", replace:"%2,")+
+		replace@(match:"1,", replace:"%1,")+
+		replace@(match:"0,", replace:"%0,")+
+		# Symbolize X and Y that are before other symbols.
+		replace@(match:"Y%", replace:"%Y%")+
+		replace@(match:"X%", replace:"%X%")+
+		# Symbolize X and Y that are before colons.
+		replace@(match:"Y:", replace:"%Y:")+
+		replace@(match:"X:", replace:"%X:")+
+		# Symbolize X and Y that are before commas.
+		replace@(match:"Y,", replace:"%Y,")+
+		replace@(match:"X,", replace:"%X,")+
+		# Get rid of extra symbolizations.
+		replace@(match:"%%%", replace:"%")+
+		replace@(match:"%%", replace:"%")
+	mws_flavor := replace@(match:"—", replace:"-")+
+		replace@(match:"‘", replace:"'")+
+		replace@(match:"’", replace:"'")+
+		replace@(match:"“", replace:"\"")+
+		replace@(match:"”", replace:"\"")+
+		replace@(match:"\n", replace:"  ")
+	mws_artist := replace@(match:"Illus. ", replace:"")+
+		replace@(match:"‘", replace:"'")+
+		replace@(match:"’", replace:"'")+
+		replace@(match:"“", replace:"\"")+
+		replace@(match:"”", replace:"\"")
+	write_card := {"\nCard Name:	"+mws_name(card.name)
+		+"\nCard Color:	Art"
+		+"\nMana Cost:	"
+		+"\nType & Class:	"+card.supertype+" - "+card.subtype
+		+"\nPow/Tou:	"
+		+"\nCard Text:	"+mws_rules(remove_tags(card.rule_text))
+		+"\nFlavor Text:	"+mws_flavor(card.flavor_text)
+		+"\nArtist:		"+mws_artist(card.illustrator)
+		+"\nRarity:		C"
+		+"\nCard #:		"+card.card_number
+		+"\n"
+		}
+	write_cards := to_text(for each card in sort_list(cards, order_by: {card.card_number}) do write_card())
+	write_images := if options.export_images then (for each card in cards do write_image_file((if options.image_type =="full" then card else card.image), file:"{card.name}{if options.image_type == "full" then ".full" else ""}.jpg"))
+	to_string(set.title+" Spoiler List\n"
+		+set.description+"\n"
+		+"Spoiler List created on "+options.date_created+"\n"
+		+"Last Updated on: "+options.date_modified
+		+"\n\nSpoiler generated by Magic Set Editor 2 Beta 0.3.8 Using the MWS Export Template version 2010-05-11"
+		+"\nExport Template by Pichoro"
+		+"\nThe only person who assumes any liability for damages from the use of this file is the user."
+		+"\n\nDirections for use:"
+			+"\nOpen MWS."
+			+"\nGo to Tools menu->Analyze/Add/Remove Sets."
+			+"\n'Add New Edition'."
+			+"\nEnter set name and key."
+			+"\nCheck 'get data from text spoiler' and browse to whatever location you stored this file at.\n"
+			+"Hit 'Next Page', then 'Add Edition'."
+			+"\nThen, after that closes, hit the 'Save Current Base/Deck' button at the top of your screen."
+			+"\nRestart Magic Workstation, and enjoy the cards."
+		+"\n\nWhen using the images, you must rename the folder to the set key you entered into MWS when importing this text file!\n"
+		+write_cards)

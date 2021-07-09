@@ -1,0 +1,571 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Curse
+full name: Unhinged Curses
+icon: card-sample.png
+installer group: magic/new style/curse cards
+position hint: 015
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-29
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-10-12
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-10-12
+
+card width: 375
+card height: 523
+card dpi: 150
+# Author: Blau
+# Renovated and modified by Pichoro
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	# We have no land templates
+	land_template := { "c{type}.jpg" }
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# This will create two seperate card faces
+	card_background2 := { color_background(type:"card2",     base_hybrid:card_hybrid) }
+	
+	# This will fix the blending issues
+	horizontal_pt_hybrid := [
+		1: { template(colors[0]) }
+		2: { template(colors[0]) }
+		3: { linear_blend(
+			image1: template(colors[0])
+			image2: template(colors[1])
+			x1: 0.91, y1: 0
+			x2:  1.16, y2: 0
+		   )}
+		4: { linear_blend(
+			image1: template(colors[0])
+			image2: template(colors[1])
+			x1: 0.71, y1: 0
+			x2:  1.06, y2: 0
+		   )}
+		5: { linear_blend(
+			image1: template(colors[0])
+			image2: template(colors[1])
+			x1: 0.61, y1: 0
+			x2:  0.96, y2: 0
+		   )}
+		6: { linear_blend(
+			image1: template(colors[0])
+			image2: template(colors[1])
+			x1: 0.51, y1: 0
+			x2:  0.86, y2: 0
+		   )}
+		7: {linear_blend(
+			image1: linear_blend(
+				image1: template(colors[4]),
+				image2: template(colors[5]),
+				x1: -0.2,  y1: 0
+				x2: 0.2,  y2: 0
+			),
+			image2: template(colors[6]),
+			x1: 0.5,  y1: 0
+			x2: 0.7,  y2: 0
+		   )}
+	]
+	
+	pt_hybrid := [
+		radial: [
+			0: { template("c")       }
+			1: { template(colors[0]) }
+			2: { template(colors[0]) }
+			3: { template(colors[0]) }
+			4: { template(colors[0]) }
+			5: { template(colors[0]) }
+			6: { template(colors[0]) }
+			7: { template(colors[0]) }
+		]
+		horizontal: horizontal_pt_hybrid
+		vertical: [
+			1: { template(colors[0]) }
+			2: { template(colors[0]) }
+			3: { template(colors[0]) }
+			4: { template(colors[0]) }
+			5: { template(colors[0]) }
+			6: { template(colors[0]) }
+			7: { template(colors[0]) }
+		]
+		overlay: overlay_hybrid
+	]
+	
+	text_filter :=
+		# step 1 : remove all automatic tags
+		remove_tag@(tag: "<sym-auto>") +
+		remove_tag@(tag: "<i-auto>")   +
+		remove_tag@(tag: "<b-auto>")   +
+		remove_tag@(tag: "<error-spelling") +
+		remove_tag@(tag: "<nospellcheck") +
+		# step 2 : reminder text for keywords
+		expand_keywords@(
+			condition: {
+				correct_case or (mode != "pseudo" and not used_placeholders)
+			}
+			default_expand: {
+				chosen(choice:if correct_case then mode else "lower case", set.automatic_reminder_text)
+			},
+			combine: {
+				keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+				reminder := process_english_hints(reminder)
+				if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
+				else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>"
+			}) +
+		# step 2b : move action keywords' reminder text to the end of the line
+		replace@(
+			match: "(<atom-reminder-action>(?:(?!<kw-).)*</atom-reminder-action></kw[^>]*>)(((?!<atom-reminder| ?<kw-)[^\n(])+)",
+			replace: "\\2\\1"
+			) +
+		# step 2c : remove duplicate reminder text
+		replace@(
+			match: "(<atom-reminder-[^>]*>[^)]+[)]</atom-reminder-[^>]*>)([^\n]+)\\1"
+			replace: "\\2\\1"
+			) +
+		# step 3a : expand shortcut word CARDNAME
+		replace@(
+			match: "CARDNAME",
+			in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+			replace: "<atom-cardname></atom-cardname>"
+			) +
+		# step 3b : expand shortcut word LEGENDNAME
+		replace@(
+			match: "LEGENDNAME",
+			in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+			replace: "<atom-legname></atom-legname>"
+			) +
+		# step 3c : fill in atom fields
+		tag_contents@(
+			tag: "<atom-cardname>",
+			contents: { "<nospellcheck>" + (if card.name=="" then "CARDNAME" else card.name) + "</nospellcheck>" }
+			) +
+		tag_contents@(
+			tag: "<atom-legname>",
+			contents: { "<nospellcheck>" + (if card.name=="" then "LEGENDNAME" else legend_filter(card.name)) + "</nospellcheck>" }
+			) +
+		# step 4 : explict non mana symbols
+		replace@(
+			match: "\\][STQXYZIWUBRG0-9/|]+\\[",
+			replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
+		# step 5 : add mana & tap symbols
+		replace@(
+			match: "\\b[STQXYZIWUBRG0-9/|]+\\b",
+			in_context: mana_context,
+			replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
+		# step 5b : add explict mana symbols
+		replace@(
+			match: "\\[[STQXYZIWUBRG0-9/|]+\\]",
+			replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
+		# step 7 : ???
+		replace@(
+	 		match: "[(]([^)\n]|[(][^)\n]*[)])*[)]?",
+			in_context: "(^|[[:space:]])<match>|<atom-keyword><match></",
+	 		replace: "<i-auto>&</i-auto>") +
+		# step 8 : automatic capitalization, but not after "("
+		replace@(
+			match: "([ ]*: |—| — )" # preceded by this
+			     + "([[:lower:]])" # match this
+			     + "(?![)])",      # not followed by this
+			replace: { _1 + to_upper(_2) }) +
+		curly_quotes +
+		# step 9 : spellcheck
+		{ if set.mark_errors then
+			check_spelling(
+				language: language().spellcheck_code,
+				extra_dictionary: "/magic.mse-game/magic-words",
+				extra_match: additional_text_words
+			)
+		  else input
+		}
+	
+	card_shape := {"flip"}
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		mask: bordermask.png
+		z index: 4
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	145
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	card color 2:
+		left:	0
+		top:	140
+		width:	375
+		height:	383
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background2() }
+	############################# Name line
+	name:
+		left:  {if card.card_symbol=="none" then 32  else 51}
+		top : 30
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Matrix
+			size: 17
+			weight: bold
+			color: rgb(0,0,0)
+	casting cost:
+		right: 343
+		top : 30
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {if card.card_symbol=="none" then 20 else 32}
+		top : 31
+		height: 20
+		width: 14
+		z index: 1
+		render style: image
+		choice images:
+			tombstone: tombstone.png
+	############################# Image
+	image:
+		right:	32
+		bottom:	320
+		width:	309
+		height:	180
+		z index: 1
+		angle: 180
+		default: {default_image(card.card_color_2)}
+	############################# Card type
+	type:
+		left: 35
+		top : 69
+		width: { 306 - max(22,card_style.rarity.content_width) }
+		height: 18
+		alignment: top shrink-overflow
+		z index: 1
+		font:
+			name: Matrix
+			size: 14
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+	type 2:
+		left: 339
+		bottom: 294
+		width: { 305 - max(22,card_style.rarity.content_width) }
+		height: 18
+		alignment: top shrink-overflow
+		angle: 180
+		z index: 1
+		font:
+			name: Matrix
+			size: 14
+			color: rgb(0,0,0)
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 342
+		top : 66
+		width: 44
+		height: 22
+		z index: 2
+		render style: image
+		alignment: middle right
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	rarity 2:
+		right: 30
+		bottom: 292
+		width: 44
+		height: 22
+		z index: 2
+		alignment: middle right
+		angle: 180
+		render style: image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 33
+		top : 98
+		width: 306
+		height: 31
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 8
+			color: rgb(0,0,0)
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   4
+		padding top:    -1
+		padding right:  4
+		padding bottom: -1
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	text 2:
+		right: 35
+		bottom: 178
+		width: 305
+		height: 102
+		angle: 180
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 8
+			color: rgb(0,0,0)
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   4
+		padding top:    -1
+		padding right:  4
+		padding bottom: -1
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	watermark:
+		right: 121
+		bottom: 174
+		width: 137
+		height: 111
+		angle: 180
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	############################# PT
+	pt:
+		z index: 2
+		right:	32
+		bottom:	158
+		width:	60
+		height:	28
+		alignment: center middle
+		angle: 180
+		font:
+			name: Mplantin
+			size: 16
+			weight: bold
+			color: rgb(0,0,0)
+			separator color: rgb(200,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		right: 101
+		bottom: 156
+		width: 217
+		height: 16
+		z index: 1
+		angle: 180
+		font:
+			name: Matrix
+			size: 10
+			color: { font_color(card.card_color) }
+	copyright line:
+		right: 101
+		bottom: 146
+		width: 247
+		height: 12
+		z index: 1
+		angle: 180
+		font:
+			name: MPlantin
+			size: 6.5
+			color: { font_color(card.card_color) }
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card style:
+	pt box:
+		left:	23
+		top:	147
+		width:	81
+		height:	46
+		z index: 1
+		mask: mask_pt.png
+		visible: { card.pt != "" }
+		render style: image
+		image: { card_ptbox() }
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}

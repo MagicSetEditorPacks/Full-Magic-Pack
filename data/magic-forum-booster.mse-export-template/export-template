@@ -1,0 +1,494 @@
+﻿mse version: 2.0.0
+short name: Forum Booster
+full name: Booster Spoiler Exporter
+position hint: 006
+icon: icon.png
+version: 2014-01-20
+installer group: magic/Export/forum
+
+depends on:
+	package: magic.mse-game
+	version: 2009-07-23
+
+game: magic
+file type: *.txt|*.txt|*.*|*.*
+
+# By Pichoro
+# Based on code by Idle Muse, Innuendo and Seeonee
+
+option field:
+	type: choice
+	name: forum
+	choice: mse
+	choice: mtgsalvation
+	description: What forum should the spoiler be formatted for?
+option field:
+	type: boolean
+	name: text costs
+	initial: yes
+	description: Should mana costs be plain text? Symbols usually can't be copied and pasted.
+option field:
+	type: boolean
+	name: color rarities
+	description: Should rarities be colored?
+	initial: yes
+script:
+	# Formats mana costs.  MSE and mtgsally use same bbcode tags.
+	mtgsally_mse_forum_cost := replace@(match:"2/W", replace:":sym2w:")+
+		replace@(match:"2/U", replace:":sym2u:")+
+		replace@(match:"2/B", replace:":sym2b:")+
+		replace@(match:"2/R", replace:":sym2r:")+
+		replace@(match:"2/G", replace:":sym2g:")+
+		replace@(match:"S", replace:":snow:")+
+		replace@(match:"W/U", replace:":symwu:")+
+		replace@(match:"W/B", replace:":symwb:")+
+		replace@(match:"U/B", replace:":symub:")+
+		replace@(match:"U/R", replace:":symur:")+
+		replace@(match:"B/R", replace:":symbr:")+
+		replace@(match:"B/G", replace:":symbg:")+
+		replace@(match:"R/G", replace:":symrg:")+
+		replace@(match:"R/W", replace:":symrw:")+
+		replace@(match:"G/W", replace:":symgw:")+
+		replace@(match:"G/U", replace:":symgu:")+
+		replace@(match:"X", replace:":symx:")+
+		replace@(match:"Y", replace:":symy:")+
+		replace@(match:"W", replace:":symw:")+
+		replace@(match:"U", replace:":symu:")+
+		replace@(match:"B", replace:":symb:")+
+		replace@(match:"R", replace:":symr:")+
+		replace@(match:"G", replace:":symg:")+
+		replace@(match:"20", replace:":20mana:")+
+		replace@(match:"19", replace:":19mana:")+
+		replace@(match:"18", replace:":18mana:")+
+		replace@(match:"17", replace:":17mana:")+
+		replace@(match:"16", replace:":16mana:")+
+		replace@(match:"15", replace:":15mana:")+
+		replace@(match:"14", replace:":14mana:")+
+		replace@(match:"13", replace:":13mana:")+
+		replace@(match:"12", replace:":12mana:")+
+		replace@(match:"11", replace:":11mana:")+
+		replace@(match:"10", replace:":10mana:")+
+		replace@(match:"9", replace:":9mana:")+
+		replace@(match:"8", replace:":8mana:")+
+		replace@(match:"7", replace:":7mana:")+
+		replace@(match:"6", replace:":6mana:")+
+		replace@(match:"5", replace:":5mana:")+
+		replace@(match:"4", replace:":4mana:")+
+		replace@(match:"3", replace:":3mana:")+
+		replace@(match:"2", replace:":2mana:")+
+		replace@(match:"1", replace:":1mana:")+
+		replace@(match:"0", replace:":0mana:")
+	# Determine which style of colored rarities to use.
+	rarity_color := {
+		if options.forum == "mse" then rarity_color_mse()
+		else if options.forum == "mtgsalvation" then rarity_color_mtgs()
+	}
+	# Colored rarity markers for MTGS forum.
+	rarity_color_mtgs := {
+		if card.rarity == "basic land" then " (C)"
+		else if card.rarity == "common" then " (C)"
+		else if card.rarity == "uncommon" then " [color=silver](U)[/color]"
+		else if card.rarity == "rare" then " [color=gold](R)[/color]"
+		else if card.rarity == "mythic rare" then " [color=orange](M)[/color]"
+		else if card.rarity == "special" then " [color=purple](S)[/color]"
+		else " (C)"
+	}
+	# Colored rarity markers for MSE forum.
+	rarity_color_mse := {
+		if card.rarity == "basic land" then " :common:"
+		else if card.rarity == "common" then " :common:"
+		else if card.rarity == "uncommon" then " :uncommon:"
+		else if card.rarity == "rare" then " :rare:"
+		else if card.rarity == "mythic rare" then " :mythic:"
+		else if card.rarity == "special" then " :special:"
+		else " :common:"
+	}
+	# Non colored rarity markers.
+	rarity_uncolor := {
+		if card.rarity == "basic land" then " (C)"
+		else if card.rarity == "common" then " (C)"
+		else if card.rarity == "uncommon" then " (U)"
+		else if card.rarity == "rare" then " (R)"
+		else if card.rarity == "mythic rare" then " (M)"
+		else if card.rarity == "special" then " (S)"
+		else " (C)"
+	}
+	# Formats rules text w/ only italic tags.
+	forum_rules_filter_plain := replace@(match:"[(]", replace:"[i](")+
+		replace@(match:"[)]", replace: ")[/i]")
+	# Formats rules text w/ mana symbols.  MSE and mtgsally use same bbcode tags for mana.
+	forum_rules_filter_mtgsally_mse :=
+		# Italics around parenthesis.
+		replace@(match:"[(]", replace:"[i](")+
+		replace@(match:"[)]", replace: ")[/i]")+
+		# 2/C's don't appear in regular english, format them all.
+		replace@(match:"2/W", replace:":sym2w:")+
+		replace@(match:"2/U", replace:":sym2u:")+
+		replace@(match:"2/B", replace:":sym2b:")+
+		replace@(match:"2/R", replace:":sym2r:")+
+		replace@(match:"2/G", replace:":sym2g:")+
+		# C/D's don't appear in regular english, format them all.
+		replace@(match:"W/U", replace:":symwu:")+
+		replace@(match:"W/B", replace:":symwb:")+
+		replace@(match:"U/B", replace:":symub:")+
+		replace@(match:"U/R", replace:":symur:")+
+		replace@(match:"B/R", replace:":symbr:")+
+		replace@(match:"B/G", replace:":symbg:")+
+		replace@(match:"R/G", replace:":symrg:")+
+		replace@(match:"R/W", replace:":symrw:")+
+		replace@(match:"G/W", replace:":symgw:")+
+		replace@(match:"G/U", replace:":symgu:")+
+		# Various positions for taps, untaps and chaos symbols.
+		replace@(match:" T ", replace:" :symtap: ")+
+		replace@(match:" Q ", replace:" :symq: ")+
+		replace@(match:" C ", replace:" :symch: ")+
+		replace@(match:"T,", replace:":symtap:,")+
+		replace@(match:"Q,", replace:":symq:,")+
+		replace@(match:"C,", replace:":symch:,")+
+		replace@(match:"T:", replace:":symtap::")+
+		replace@(match:"Q:", replace:":symq::")+
+		replace@(match:"C:", replace:":symch::")+
+		# Mana right before a space.
+		replace@(match:"G ", replace:":symg: ")+
+		replace@(match:"R ", replace:":symr: ")+
+		replace@(match:"B ", replace:":symb: ")+
+		replace@(match:"U ", replace:":symu: ")+
+		replace@(match:"W ", replace:":symw: ")+
+		replace@(match:"S ", replace:":snow: ")+
+		# Mana right before a comma.
+		replace@(match:"G,", replace:":symg:,")+
+		replace@(match:"R,", replace:":symr:,")+
+		replace@(match:"B,", replace:":symb:,")+
+		replace@(match:"U,", replace:":symu:,")+
+		replace@(match:"W,", replace:":symw:,")+
+		replace@(match:"S,", replace:":snow:,")+
+		# Mana right before a colon.
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		# Drag rules text to search for more mana characters. Reverse color wheel order works better. Repeat several times.
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		replace@(match:"G:", replace:":symg::")+
+		replace@(match:"R:", replace:":symr::")+
+		replace@(match:"B:", replace:":symb::")+
+		replace@(match:"U:", replace:":symu::")+
+		replace@(match:"W:", replace:":symw::")+
+		# Symbolize snow.
+		replace@(match:"S:", replace:":snow::")+
+		replace@(match:"S:", replace:":snow::")+
+		replace@(match:"S:", replace:":snow::")+
+		# Symbolize numbers from 20-0 when before a comma.
+		replace@(match:"20,", replace:":20mana:,")+
+		replace@(match:"19,", replace:":19mana:,")+
+		replace@(match:"18,", replace:":18mana:,")+
+		replace@(match:"17,", replace:":17mana:,")+
+		replace@(match:"16,", replace:":16mana:,")+
+		replace@(match:"15,", replace:":15mana:,")+
+		replace@(match:"14,", replace:":14mana:,")+
+		replace@(match:"13,", replace:":13mana:,")+
+		replace@(match:"12,", replace:":12mana:,")+
+		replace@(match:"11,", replace:":11mana:,")+
+		replace@(match:"10,", replace:":10mana:,")+
+		replace@(match:"9,", replace:":9mana:,")+
+		replace@(match:"8,", replace:":8mana:,")+
+		replace@(match:"7,", replace:":7mana:,")+
+		replace@(match:"6,", replace:":6mana:,")+
+		replace@(match:"5,", replace:":5mana:,")+
+		replace@(match:"4,", replace:":4mana:,")+
+		replace@(match:"3,", replace:":3mana:,")+
+		replace@(match:"2,", replace:":2mana:,")+
+		replace@(match:"1,", replace:":1mana:,")+
+		replace@(match:"0,", replace:":0mana:,")+
+		# Symbolize numbers from 20-0 when before another symbol or a colon.
+		replace@(match:"20:", replace:":20mana::")+
+		replace@(match:"19:", replace:":19mana::")+
+		replace@(match:"18:", replace:":18mana::")+
+		replace@(match:"17:", replace:":17mana::")+
+		replace@(match:"16:", replace:":16mana::")+
+		replace@(match:"15:", replace:":15mana::")+
+		replace@(match:"14:", replace:":14mana::")+
+		replace@(match:"13:", replace:":13mana::")+
+		replace@(match:"12:", replace:":12mana::")+
+		replace@(match:"11:", replace:":11mana::")+
+		replace@(match:"10:", replace:":10mana::")+
+		replace@(match:"9:", replace:":9mana::")+
+		replace@(match:"8:", replace:":8mana::")+
+		replace@(match:"7:", replace:":7mana::")+
+		replace@(match:"6:", replace:":6mana::")+
+		replace@(match:"5:", replace:":5mana::")+
+		replace@(match:"4:", replace:":4mana::")+
+		replace@(match:"3:", replace:":3mana::")+
+		replace@(match:"2:", replace:":2mana::")+
+		replace@(match:"1:", replace:":1mana::")+
+		replace@(match:"0:", replace:":0mana::")+
+		# Symbolize X and Y when before a comma.
+		replace@(match:"Y,", replace:":symy:,")+
+		replace@(match:"X,", replace:":symx:,")+
+		# Symbolize X and Y when before another symbol or a colon.
+		replace@(match:"Y:", replace:":symy::")+
+		replace@(match:"X:", replace:":symx::")
+	# Count the number of paragraphs to detect number of walker abilities.
+	paragraph_count := replace@(match:"\n", replace:"•")+
+		filter_text@(match:"•")
+	booster_sort := {
+		if card.shape == "token" then "2"
+		else if card.shape == "rulestip" then "2"
+		else if card.rarity == "basic land" then "3"
+		else if card.rarity == "common" then "4"
+		else if card.rarity == "uncommon" then "5"
+		else "6"
+	}
+	forum_size_tag_start := {
+		if options.forum == "mse" then "[size=12]"
+	}
+	forum_size_tag_end := {
+		if options.forum == "mse" then "[/size]"
+	}
+	write_normal := {
+		# The Name and Casting Cost
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost))
+			+(if options.text_costs then card.casting_cost)
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		# The P/T
+		+(if contains(card.type, match:"Creature") then "\n")
+			+(if contains(card.type, match:"Creature") then card.pt)
+		+forum_size_tag_end()
+		}
+	write_split := {
+		# The Name and Casting Cost
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost))
+			+(if options.text_costs then card.casting_cost)
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		# The P/T
+		+(if contains(card.type, match:"Creature") then "\n")
+			+(if contains(card.type, match:"Creature") then card.pt)
+		+"\n /// "
+		# The Second Name and Casting Cost
+		+"\n[b]"+card.name_2+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost_2))
+			+(if options.text_costs then card.casting_cost_2)
+		# The Second Type and Rarity
+		+"\n"+card.type_2+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Second Rules Text
+		+(if card.rule_text_2 != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text_2)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text_2))
+		# The Second Flavor Text
+		+(if card.flavor_text_2 != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text_2
+			+(if card.flavor_text_2 != "<i-flavor></i-flavor>" then "[/i]")
+		# The Second P/T
+		+(if contains(card.type_2, match:"Creature") then "\n")
+			+(if contains(card.type_2, match:"Creature") then card.pt_2)
+		+forum_size_tag_end()
+		}
+	write_flip := {
+		# The Name and Casting Cost
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost))
+			+(if options.text_costs then card.casting_cost)
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		# The P/T
+		+(if contains(card.type, match:"Creature") then "\n")
+			+(if contains(card.type, match:"Creature") then card.pt)
+		+"\n ---Flip--- "
+		# The Flip Name and Casting Cost
+		+"\n[b]"+card.name_2+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost_2))
+			+(if options.text_costs then card.casting_cost_2)
+		# The Flip Rules Text
+		+(if card.rule_text_2 != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text_2)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text_2))
+		# The Flip Flavor Text
+		+(if card.flavor_text_2 != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text_2
+			+(if card.flavor_text_2 != "<i-flavor></i-flavor>" then "[/i]")
+		# The Flip P/T
+		+(if contains(card.type_2, match:"Creature") then "\n")
+			+(if contains(card.type_2, match:"Creature") then card.pt_2)
+		+forum_size_tag_end()
+		}
+	write_dfc := {
+		# The Name and Casting Cost
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost))
+			+(if options.text_costs then card.casting_cost)
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		# The P/T
+		+(if contains(card.type, match:"Creature") then "\n")
+			+(if contains(card.type, match:"Creature") then card.pt)
+		+"\n ---Other Side--- "
+		# The Flip Name and Casting Cost
+		+"\n[b]"+card.name_2+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost_2))
+			+(if options.text_costs then card.casting_cost_2)
+		# The Flip Rules Text
+		+(if card.rule_text_2 != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text_2)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text_2))
+		# The Flip Flavor Text
+		+(if card.flavor_text_2 != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text_2
+			+(if card.flavor_text_2 != "<i-flavor></i-flavor>" then "[/i]")
+		# The Flip P/T
+		+(if contains(card.type_2, match:"Creature") then "\n")
+			+(if contains(card.type_2, match:"Creature") then card.pt_2)
+		+forum_size_tag_end()
+		}
+	write_walker := {
+		# The Name and Casting Cost
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost))
+			+(if options.text_costs then card.casting_cost)
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The Starting Loyalty
+		+"\nStarting Loyalty: "+card.loyalty
+		# The First Ability
+		+"\n"+card.loyalty_cost_1
+			+(if card.loyalty_cost_1 !="" then ": ")
+			+forum_rules_filter_plain(split_text(match:"\n", card.rule_text).0)
+		# The Second Ability
+		+(if contains(paragraph_count(card.rule_text), match:"•") then "\n")
+			+card.loyalty_cost_2
+			+(if card.loyalty_cost_2 !="" then ": ")
+			+(if contains(paragraph_count(card.rule_text), match:"•") then forum_rules_filter_plain(split_text(match:"\n", card.rule_text).1))
+		# The Third Ability
+		+(if contains(paragraph_count(card.rule_text), match:"••") then "\n")
+			+card.loyalty_cost_3
+			+(if card.loyalty_cost_3 !="" then ": ")
+			+(if contains(paragraph_count(card.rule_text), match:"••") then forum_rules_filter_plain(split_text(match:"\n", card.rule_text).2))
+		# The Fourth Ability
+		+(if contains(paragraph_count(card.rule_text), match:"•••") then "\n")
+			+card.loyalty_cost_4
+			+(if card.loyalty_cost_4 !="" then ": ")
+			+(if contains(paragraph_count(card.rule_text), match:"•••") then forum_rules_filter_plain(split_text(match:"\n", card.rule_text).3))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		+forum_size_tag_end()
+		}
+	write_leveler := {
+		# The Name and Casting Cost
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b] "
+			+(if not options.text_costs then mtgsally_mse_forum_cost(card.casting_cost))
+			+(if options.text_costs then card.casting_cost)
+		# The Type and Rarity
+		+"\n"+card.type+(if options.color_rarities then rarity_color() else rarity_uncolor())
+		# The First Textbox
+		+"\n"+forum_rules_filter_plain(card.rule_text)
+			+(if card.pt !="" then " (")+card.pt+")"
+		# The Second Textbox
+		+"\n[LEVEL "+card.level_1+"]: "
+			+forum_rules_filter_plain(card.rule_text_2)
+			+(if card.pt_2 !="" then " (")+card.pt_2+")"
+		# The Third Textbox
+		+"\n"+(if card.level_2 !="" then "[LEVEL "+card.level_2+"]: ")
+			+forum_rules_filter_plain(card.rule_text_3)
+			+(if card.pt_3 !="" then " (")+card.pt_3+")"
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		+forum_size_tag_end()
+		}
+	write_token := {
+		# The Name
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b]"
+		# The Type
+		+"\n"+card.type
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		# The Flavor Text
+		+(if card.flavor_text != "<i-flavor></i-flavor>" then "\n[i]")
+			+card.flavor_text
+			+(if card.flavor_text != "<i-flavor></i-flavor>" then "[/i]")
+		# The P/T
+		+(if contains(card.type, match:"Creature") then "\n")
+			+(if contains(card.type, match:"Creature") then card.pt)
+		+forum_size_tag_end()
+		}
+	write_rulestip := {
+		# The Name
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b]"
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		+forum_size_tag_end()
+		}
+	write_counter := {
+		# The Name
+		"\n[spoiler]"+forum_size_tag_start()+"[b]"+card.name+"[/b]"
+		# The Rules Text
+		+(if card.rule_text != "" then "\n")
+			+(if not options.text_costs then forum_rules_filter_mtgsally_mse(remove_tags(card.rule_text)))
+			+(if options.text_costs then forum_rules_filter_plain(card.rule_text))
+		+forum_size_tag_end()
+		}
+	write_card := { if contains(card.shape, match:"token") then write_token()
+		else if contains(card.shape, match:"rulestip") then write_rulestip()
+		else if contains(card.shape, match:"counter") then write_counter()
+		else if contains(card.shape, match:"emblem") then write_emblem()
+		else if contains(card.shape, match:"split") then write_split()
+		else if contains(card.shape, match:"double faced") then write_dfc()
+		else if card.name_2 != "" then write_flip()
+		else if card.loyalty != "" then write_walker()
+		else if contains(card.shape, match:"leveler") then write_leveler()
+		else write_normal()
+		}
+	write_cards := to_text(for each card in sort_list(cards, order_by: {booster_sort()}) do write_card())
+	to_string(write_cards+"[/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler][/spoiler]")

@@ -1,0 +1,1187 @@
+﻿mse version: 2.0.0
+game: magic
+short name: M15 Sagas
+full name: Dominaria Sagas
+installer group: magic/m15 style/sagas
+icon: card-sample.png
+position hint: 010
+
+version: 2020-05-10
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	template_prefix := [card: "" snowtexture: "snow/" pt: "" stamp: "" mark: "bookmark/" nyx:"nyx/", crown:"legend/" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" snowtexture:"snow.png" pt:"pt.png" mark: "mark.png" stamp: "stamp.jpg" nyx:"nyx.png", crown:"crown.png" identity: "identity.png"]
+	template      := { crown_lead(type) + template_prefix[type] + input + crown_follow(type) + template_suffix[type] }
+	land_template := { crown_lead(type) + template_prefix[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + crown_follow(type) + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	landless := {if input == "nyx" or input == "crown" then true else false}
+	
+	crown_lead := {
+		if input != "crown" then ""
+		else if (styling.legend_crown == "custom" and styling.custom_crown_location != "")
+			then "/magic-mainframe-extras.mse-include/" + styling.custom_crown_location
+		else ""
+	}
+	crown_follow := {
+		if input != "crown" then ""
+		else if styling.legend_crown == "nyx" or (is_nyx() and contains(styling.other_options, match:"auto nyx"))
+			then "nyx"
+		else if styling.legend_crown == "companion"
+			then "com"
+		else ""
+	}
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }	
+	
+	paintbrush_color := {
+		if to_int(card.border_color) < 96 then "white" else "black"
+	}
+	
+	# Loyalty cost arrows
+	loyalty_image := {
+		if      contains(input, match: "+") then "loyalty up"
+		else if contains(input, match: "-") then "loyalty down"
+		else                                     "loyalty naught"
+	}
+	
+	card_shape := {"saga"}
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	starting_loyalty := {chosen(styling.other_options, choice:"use starting loyalty")}
+	
+	is_stamped := { is_rare() and styling.holofoil_stamped_rares }
+	split_12 := {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:0, end:true, default:(if one_box() then 437 else if two_boxes() then 296 else if four_boxes() then 225 else 249)))}
+	split_23 := {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:1, end:true, default:(if one_box() then 437 else if two_boxes() then 437 else if four_boxes() then 296 else 343)))}
+	split_34 := {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:2, end:true, default:(if one_box() then 437 else if three_boxes() then 437 else if four_boxes() then 367 else 437)))}
+
+	coords_map := [
+		1: {[card_style.level_1_text.top, card_style.level_1_text.bottom-card_style.level_1_text.top]},
+		2: {[card_style.level_2_text.top, card_style.level_2_text.bottom-card_style.level_2_text.top]},
+		3: {[card_style.level_3_text.top, card_style.level_3_text.bottom-card_style.level_3_text.top]},
+		4: {[card_style.level_4_text.top, card_style.level_4_text.bottom-card_style.level_4_text.top]},
+		5: {[card_style.level_5_text.top, card_style.level_5_text.bottom-card_style.level_5_text.top]}
+	]
+	auto_snap := {
+		out := 0
+		snap_array := split_text(replace(styling.snap_chapter_to_box, match:",[^,]+$", replace:","), match:",")
+		abil := to_number(pull_comma_array(styling.snap_chapter_to_box, cell:input-1, end:true))					###textbox to snap too
+		abil_array := saga_lore_count(snap_array)																	###chapters in each box
+		ch_count := abil_array[abil-1]																				###chapters in this box
+		self_index := saga_ch_placement(snap_array)[input-1]														###input's index
+		box_deets := coords_map[abil]()																				###[top, height]
+		remain := box_deets[1] - 30*ch_count																		###remaining space after chapter hexes
+		excess := remain - 10*(ch_count-1)																			###remaining after 10px gaps
+		if excess >= 0 then out := box_deets[0] + excess/2 + 40*(self_index-1)										###top + buffer*index + hex*index-1
+		else (																										###may not be enough room to ten-gap the middle
+			inner_gap := 10
+			squeeze := 0
+			outer_gap := (remain - inner_gap * (ch_count-1))/2
+			if outer_gap < -6 then (
+				squeeze := 2*(outer_gap+6)/(ch_count-1);
+				outer_gap := -6
+			)
+			inner_gap := inner_gap + squeeze
+			out := box_deets[0] + outer_gap + (self_index-1)*(30+inner_gap)
+		)
+		out
+	}
+	chapter0 := { if styling.reminder_coordinate != "" then max(60,min(to_number(styling.reminder_coordinate),438)) else 155}
+	chapter1 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:0, end:true)) > 0 then auto_snap(1) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:0, end:true, default:(if two_boxes() then 183 else 185))) }
+	chapter2 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:1, end:true)) > 0 then auto_snap(2) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:1, end:true, default:(if two_boxes() then 223 else 279))) }
+	chapter3 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:2, end:true)) > 0 then auto_snap(3) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:2, end:true, default:(if two_boxes() then 329 else 373))) }
+	chapter4 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:3, end:true)) > 0 then auto_snap(4) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:3, end:true, default:600)) }
+	chapter5 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:4, end:true)) > 0 then auto_snap(5) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:4, end:true, default:600)) }
+	chapter6 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:5, end:true)) > 0 then auto_snap(6) else to_number(pull_comma_array(styling.chapter_number_coordinates, cell:5, end:true, default:600)) }
+	chapter_custom := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:6, end:true)) > 0 then auto_snap(7) else to_number(pull_comma_array(styling.custom_chapter_coordinate, cell:0, end:false, default:600)) }
+	custom_chapter_node := {if contains(styling.custom_chapter_location, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_chapter_location else "chapter6.png"}
+	custom_name := {if styling.custom_chapter_name == "" then "C" else styling.custom_chapter_name}
+
+	comma_count := filter_text@(match:",")
+	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
+	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+	text_size := { 13 -(if styling.separated_text_size == "" then 0 else to_number(styling.separated_text_size))}
+	has_identity := { styling.color_indicator_dot}
+	is_unsorted := {styling.remove_from_autocount}
+	build_array := {
+		if input +17 >= (if split_34() != "" then split_34() else 600) then 4
+		else if input +17 >= (if split_23() != "" then split_23() else 343) then 3
+		else if input +17 >= (if split_12() != "" then split_12() else 249) then 2
+		else if input +17 <= (if split_12() != "" then split_12() else 249) then 1
+		else 0
+	}
+	level_leader := {
+		(if build_array((if chapter1() != "" then chapter1() else 185)) == input then "I, " else "")
+		+(if build_array((if chapter2() != "" then chapter2() else 279)) == input then "II, " else "")
+		+(if build_array((if chapter3() != "" then chapter3() else 373)) == input then "III, " else "")
+		+(if build_array((if chapter4() != "" then chapter4() else 600)) == input then "IV, " else "")
+		+(if build_array((if chapter5() != "" then chapter5() else 600)) == input then "V, " else "")
+		+(if build_array((if chapter6() != "" then chapter6() else 600)) == input then "VI, " else "")
+		+(if build_array((if chapter_custom() != "" then chapter_custom() else 600)) == input then custom_name() + ", " else "")
+	}
+	end_leader := replace@(match:", $", replace:" — ")
+	special_text := {
+		card.rule_text
+		+(if card.level_1_text != "" then "\n" + end_leader(level_leader(1)) + card.level_1_text)
+		+(if card.level_2_text != "" then "\n" + end_leader(level_leader(2)) + card.level_2_text)
+		+(if card.level_3_text != "" then "\n" + end_leader(level_leader(3)) + card.level_3_text)
+		+(if card.level_4_text != "" then "\n" + end_leader(level_leader(4)) + card.level_4_text)
+	}
+	saga_rules_text := { chapter3() + "|" + (if split_12() != "" then split_12() else 249) + "|" + (if split_23() != "" then split_23() else 343) }
+
+	one_box := {styling.chapter_textboxes == "one" }
+	two_boxes := {styling.chapter_textboxes == "two" }
+	three_boxes := {styling.chapter_textboxes == "three" or comma_count(styling.chapter_divider_coordinates) == ",,"}
+	four_boxes := {styling.chapter_textboxes == "four" or comma_count(styling.chapter_divider_coordinates) == ",,,"}
+	use_main_rarity := { contains(styling.mainframe_rarity, match: ".png")}
+	un_png := replace@(match:".png", replace: "")
+	a_saga := {true}
+	saga_reminder := { if styling.alternate_reminder != "" then styling.alternate_reminder else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
+	is_nyx := {contains(styling.other_options, match:"nyx")}
+	is_snow := {contains(styling.other_options, match:"snow")}
+	is_vehicle := {contains(styling.other_options, match:"vehicle")}
+	un_marked := {contains(styling.other_options, match:"remove bookmark")}
+	is_legend := {set.auto_legends and contains(card.super_type, match:"Legendary") }
+	nyx_background := { color_background(type:"nyx",     base_hybrid:card_hybrid) }
+	snow_background := { color_background(type:"snowtexture",     base_hybrid:card_hybrid) }
+	bookmark_background := { color_background(type:"mark",     base_hybrid:card_hybrid) }
+	crown_background := { color_background(type:"crown", base_hybrid: card_hybrid)}
+	alt_loc := { if styling.replacement_chapter_location != "" then styling.replacement_chapter_location else "no"}
+	alt_chapters := { (if match(styling.replacement_chapter_location, match:"/$") then "/magic-mainframe-extras.mse-include/" + styling.replacement_chapter_location else "") + "chapter" + input + ".png"}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: choice
+	name: chapter textboxes
+	description: How many textboxes does this Saga have?
+	choice: one
+	choice: two
+	choice: three
+	choice: four
+	initial: three
+styling field:
+	type: text
+	name: snap chapter to box
+	description: Sets the chapter symbols to the given textbox, fo example "1,1,2," for I, II - Ability 1; III - Ability 2
+styling field:
+	type: text
+	name: chapter divider coordinates
+	description: Sets the position of the chapter breaks. Formatted as "1,2," Defaults are "296," for two "249,343," for three and "225,296,367," for four.
+styling field:
+	type: text
+	name: reminder coordinate
+	description: Sets the position of the chapter breaks. Formatted as "1,2," Defaults are "296," for two "249,343," for three and "225,296,367," for four.
+styling field:
+	type: text
+	name: separated text size
+	description: Use to standardize the font size of separated abilities. Default is size 13.
+styling field:
+	type: text
+	name: alternate reminder
+	description: Change the reminder text that is generated for new cards
+styling field:
+	type: text
+	name: custom chapter location
+	description: The location of the custom chapter symbol inside magic-mainframe-extras
+styling field:
+	type: text
+	name: custom chapter name
+	description: Set how this symbol will be called in text exports (ie I, II...). Default is C.
+styling field:
+	type: multiple choice
+	name: other options
+	choice: nyx
+	choice: snow
+	choice: vehicle
+	choice: use starting loyalty
+	choice: remove bookmark
+styling field:
+	type: text
+	name: shrink name text
+	description: Reduces the name text N points.
+styling field:
+	type: text
+	name: shrink typeline text
+	description: Reduces the typeline text N points.
+styling field:
+	type: choice
+	name: legend crown
+	choice: standard
+	choice: nyx
+	choice: companion
+	choice: custom
+	description: The type of legend crown to use for this card.
+styling field:
+	type: text
+	name: custom crown location
+	description: location of custom legend crown images in magic-mainframe-extras
+styling field:
+	type: text
+	name: replacement chapter location
+	description: location of replacement chapter symbols in magic-mainframe-extras, formatted as "folder/"
+styling field:
+	type: text
+	name: chapter number coordinates
+	description: Sets the chapter symbols at the given height. Formatted as "1,2,3," Defaults are "183,223,329," for two and "185,279,373," for three. Use 40px offset.
+styling field:
+	type: text
+	name: custom chapter coordinate
+	description: Set the custom symbol at the given height
+styling field:
+	type: boolean
+	name: wider watermarks
+	description: Use the full watermark size for custom full-size backgrounds.
+	initial: no
+styling field:
+	type: boolean
+	name: holofoil stamped rares
+	description: Use holofoil stamped rares
+styling field:
+	type: boolean
+	name: color indicator dot
+	description: Use the color indicator dot
+	initial: no
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: text
+	name: mainframe rarity
+	description: Use rarity symbols from magic-mainframe-extras.mse-include
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+	other options:
+		render style: checklist
+		direction: vertical
+############################################################## Card fields
+card style:
+############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 4
+		mask: { (if is_legend() then "crown_border" else "border_mask") + (if card.border_color == rgb(200,200,200) then "_silver" else "") + ".png" }
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: { if card.card_symbol=="none" then 32 else 50 }
+		top: 30
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: { 23- (0.5 * shrink_name())}
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Beleren Bold
+			size: {16 - shrink_name()}
+			color: black
+	casting cost:
+		right: 348
+		top: 28
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 23
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-large
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {if card.card_symbol=="none" then 20 else 29}
+		top: 31
+		height: 18
+		width: 14
+		z index: 1
+		render style: image
+		choice images:
+			tombstone: tombstone.png
+	############################# Image
+	image:
+		left: 188
+		top: 59
+		width: 157
+		height:	379
+		z index: 1
+	############################# Card type
+	indicator:
+		left: 30
+		top: 449
+		width: 17
+		height: 17
+		z index: 2
+		render style: image
+		visible: { has_identity()}
+		image: { card_identity() }
+	type:
+		left: { if has_identity() then "53" else "33" }
+		top: { 444 + shrink_type() }
+		width: { 309 - max(22,card_style.rarity.content_width) }
+		height: { 20 - shrink_type() }
+		alignment: top shrink-overflow
+		z index: 2
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: { 13 - shrink_type() }
+			color: black
+			separator color: red
+	rarity:
+		right: 345
+		top: 445
+		width: 42
+		height: 21
+		z index: 2
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# Text box
+	watermark:
+		left: { if styling.wider_watermarks then 29 else 45 }
+		top: 60
+		width: { if styling.wider_watermarks then 157 else 133 }
+		height: 378
+		z index: 5
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks
+	chapter text:
+		left: 30
+		top: 60
+		width: 153
+		bottom: {if un_marked() then 60 else chapter0()}
+		z index: 3
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		mask: {if un_marked() then "" else crop(to_image("textmask.png"), height:chapter0()-60, width:153, offset_x:0, offset_y:0)}
+		z index: 5
+		padding left:   3
+		padding right:  1
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.85
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# Levels
+	level 1 text:
+		left: {if un_marked() then 30 else 45}
+		top: { if un_marked() then 60 else chapter0()}
+		width: { if un_marked() then 153 else 138}
+		bottom: { if split_12() == "" then 249 else split_12() }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 5
+		padding left:   6
+		padding right:  4
+		padding top: 3
+		padding bottom: 3
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	level 2 text:
+		left: {if un_marked() then 30 else 45}
+		top: { if split_12() == "" then 249 else split_12() }
+		width: { if un_marked() then 153 else 138}
+		bottom: { if split_23() == "" then 343 else split_23() }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 5
+		padding left:   6
+		padding right:  4
+		padding top: 3
+		padding bottom: 3
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	level 3 text:
+		left: {if un_marked() then 30 else 45}
+		top: { if split_23() == "" then 343 else split_23() }
+		width: { if un_marked() then 153 else 138}
+		bottom: {if split_34() == "" then 437 else split_34() }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 5
+		padding left:   6
+		padding right:  4
+		padding top: 3
+		padding bottom: 3
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	level 4 text:
+		left: {if un_marked() then 30 else 45}
+		top: {if split_34() == "" then 437 else split_34() }
+		width: { if un_marked() then 153 else 138}
+		bottom: 437
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.separated_text_size != "" then styling.separated_text_size else 13 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 5
+		padding left:   6
+		padding right:  4
+		padding top: 3
+		padding bottom: 3
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# PT
+	pt:
+		z index: 4
+		left: 286
+		top: 469
+		width: {if starting_loyalty() then 0 else 60}
+		height:	28
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 16
+			color: black
+			separator color: red
+	loyalty:
+		z index: 7
+		left: 326
+		top: 468
+		width: {if starting_loyalty() then 13.16 else 0}
+		height:	34.63
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 14
+			color: white
+
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 6
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 2
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: { if (starting_loyalty() and card.loyalty != "") or (card.pt != "" and not starting_loyalty()) then 500 else 498 }
+		width: {if set.automatic_copyright then 0 else 140}
+		height: 10
+		z index: 6
+		alignment: middle right shrink-overflow
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount then
+			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else
+			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty box
+	editable: false
+	choice: loyalty
+	save value: false
+extra card field:
+	type: choice
+	name: stamp
+	choice: stamp
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: clear frame
+	choice: frame
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: bookmark
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: chapter 1
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: chapter 2
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: chapter 3
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: chapter 4
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: chapter 5
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: chapter 6
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: chapter custom
+	choice: chapter
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: text
+	name: filler text
+	editable: true
+	save value: true
+	show statistics: false
+	multi line: true
+	script:
+		forward_editor(field: card.special_text)
+		special_text()
+extra card field:
+	type: choice
+	name: linebreak 1
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: linebreak 2
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: linebreak 3
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: linebreak 4
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: linebreak 5
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: linebreak 6
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: linebreak 7
+	choice: line
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: snow overlay
+	choice: snow
+	save value: false
+	editable: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: vehicle overlay
+	choice: car door
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: nyx overlay
+	choice: nyx
+	save value: false
+	editable: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: crown
+	script: card.card_color
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: stripe
+	choice: stripe
+	editable: false
+	save value: false
+	show statistics: false
+extra card style:
+	card code:
+		left: 24
+		top: 488
+		width: 120
+		height: 10
+		z index: 6
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 6
+		render style: image
+		image: artist_arrow.png
+	pt box:
+		left: 273
+		top: 466
+		width: 81
+		height:	42
+		z index: 3
+		visible: { card.pt != "" and not starting_loyalty() }
+		render style: image
+		image: { card_ptbox() }
+	loyalty box:
+		right: 362
+		top: 466
+		width: 60
+		height: 38
+		z index: 6
+		render style: image
+		visible: { starting_loyalty() and card.loyalty != "" }
+		choice images:
+			loyalty: loyalty.png
+	stamp:
+		left: 170
+		top: 474
+		width: 36.5
+		height: 22.5
+		z index: 6
+		visible: { is_stamped() }
+		render style: image
+		image: foil_stamp.png
+		mask: stamp_mask.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 4
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	auto copyright:
+		right: 350
+		top: {if (starting_loyalty() and card.loyalty != "") or (card.pt != "" and not starting_loyalty()) then 500 else 498}
+		width: {if set.automatic_copyright then 140 else 0}
+		height: 10
+		z index: 6
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	chapter 1:
+		left: 14
+		top: { if chapter1() == "" then 185 else chapter1() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {alt_chapters("1")}
+		visible: {not un_marked()}
+	chapter 2:
+		left: 14
+		top: { if chapter2() == "" then 279 else chapter2() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {alt_chapters("2")}
+		visible: {not un_marked()}
+	chapter 3:
+		left: 14
+		top: { if chapter3() == "" then 373 else chapter3() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {alt_chapters("3")}
+		visible: {not un_marked()}
+	chapter 4:
+		left: 14
+		top: { if chapter4() == "" then 600 else chapter4() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {alt_chapters("4")}
+		visible: {not un_marked()}
+	chapter 5:
+		left: 14
+		top: { if chapter5() == "" then 600 else chapter5() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {alt_chapters("5")}
+		visible: {not un_marked()}
+	chapter 6:
+		left: 14
+		top: { if chapter6() == "" then 600 else chapter6() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {alt_chapters("6")}
+		visible: {not un_marked()}
+	chapter custom:
+		left: 14
+		top: { if chapter_custom() == "" then 600 else chapter_custom() }
+		width: 30
+		height: 34
+		render style: image
+		z index: 5
+		image: {custom_chapter_node()}
+		visible: {not un_marked()}
+	linebreak 1:
+		left: 30
+		top: {chapter0()}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+		visible: {not un_marked()}
+	linebreak 2:
+		left: 30
+		top: {if split_12() == "" then 248 else split_12()-1}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+	linebreak 3:
+		left: 30
+		top: {if split_23() == "" then 342 else split_23()-1}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+		visible: {three_boxes() or four_boxes()}
+	linebreak 4:
+		left: 30
+		top: {if split_34() == "" then 600 else split_34()-1}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+		visible: {four_boxes()}
+	linebreak 5:
+		left: 30
+		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:3, end:true, default:600))}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+		visible: {four_boxes()}
+	linebreak 6:
+		left: 30
+		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:4, end:true, default:600))}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+		visible: {four_boxes()}
+	linebreak 7:
+		left: 30
+		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:5, end:true, default:600))}
+		width: 156
+		height: 3
+		render style: image
+		z index: 3
+		image: line.png
+		visible: {four_boxes()}
+	nyx overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: {nyx_background()}
+		z index: 0
+		visible: {is_nyx()}
+		mask: {"nyx/" + (if is_vehicle() or is_snow() then "v_") + "fullmask.png"}
+	snow overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: {snow_background()}
+		z index: 0
+		visible: {is_snow()}
+		mask: {"snow/snow_mask.png"}
+	vehicle overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: voverlay_full.png
+		mask: nyx/fullmask.png
+		z index: 0
+		visible: {is_vehicle()}
+	crown:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: {crown_background()}
+		z index: 3
+		visible: {is_legend()}
+	bookmark:
+		left: 15
+		top: 60
+		width: 27
+		height: 372
+		render style: image
+		image: {bookmark_background()}
+		z index: 4
+		visible: {not un_marked()}
+	stripe:
+		left: 15
+		top: 60
+		width: 27
+		height: 372
+		render style: image
+		image: bookmark/stripe.png
+		z index: 4
+		visible: {length(write_wubrg(card.card_color))==2 and not un_marked()}

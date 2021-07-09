@@ -1,0 +1,253 @@
+﻿mse version: 2.0.0
+short name: New LackeyCCG
+full name: Plugin Exporter
+position hint: 003
+icon: icon.png
+version: 2014-01-20
+installer group: magic/Export/lackeyccg
+
+depends on:
+	package: magic.mse-game
+	version: 2009-07-23
+
+game: magic
+create directory: true
+file type: *.txt|*.txt|*.*|*.*
+
+# By Pichoro and Innuendo
+# Based on code by Idle Muse and Seeonee
+# Updates by Cajun
+
+option field:
+	type: choice
+	name: Remember!
+	choice: Edit your setlist.txt file in LackeyCCG to add your new set!
+option field:
+	type: choice
+	name: Notice!
+	choice: Remember to rearrange the images and set list file to make your plugin work!
+option field:
+	type: text
+	name: set code
+	description: The three letter extension of your set name.
+option field:
+	type: choice
+	name: export size
+	choice: LackeyCCG Large
+	choice: LackeyCCG Medium
+	choice: MSE Standard
+	description: LackeyCCG Large is 312x445. LackeyCCG Medium is 200x285. MSE Standard is 375x523.
+
+script:
+	image_export_width := { if contains(card.shape, match:"split") and options.export_size == "MSE Standard" then "523"
+		else if contains(card.shape, match:"double faced") and options.export_size == "MSE Standard" then "752"
+		else if options.export_size == "MSE Standard" then "375"
+		else if contains(card.shape, match:"split") and options.export_size == "LackeyCCG Medium" then "285"
+		else if contains(card.shape, match:"double faced") and options.export_size == "LackeyCCGMedium" then "572"
+		else if options.export_size == "LackeyCCG Medium" then "200"
+		else if contains(card.shape, match:"split") then "445"
+		else if contains(card.shape, match:"double faced") then "626"
+		else "312"
+		}
+	image_export_height := { if contains(card.shape, match:"split") and options.export_size == "MSE Standard" then "375"
+		else if options.export_size == "MSE Standard" then "523"
+		else if contains(card.shape, match:"split") and options.export_size == "LackeyCCG Medium" then "200"
+		else if options.export_size == "LackeyCCG Medium" then "285"
+		else if contains(card.shape, match:"split") then "312"
+		else "445"
+		}
+	mse_to_lackeyccg_trim_duplicate_color := {to_text(if contains(input, match:"W") then "W")
+		+to_text(if contains(input, match:"U") then "U")
+		+to_text(if contains(input, match:"B") then "B")
+		+to_text(if contains(input, match:"R") then "R")
+		+to_text(if contains(input, match:"G") then "G")
+		+to_text(if contains(input, match:"A") then "A")
+		}
+	mse_to_lackeyccg_gold_format := {to_text(if contains(card.casting_cost, match:"W") then "W")
+		+to_text(if contains(card.casting_cost, match:"U") then "U")
+		+to_text(if contains(card.casting_cost, match:"B") then "B")
+		+to_text(if contains(card.casting_cost, match:"R") then "R")
+		+to_text(if contains(card.casting_cost, match:"G") then "G")
+		}
+	mse_to_lackeyccg_color_filter := replace@(match:",", replace:"")+
+		replace@(match:" ", replace:"")+
+		replace@(match:"multicolor", replace:mse_to_lackeyccg_gold_format)+
+		replace@(match:"hybrid", replace:mse_to_lackeyccg_gold_format)+
+		replace@(match:"horizontal", replace:"")+
+		replace@(match:"vertical", replace:"")+
+		replace@(match:"radial", replace:"")+
+		replace@(match:"overlay", replace:"")+
+		replace@(match:"colorless", replace:"")+
+		replace@(match:"white", replace:"W")+
+		replace@(match:"blue", replace:"U")+
+		replace@(match:"black", replace:"B")+
+		replace@(match:"red", replace:"R")+
+		replace@(match:"green", replace:"G")+
+		replace@(match:"artifact", replace:"A")
+	mse_to_lackeyccg_rules_filter := replace@(match:"\n", replace:" ")
+	paragraph_count := replace@(match:"\n", replace:"•")+
+		filter_text@(match:"•")
+	write_normal := {card.name+"	"
+		+options.set_code+"	"
+		+card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Basic Land") then "0"
+			else if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(if card.rarity == "basic land" then "l" else card.rarity),end:1)+"	"
+		+"	"
+		+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+		+"\n"
+		}
+	write_split := {card.name+" // "+card.name_2+"	"
+		+options.set_code+"	"
+		+card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color))
+			+mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color_2)))+"	"
+		+card.casting_cost+" // "+card.casting_cost_2+"	"
+		+cmc(card.casting_cost)+" // "+cmc(card.casting_cost_2)+"	"
+		+card.type+(if card.type != card.type_2 then " // " +card.type_2 else "")+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+"	"
+		+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)+" // "+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_flip := {card.name+"	"
+		+options.set_code+"	"
+		+card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+"	"
+		+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+			+" ----- "
+			+card.name_2+" "
+			+card.type_2+" "
+			+card.power_2+(if card.power_2 != "" then "/" else "")+card.toughness_2+(if card.power_2 != "" then " " else "")
+			+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_dfc := {card.name+"	"
+		+options.set_code+"	"
+		+card_number()+(if card.rarity == "special" then "as" else "a")+","+card_number()+(if card.rarity == "special" then "bs" else "b")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+(if card.casting_cost_2 != "" then "//"+card.casting_cost_2 else "")+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+"	"
+		+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)+"//"+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+			+" ----- "
+			+card.name_2+" "
+			+card.type_2+" "
+			+card.power_2+(if card.power_2 != "" then "/" else "")+card.toughness_2+(if card.power_2 != "" then " " else "")
+			+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_walker := {card.name+"	"
+		+options.set_code+"	"
+		+card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"		"
+		+card.loyalty+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+"	"
+		+"	"
+		+card.loyalty_cost_1
+			+(if card.loyalty_cost_1 !="" then ": ")
+			+split_text(match:"\n", card.rule_text).0+" "
+		+card.loyalty_cost_2
+			+(if card.loyalty_cost_2 !="" then ": ")
+			+(if contains(paragraph_count(card.rule_text), match:"•") then split_text(match:"\n", card.rule_text).1+" ")
+		+card.loyalty_cost_3
+			+(if card.loyalty_cost_3 !="" then ": ")
+			+(if contains(paragraph_count(card.rule_text), match:"••") then split_text(match:"\n", card.rule_text).2+" ")
+		+card.loyalty_cost_4
+			+(if card.loyalty_cost_4 !="" then ": ")
+			+(if contains(paragraph_count(card.rule_text), match:"•••") then split_text(match:"\n", card.rule_text).3)
+		+"\n"
+		}
+	write_leveler := {card.name+"	"
+		+options.set_code+"	"
+		+card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+"	"
+		+"	"
+		+card.rule_text+" "
+		+"[LEVEL "+card.level_1+"]: "
+			+card.rule_text_2
+			+(if card.pt_2 !="" then " ("+card.pt_2+") ")
+		+(if card.level_2 !="" then "[LEVEL "+card.level_2+"]: ")
+			+card.rule_text_2
+			+(if card.pt_3 !="" then " ("+card.pt_2+") ")
+		+"\n"
+		}
+	write_token := {options.set_code+ " " +(if contains(card.type, match:"Emblem") then card.sub_type +" " else "")+card.name+"	"
+		+"tokens	"
+		+card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Basic Land") then "0"
+			else if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+"T	"
+		+"	"
+		+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+		+"\n"
+		}
+	write_card := { if contains(card.shape, match:"token") then write_token()
+		else if contains(card.shape, match:"rulestip") then ""
+		else if contains(card.shape, match:"counter") then write_token()
+		else if contains(card.shape, match:"emblem") then write_token()
+		else if contains(card.shape, match:"split") then write_split()
+		else if contains(card.shape, match:"double faced") then write_dfc()
+		else if card.name_2 != "" then write_flip()
+		else if card.loyalty != "" then write_walker()
+		else if contains(card.shape, match:"leveler") then write_leveler()
+		else write_normal()
+		}
+	write_link := { options.set_code+"/"+card_number()+(if contains(card.shape, match:"double faced") then "a" else "")+(if card.rarity == "special" then "s" else "")+"	"
+		+"https://dl.dropboxusercontent.com/u/583716647/MSE_Magic_Other/images/"+options.set_code+"/"+card_number()+(if contains(card.shape, match:"double faced") then "a" else "")+(if card.rarity == "special" then "s" else "")+".jpg"
+		+"\n"
+		+(if contains(card.shape, match:"double faced") then options.set_code+"/"+card_number()+(if contains(card.shape, match:"double faced") then "b" else "")+(if card.rarity == "special" then "s" else "")+"	" else "")
+		+(if contains(card.shape, match:"double faced") then "https://dl.dropboxusercontent.com/u/583716647/MSE_Magic_Other/images/"+options.set_code+"/"+card_number()+(if contains(card.shape, match:"double faced") then "b" else "")+(if card.rarity == "special" then "s" else "")+".jpg" else "")
+		+(if contains(card.shape, match:"double faced") then "\n" else "")
+		}
+	write_cards := to_text(for each card in sort_list(cards, order_by: {card.card_number}) do write_card())
+	write_links := to_text(for each card in sort_list(cards, order_by: {card.card_number}) do write_link())
+	write_images := for each card in sort_list(cards, order_by: {card.card_number}) do write_image_file(card, directory: "{to_lower(options.set_code)}", file:"{card_number()}{if card.rarity == "special" then "s" else ""}.jpg", width: image_export_width(), height: image_export_height())
+	write_text_file(file:"Card_URLs.txt", to_string("Card URLs\n"+write_links))
+	to_string("Name	Set	ImageFile	Color	Cost	ConvertedCost	Type	Power	Toughness	Rarity	Sound	Script	Text\n"+write_cards)

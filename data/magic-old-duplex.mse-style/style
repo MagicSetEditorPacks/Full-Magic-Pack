@@ -1,0 +1,459 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Old Duplex
+full name: Duplex Style Card
+icon: card-sample.png
+installer group: magic/old style/duplex cards
+position hint: 025
+
+version: 2014-02-22
+depends on:
+	package: magic.mse-game
+	version: 2008-06-02
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-old.mse-style
+	version: 2008-04-13
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	template      := { "/magic-old.mse-style/" + input + "card.jpg" }
+	land_template := { "/magic-old.mse-style/" + (if input == "a" then "c" else input) + "l" + "card.jpg" }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Alpha style lands?  Different blending for multicolored lands.
+	#Did it this way because was getting longer other way, due to redefining color_background parts.
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		base := base_hybrid[shape][color_count]()
+		
+		# Put a frame around it?
+		if type == "card" and land and color_count == 2 and shape != "overlay" and styling.alpha_style_blending and styling.side == "left" then
+			masked_blend(
+				mask:  "alpha_blend_left.png",
+				dark:  land_template(colors[0]),
+				light: land_template(colors[1]),
+			)
+		else if type == "card" and land and color_count == 2 and shape != "overlay" and styling.alpha_style_blending and styling.side == "right" then
+			masked_blend(
+				mask:  "alpha_blend_right.png",
+				dark:  land_template(colors[0]),
+				light: land_template(colors[1]),
+			)
+		else if land and color_count!=1 then
+			masked_blend(
+				mask:  "/magic-old.mse-style/land_blend_{type}.png",
+				dark:  land_template("c"),
+				light: base,
+			)
+		else if multi then 
+			masked_blend(
+				mask: ( if styling.type_of_gradient_multicolor == "full card" then "/magic-old.mse-style/multicolor_blend_{type}.png"
+					else if styling.type_of_gradient_multicolor == "trim only" then "/magic-old.mse-style/multicolor_blend_{type}2.png"
+					else "/magic-old.mse-style/multicolor_blend_{type}.png" ),
+				dark:  template("m"),
+				light: base,
+			)
+		else if artifact then 
+			masked_blend(
+				mask: ( if styling.type_of_gradient_artifact == "full card" then "/magic-old.mse-style/multicolor_blend_{type}.png"
+					else if styling.type_of_gradient_artifact == "trim only" then "/magic-old.mse-style/multicolor_blend_{type}2.png"
+					else "/magic-old.mse-style/multicolor_blend_{type}.png" ),
+				dark:  template("a"),
+				light: base,
+			)
+		else base
+	}
+		
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Only white cards use a black font
+	font_colors_white := { input != "w" }
+	
+	ifside := {if styling.side == "left" then left else right}
+	sideset := {if styling.side == "left" then input else input-15}	
+
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: olduncommon
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1:   rgb(224,224,224)
+			fill color 2:   rgb(84, 84, 84)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+		variation:
+			name: oldrare
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1:   rgb(214,196,94)
+			fill color 2:   rgb(95, 84, 40)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+############################################################## Extra style options
+styling field:
+	type: choice
+	name: side
+	description: Choose which side of the duplex this card is.
+	choice: left
+	choice: right
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: boolean
+	name: alpha style blending
+	description: Use Alpha-style dual blending
+	initial: no
+styling field:
+	type: choice
+	name: type of gradient multicolor
+	description: What parts of the card should be blended for gradient multicolor?
+	choice: full card
+	choice: trim only
+	initial: full card
+styling field:
+	type: choice
+	name: type of gradient artifact
+	description: What parts of the card should be blended for gradient artifact?
+	choice: full card
+	choice: trim only
+	initial: full card
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: choice
+	name: pt font
+	description: Should the font used for p/t be MPlantin or MPlantin-Bold?  MPlantin was used until Mirage.
+	initial: MPlantin-Bold
+	choice: MPlantin
+	choice: MPlantin-Bold
+styling field:
+	type: boolean
+	name: colored rarities
+	description: Should rarity symbols be different colors, such as gold, silver, and purple?
+	initial: yes
+styling field:
+	type: boolean
+	name: left align artist
+	description: Should the artist and copyright lines be left aligned, as seen in Tempest?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width: 19
+		right width: 19
+		top width: 19
+		bottom width: 19
+		z index: 4
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: -1
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: { ifside(left: 42,right: 42-311-30) }
+		top: 24
+		width:  { (650) - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: MagicMedieval
+			size: 15.5
+			color: white
+			shadow color: black
+			shadow displacement x: 1
+			shadow displacement y: 1
+	casting cost:
+		right: {ifside(left:341+340,right:341)}
+		top: 22
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 24
+		alignment: middle right
+		symbol font:
+			name: magic-mana-small
+			size: 16
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	card symbol:
+		left: {sideset(24)}
+		top: 24
+		height: {if styling.side=="left" then 20 else 0}
+		width: {if styling.side=="left" then 14 else 0}
+		z index: 1
+		render style: image
+		choice images:
+			tombstone: tombstone.png
+	############################# Image
+	image:
+		left: {ifside(left:45,right:-296)}
+		top: 51
+		width: 627
+		height:	{233}
+		z index: 1
+	############################# Card type
+	type:
+		left: {ifside(left:39,right:-302)}
+		top: 291
+		width: { 637 - max(22,card_style.rarity.content_width) }
+		height: 20
+		alignment: top shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: MPlantin
+			size: 12
+			color: white
+			shadow color: black
+			shadow displacement x: 1
+			shadow displacement y: 1
+			separator color: gray
+	rarity:
+		right: 337
+		top: 290
+		width: {if styling.side=="right" then 44 else 0}
+		height: {if styling.side=="right" then 22 else 0}
+		z index: 2
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land: script: symbol_variation(symbol: set.symbol, variation: "common")
+			common:     script: symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "olduncommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			rare:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "oldrare")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			mythic rare:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "mythic rare")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			special:
+				script:
+					if styling.colored_rarities
+					then symbol_variation(symbol: set.symbol, variation: "special")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+	############################# Text box
+	text:
+		left: {ifside(left:43,right:-298)}
+		top: 318
+		width: 631
+		height: 143
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 14
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left: 6
+		padding top: 2
+		padding right: 4
+		padding bottom: 0
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	watermark:
+		left: {120+ifside(left:7.5,right:-7.5)}
+		top : 313
+		width: {ifside(left:138,right:0)}
+		height: {ifside(left:150,right:0)}
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks-old
+	watermark 2:
+		left: {120+ifside(left:7.5,right:-7.5)}
+		top : 313
+		width: {ifside(left:0,right:138)}
+		height: {ifside(left:0,right:150)}
+		z index: 1
+		render style: image
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks-old
+	############################# PT
+	pt:
+		z index: 2
+		left: 295
+		top: 470
+		width: {ifside(left:0,right:47)}
+		height:	{ifside(left:0,right:27)}
+		alignment: right middle
+		font:
+			name: { styling.pt_font }
+			size: 17
+			color: white
+			shadow color: black
+			shadow displacement x: 1
+			shadow displacement y: 1
+			separator color: red
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		left: 40
+		top: 470
+		width: 297
+		height: 16
+		z index: 1
+		alignment: { if styling.left_align_artist then "middle left" else "middle center" }
+		font:
+			name: MPlantin
+			size: 10
+			color: white
+			shadow color: black
+			shadow displacement x: 1
+			shadow displacement y: 1
+	copyright line:
+		left: 40
+		top: 486
+		width: 297
+		height: 12
+		z index: 1
+		alignment: { if styling.left_align_artist then "middle left" else "middle center" }
+		font:
+			name: MPlantin
+			size: 6.5
+			color: { font_color(card.card_color) }
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: card overlay 1
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: card overlay 2
+	script: card.card_color
+	save value: false
+	editable: false
+extra card style:
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	card overlay 1:
+		left: {ifside(left:32 right:-343)}
+		top : 0
+		width: 375
+		height: 523
+		z index: 0
+		render style: image
+		mask: {ifside(left:"left" right:"right")+"_blend.png"}
+		image: { card_background() }
+	card overlay 2:
+		left: {ifside(left:343 right:-32)}
+		top : 0
+		width: 375
+		height: 523
+		z index: 0
+		render style: image
+		mask: {ifside(left:"left" right:"right")+"_blend.png"}
+		image: { card_background() }

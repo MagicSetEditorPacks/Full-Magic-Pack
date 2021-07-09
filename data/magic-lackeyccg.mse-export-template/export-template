@@ -1,0 +1,698 @@
+﻿mse version: 2.0.0
+short name: Lackey
+full name: Lackey Exporter
+position hint: 003
+icon: icon.png
+version: 2014-01-20
+installer group: magic/Export/lackeyccg
+
+depends on:
+	package: magic.mse-game
+	version: 2009-07-23
+
+game: magic
+create directory: true
+file type: *.txt|*.txt|*.*|*.*
+
+# By Pichoro and Innuendo
+# Based on code by Idle Muse and Seeonee
+# Fixes and autoscripting Updates by Cajun
+
+option field:
+	type: choice
+	name: Remember!
+	choice: Edit your setlist.txt file in LackeyCCG to add your new set!
+option field:
+	type: choice
+	name: Notice!
+	choice: Remember to rearrange the images and set list file to make your plugin work!
+option field:
+	type: text
+	name: set code
+	description: The three letter extension of your set name.
+option field:
+	type: choice
+	name: dfc options
+	description: Options for exporting DFCs.
+	choice: Back faces (DFC-Exporter)
+	choice: Front faces (DFC-Exporter)
+	choice: Both faces (Standard)
+option field:
+	type: boolean
+	name: unkeyworded clues
+	initial: no
+	description: check yes if you use Clue tokens but not Investigate
+option field:
+	type: choice
+	name: export size
+	choice: LackeyCCG Large
+	choice: LackeyCCG Medium
+	choice: MSE Standard
+	description: LackeyCCG Large is 312x445. LackeyCCG Medium is 200x285. MSE Standard is 375x523.
+option field:
+	type: boolean
+	name: export images
+	description: Export images?
+
+script:
+	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n]+")
+	exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
+	card_name := { if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else card.name }
+	last_replace := replace@(match:"’", replace:"'")+
+		replace@(match:"—", replace:"-")+
+		replace@(match:"Æ", replace:"Ae")
+	no_investigate := { options.unkeyworded_clues }
+	####################### triggers the 'Spawn 5' option
+	x_tokens := {
+		contains(card.rule_text, match:"create X")
+		or contains(card.level_1_text, match:"create X")
+		or contains(card.level_2_text, match:"create X")
+		or contains(card.level_3_text, match:"create X")
+		or contains(card.level_4_text, match:"create X")
+		or contains(card.rule_text, match:"Create X")
+		or contains(card.level_1_text, match:"Create X")
+		or contains(card.level_2_text, match:"Create X")
+		or contains(card.level_3_text, match:"Create X")
+		or contains(card.level_4_text, match:"Create X")
+	}
+	token_pt_fix := { (if card.power = "*" then "X" else card.power) + (if card.power != "" and card.toughness != "" then "/") + (if card.toughness == "*" then "X" else card.toughness) }
+	trim_zeroes := replace@(match: "^[0]+", replace: "")+
+		replace@(match: "a?/[0-9b]+", replace: "")
+	corrected_card_number := { if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number() }
+	####################### Image Exporting
+	is_backface := { contains(card.shape, match:"double faced") and contains(options.dfc_options, match:"Back faces") }
+	other_face := { contains(card.shape, match:"double faced") and not is_backface() }
+	image_export_width := { if contains(card.shape, match:"split") and options.export_size == "MSE Standard" then "523"
+		else if contains(options.dfc_options, match:"Standard") and contains(card.shape, match:"double faced") and options.export_size == "MSE Standard" then "752"
+		else if options.export_size == "MSE Standard" then "375"
+		else if contains(card.shape, match:"split") and options.export_size == "LackeyCCG Medium" then "285"
+		else if contains(options.dfc_options, match:"Standard") and contains(card.shape, match:"double faced") and options.export_size == "LackeyCCGMedium" then "572"
+		else if options.export_size == "LackeyCCG Medium" then "200"
+		else if contains(card.shape, match:"split") then "445"
+		else if contains(options.dfc_options, match:"Standard") and contains(card.shape, match:"double faced") then "626"
+		else "312"
+		}
+	image_export_height := { if contains(card.shape, match:"split") and options.export_size == "MSE Standard" then "375"
+		else if options.export_size == "MSE Standard" then "523"
+		else if contains(card.shape, match:"split") and options.export_size == "LackeyCCG Medium" then "200"
+		else if options.export_size == "LackeyCCG Medium" then "285"
+		else if contains(card.shape, match:"split") then "312"
+		else "445"
+		}
+	####################### Lackey Columns
+	mse_to_lackeyccg_trim_duplicate_color := {to_text(if contains(input, match:"W") then "W")
+		+to_text(if contains(input, match:"U") then "U")
+		+to_text(if contains(input, match:"B") then "B")
+		+to_text(if contains(input, match:"R") then "R")
+		+to_text(if contains(input, match:"G") then "G")
+		+to_text(if contains(input, match:"A") then "A")
+		}
+	mse_to_lackeyccg_gold_format := {to_text(if contains(card.casting_cost, match:"W") then "W")
+		+to_text(if contains(card.casting_cost, match:"U") then "U")
+		+to_text(if contains(card.casting_cost, match:"B") then "B")
+		+to_text(if contains(card.casting_cost, match:"R") then "R")
+		+to_text(if contains(card.casting_cost, match:"G") then "G")
+		}
+	mse_to_lackeyccg_color_filter := replace@(match:",", replace:"")+
+		replace@(match:" ", replace:"")+
+		replace@(match:"multicolor", replace:mse_to_lackeyccg_gold_format)+
+		replace@(match:"hybrid", replace:mse_to_lackeyccg_gold_format)+
+		replace@(match:"horizontal", replace:"")+
+		replace@(match:"vertical", replace:"")+
+		replace@(match:"radial", replace:"")+
+		replace@(match:"overlay", replace:"")+
+		replace@(match:"colorless", replace:"")+
+		replace@(match:"white", replace:"W")+
+		replace@(match:"blue", replace:"U")+
+		replace@(match:"black", replace:"B")+
+		replace@(match:"red", replace:"R")+
+		replace@(match:"green", replace:"G")+
+		replace@(match:"artifact", replace:"A")
+	mse_to_lackeyccg_rules_filter := replace@(match:"\n", replace:" ")
+	####################### Failed attempt to remove the scry reminder text from the scry filter. Scry 10+ needs this fixed or a special script.
+	scry_replacement := replace@(match: "To scry [0-9]", replace: "stahp")
+
+	####################### Used to name tokens
+	color_condense := replace@(match:"(, )?(artifact|multicolor|land|hybrid|horizontal|vertical|radial|overlay)", replace: "")
+	token_color_name := { if color_condense(card.card_color) = "colorless" then "colorless"
+		else if color_condense(card.card_color) = "" and contains(card.type, match:"Artifact") or contains(card.type, match:"Land") then "colorless"
+		else if color_condense(card.card_color) = "white" then "white"
+		else if color_condense(card.card_color) = "blue" then "blue"
+		else if color_condense(card.card_color) = "black" then "black"
+		else if color_condense(card.card_color) = "red" then "red"
+		else if color_condense(card.card_color) = "green" then "green"
+		else if color_condense(card.card_color) = "white, blue" then "white and blue"
+		else if color_condense(card.card_color) = "blue, black" then "blue and black"
+		else if color_condense(card.card_color) = "black, red" then "black and red"
+		else if color_condense(card.card_color) = "red, green" then "red and green"
+		else if color_condense(card.card_color) = "white, green" then "green and white"
+		else if color_condense(card.card_color) = "white, black" then "white and black"
+		else if color_condense(card.card_color) = "blue, red" then "blue and red"
+		else if color_condense(card.card_color) = "black, green" then "black and green"
+		else if color_condense(card.card_color) = "white, red" then "red and white"
+		else if color_condense(card.card_color) = "blue, green" then "green and blue"
+		else ""
+	}
+
+	####################### These scripts split each line of a card's text for linked scripting. Cards with 5+ lines will need the extras added by hand, or additional scripts added.
+	paragraph_count := replace@(match:"\n", replace:"~")+
+		filter_text@(match:"~")
+	walker_one := { card.rule_text + "\n"}
+	walker_two := { card.rule_text_2 +"\n" }
+	check_one := { contains(paragraph_count(walker_one()), match:"~") }
+	check_two := { contains(paragraph_count(walker_one()), match:"~~") }
+	check_three := { contains(paragraph_count(walker_one()), match:"~~~") }
+	check_four := { contains(paragraph_count(walker_one()), match:"~~~~")}
+	check_five := { contains(paragraph_count(walker_two()), match:"~") }
+	check_six := { contains(paragraph_count(walker_two()), match:"~~")}
+	check_seven := { contains(paragraph_count(walker_two()), match:"~~~") }
+	check_eight := { contains(paragraph_count(walker_two()), match:"~~~~")  }
+	paragraph_one := { if card.level_1_text != "" and card.level_1_text != card.rule_text then card.level_1_text else if check_one() then split_text(match:"\n", walker_one()).0 else card.rule_text }
+	paragraph_two := { if card.level_2_text != "" then card.level_2_text else if check_two() then split_text(match:"\n", walker_one()).1 else "" }
+	paragraph_three := { if card.level_3_text != "" then card.level_3_text else if check_three() then split_text(match:"\n", walker_one()).2 else "" }
+	paragraph_four := { if card.level_4_text != "" then card.level_4_text else if check_four() then split_text(match:"\n", walker_one()).3 else "" }
+	paragraph_five := { if card.level_5_text != "" and card.level_5_text != card.rule_text_2 then card.level_5_text else if check_five() then split_text(match:"\n", walker_two()).0 else card.rule_text_2 }
+	paragraph_six := { if card.level_6_text != "" then card.level_6_text else if check_six() then split_text(match:"\n", walker_two()).1 else "" }
+	paragraph_seven := { if card.level_7_text != "" then card.level_7_text else if check_seven() then split_text(match:"\n", walker_two()).2 else "" }
+	paragraph_eight := { if card.level_8_text != "" then card.level_8_text else if check_eight() then split_text(match:"\n", walker_two()).3 else "" }
+
+	####################### These check if a card uses simultaneous Lackey scrips to add commas and semicolons where needed
+	semi_search := {
+		if check = "init" and etbt_function() != "" and counter_function() != "" then ";"
+		else if check = "loyalty1" and card.loyalty_cost_1 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty2" and card.loyalty_cost_2 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty3" and card.loyalty_cost_3 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty4" and card.loyalty_cost_4 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty5" and card.loyalty_cost_5 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty6" and card.loyalty_cost_6 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty7" and card.loyalty_cost_7 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "loyalty8" and card.loyalty_cost_8 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "special" and special_function() != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "token1" and token_function_1(input) != "" and (token_function_2(input) != "" or token_function_3(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "token2" and token_function_2(input) != "" and (token_function_3(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "token3" and token_function_3(input) != "" and (scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "scry" and scry_function(input) != "" and (look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "looktop" and look_top_function(input) != "" and (reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "revealtop" and reveal_top_function(input) != "" and (look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "lookbot" and look_bot_function(input) != "" and (reveal_bot_function(input) != "" or emblem_function(input) != "") then ";"
+		else if check = "revealbot" and reveal_bot_function(input) != "" and (emblem_function(input) != "") then ";"
+		else ""
+	}
+	comma_search := {
+		if check = "init" and etbt_function() != "" and counter_function() != "" then ";"
+		else if check = "loyalty1" and card.loyalty_cost_1 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty2" and card.loyalty_cost_2 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty3" and card.loyalty_cost_3 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty4" and card.loyalty_cost_4 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty5" and card.loyalty_cost_5 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty6" and card.loyalty_cost_6 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty7" and card.loyalty_cost_7 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "loyalty8" and card.loyalty_cost_8 != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "special" and special_function() != "" and (token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "token1" and token_function_1(input) != "" and (token_function_2(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "token2" and token_function_2(input) != "" and (token_function_3(input) != "" or add_function(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "token3" and token_function_3(input) != "" and (scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "scry" and scry_function(input) != "" and (look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "looktop" and look_top_function(input) != "" and (reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "revealtop" and reveal_top_function(input) != "" and (look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "lookbot" and look_bot_function(input) != "" and (reveal_bot_function(input) != "" or emblem_function(input) != "") then ", "
+		else if check = "revealbot" and reveal_bot_function(input) != "" and (emblem_function(input) != "") then ", "
+		else ""
+	}
+	####################### SCRIPTS
+	####################### Filters for special tokens
+	filter_investigate := filter_text@(match: "[Ii]nvestigate(\</nospellcheck>)?(\</kw-0>)?( twice| three| four| five)?")
+	filter_morph := filter_text@(match: "M(etam)?orph", in_context: "(^<match>|\n<match>)")
+	filter_manifest := filter_text@(match: "[Mm]anifest")
+	special_label := { if filter_manifest(card.rule_text) != "" then "Manifest Overlay"
+		else if filter_manifest(card.rule_text) != "" then "Morph Overlay"
+		else if filter_investigate(card.rule_text) != "" then "Investigate"
+		else ""
+	}
+	special_function := { if filter_manifest(card.rule_text) != "" then "/spawn Manifest"
+		else if filter_manifest(card.rule_text) != "" then "/spawn Morph"
+		else if filter_investigate(card.rule_text) != "" then "/spawn colorless Clue " + options.set_code
+		else ""
+	}
+
+	####################### TOKENS
+	####################### Filters for normal token scripts
+	filter_tokens :=  filter_text@(match: "(reate [A-Za-z,'’-]+(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?, )?(X|a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)( tapped)?( and attacking)?( snow)?( legendary)? ?([XYZ0-9]+/[XYZ0-9]+ )?(colorless|white|blue|black|red|green)?( and white| and blue| and black| and red| and green)? ?[A-Z][a-z]+( [A-Z][a-z]+)?( [A-Z][a-z]+)? ?(enchantment )?(artifact )?(land )?(creature )?tokens?( with [^\n]+)?( named [^\n]+)?( with)?")
+	multi_filter := filter_text@(match: "token")
+	filter_number :=  filter_text@(match: "(X |a |an |two |three |four |five |six |seven |eight |nine |ten |eleven |twelve |thirteen |fourteen |fifteen |sixteen |seventeen |eighteen |nineteen |twenty )", in_context: "<match>(tapped )?(legendary )?([XYZ0-9]+/[XYZ0-9]+ )?(colorless|white|blue|black|red|green)?( and white| and blue| and black| and red| and green)? ?[A-Z][a-z]+( [A-Z][a-z]+)?( [A-Z][a-z]+)? (enchantment )?(artifact )?(land )?(creature )?")
+	filter_adds := filter_text@(match: "(one |two |three |four |five |six |seven |eight |nine |ten |eleven |twelve |thirteen |fourteen |fifteen |sixteen |seventeen |eighteen |nineteen |twenty )", in_context: "[Cc]reate <match>of those tokens")
+	filter_name :=  filter_text@(match: "([X0-9]+/[X0-9]+ )?(colorless|white|blue|black|red|green)?( and white| and blue| and black| and red| and green)? ?[A-Z][a-z]+( [A-Z][a-z]+)?( [A-Z][a-z]+)?", in_context: "<match> (enchantment )?(artifact )?(land )?(creature )?token")
+	filter_type := filter_text@(match: "[A-Z][a-z]+( [A-Z][a-z]+)?( [A-Z][a-z]+)?", in_context: "([XYZ0-9]+/[XYZ0-9]+)? ?(colorless|white|blue|black|red|green)?( and white| and blue| and black| and red| and green)? <match>")
+	filter_legend := filter_text@(match: "reate [A-Za-z,'’-]+(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?(,? [A-Za-z,'’-]+)?, a legendary")+
+		replace@(match:"reate ", replace:"")+
+		replace@(match:", a legendary", replace:"")
+	filter_emblem := filter_text@(match: "gets? an emblem")
+
+	####################### These allows for spawning up to 20 of up to 3 different tokens, and up to ten 'spawn that many instead' tokens
+	convert_digits := {
+		if input == "two " then "x2 "
+		else if input == "three " then "x3 "
+		else if input == "four " then "x4 "
+		else if input == "five " then "x5 "
+		else if input == "six " then "x6 "
+		else if input == "seven " then "x7 "
+		else if input == "eight " then "x8 "
+		else if input == "nine " then "x9 "
+		else if input == "ten " then "x10 "
+		else if input == "eleven " then "x11 "
+		else if input == "twelve " then "x12 "
+		else if input == "thirteen " then "x13 "
+		else if input == "fourteen " then "x14 "
+		else if input == "fifteen " then "x15 "
+		else if input == "sixteen " then "x16 "
+		else if input == "seventeen " then "x17 "
+		else if input == "eighteen " then "x18 "
+		else if input == "nineteen " then "x19 "
+		else if input == "twenty " then "x20 "
+		else " "
+	}
+	convert_digit_1 := { convert_digits(filter_number(first_token(input)))}
+	convert_digit_2 := { convert_digits(filter_number(second_token(input)))}
+	convert_digit_3 := { convert_digits(filter_number(third_token(input)))}
+	convert_adds := { convert_digits(filter_adds(input))}
+
+	####################### These scripts determine the names of the three tokens, the label on Lackey, and the script to generate them
+	first_token := { if contains(multi_filter(filter_tokens(input)), match: "token") then split_text(match: "tokens?( with)?", filter_tokens(input)).0 + "token" else ""  }
+	second_token := { if contains(multi_filter(filter_tokens(input)), match: "tokentoken") then split_text(match: "tokens?( with)?", filter_tokens(input)).1 + "token" else "" }
+	third_token := { if contains(multi_filter(filter_tokens(input)), match: "tokentokentoken") then split_text(match: "tokens?( with)?", filter_tokens(input)).2 + "token" else "" }
+	token_function_1 := { if first_token(input) = "" then "" else if filter_name(first_token(input)) = "colorless Clue" and not no_investigate() then "" else "/spawn" + convert_digit_1(input) + (if filter_legend(first_token(input)) != "" then filter_legend(first_token(input)) else filter_name(first_token(input))) + " " + options.set_code }
+	token_function_2 := { if second_token(input) = "" then "" else if filter_name(second_token(input)) = "colorless Clue" and not no_investigate() then "" else "/spawn" + convert_digit_2(input) + (if filter_legend(second_token(input)) != "" then filter_legend(second_token(input)) else filter_name(second_token(input))) + " " + options.set_code }
+	token_function_3 := { if third_token(input) = "" then "" else if filter_name(third_token(input)) = "colorless Clue" and not no_investigate() then "" else "/spawn" + convert_digit_3(input) + (if filter_legend(third_token(input)) != "" then filter_legend(third_token(input)) else filter_name(third_token(input))) + " " + options.set_code }
+	add_function := { if filter_adds(card.rule_text) = "" then "" else "/spawn" + convert_adds(input) + (if filter_legend(first_token(input)) != "" then filter_legend(first_token(input)) else filter_name(first_token(input))) + " " + options.set_code }
+	token_label_1 := { if first_token(input) = "" then "" else (if contains(filter_type(first_token(input)), match: "Kraken") then "Release the " else "Spawn ") + (if filter_legend(first_token(input)) != "" then filter_legend(first_token(input)) else filter_type(first_token(input))) + (if convert_digit_1(input) != " " then " tokens")}
+	token_label_2 := { if second_token(input) = "" then "" else "Spawn " + (if filter_legend(second_token(input)) != "" then filter_legend(second_token(input)) else filter_type(second_token(input))) + (if convert_digit_2(input) != " " then " tokens")}
+	token_label_3 := { if third_token(input) = "" then "" else "Spawn " + (if filter_legend(third_token(input)) != "" then filter_legend(third_token(input)) else filter_type(third_token(input))) + (if convert_digit_3(input) != " " then " tokens")}
+	add_label := { if filter_adds(card.rule_text) = "" then "" else "Spawn many " + (if filter_legend(first_token(input)) != "" then filter_legend(first_token(input)) else filter_type(first_token(input))) + (if convert_adds() != " " then " tokens")}
+	emblem_function := { if filter_emblem(input) = "" then "" else "/spawn " + (if contains(card.type_2, match:"Planeswalker") then card.sub_type_2 else card.sub_type) + "Emblem " + options.set_code }
+	emblem_label := { if filter_emblem(input) = "" then "" else "Emblem Get" }
+
+	####################### MANIPULATION
+	####################### Filters for library manipulation scripts
+	filter_scry := filter_text@(match: "[1-9]", in_context: "[Ss]cry[^,]+<match>")
+	filter_look := filter_text@(match: "(card|two cards|three cards|four cards|five cards|six cards|seven cards|eight cards|nine cards|ten cards|eleven cards|twelve cards|thirteen cards|fourteen cards|fifteen cards|sixteen cards|seventeen cards|eighteen cards|nineteen cards|twenty cards)", in_context: "[Ll]ooks? at the top <match> of")
+	filter_reveal := filter_text@(match: "(card|two cards|three cards|four cards|five cards|six cards|seven cards|eight cards|nine cards|ten cards|eleven cards|twelve cards|thirteen cards|fourteen cards|fifteen cards|sixteen cards|seventeen cards|eighteen cards|nineteen cards|twenty cards)", in_context: "([Rr]eveals?|[Ee]xiles?) the top <match> of")
+	filter_bottom := filter_text@(match: "(card|two cards|three cards|four cards|five cards|six cards|seven cards|eight cards|nine cards|ten cards|eleven cards|twelve cards|thirteen cards|fourteen cards|fifteen cards|sixteen cards|seventeen cards|eighteen cards|nineteen cards|twenty cards)", in_context: "([Ll]ooks? at|[Pp]uts?) the bottom <match> of")
+	filter_reveal_bottom := filter_text@(match: "(card|two cards|three cards|four cards|five cards|six cards|seven cards|eight cards|nine cards|ten cards|eleven cards|twelve cards|thirteen cards|fourteen cards|fifteen cards|sixteen cards|seventeen cards|eighteen cards|nineteen cards|twenty cards)", in_context: "([Rr]eveals?|[Ee]xile)s? the bottom <match> of")
+	library_numbers:= { if input = "card" then "1"
+		else if input = "two cards" then "2"
+		else if input = "three cards" then "3"
+		else if input = "four cards" then "4"
+		else if input = "five cards" then "5"
+		else if input = "six cards" then "6"
+		else if input = "seven cards" then "7"
+		else if input = "eight cards" then "8"
+		else if input = "nine cards" then "9"
+		else if input = "ten cards" then "10"
+		else if input = "eleven cards" then "11"
+		else if input = "twelve cards" then "12"
+		else if input = "thirteen cards" then "13"
+		else if input = "fourteen cards" then "14"
+		else if input = "fifteen cards" then "15"
+		else if input = "sixteen cards" then "16"
+		else if input = "seventeen cards" then "17"
+		else if input = "eighteen cards" then "18"
+		else if input = "ninteen cards" then "19"
+		else if input = "twenty cards" then "20"
+	}
+
+	####################### Scry often has reminder text, so we only take the first digit of the scry filter
+	scry_label := { if filter_scry(scry_replacement(input)) = "" then "" else "Scry " + filter_scry(scry_replacement(input)).0 }
+	scry_function := { if filter_scry(scry_replacement(input)) = "" then "" else "/vp1pt" + filter_scry(scry_replacement(input)).0 }
+	look_top_label := { if filter_look(input) = "" then "" else if filter_scry(input) != "" then "" else "Look at top " + library_numbers(filter_look(input)) }
+	look_top_function := { if look_top_label(input) = "" then "" else "/vp1pt" + library_numbers(filter_look(input)) }
+	look_bot_label := { if filter_bottom(input) = "" then "" else "Look at bottom " + library_numbers(filter_bottom(input)) }
+	look_bot_function := { if filter_bottom(input) = "" then "" else "/vp1pb" + library_numbers(filter_bottom(input)) }
+	reveal_top_label := { if filter_reveal(input) = "" then "" else "Reveal top " + library_numbers(filter_reveal(input)) }
+	reveal_top_function := { if filter_reveal(input) = "" then "" else "/vp1at" + library_numbers(filter_reveal(input)) }
+	reveal_bot_label := { if filter_reveal_bottom(input) = "" then "" else "Reveal bottom " + library_numbers(filter_reveal_bottom(input)) }
+	reveal_bot_function := { if filter_reveal_bottom(input) = "" then "" else "/vp1ab" + library_numbers(filter_reveal_bottom(input)) }
+
+	####################### COUNTERS
+	####################### Initial counter script scripts
+	####################### Currently goes to ten
+	vanishing_filter := filter_text@(match: "[0-9]+", in_context: "Vanishing[^(]+<match>")
+	minus_filter := filter_text@(match: "(a|two|three|four|five|six|seven|eight|nine|ten)", in_context: "enters the battlefield (tapped )?with <match> -1/-1 counters?")
+	plus_filter := filter_text@(match: "(a|an|two|three|four|five|six|seven|eight|nine|ten)", in_context: "enters the battlefield with <match> (additional )? +1/+1 counters?")
+	counter_numbers := { if contains(input, match: "ten") then "10"
+		else if contains(input, match: "nine") then "9"
+		else if contains(input, match: "eight") then "8"
+		else if contains(input, match: "seven") then "7"
+		else if contains(input, match: "six") then "6"
+		else if contains(input, match: "five") then "5"
+		else if contains(input, match: "four") then "4"
+		else if contains(input, match: "three") then "3"
+		else if contains(input, match: "two") then "2"
+		else if contains(input, match: "a") then "1"
+	}
+
+	loyalty_check := { contains(input, match:"+") or contains(input, match:"-") }
+	etbt_function := { if contains(card.rule_text, match: "enters the battlefield tapped") then "/cr90" else "" }
+	counter_function := { if vanishing_filter(card.rule_text) != "" then ("/ccred=" + vanishing_filter(card.rule_text))
+		else if minus_filter(card.rule_text) != "" then ("/ccred=" + counter_numbers(minus_filter(card.rule_text)))
+		else if plus_filter(card.rule_text) != "" then ("/ccgreen=" + counter_numbers(plus_filter(card.rule_text)))
+		else if card.loyalty != "" then ("/ccgreen=" + card.loyalty)
+		else ""
+	}
+	use_scripts := { token_function_1(input) != "" or scry_function(input) != "" or look_top_function(input) != "" or reveal_top_function(input) != "" or look_bot_function(input) != "" or reveal_bot_function(input) != "" or emblem_function(input) != "" }
+	normal_script := { "\<s>\<l>"
+		+ (if walker = "one" and loyalty_check(card.loyalty_cost_1) then card.loyalty_cost_1 + comma_search(check: "loyalty1", input) else "")
+		+ (if walker = "two" and loyalty_check(card.loyalty_cost_2) then card.loyalty_cost_2 + comma_search(check: "loyalty2", input) else "")
+		+ (if walker = "three" and loyalty_check(card.loyalty_cost_3) then card.loyalty_cost_3 + comma_search(check: "loyalty3", input) else "")
+		+ (if walker = "four" and loyalty_check(card.loyalty_cost_4) then card.loyalty_cost_4 + comma_search(check: "loyalty4", input) else "")
+		+ (if walker = "five" and loyalty_check(card.loyalty_cost_5) then card.loyalty_cost_5 + comma_search(check: "loyalty5", input) else "")
+		+ (if walker = "six" and loyalty_check(card.loyalty_cost_6) then card.loyalty_cost_6 + comma_search(check: "loyalty6", input) else "")
+		+ (if walker = "seven" and loyalty_check(card.loyalty_cost_7) then card.loyalty_cost_7 + comma_search(check: "loyalty7", input) else "")
+		+ (if walker = "eight" and loyalty_check(card.loyalty_cost_8) then card.loyalty_cost_8 + comma_search(check: "loyalty8", input) else "")
+		+ token_label_1(input) + comma_search(check: "token1", input)
+		+ token_label_2(input) + comma_search(check: "token2", input)
+		+ token_label_3(input) + comma_search(check: "token3", input)
+		+ scry_label(input) + comma_search(check: "scry", input)
+		+ look_top_label(input) + comma_search(check: "looktop", input)
+		+ reveal_top_label(input) + comma_search(check: "revealtop", input)
+		+ look_bot_label(input) + comma_search(check: "lookbot", input)
+		+ reveal_bot_label(input) + comma_search(check: "revealbot", input)
+		+ emblem_label(input)
+		+ "\</l>\<f>"
+		+ (if walker = "one" and loyalty_check(card.loyalty_cost_1) then "/ccgreen" + card.loyalty_cost_1 + semi_search(check: "loyalty1", input) else "")
+		+ (if walker = "two" and loyalty_check(card.loyalty_cost_2) then "/ccgreen" + card.loyalty_cost_2 + semi_search(check: "loyalty2", input) else "")
+		+ (if walker = "three" and loyalty_check(card.loyalty_cost_3) then "/ccgreen" + card.loyalty_cost_3 + semi_search(check: "loyalty3", input) else "")
+		+ (if walker = "four" and loyalty_check(card.loyalty_cost_4) then "/ccgreen" + card.loyalty_cost_4 + semi_search(check: "loyalty4", input) else "")
+		+ (if walker = "five" and loyalty_check(card.loyalty_cost_5) then "/ccgreen" + card.loyalty_cost_5 + semi_search(check: "loyalty5", input) else "")
+		+ (if walker = "six" and loyalty_check(card.loyalty_cost_6) then "/ccgreen" + card.loyalty_cost_6 + semi_search(check: "loyalty6", input) else "")
+		+ (if walker = "seven" and loyalty_check(card.loyalty_cost_7) then "/ccgreen" + card.loyalty_cost_7 + semi_search(check: "loyalty7", input) else "")
+		+ (if walker = "eight" and loyalty_check(card.loyalty_cost_8) then "/ccgreen" + card.loyalty_cost_8 + semi_search(check: "loyalty8", input) else "")
+		+ token_function_1(input) + semi_search(check: "token1", input)
+		+ token_function_2(input) + semi_search(check: "token2", input)
+		+ token_function_3(input) + semi_search(check: "token3", input)
+		+ scry_function(input) + semi_search(check: "scry", input)
+		+ look_top_function(input) + semi_search(check: "looktop", input)
+		+ reveal_top_function(input) + semi_search(check: "revealtop", input)
+		+ look_bot_function(input) + semi_search(check: "lookbot", input)
+		+ reveal_bot_function(input) + semi_search(check: "revealbot", input)
+		+ emblem_function(input)
+		+ "\</f>\</s>"
+		+ (if x_tokens() then "\<s>\<l>" + "Spawn five " + filter_type(first_token(input)) + " tokens\</l>\<f>" + "/spawnx5 " + filter_name(first_token(input)) + " " + options.set_code + "\</f>\</s>")
+	}
+	five_replace := replace@(match: "Spawn", "Spawn five")
+	x_replace := replace@(match: "/spawn ", "/spawnx5 ")
+	walker_scripts := {
+		(if etbt_function() != "" or counter_function() != "" then "\<s>\<a>y\</a>\<l>Initialize\</l>\<f>" + etbt_function() + semi_search(check: "init", card.rule_text) + counter_function() + "\</f>\</s>")
+		+(if special_label() != "" then "\<s>\<l>" + special_label() + "\</l>\<f>" + special_function() + "\</f>\</s>")
+		+(if loyalty_check(card.loyalty_cost_1) or use_scripts(paragraph_one()) then normal_script(walker: "one", paragraph_one()) else "")
+		+(if loyalty_check(card.loyalty_cost_2) or use_scripts(paragraph_two()) then normal_script(walker: "two", paragraph_two()) else "")
+		+(if loyalty_check(card.loyalty_cost_3) or use_scripts(paragraph_three()) then normal_script(walker: "three", paragraph_three()) else "")
+		+(if loyalty_check(card.loyalty_cost_4) or use_scripts(paragraph_four()) then normal_script(walker: "four", paragraph_four()) else "")
+		+(if loyalty_check(card.loyalty_cost_5) or use_scripts(paragraph_five()) then normal_script(walker: "five", paragraph_five()) else "")
+		+(if loyalty_check(card.loyalty_cost_6) or use_scripts(paragraph_six()) then normal_script(walker: "six", paragraph_six()) else "")
+		+(if loyalty_check(card.loyalty_cost_7) or use_scripts(paragraph_seven()) then normal_script(walker: "seven", paragraph_seven()) else "")
+		+(if loyalty_check(card.loyalty_cost_8) or use_scripts(paragraph_eight()) then normal_script(walker: "eight", paragraph_eight()) else "")
+	}
+	normal_scripts := {
+		(if etbt_function() != "" or counter_function() != "" then "\<s>\<a>y\</a>\<l>Initialize\</l>\<f>" + etbt_function() + semi_search(check: "init", card.rule_text) + counter_function() + "\</f>\</s>")
+		+(if special_label() != "" then "\<s>\<l>" + special_label() + "\</l>\<f>" + special_function() + "\</f>\</s>")
+		+(if use_scripts(paragraph_one()) then normal_script(walker: "no", paragraph_one()) else "")
+		+(if use_scripts(paragraph_two()) then normal_script(walker: "no", paragraph_two()) else "")
+		+(if use_scripts(paragraph_three()) then normal_script(walker: "no", paragraph_three()) else "")
+		+(if use_scripts(paragraph_four()) then normal_script(walker: "no", paragraph_four()) else "")
+		+(if use_scripts(paragraph_five()) then normal_script(walker: "no", paragraph_five()) else "")
+		+(if use_scripts(paragraph_six()) then normal_script(walker: "no", paragraph_six()) else "")
+		+(if use_scripts(paragraph_seven()) then normal_script(walker: "no", paragraph_seven()) else "")
+		+(if use_scripts(paragraph_eight()) then normal_script(walker: "no", paragraph_eight()) else "")
+		+(if add_label(card.rule_text) != "" then "\<s>\<l>" + add_label(card.rule_text) + "\</l>\<f>" + add_function(card.rule_text) + "\</f>\</s>" )
+	}
+	write_normal := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Basic Land") then "0"
+			else if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(if card.rarity == "basic land" then "l" else card.rarity),end:1)+"	"
+		+normal_scripts()+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+		+"\n"
+		}
+	write_split := {card_name()+" // "+card.name_2+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color))
+			+mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color_2)))+"	"
+		+card.casting_cost+" // "+card.casting_cost_2+"	"
+		+cmc(card.casting_cost)+" // "+cmc(card.casting_cost_2)+"	"
+		+card.type+(if card.type != card.type_2 then " // " +card.type_2 else "")+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+normal_scripts()+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)+" // "+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_flip := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+normal_scripts()+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+			+" ----- "
+			+card.name_2+" "
+			+card.type_2+" "
+			+card.power_2+(if card.power_2 != "" then "/" else "")+card.toughness_2+(if card.power_2 != "" then " " else "")
+			+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_dfc := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "as" else "a")+","+corrected_card_number()+(if card.rarity == "special" then "bs" else "b")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+(if card.casting_cost_2 != "" then "//"+card.casting_cost_2 else "")+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+normal_scripts()+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+			+" ----- "
+			+card.name_2+"|"
+			+card.type_2+" "
+			+"["+card.power_2+(if card.power_2 != "" then "/" else "")+card.toughness_2+"] "
+			+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_walker := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"		"
+		+card.loyalty+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+walker_scripts()+"	"
+		+card.loyalty_cost_1
+			+(if card.loyalty_cost_1 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_one())+" "
+		+card.loyalty_cost_2
+			+(if card.loyalty_cost_2 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_two())+" "
+		+card.loyalty_cost_3
+			+(if card.loyalty_cost_3 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_three())+" "
+		+card.loyalty_cost_4
+			+(if card.loyalty_cost_4 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_four())
+		+"\n"
+		}
+	write_sparker := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "as" else "a")+","+corrected_card_number()+(if card.rarity == "special" then "bs" else "b")+"	"
+		+(if contains(card.type, match:"Land") then "L" else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+(if card.casting_cost_2 != "" then "//"+card.casting_cost_2 else "")+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+normal_scripts()+"\<s>\<l>Ascend\</l>\<f>/cf;/ccgreen=" + card.loyalty_2 + "\</f>\</s>"+walker_scripts()
+		+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+			+" ----- "
+			+card.name_2+"|"
+			+card.type_2+" "
+			+"["+card.loyalty_2+"] "
+			+card.loyalty_cost_5
+				+(if card.loyalty_cost_5 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_five())+" "
+			+card.loyalty_cost_6
+				+(if card.loyalty_cost_6 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_six())+" "
+			+card.loyalty_cost_7
+				+(if card.loyalty_cost_7 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_seven())+" "
+			+card.loyalty_cost_8
+				+(if card.loyalty_cost_8 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_eight())
+		+"\n"
+		}
+	write_sacrificer := {card_name()+(if card.rarity == "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"		"
+		+card.loyalty+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+normal_scripts()+"	"
+		+card.loyalty_cost_1
+			+(if card.loyalty_cost_1 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_one())+" "
+		+card.loyalty_cost_2
+			+(if card.loyalty_cost_2 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_two())+" "
+		+card.loyalty_cost_3
+			+(if card.loyalty_cost_3 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_three())+" "
+		+card.loyalty_cost_4
+			+(if card.loyalty_cost_4 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_four())
+		+" ----- "
+			+card.name_2+"|"
+			+card.type_2+" "
+			+"["+card.power_2+(if card.power_2 != "" then "/" else "")+card.toughness_2+"] "
+			+mse_to_lackeyccg_rules_filter(card.rule_text_2)
+		+"\n"
+		}
+	write_dfc_walker := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"		"
+		+card.loyalty+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+walker_scripts()+"\<s>\<l>Transform\</l>\<f>/cf;/ccgreen=" + card.loyalty_2 + "\</f>\</s>"+"	"
+		+card.loyalty_cost_1
+			+(if card.loyalty_cost_1 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_one())+" "
+		+card.loyalty_cost_2
+			+(if card.loyalty_cost_2 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_two())+" "
+		+card.loyalty_cost_3
+			+(if card.loyalty_cost_3 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_three())+" "
+		+card.loyalty_cost_4
+			+(if card.loyalty_cost_4 !="" then ": ")
+			+mse_to_lackeyccg_rules_filter(paragraph_four())
+		+" ----- "
+			+card.name_2+"|"
+			+card.type_2+" "
+			+"["+card.loyalty_2+"] "
+			+card.loyalty_cost_5
+				+(if card.loyalty_cost_5 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_five())+" "
+			+card.loyalty_cost_6
+				+(if card.loyalty_cost_6 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_six())+" "
+			+card.loyalty_cost_7
+				+(if card.loyalty_cost_7 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_seven())+" "
+			+card.loyalty_cost_8
+				+(if card.loyalty_cost_8 !="" then ": ")
+				+mse_to_lackeyccg_rules_filter(paragraph_eight())
+		+"\n"
+		}
+	write_leveler := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(card.rarity),end:1)+"	"
+		+legal_script()+"	"
+		+normal_scripts()+"	"
+		+card.rule_text+" "
+		+"[LEVEL "+card.level_1+"]: "
+			+card.rule_text_2
+			+(if card.pt_2 !="" then " ("+card.pt_2+") ")
+		+(if card.level_2 !="" then "[LEVEL "+card.level_2+"]: ")
+			+card.rule_text_2
+			+(if card.pt_3 !="" then " ("+card.pt_2+") ")
+		+"\n"
+		}
+	write_token := { (if contains(card.type, match:"Legendary") then card_name() + " " + options.set_code else if card_name() == "Clue" or card_name() == "Gold" then "colorless " + card_name() + " " + options.set_code else if card_name() == "Morph" or card_name() == "Manifest" then card_name() else (if contains(card.type, match:"Emblem") then card.sub_type else (if card.pt != "" then token_pt_fix(card.pt) + " ") + token_color_name()+ " ")+card_name()+" "+options.set_code)+"	"
+		+"tokens	"
+		+options.set_code+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Basic Land") then "0"
+			else if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+"Token	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+"T	"
+		+"	"
+		+normal_scripts()+"	"
+		+mse_to_lackeyccg_rules_filter(card.rule_text)
+		+"\n"
+		}
+	write_saga := {card_name()+(if card.rarity = "special" then ".")+"	"
+		+options.set_code+"	"
+		+corrected_card_number()+(if card.rarity == "special" then "s" else "")+"	"
+		+(if contains(card.type, match:"Basic Land") then "0"
+			else if contains(card.type, match:"Land") then "L"
+			else mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)))+"	"
+		+card.casting_cost+"	"
+		+cmc(card.casting_cost)+"	"
+		+card.type+"	"
+		+card.power+"	"
+		+card.toughness+"	"
+		+substring(to_upper(if card.rarity == "basic land" then "l" else card.rarity),end:1)+"	"
+		+normal_scripts()+"	"
+		+mse_to_lackeyccg_rules_filter(card.special_text)
+		+"\n"
+		}
+	write_card := { if contains(card.shape, match:"token") or contains(card.shape, match:"emblem") or contains(card.super_type, match:"Token") or contains(card.super_type, match:"Emblem") or contains(card.type, match:"Reminder") then write_token()
+		else if contains(card.shape, match:"rulestip") then ""
+		else if contains(card.shape, match:"counter") then write_token()
+		else if contains(card.shape, match:"split") then write_split()
+		else if contains(card.shape, match:"saga") then write_saga()
+		else if contains(card.shape, match:"double faced") and card.loyalty == "" and card.loyalty_2 != "" then write_sparker()
+		else if contains(card.shape, match:"double faced") and card.loyalty != "" and card.loyalty_2 == "" then write_sacrificer()
+		else if contains(card.shape, match:"double faced") and card.loyalty != "" and card.loyalty_2 != "" then write_dfc_walker()
+		else if contains(card.shape, match:"double faced") then write_dfc()
+		else if card.name_2 != "" then write_flip()
+		else if card.loyalty != "" then write_walker()
+		else if contains(card.shape, match:"leveler") then write_leveler()
+		else write_normal()
+		}
+	write_cards := to_text(for each card in sort_list(cards, order_by: {card.card_number}) do write_card())
+	write_images := if options.export_images then for each card in sort_list(cards, order_by: {card.card_number}) do write_image_file(card, directory: "{to_lower(options.set_code)}", file:"{if contains(card.super_type, match:"Token") or contains(card.super_type, match:"Emblem") or contains(card.shape, match:"token") or contains(card.shape, match:"emblem") or card_name() == "Morph" or card_name() == "Manifest" then options.set_code+corrected_card_number() else corrected_card_number()}{if other_face() and not contains(options.dfc_options, match:"Both faces") then "a" else if is_backface() then "b" else ""}{if card.rarity == "special" then "s" else ""}.jpg", width: image_export_width(), height: image_export_height())
+	to_string("Name	Set	ImageFile	Color	Cost	ConvertedCost	Type	Power	Toughness	Rarity	Script	Text\n"+last_replace(write_cards))
