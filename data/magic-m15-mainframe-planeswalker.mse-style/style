@@ -40,8 +40,8 @@ init script:
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	mainframe_walker := {true}
 	text_filter := text_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
-	template_prefix := [card: "" card2: "" card3: "fullart/" card4: "fullart/" nyx:"nyx/" stamp: "" alias: "alias/" snowtexture:"snow/" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.png" card2: "card2.png" card3: "card.jpg" card4: "card2.jpg" nyx:"nyx.png" stamp: "stamp.png" snowtexture:"snow.png" alias:"alias.png", identity: "identity.png"]
+	template_prefix := [card: "" card2: "" card3: "fullart/" card4: "fullart/" page:"page/" nyx:"nyx/" stamp: "" alias: "alias/" snowtexture:"snow/" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.png" card2: "card2.png" card3: "card.jpg" card4: "card2.jpg" page:"card2.png" nyx:"nyx.png" stamp: "stamp.png" snowtexture:"snow.png" alias:"alias.png", identity: "identity.png"]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + "c" + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
@@ -52,7 +52,8 @@ init script:
 	alias_bar := { color_background(type:"alias", base_hybrid:card_hybrid) }
 	nyx_background := { color_background(type:"nyx", base_hybrid:card_hybrid) }
 	snow_texture := { color_background(type:"snowtexture", base_hybrid:card_hybrid) }
-	
+	card_background_page := { color_background(type:"page", base_hybrid:card_hybrid) }
+
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -102,6 +103,7 @@ init script:
 
 	global_chop_top := { to_int(pull_comma_array(styling.combined_chop, cell:0, end:0, default:0))}
 	global_chop_bot := { to_int(pull_comma_array(styling.combined_chop, cell:1, end:0, default:0))}
+	global_chop_right := { to_int(pull_comma_array(styling.combined_chop, cell:3, end:0, default:0)) + (if is_adventure() then 150 else 0)}
 	top_of_textbox := {if has_four_abilities() then 292+global_chop_top()+(if is_clear() then 5 else 0) else 329+global_chop_top()}
 	use_full_art := { contains(styling.other_options, match:"mythic edition fullart") }
 	mask_script := {
@@ -190,8 +192,12 @@ init script:
 	force_tall := { contains(styling.other_options, match:"use taller frame")}
 	has_identity := { styling.color_indicator_dot}
 	is_unsorted := {styling.remove_from_autocount}
-	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
-	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+	##shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
+	##shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+	shrink_type := {if styling.shrink_typeline_text != "" then to_int((if comma_count(styling.shrink_typeline_text) == "" then styling.shrink_typeline_text else split_text(match:",", styling.shrink_typeline_text).0)) else 0 }
+	shrink_name := {if styling.shrink_name_text != "" then to_int((if comma_count(styling.shrink_name_text) == "" then styling.shrink_name_text else split_text(match:",", styling.shrink_name_text).0)) else 0 }
+	shrink_type2 := {if styling.shrink_typeline_text != "" then to_int((if comma_count(styling.shrink_typeline_text) != "" then split_text(match:",", styling.shrink_typeline_text).1)) else 0 }
+	shrink_name2 := {if styling.shrink_name_text != "" then to_int((if comma_count(styling.shrink_name_text) != "" then split_text(match:",", styling.shrink_name_text).1)) else 0 }
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
 	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
@@ -200,6 +206,7 @@ init script:
 	use_evobar := {contains(styling.other_options, match: "pokemon evobar") and not is_skinned()}
 	is_clear := {styling.clear or contains(styling.other_options, match:"clear frame")}
 	is_nyx := {chosen(styling.other_options, choice:"nyx")}
+	is_adventure := {chosen(styling.other_options, choice:"adventure")}
 	is_snow := {chosen(styling.other_options, choice:"snow")}
 	is_vehicle := {chosen(styling.other_options, choice:"vehicle")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
@@ -216,6 +223,27 @@ init script:
 		out
 	}
 	pw_font_size := { if styling.font_size != "" then styling.font_size else 12 }
+	
+	alt_rarity := {styling.alt_rarity_color != ""}
+	alt_rarity_color := {
+		string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+		if match(styling.alt_rarity_color, match:":$") then string := styling.alt_rarity_color
+		colons := length(filter_text(string, match:":"))
+		output := split_text(string, match:",|:")
+		splits := split_text(string, match:":")
+		if colons == 4
+			then output := split_text(string+"0.07:", match:",|:")
+		if colons == 3
+			then output := split_text(string+splits[2]+"0.07:", match:",|:")
+		else if colons == 2
+			then output := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
+		else if colons == 1
+			then output := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
+		
+		output
+	}
+	alt_symbol := {symbol_variation(symbol:set.symbol, border_radius: alt_rarity_color().12, fill_type: "linear gradient", fill_color_1: rgb(alt_rarity_color().0, alt_rarity_color().1, alt_rarity_color().2), fill_color_2: rgb(alt_rarity_color().3, alt_rarity_color().4, alt_rarity_color().5), border_color_1: rgb(alt_rarity_color().6, alt_rarity_color().7, alt_rarity_color().8), border_color_2: rgb(alt_rarity_color().9, alt_rarity_color().10, alt_rarity_color().11), center_x:0.5, center_y:0.5, end_x:1, end_y:1)}
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -279,6 +307,7 @@ styling field:
 	choice: nyx
 	choice: snow
 	choice: vehicle
+	choice: adventure
 	choice: pride pinlines
 	initial: un-indent nonloyalty abilities
 styling field:
@@ -298,6 +327,10 @@ styling field:
 	name: color indicator dot
 	description: Use the color indicator dot
 	initial: no
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -402,7 +435,7 @@ card style:
 		render style: image
 		popup style: in place
 		image: { if is_clear() then "" else if has_four_abilities() then card_background2() else card_background() }
-		mask: {(if max_level() > 3 or force_tall() then "four_" else "") + (if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
+		mask: {if contains(styling.custom_mask, match:".png") then invert_image("/magic-mainframe-extras.mse-include/" + styling.custom_mask) else (if max_level() > 3 or force_tall() then "four_" else "") + (if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
 	############################# Name line
 	name:
 		left: { if card.card_symbol=="none" then 31 else 48 }
@@ -459,7 +492,7 @@ card style:
 		width: { if use_full_art() or is_clear() then 375 else if is_normal_size() then 324 else 345 }
 		height:	{ if use_full_art() or is_clear() then 523 else if is_normal_size() then 427.5 else 493 }
 		z index: -1
-		mask: {"guidelines/" + (if is_clear() then "clear_" else if is_normal_size() or use_full_art() then "" else "wide_") + (if max_level() > 3 or force_tall() then "four_" else "") + (if is_clear() then "frame_mask" else if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
+		mask: {if contains(styling.custom_mask, match:".png") then "" else "guidelines/" + (if is_clear() then "clear_" else if is_normal_size() or use_full_art() then "" else "wide_") + (if max_level() > 3 or force_tall() then "four_" else "") + (if is_clear() then "frame_mask" else if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
 	image 2:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
@@ -502,28 +535,34 @@ card style:
 			basic land:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
 					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			common:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
 					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			uncommon:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "uncommon")
 			rare:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "rare")
 			mythic rare:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
 			special:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "special")
 			masterpiece:
 				script:
@@ -533,7 +572,7 @@ card style:
 	text:
 		left: 48
 		top: { top_of_textbox() }
-		width: 300
+		width: {300 - global_chop_right()}
 		bottom: {477-global_chop_bot()-(if is_stamped() then 2 else 0)}
 		font:
 			name: MPlantin
@@ -685,6 +724,85 @@ card style:
 			size: 7
 			color: white
 			weight: bold
+################################### Adventure stuff
+	name 2:
+		left: 202
+		top: {323+shrink_name2()}
+		right: { 35 + card_style.casting_cost_2.content_width }
+		height: {if is_adventure() then 20-shrink_name2() else 0}
+		alignment: bottom shrink-overflow
+		z index: 4
+		font:
+			name: Beleren Bold
+			size: {12 - shrink_name2() }
+			color: white
+	casting cost 2:
+		right: 345
+		top: 323
+		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
+		height: {if is_adventure() then 23 else 0}
+		alignment: middle right
+		symbol font:
+			name: magic-mana-large
+			size: 12
+			alignment: middle right
+		always symbol: true
+		z index: 4
+		padding top: 0
+	type 2:
+		left: 202
+		top: {347+ shrink_type2()}
+		width: 151
+		height: {if is_adventure() then 20 else 0}
+		alignment: top shrink-overflow
+		z index: 4
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: {11-- shrink_type2()}
+			color: white
+			separator color: red
+	text 2:
+		left: 198
+		top: 367
+		width: {if is_adventure() then 149 else 0}
+		bottom: 479
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: { if styling.font_size != "" then styling.font_size else 14 }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.font_size != "" then styling.font_size else 14 }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 4
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	card color 2:
+		left:	193
+		top:	322
+		width:	{if is_adventure() then 165 else 0}
+		height:	155
+		z index: 3
+		render style: image
+		popup style: in place
+		image: { card_background_page() }
+
 ############################################################## Extra card fields
 extra card field:
 	type: text

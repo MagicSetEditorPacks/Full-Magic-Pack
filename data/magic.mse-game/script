@@ -604,8 +604,8 @@ mana_context :=
 		 |  <match>[ ]can[ ]be[ ]paid
 		 |  (pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using))	# pay X. creatures cost 1 less. pay an additional G.
 			([ ]either)?			 # pay either X or Y
-			([ ](<sym[^>]*>)?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)* # pay X, Y or Z
-			([ ](<sym[^>]*>)?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
+			([ ](<sym[^>]*>)?[-+=]?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)* # pay X, Y or Z
+			([ ](<sym[^>]*>)?[-+=]?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
 			[ ]<match>
 			([,.)\"”]|$				# (end of word)
 			|[ ][^ .,]*$			# still typing...
@@ -634,6 +634,21 @@ additional_text_words := match@(match:
 equip_filter :=
 	replace@(match:"This creature", replace:"It")
 	+replace@(match:"this creature", replace:"it")
+this_or_that := {
+	this := "this"
+	that := "that"
+	type := input
+	if is_creaturish(card.type) then type := "creature"
+	if upper then (
+		this := "This"
+		that := "That"
+	)
+	if(type == "land" and not is_land(card.type)) then type := "permanent"
+	this_that := this
+	if ((input == "creature" and not is_creaturish(card.type)) or is_spell(card.type))
+		then this_that := that
+	this_that + " " + type
+}@(upper:false)
 softline_ripper :=
 	replace@(match:"</?soft-line>", replace:"")
 auto_correct :=
@@ -707,10 +722,15 @@ text_filter :=
 		},
 		combine: {
 			keyword  := "<nospellcheck>{keyword}</nospellcheck>"
-			reminder := process_english_hints(if is_creaturish(card.type) then reminder else equip_filter(reminder))
+			reminder := process_english_hints(reminder)
 			if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
 			else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
 		}) +
+	# step 2ba : apply face_code
+	replace@(
+		match: "face_(.*?)_end",
+		replace: {face_code(_1)}
+	)+
 	# step 2b : move action keywords' reminder text to the end of the line
 	replace@(
 		match: "(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)", #######removed "| ?<kw-" from lookahead
@@ -764,11 +784,11 @@ text_filter :=
 	# step 3c : fill in atom fields
 	tag_contents@(
 		tag: "<atom-cardname>",
-		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else card_name) + "</nospellcheck>" }
+		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name)) + "</nospellcheck>" }
 		) +
 	tag_contents@(
 		tag: "<atom-legname>",
-		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(card_name)) + "</nospellcheck>" }
+		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name))) + "</nospellcheck>" }
 		) +
 	replace@(
 		match: "INS([1-9])",
@@ -786,9 +806,13 @@ text_filter :=
 	} +
 	# step 4 : explict non mana symbols
 	replace@(
-		match: "\\][VLHSCETQ\\?XYZIWUBRG0-9/|]+\\[",
+		match: "\\][-+=]?[VLHSCETQ\\?XYZIWUBRG0-9/|]+\\[",
 		replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
 	# step 5 : add mana & tap symbols
+	replace@(
+		match: "([+=-][XYZ0-9/|]+)",
+		in_context: mana_context,
+		replace: {"<sym-auto>" + _1 + "</sym-auto>"} ) +
 	replace@(
 		match: "\\b[VLHSCETQ\\?XYZIWUBRG0-9/|]+\\b",
 		in_context: mana_context,
@@ -800,7 +824,7 @@ text_filter :=
 		replace: "\\1" ) +
 	# step 5c : add explicit mana symbols
 	replace@(
-		match: "\\[[VLHSCETQE\\?XYZIWUBRG0-9/|]+\\]",
+		match: "\\[[-+=]?[VLHSCETQE\\?XYZIWUBRG0-9/|]+\\]",
 		replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
 	# step 6 : curly quotes
 	{if set.curly_quotes then curly_quotes(input) else input} +
@@ -1008,6 +1032,7 @@ cmc := {to_number(
 		else                       1 # all other symbols are 1
 	))
 }
+mana_value := cmc
 write_wubrg := {
 	(if match(input, match:"white") then "W" else "")+
 	(if match(input, match:"blue") then "U" else "")+
@@ -1207,7 +1232,8 @@ custom_watermark_7 := { if set.custom_watermark_7 != "" then "/magic-watermarks.
 custom_watermark_8 := { if set.custom_watermark_8 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_8 else "/magic-watermarks.mse-include/planeswalker.png" }
 custom_watermark_9 := { if set.custom_watermark_9 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_9 else "/magic-watermarks.mse-include/planeswalker.png" }
 custom_watermark_10 := { if set.custom_watermark_10 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_10 else "/magic-watermarks.mse-include/planeswalker.png" }
-
+custom_watermark_a := {"/magic-watermarks.mse-include/planeswalker.png"}
+custom_watermark_b := {"/magic-watermarks.mse-include/planeswalker.png"}
 ############################################################## Flavor Bar Equation
 
 
@@ -1731,4 +1757,49 @@ card_face := {
 	front := card[input]
 	back := if card[input+"_2"] or else "" != "" then card[input+"_2"] else card[input]
 	if match(margin_code, match:"(text[2456]|lv[5678])") then back else front
+}
+strip_card_codes := replace@(match:"^[CURMSL][WUBRGMZACL][0-9]+ ?[-—]? ?", replace:"")
+name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
+
+face_code := {
+	face := ""
+	if margin_code == "text2" or margin_code == "lv5" or margin_code == "lv6" or margin_code == "lv7" or margin_code == "lv8" then face := "_2"
+	output := face_scripts[input](face) or else if_parse(input, face:face) or else input
+	output
+}
+face_scripts := [
+	iscreature: {is_creature(card["type"+face])},
+	iscreaturish: {is_creaturish(card["type"+face])},
+	isenchantment: {is_enchantment(card["type"+face])},
+	isartifact: {is_artifact(card["type"+face])},
+	island: {is_land(card["type"+face])},
+	isspell: {is_spell(card["type"+face])},
+	istarget: {is_targeted(card["text"+face])},
+	subtypes: {separate_words(card["sub_type"+face], spacer: " ")}
+	contains: {
+		contains(card[field+face], match:query)
+	},
+	notcontains: {not contains(card[field+face], match:query)},
+]
+expand_facecodes := [
+	subtype: "sub_type",
+	castingcost: "casting_cost",
+	manacost: "casting_cost"
+]
+if_parse := replace@(
+	match: "if_(.*)_then_(.*)_else_(.*)",
+	replace: {if_scripts(_1, t:_2, f:_3)}
+)
+if_scripts := {
+	contCheck := split_text(input, match:"_")
+	func := contCheck[0]
+	field := ""
+	query := "^$"
+	if length(contCheck) == 3 then (
+		field := contCheck[0]
+		func := contCheck[1]
+		query := contCheck[2]
+	)
+	field := expand_facecodes[field] or else field
+	if face_scripts[func](face, field:field, query:query) or else false then t else f
 }

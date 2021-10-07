@@ -43,7 +43,7 @@ init script:
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	d20_filter := replace@(match:"^(|[Ee]lse ?|[Oo]ther ?|((</sym>)?[-0-9 ,+>\<](<sym>)?)+)[|]", replace:"<b>\\1</b>|")
-	text_filter := text_filter + d20_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
+	text_filter := text_filter + d20_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)} + {if is_modal(input) then bump_text(softline_ripper(input)) else input}
 	
 	####### Create images
 	
@@ -475,13 +475,16 @@ init script:
 		8: {[card_style.level_8_text.top, card_style.level_8_text.bottom-card_style.level_8_text.top]}
 	]
 	auto_snap := {
+		snap_array := split_text(replace(styling.snap_chapter_to_box, match:",[^,]+$", replace:","), match:",")
+		abil := to_number(pull_comma_array(styling.snap_chapter_to_box, cell:input-1, end:true))					###textbox to snap to
+		if abil == 0 then 600 else snap_calc(input, snap_array:snap_array, abil:abil)
+	}
+	snap_calc := {
 		out := 0
-		snap_array := split_text(replace(line, match:",[^,]+$", replace:","), match:",")
-		abil := to_number(pull_comma_array(line, cell:input-1, end:true))											###textbox to snap too
 		abil_array := saga_lore_count(snap_array)																	###chapters in each box
 		ch_count := abil_array[abil-1]																				###chapters in this box
 		self_index := saga_ch_placement(snap_array)[input-1]														###input's index
-		box_deets := coords_map[abil+bump]()																		###[top, height]
+		box_deets := coords_map[abil]()																				###[top, height]
 		remain := box_deets[1] - 30*ch_count																		###remaining space after chapter hexes
 		excess := remain - 10*(ch_count-1)																			###remaining after 10px gaps
 		if excess >= 0 then out := box_deets[0] + excess/2 + 40*(self_index-1)										###top + buffer*index + hex*index-1
@@ -499,12 +502,12 @@ init script:
 		out
 	}
 	chapter0 := { if styling.reminder_coordinate != "" then max(60,min(to_number(styling.reminder_coordinate),438)) else 155}
-	chapter1 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:0, end:true)) > 0 then auto_snap(1, line:styling.snap_chapter_to_box, bump:0) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:0, end:true, default:(if two_boxes() then 183 else 185))) }
-	chapter2 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:1, end:true)) > 0 then auto_snap(2, line:styling.snap_chapter_to_box, bump:0) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:1, end:true, default:(if two_boxes() then 223 else 279))) }
-	chapter3 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:2, end:true)) > 0 then auto_snap(3, line:styling.snap_chapter_to_box, bump:0) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:2, end:true, default:(if two_boxes() then 329 else 373))) }
-	chapter4 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:3, end:true)) > 0 then auto_snap(4, line:styling.snap_chapter_to_box, bump:0) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:3, end:true, default:600)) }
-	chapter5 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:4, end:true)) > 0 then auto_snap(5, line:styling.snap_chapter_to_box, bump:0) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:4, end:true, default:600)) }
-	chapter6 := { if to_number(pull_comma_array(styling.snap_chapter_to_box, cell:5, end:true)) > 0 then auto_snap(6, line:styling.snap_chapter_to_box, bump:0) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:5, end:true, default:600)) }
+	chapter1 := { if length(comma_count(styling.snap_chapter_to_box)) > 0 then auto_snap(1) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:0, end:true, default:(if two_boxes() then 183 else 185))) }
+	chapter2 := { if length(comma_count(styling.snap_chapter_to_box)) > 1 then auto_snap(2) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:1, end:true, default:(if two_boxes() then 223 else 279))) }
+	chapter3 := { if length(comma_count(styling.snap_chapter_to_box)) > 2 then auto_snap(3) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:2, end:true, default:(if two_boxes() then 329 else 373))) }
+	chapter4 := { if length(comma_count(styling.snap_chapter_to_box)) > 3 then auto_snap(4) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:3, end:true, default:600)) }
+	chapter5 := { if length(comma_count(styling.snap_chapter_to_box)) > 4 then auto_snap(5) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:4, end:true, default:600)) }
+	chapter6 := { if length(comma_count(styling.snap_chapter_to_box)) > 5 then auto_snap(6) else to_number(pull_comma_array(styling.move_loyalty_costs, cell:5, end:true, default:600)) }
 
 	chapter1b := { if to_number(pull_comma_array(styling.snap_chapter_to_back_box, cell:0, end:true)) > 0 then auto_snap(1, line:styling.snap_chapter_to_back_box, bump:4) else to_number(pull_comma_array(styling.move_back_loyalty_costs, cell:0, end:true, default:(if back_two_boxes() then 183 else 185))) }
 	chapter2b := { if to_number(pull_comma_array(styling.snap_chapter_to_back_box, cell:1, end:true)) > 0 then auto_snap(2, line:styling.snap_chapter_to_back_box, bump:4) else to_number(pull_comma_array(styling.move_back_loyalty_costs, cell:1, end:true, default:(if back_two_boxes() then 223 else 279))) }
@@ -738,6 +741,10 @@ init script:
 
 	is_modal_dfc := {styling.dfc_type != "transforming"}
 	auto_flags := {styling.dfc_type == "modal with standard flags"}
+	custom_watermark_a := {if styling.card_watermark == "" or not contains(styling.card_watermark, match:".png") then "/magic-watermarks.mse-include/planeswalker.png" else "/magic-watermarks.mse-include/" + styling.card_watermark}
+	custom_watermark_b := {if styling.card_watermark_2 == "" or not contains(styling.card_watermark_2, match:".png") then "/magic-watermarks.mse-include/planeswalker.png" else "/magic-watermarks.mse-include/" + styling.card_watermark_2}
+	shown_cr := {if set.automatic_copyright then set.copyright != "" else card.copyright != ""}
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1029,6 +1036,14 @@ styling field:
 	choice: arrows
 	choice: pt boxes
 	choice: loyalty boxes
+styling field:
+	type: text
+	name: card watermark
+	description: Filename in magic-watermarks to use for standalone card watermark
+styling field:
+	type: text
+	name: card watermark 2
+	description: Filename in magic-watermarks to use for standalone card watermark
 styling field:
 	type: boolean
 	name: grey hybrid name
@@ -2144,7 +2159,7 @@ card style:
 			color: white
 	copyright:
 		right: 350
-		top: { if is_leveler() and not lone_pt() then 488 else if is_normal() and card.pt != "" or card.loyalty != "" then (if is_map() then 504 else 500) else if use_vorthos() and is_normal() then 500 else if is_normal() then 488 else 498 }
+		top: { if is_leveler() and not lone_pt() then 488 else if is_normal() and card.pt != "" or card.loyalty != "" then (if is_map() then 504 else 500) else if is_normal() then 488 else 498 }
 		width: {if set.automatic_copyright then 0 else 140}
 		height: 10
 		z index: 6
@@ -2166,7 +2181,7 @@ card style:
 			color: white
 	copyright 2:
 		right: 728
-		top: { if back_leveler() then (if lone_pt() then (if card.pt_4 != "" then 500 else 488) else 488) else if is_leveler() then (if card.pt_4 != "" then 500 else 488) else if use_vorthos() and back_normal() or (back_normal() and card.pt_2 != "") or card.loyalty_2 != "" then (if back_map() then 504 else 500) else if back_normal() then 488 else 498 }
+		top: { if back_leveler() then (if lone_pt() then (if card.pt_4 != "" then 500 else 488) else 488) else if is_leveler() then (if card.pt_4 != "" then 500 else 488) else if (back_normal() and card.pt_2 != "") or card.loyalty_2 != "" then (if back_map() then 504 else 500) else if back_normal() then 488 else 498 }
 		width: {if set.automatic_copyright then 0 else 140}
 		height: 10
 		z index: 6
@@ -2219,13 +2234,12 @@ extra card field:
 extra card field:
 	type: text
 	name: card code 2
-	editable: false
 	save value: false
 	script:
 		if set.automatic_card_numbers and not is_unsorted() then
-			forward_editor(prefix: card_number_m15() + "b/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+			forward_editor(prefix: card_number_m15() + "b/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text_2)
 		else
-			back_face(card.custom_card_number) + " " + rarity_code() + " " + card.card_code_text
+			back_face(card.custom_card_number) + " " + rarity_code() + " " + card.card_code_text_2
 extra card field:
 	type: color
 	name: opac filter
@@ -3708,7 +3722,7 @@ extra card style:
 
 	auto copyright:
 		right: 350
-		top: { if is_leveler() and not lone_pt() then 488 else if is_normal() and card.pt != "" or card.loyalty != "" then 500 else if use_vorthos() and is_normal() then 500 else if is_normal() then 488 else 498 }
+		top: { if is_leveler() and not lone_pt() then 488 else if is_normal() and card.pt != "" or card.loyalty != "" then 500 else if is_normal() then 488 else 498 }
 		width: {if set.automatic_copyright then 140 else 0}
 		height: 10
 		z index: 6
@@ -3720,7 +3734,7 @@ extra card style:
 			weight: bold
 	auto copyright 2:
 		right: 728
-		top: { if back_leveler() then (if lone_pt() then (if card.pt_4 != "" then 500 else 488) else 488) else if is_leveler() then (if card.pt_4 != "" then 500 else 488) else if use_vorthos() and back_normal() or (back_normal() and card.pt_2 != "") or card.loyalty != "" then 500 else if back_normal() then 488 else 498 }
+		top: { if back_leveler() then (if lone_pt() then (if card.pt_4 != "" then 500 else 488) else 488) else if is_leveler() then (if card.pt_4 != "" then 500 else 488) else if (back_normal() and card.pt_2 != "") or card.loyalty != "" then 500 else if back_normal() then 488 else 498 }
 		width: {if set.automatic_copyright then 140 else 0}
 		height: 10
 		z index: 6
@@ -3807,7 +3821,7 @@ extra card style:
 		render style: image
 		image: {if front_clear() then "" else if mainframe_walker() or is_leveler() or is_saga() then snow_texture() else snow_background()}
 		z index: 1
-		visible: {is_snow()}
+		visible: {is_snow() and not chosen(styling.other_options, choice:"mythic edition")}
 		mask: {if mainframe_walker() then ("nyx/" + (if has_four_abilities() then "4" else "") + "pw_mask.png") else "snow/snow_" + (if is_saga() then "saga" else if is_modal_dfc() then (if is_leveler() then "border" else "modal") else if is_leveler() then "notched" else "front") + "_mask.png"}
 	snow overlay 2:
 		left: 377
@@ -3817,7 +3831,7 @@ extra card style:
 		render style: image
 		image: {if back_clear() then "" else if mainframe_walkerb() or back_leveler() or back_saga() then snow_texture() else snow_background()}
 		z index: 1
-		visible: {back_snow()}
+		visible: {back_snow() and not chosen(styling.other_options, choice:"mythic edition")}
 		mask: {if mainframe_walkerb() then ("nyx/" + (if back_four_abilities() then "4" else "") + "pw_mask.png") else "snow/snow_" + (if back_saga() then "saga" else if back_leveler() then "border" else "back") + "_mask.png"}
 	nyx overlay:
 		left: 0
@@ -3827,7 +3841,7 @@ extra card style:
 		render style: image
 		image: {if front_clear() then "" else nyx_background()}
 		z index: 1
-		visible: {is_nyx()}
+		visible: {is_nyx() and not chosen(styling.other_options, choice:"mythic edition")}
 		mask: {"nyx/" + (if mainframe_walker() then ((if has_four_abilities() then "4" else "") + "pw_") else if is_modal_dfc() then "" else "notch_") + (if is_vehicle() then "v_") + (if is_saga() then "full") + "mask.png"}
 	curtain:
 		left: 0
@@ -3857,7 +3871,7 @@ extra card style:
 		render style: image
 		image: {if front_clear() then "miracles/xmiracle.png" else miracle_background()}
 		z index: 2
-		visible: {is_miracle()}
+		visible: {is_miracle() and not chosen(styling.other_options, choice:"mythic edition")}
 		mask: { if not front_clear() then "nodemask.png"}
 	vehicle overlay:
 		left: 0
@@ -3877,7 +3891,7 @@ extra card style:
 		render style: image
 		image: {if back_clear() then "" else nyx_background()}
 		z index: 1
-		visible: {back_nyx()}
+		visible: {back_nyx() and not chosen(styling.other_options, choice:"mythic edition")}
 		mask: {"nyx/" + (if mainframe_walkerb() then ((if back_four_abilities() then "4") + "pw_")) + (if back_vehicle() then "v_") + (if back_saga() then "full") + "mask.png"}
 	miracle overlay 2:
 		left: 377
@@ -3887,7 +3901,7 @@ extra card style:
 		render style: image
 		image: {if back_clear() then "miracles/xmiracle.png" else if chosen(styling.other_options, choice:"normal back face") then miracle_background() else miracle_background2()}
 		z index: 2
-		visible: {back_miracle()}
+		visible: {back_miracle() and not chosen(styling.other_options, choice:"mythic edition")}
 		mask: { if not back_clear() then "nodemask.png"}
 	curtain 2:
 		left: 377
@@ -4131,7 +4145,7 @@ extra card style:
 		width: {if is_mutate() then 317 else 156}
 		height: {if is_mutate() or is_class() then 2 else 3}
 		render style: image
-		z index: 5
+		z index: 3
 		image: {if is_class() then "bar.png" else if is_mutate() then "mutbar.png" else "line.png"}
 		visible: {is_saga() or is_mutate() or is_class()}
 	linebreak 2:
@@ -4168,7 +4182,7 @@ extra card style:
 		width: 30
 		height: 34
 		render style: image
-		z index: 5
+		z index: 3
 		image: {alt_chapters("1")}
 		visible: {back_saga()}
 	chapter 2b:
@@ -4404,7 +4418,7 @@ extra card style:
 		top: { if is_d20() then top_of_para(rolls_start(card.text)) else 329 + lv_2_coordinate()}
 		height: { if is_d20() then height_of_para(rolls_start(card.text)) else lv_2_height()}
 		width: 314
-		z index: 0
+		z index: 1
 		render style: image
 		image: {if is_d20() then "d20slice.png" else slice_crop(color_background(type:"slide", base_hybrid: card_hybrid), height: lv_2_height(), width:314, distance:(152-lv_2_coordinate()))}
 		visible: {is_leveler() or (is_d20() and number_of_rolls(card.text) > 0)}
@@ -4413,7 +4427,7 @@ extra card style:
 		top: { if is_d20() then top_of_para(rolls_start(card.text)+2) else 329 + lv_3_coordinate()}
 		height: { if is_d20() then height_of_para(rolls_start(card.text)+2) else lv_3_height()}
 		width: 314
-		z index: 0
+		z index: 1
 		render style: image
 		image: {if is_d20() then "d20slice.png" else slice_crop(color_background(type:"slide2", base_hybrid: card_hybrid), height: lv_3_height(), width:314, distance:lv_3_height())}
 		visible: {is_leveler() or (is_d20() and number_of_rolls(card.text) > 2)}
@@ -4422,7 +4436,7 @@ extra card style:
 		top: { if is_d20() then top_of_para(rolls_start(card.text)+4) else 329 + lv_4_coordinate()}
 		height: { if is_d20() then height_of_para(rolls_start(card.text)+4) else lv_4_height()}
 		width: 314
-		z index: 0
+		z index: 1
 		render style: image
 		image: {if is_d20() then "d20slice.png" else slice_crop(color_background(type:"slide5", base_hybrid: card_hybrid), height: lv_4_height(), width:314, distance:lv_4_height())}
 		visible: {is_leveler() or (is_d20() and number_of_rolls(card.text) > 4)}
@@ -4518,7 +4532,7 @@ extra card style:
 		top: { if back_d20() then top_of_para_b(rolls_start_b(card.text_2)) else 329 + lv_6_coordinate()}
 		height: { if back_d20() then height_of_para_b(rolls_start_b(card.text_2)) else lv_6_height()}
 		width: 314
-		z index: 0
+		z index: 1
 		render style: image
 		image: {if back_d20() then "d20slice.png" else slice_crop(color_background(type:"slide3", base_hybrid: card_hybrid), height: lv_6_height(), width:314, distance:(152-lv_6_coordinate()))}
 		visible: {back_leveler() or (back_d20() and number_of_rolls_b(card.text_2) > 0)}
@@ -4527,7 +4541,7 @@ extra card style:
 		top: { if back_d20() then top_of_para_b(rolls_start_b(card.text_2)+2) else 329 + lv_7_coordinate()}
 		height: { if back_d20() then height_of_para_b(rolls_start_b(card.text_2)+2) else lv_7_height()}
 		width: 314
-		z index: 0
+		z index: 1
 		render style: image
 		image: {if back_d20() then "d20slice.png" else slice_crop(color_background(type:"slide4", base_hybrid: card_hybrid), height: lv_7_height(), width:314, distance:lv_7_height())}
 		visible: {back_leveler() or (back_d20() and number_of_rolls_b(card.text_2) > 2)}
@@ -4536,7 +4550,7 @@ extra card style:
 		top: { if back_d20() then top_of_para_b(rolls_start_b(card.text_2)+4) else 329 + lv_8_coordinate()}
 		height: { if back_d20() then height_of_para_b(rolls_start_b(card.text_2)+4) else lv_8_height()}
 		width: 314
-		z index: 0
+		z index: 1
 		render style: image
 		image: {if back_d20() then "d20slice.png" else slice_crop(color_background(type:"slide6", base_hybrid: card_hybrid), height: lv_8_height(), width:314, distance:lv_8_height())}
 		visible: {back_leveler() or (back_d20() and number_of_rolls_b(card.text_2) > 4)}
@@ -4582,7 +4596,7 @@ extra card style:
 		height: {if is_class() then 380 else 372}
 		render style: image
 		image: {if is_class() then "paper.png" else bookmark_background()}
-		z index: 3
+		z index: 4
 		visible: {is_saga() or is_class()}
 	bookmark 2:
 		left: {if back_class() then 563 else 392}
@@ -4591,7 +4605,7 @@ extra card style:
 		height: {if back_class() then 380 else 372}
 		render style: image
 		image: {if back_class() then "paper.png" else bookmark_background()}
-		z index: 3
+		z index: 4
 		visible: {back_saga() or back_class()}
 	stripe:
 		left: 15
@@ -4600,7 +4614,7 @@ extra card style:
 		height: 372
 		render style: image
 		image: bookmarks/stripe.png
-		z index: 4
+		z index: 5
 		visible: {length(write_wubrg(card.card_color))==2 and is_saga()}
 	stripe 2:
 		left: 392
@@ -4609,7 +4623,7 @@ extra card style:
 		height: 372
 		render style: image
 		image: bookmarks/stripe.png
-		z index: 4
+		z index: 5
 		visible: {length(write_wubrg(card.card_color_2))==2 and back_saga()}
 	alias bar:
 		left: 34
@@ -4631,7 +4645,7 @@ extra card style:
 		visible: {is_skinned() and not use_evobar()}
 	vorthos box:
 		right: { if mainframe_walker() then 275 else if is_leveler() and not lone_pt() then 350 else if card.pt != "" then 275 else 350 }
-		top: 488
+		top: {if mainframe_walker() then 488 else if card.pt == "" and shown_cr() then 500 else 488}
 		left: 210
 		height: {if use_vorthos() then 10 else 0}
 		z index: 3
@@ -4643,7 +4657,7 @@ extra card style:
 			weight: bold
 	vorthos box 2:
 		right: { if mainframe_walkerb() then 652 else if back_leveler() and not lone_pt() then 727 else if card.pt_2 != "" then 652 else 727 }
-		top: 488
+		top: {if mainframe_walkerb() then 488 else if card.pt_2 == "" and shown_cr() then 500 else 488}
 		left: 587
 		height: {if use_vorthos() then 10 else 0}
 		z index: 3
