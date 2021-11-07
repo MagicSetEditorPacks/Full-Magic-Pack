@@ -23,41 +23,46 @@
 	trim_colors					:=
 		replace@(match:"(, )?(multicolor|hybrid|artifact|land|horizontal|vertical|radial)", replace:"")
 
-	watermark_colors := {
-		if	trim_colors(card.card_color) == "white"			then	"ww"
-		else if trim_colors(card.card_color) == "blue"			then	"uu"
-		else if trim_colors(card.card_color) == "black"			then	"bb"
-		else if trim_colors(card.card_color) == "red"			then	"rr"
-		else if trim_colors(card.card_color) == "green"			then	"gg"
-		else if contains(card.card_color, match:"multi")		or
-				contains(card.card_color, match:"hybrid")	or
-				contains(card.card_color, match:", land")	then	hybrid_color()
-		else if contains(card.card_color, match:"artifact") then	"aa"
-		else								"cc"
-}
+watermark_colors := {
+	check_colors := card.card_color
+	if face != "" then check_colors := face
+	if	trim_colors(check_colors) == "white"			then	"ww"
+	else if trim_colors(check_colors) == "blue"			then	"uu"
+	else if trim_colors(check_colors) == "black"			then	"bb"
+	else if trim_colors(check_colors) == "red"			then	"rr"
+	else if trim_colors(check_colors) == "green"			then	"gg"
+	else if contains(check_colors, match:"multi")		or
+			contains(check_colors, match:"hybrid")	or
+			contains(check_colors, match:", land")	then	hybrid_color(face:face)
+	else if contains(check_colors, match:"artifact") then	"aa"
+	else								"cc"
+}@(face:"")
 hybrid_color := {
-	if 	trim_colors(card.card_color) == "white,	blue"			then "wu"
-	else if trim_colors(card.card_color) == "white,	black"			then "wb"
-	else if trim_colors(card.card_color) == "white,	red"			then "rw"
-	else if trim_colors(card.card_color) == "white,	green"			then "gw"
-	else if trim_colors(card.card_color) == "blue,	black"			then "ub"
-	else if trim_colors(card.card_color) == "blue,	red"			then "ur"
-	else if trim_colors(card.card_color) == "blue,	green"			then "gu"
-	else if trim_colors(card.card_color) == "black,	red"			then "br"
-	else if trim_colors(card.card_color) == "black,	green"			then "bg"
-	else if trim_colors(card.card_color) == "red,	green"			then "rg"
-	else if trim_colors(card.card_color) == "white,	blue,	reversed"	then "uw"
-	else if trim_colors(card.card_color) == "white,	black,	reversed"	then "bw"
-	else if trim_colors(card.card_color) == "white,	red,	reversed"	then "wr"
-	else if trim_colors(card.card_color) == "white,	green,	reversed"	then "wg"
-	else if trim_colors(card.card_color) == "blue,	black,	reversed"	then "bu"
-	else if trim_colors(card.card_color) == "blue,	red,	reversed"	then "ru"
-	else if trim_colors(card.card_color) == "blue,	green,	reversed"	then "ug"
-	else if trim_colors(card.card_color) == "black,	red,	reversed"	then "rb"
-	else if trim_colors(card.card_color) == "black,	green,	reversed"	then "bg"
-	else if trim_colors(card.card_color) == "red,	green,	reversed"	then "gr"
+	check_colors := card.card_color
+	if face != "" then check_colors := face
+	trimmed := trim_colors(check_colors)
+	if 	trimmed == "white, blue"			then "wu"
+	else if trimmed == "white, black"			then "wb"
+	else if trimmed == "white, red"			then "rw"
+	else if trimmed == "white, green"			then "gw"
+	else if trimmed == "blue, black"			then "ub"
+	else if trimmed == "blue, red"			then "ur"
+	else if trimmed == "blue, green"			then "gu"
+	else if trimmed == "black, red"			then "br"
+	else if trimmed == "black, green"			then "bg"
+	else if trimmed == "red, green"			then "rg"
+	else if trimmed == "white, blue, reversed"	then "uw"
+	else if trimmed == "white, black, reversed"	then "bw"
+	else if trimmed == "white, red, reversed"	then "wr"
+	else if trimmed == "white, green, reversed"	then "wg"
+	else if trimmed == "blue, black, reversed"	then "bu"
+	else if trimmed == "blue, red, reversed"	then "ru"
+	else if trimmed == "blue, green, reversed"	then "ug"
+	else if trimmed == "black, red, reversed"	then "rb"
+	else if trimmed == "black, green, reversed"	then "bg"
+	else if trimmed == "red, green, reversed"	then "gr"
 	else									 "mm"
-}
+}@(face:"")
 ########################################################################
 # Combining multiple colors (hybrids)
 ########################################################################
@@ -865,71 +870,72 @@ color_background := {
 color_combination := {
 	# The base hybrid, without the outer frame blended over it
 	base := base_hybrid[shape][color_count]()
-	light:= base
-	
 	# Put a frame around it?
 	if land and not colored_lands then
 		masked_blend(
-			dark:							land_template("c"),
-			mask								"multicolor_blend_{type}.png",
-			
+			mask:  "multicolor_blend_{type}.png",
+			dark:  land_template("c"),
+			light: base,
 		)
 	else if land and multi and mask_multi_land_with_color() then
 		masked_blend(
-			dark:							land_template("m"),
-			mask:								"hybrid_blend_{type}.png",
+			mask:  "hybrid_blend_{type}.png",
+			dark:  base,
+			light:  land_template("m"),
 		)
 	else if multi and artifact then
 		masked_blend(
-			light:							masked_blend(
-				light:							base
-				dark:							template("m"),
-				mask:							"multicolor_blend_{type}.png",
+			mask: "artifact_blend_{type}.png",
+			dark: template("a"),
+			light: masked_blend(
+				mask: "multicolor_blend_{type}.png",
+				dark: template("m"),
+				light: base
 			)
-			dark:								template("a"),
-			mask:								"artifact_blend_{type}.png",
-			
 		)
 	else if multi then 
 		masked_blend(
-			dark:								template("m"),
-			mask:								"multicolor_blend_{type}.png",
-			)
+			mask:  "multicolor_blend_{type}.png",
+			dark:  template("m"),
+			light: base,
+		)
 	else if artifact and color_count > 1 and mask_hybrid_with_land() then 
 		masked_blend(
-			light:							masked_blend(
-				light:							base
-				dark:							template("c"),
-				mask:							"multicolor_blend_{type}.png",
+			mask:  "artifact_blend_{type}.png",
+			dark:  template("a"),
+			light: masked_blend(
+				mask: "multicolor_blend_{type}.png",
+				dark: template("c"),
+				light: base
 			)
-			dark:								template("a"),
-			mask:								"artifact_blend_{type}.png",
-			
 		)
 	else if artifact and color_count > 1 and mask_hybrid_with_gold() then 
 		masked_blend(
-			light:							masked_blend(
-				light:							base
-				dark:							template("m"),
-				mask:							"multicolor_blend_{type}.png",
-			)dark:								template("a"),
-			mask:								"artifact_blend_{type}.png",
-			
+			mask:  "artifact_blend_{type}.png",
+			dark:  template("a"),
+			light: masked_blend(
+				mask: "multicolor_blend_{type}.png",
+				dark: template("m"),
+				light: base
+			)
 		)
 	else if artifact then 
 		masked_blend(
-			dark:								template("a"),
-			mask:								"artifact_blend_{type}.png",
+			mask:  "artifact_blend_{type}.png",
+			dark:  template("a"),
+			light: base,
 		)
 	else if color_count > 1 and mask_hybrid_with_land() then
 		masked_blend(
-			dark:								land_template("c"),
-			mask:								"hybrid_blend_{type}.png",
+			mask:  "hybrid_blend_{type}.png",
+			dark:  land_template("c"),
+			light: base,
 		)
 	else if color_count > 1 and mask_hybrid_with_gold() then
 		masked_blend(
-			dark:								land_template("m"),
-			mask:								"hybrid_blend_{type}.png",
+			mask:  "hybrid_blend_{type}.png",
+			dark:  land_template("m"),
+			light: base,
 		)
 	else base
 }
