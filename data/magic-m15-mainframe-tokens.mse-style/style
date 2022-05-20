@@ -34,7 +34,19 @@ card dpi: 150
 init script:
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_typeline }
-	
+	text_filter :=
+		{
+			if is_archetype() then archetype_formatter(input) else input
+		}
+		+
+		text_filter
+	archetype_formatter := {
+		out := replace(input
+			match:"^([^ ]+)[ ]([^\\\n]+)([ ][ ])"
+			replace:{"<sym>"+remove_tags(_1) + "</sym> <font:Gotham Pro Black>" + to_upper(remove_tags(_2)) + "</font> "}
+		)
+		out
+	}
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
 	
@@ -91,6 +103,12 @@ init script:
 	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
 	use_vorthos := {chosen(styling.other_options, choice:"vorthos box")}
 
+	is_weird_token := {chosen(styling.frames, choice:"archetype") or chosen(styling.frames, choice:"state")}
+	is_state := {chosen(styling.frames, choice:"state")}
+	is_archetype := {chosen(styling.frames, choice:"archetype")}
+	white_state_font := {is_weird_token() and contains(styling.other_options, match:"white state text")}
+	archetype_image := {is_archetype() and contains(styling.other_options, match:"archetype image")}
+	use_drop_shadow := {is_weird_token() and contains(styling.other_options, match:"state drop shadow")}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -104,6 +122,8 @@ set info style:
 styling field:
 	type: multiple choice
 	name: frames
+	choice: archetype
+	choice: state
 	choice: copy
 	choice: tall
 	choice: legendary
@@ -123,6 +143,10 @@ styling field:
 	choice: vorthos box
 	choice: godzilla style alias
 	choice: pokemon evobar
+	choice: archetype image
+	choice: white state text
+	choice: state drop shadow
+	initial: white state test
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -240,22 +264,23 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
-		image: { color_background(type:"card" + text_shape(), base_hybrid:card_hybrid) }
-		mask: {"framemask" + text_shape() + ".png"}
+		image: { if is_archetype() then "arch_frame.png" else if is_state() then "state_frame.png" else color_background(type:"card" + text_shape(), base_hybrid:card_hybrid) }
+		mask: {if is_archetype() then "arch_mask.png" else if is_state() then "state_mask.png" else "framemask" + text_shape() + ".png"}
 	############################# Name line
 	name:
 		left: { if is_copy() then 32 else 30}
-		top: { if is_copy() then 24 else 26}
+		top: { if is_archetype() then 10 else if is_copy() then 24 else 26}
 		width: { 315 - (if is_copy() then card_style.casting_cost.content_width else 0)}
-		height: {28 - (0.5 * shrink_name())}
+		height: {if is_archetype() then 14 else 28 - (0.5 * shrink_name())}
 		alignment: { if is_copy() or mtgo_abil() then "bottom shrink-overflow" else "bottom center"}
 		padding bottom: -2
 		padding top: 2
 		z index: 5
 		font:
-			name: { if is_copy() or mtgo_abil() then "Beleren Bold" else "Beleren Small Caps Bold" }
-			size: { (if is_copy() or mtgo_abil() then 18 else 19) - shrink_name()}
-			color: {if is_m20() and card.card_color == "white" and not is_clear() then "black" else if is_m20() then "white" else rgb(255,239,128)}
+			name: { if is_archetype() then "Gotham Medium" else if is_copy() or mtgo_abil() then "Beleren Bold" else "Beleren Small Caps Bold" }
+			size: { if is_archetype() then 9 else (if is_copy() or mtgo_abil() then 18 else 19) - shrink_name()}
+			color: {if is_weird_token() then "white" else if is_m20() and card.card_color == "white" and not is_clear() then "black" else if is_m20() then "white" else rgb(255,239,128)}
+			weight: {if is_archetype() then "bold" else ""}
 		always symbol: true
 	alias: 
 		left: {if is_skinned() then 45 else 19}
@@ -289,11 +314,11 @@ card style:
 		padding top: 0
 	############################# Image
 	image:
-		left: { if is_clear() or is_m20() then 0 else 29 }
-		top: { if is_clear() or is_m20() then 0 else 62 }
-		width: { if is_clear() or is_m20() then 375 else 317 }
-		height: { if is_clear() or is_m20() then 523 else if is_tall() then 229 else if is_textless() then 363 else 289}
-		mask: { (if is_m20() then "m20_" else if is_clear() then "clear_" else "") + "imagemask" + (if is_clear() and not is_m20() then "" else if is_tall() then "3" else if is_textless() then "" else "2") + ".png" }
+		left: { if is_weird_token() then 14 else if is_clear() or is_m20() then 0 else 29 }
+		top: { if is_archetype() then 30 else if is_state() then 15 else if is_clear() or is_m20() then 0 else 62 }
+		width: { if is_weird_token() then 346 else if is_clear() or is_m20() then 375 else 317 }
+		height: { if archetype_image() then 461 else if is_archetype() then 0 else if is_state() then 467 else if is_clear() or is_m20() then 523 else if is_tall() then 229 else if is_textless() then 363 else 289}
+		mask: { if is_weird_token() then "" else (if is_m20() then "m20_" else if is_clear() then "clear_" else "") + "imagemask" + (if is_clear() and not is_m20() then "" else if is_tall() then "3" else if is_textless() then "" else "2") + ".png" }
 		z index: -1
 		default: { if is_clear() then "" else default_image(card.card_color)}
 	mainframe image:
@@ -314,7 +339,7 @@ card style:
 			 else 354)
 			 + (if is_m20() and is_textless() then 1 else if is_m20() and not is_tall() then 2 else if is_m20() and is_clear() then 2)
 			 + shrink_type()}
-		width: { 311 - ( if contains(styling.other_options, match:"remove rarity") then 0 else max(22,card_style.rarity.content_width)) }
+		width: { if is_weird_token() then 0 else 311 - ( if contains(styling.other_options, match:"remove rarity") then 0 else max(22,card_style.rarity.content_width)) }
 		height: { 20 - shrink_type()}
 		alignment: top shrink-overflow
 		z index: 2
@@ -336,7 +361,7 @@ card style:
 				else if is_m20() then 358
 				else 356)
 			}
-		width: { if contains(styling.other_options, match:"remove rarity") then 0 else 44}
+		width: { if is_weird_token() or contains(styling.other_options, match:"remove rarity") then 0 else 44}
 		height: 22
 		z index: 2
 		alignment: middle right
@@ -375,23 +400,31 @@ card style:
 					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	text:
-		left: 29
+		left: {if is_archetype() then 20 else 29}
 		top:
 			{ 
-				if is_tall() then 327
+				if is_archetype() then 30
+				else if is_state() then 327
+				else if is_tall() then 327
 				else if is_textless() then 459
 				else 388}
-		width: 315
+		width: { if is_archetype() then 337 else 315}
 		height:
-			{ if is_tall() then 154
+			{ 
+				if is_archetype() then 450
+				else if is_state() then 154
+				else if is_tall() then 154
 				else if is_textless() then 27
 				else 94}
 		font:
-			name: MPlantin
+			name: {if is_archetype() then "Gotham Pro" else "MPlantin"}
 			italic name: MPlantin-Italic
 			size: { if styling.shrink_font_size != "" then 14 - to_number(styling.shrink_font_size) else 14}
-			scale down to: 10
-			color: black
+			scale down to: 8
+			color: {if white_state_font() then "white" else "black"}
+			shadow color: {if not use_drop_shadow() then rgba(0,0,0,0) else if white_state_font() then "black" else "white"}
+			shadow displacement x: -1
+			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { if styling.shrink_font_size != "" then 14 - to_number(styling.shrink_font_size) else 14}
@@ -408,6 +441,44 @@ card style:
 				   styling.center_text == "always"
 				then "middle center shrink-overflow"
 				else "middle left shrink-overflow"
+		z index: 2
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	rule text 2:
+		top: 58
+		left: 29
+		width: {if is_state() then 315 else 0}
+		height: 70
+		font:
+			name: MPlantin-Italic
+			italic name: MPlantin
+			size: 13
+			scale down to: 8
+			color: {if white_state_font() then "white" else "black"}
+			shadow color: {if not use_drop_shadow() then rgba(0,0,0,0) else if white_state_font() then "black" else "white"}
+			shadow displacement x: -1
+			shadow displacement y: 1
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 13
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   card_style.text_2.content_lines <= 2 and
+				   not contains(match: ".", card.rule_text_2) and
+				   not contains(match: ";", card.rule_text_2) and
+				   not contains(match: ":", card.rule_text_2) and
+				   not contains(match: "!", card.rule_text_2) and
+				   not contains(match: "?", card.rule_text_2) and
+				   card.flavor_text == "<i-flavor></i-flavor>") or
+				   styling.center_text == "always"
+				then "top center shrink-overflow"
+				else "top left shrink-overflow"
 		z index: 2
 		padding left:   6
 		padding top:    2
@@ -582,6 +653,15 @@ extra card field:
 	script: card.card_color
 	save value: false
 	editable: false
+extra card field:
+	type: color
+	name: arch back
+	choice:
+		name: gray
+		color: rgb(120,100,100)
+	show statistics: false
+	description: The background of the card; can be any solid color.
+
 extra card style:
 	card code:
 		left: 24
@@ -602,6 +682,7 @@ extra card style:
 		z index: 1
 		render style: image
 		image: artist_arrow.png
+		visible: {if is_archetype() then archetype_image() else true }
 	pt box:
 		left: {if center_pt() then 144 else 273 }
 		top: 466
@@ -747,4 +828,9 @@ extra card style:
 		render style: image
 		image: evobar_tip.png
 		visible: {use_evobar()}
-
+	arch back:
+		left: 0
+		top: 0
+		width: {if is_archetype() then 375 else 0}
+		height: 523
+		z index: -2
