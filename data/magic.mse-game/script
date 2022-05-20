@@ -450,6 +450,7 @@ protection_code := {
 		else if match(input, match:"^its owner$") then "anything its owner controls"
 		else if match(input, match:"^(each of )?your opponents$") then "anything " + replace(input, match:"(each of )?your opponents", replace:"controlled by those players")
 		else if match(input, match:"(the|a) [^\n]* of your choice") then "anything " + replace(input, match:"(the|a) ([^\n]*) of your choice", replace:"of that \\2")
+		else if input == "colorless" then "anything colorless"
 		else "anything " + replace(english_singular(input), match:"and from", replace:"or", in_context:" <match> ")
 	output := " targeted, dealt damage, enchanted, equipped by " + output
 	if match(output, match:"(artifacts|creatures|instants|lands|planeswalkers|sorceries|tribals|planes|schemes|emblems|conspiracies|by [A-Z])") and not match(output, match:"(enchantmentsAura|Curse)") then
@@ -779,6 +780,10 @@ text_filter :=
 	replace@(
 		match:"SYMAROUND",
 		replace:"<sym></sym>"
+	)+
+	replace@(
+		match:"-\n-"
+		replace:"<soft-line>\n</soft-line>"
 	)+
 	# step 3a : expand shortcut word CARDNAME
 	replace@(
@@ -1388,22 +1393,30 @@ auto_flags := {true}
 front_modal_hint := {
 	if not auto_flags() then ["", "", 10.5]
 	else if remove_tags(card.sub_type_2) != "" then [card.sub_type_2, "<sym>"+card.casting_cost_2+"</sym>", 10.5]
-	else if card.casting_cost_2 != "" then [main_types(card.super_type_2), "<sym>"+card.casting_cost_2+"</sym>", 10.5]
-	else [main_types(card.super_type_2), mana_ability(card.rule_text_2), 10.5]
+	else if card.casting_cost_2 != "" then [main_type(card.super_type_2), "<sym>"+card.casting_cost_2+"</sym>", 10.5]
+	else [main_type(card.super_type_2), mana_ability(card.rule_text_2), 10.5]
 }
 back_modal_hint := {
 	if not auto_flags() then ["", "", 10.5]
 	else if remove_tags(card.sub_type) != "" then [card.sub_type, "<sym>"+card.casting_cost+"</sym>", 10.5]
-	else if card.casting_cost != "" then [main_types(card.super_type), "<sym>"+card.casting_cost+"</sym>", 10.5]
-	else [main_types(card.super_type), mana_ability(card.rule_text), 10.5]
+	else if card.casting_cost != "" then [main_type(card.super_type), "<sym>"+card.casting_cost+"</sym>", 10.5]
+	else [main_type(card.super_type), mana_ability(card.rule_text), 10.5]
 }
 mana_ability := {
 	abils := break_text(input, match:"(</?sym(-auto)?>)?T(</?sym(-auto)?>)?: Add (</?sym(-auto)?>)?(W|U|B|R|G|C)(</?sym(-auto)?>)?(, | or )?(</?sym(-auto)?>)?(W|U|B|R|G|C)?(</?sym(-auto)?>)?(, or )?(</?sym(-auto)?>)?(W|U|B|R|G|C)?(</?sym(-auto)?>)?.")
 	abils[0] or else ""
 }
+main_type := {
+	types := main_types(input)
+	if includes("Creature", array:types)
+		then "Creature"
+	else if includes("Land", array:types)
+		then "Land"
+	else types[0]
+}
 main_types := {
 	types := break_text(input, match:"(Land|Instant|Sorcery|Artifact|Enchantment|Creature|Planeswalker)")
-	types[0] or else ""
+	types or else [""]
 }
 ######################## Mainframe mana
 use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
@@ -1413,6 +1426,8 @@ use_color_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"c
 use_hybrid_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"hybrid with colors")}
 v_mana_name := {if not use_v_mana() then "" else replace(set.custom_mana_symbol_name, match:"(.+/|\\.png)", replace:"")}
 v_mana_loc := {if not use_v_mana() then "" else replace(set.custom_mana_symbol_name, match:"{v_mana_name()}\\.png", replace:"")}
+v_mana_num := {max(to_number(set.number_hybrid_variants),0) or else -1}
+
 searchPull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
 searchSnip := replace@(match:"search(name|mana|type|rules|flavor|text|notes)_", replace:"")
 
