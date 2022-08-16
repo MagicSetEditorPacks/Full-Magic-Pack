@@ -1843,3 +1843,93 @@ phy_reminder := {
 		reminder_text := ""
 	reminder_text
 }
+
+
+
+### Additional Statistics
+
+# Count how many cards of each color combination are in the set.
+color_combination_statistic := {
+	combination :=	(if symbol_count(symbol: "W") > 0 then "W" else "") +
+					(if symbol_count(symbol: "U") > 0 then "U" else "") +
+					(if symbol_count(symbol: "B") > 0 then "B" else "") +
+					(if symbol_count(symbol: "R") > 0 then "R" else "") +
+					(if symbol_count(symbol: "G") > 0 then "G" else "")
+	if combination == "" then "C" else combination
+}
+
+# Count how many cards have one white devotion in the set. Repeat for two white devotion. Repeat for three, then four+, the again for other colors.
+card_devotion_statistic := {
+	symbol_aggregate(symbol: "W") +
+	symbol_aggregate(symbol: "U") +
+	symbol_aggregate(symbol: "B") +
+	symbol_aggregate(symbol: "R") +
+	symbol_aggregate(symbol: "G") +
+	symbol_aggregate(symbol: "C")
+}
+
+# Count the total devotion of all cards in the set.
+total_devotion_statistic := {
+	symbol_count_list(symbol: "W") +
+	symbol_count_list(symbol: "U") +
+	symbol_count_list(symbol: "B") +
+	symbol_count_list(symbol: "R") +
+	symbol_count_list(symbol: "G") +
+	symbol_count_list(symbol: "C")
+}
+
+# Count how many lands can produce white mana in the set. Repeat for other colors.
+land_color_production_list := {
+	if not (contains(card.type, match:"Land") or contains(card.type, match:"land")) then ""
+	else (	can_C :=		if can_tap_for_C()				then "C"		else ""
+			can_Any :=		if can_tap_for_any_color()		then "Any, "	else ""
+			can_Chosen :=	if can_tap_for_chosen_color()	then "Chosen, "	else ""
+			if can_Any != "" or can_Chosen != "" then (can_Any + can_Chosen + can_C)
+			else (	(if can_tap_for_W()				then "W, "		else "") +
+					(if can_tap_for_U()				then "U, "		else "") +
+					(if can_tap_for_B()				then "B, "		else "") +
+					(if can_tap_for_R()				then "R, "		else "") +
+					(if can_tap_for_G()				then "G, "		else "") +
+					can_C))
+}
+
+# Helper functions
+symbol_aggregate := {
+	count := symbol_count(symbol: symbol)
+	if count == 0 then ""
+	else if count == 1 then (symbol + ", ")
+	else if count == 2 then (symbol + symbol + ", ")
+	else if count == 3 then (symbol + symbol + symbol + ", ")
+	else					(symbol + symbol + symbol + symbol + "+, ")
+}
+
+symbol_count_list := {
+	list := for each sym in cmc_split(to_text(card.casting_cost)) do (if contains(sym, match: symbol) then (symbol + ", ") else "")
+	if list == nil then "" else list
+}
+
+symbol_count := {
+	count := for each sym in cmc_split(to_text(card.casting_cost)) do (if contains(sym, match: symbol) then 1 else 0)
+	if count == nil then 0 else count
+}
+
+match_tap_for_W				:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*<sym[^>]*>[^<]*W[^<]*<")
+match_tap_for_U				:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*<sym[^>]*>[^<]*U[^<]*<")
+match_tap_for_B				:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*<sym[^>]*>[^<]*B[^<]*<")
+match_tap_for_R				:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*<sym[^>]*>[^<]*R[^<]*<")
+match_tap_for_G				:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*<sym[^>]*>[^<]*G[^<]*<")
+match_tap_for_C				:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*<sym[^>]*>[^<]*C[^<]*<")
+match_tap_for_any_color		:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*mana ((of any [^(\\n)^]*)|(in any combination of ))color")
+match_tap_for_chosen_color	:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Aa]dd [^(\\n)^]*mana of the chosen color")
+match_tap_for_chosen_color2	:= match@(match: "<sym[^>]*>T</sym[^>]*>[^(\\n)^]+ [Cc]hoose a color[^(\\n)^]+ [Aa]dd [^(\\n)^]*mana of that color")
+can_tap_for_W				:= { match_tap_for_W(card.rule_text)				or match_tap_for_W(card.level_1_text)				or match_tap_for_W(card.level_2_text)				or match_tap_for_W(card.level_3_text)				or match_tap_for_W(card.level_4_text) }
+can_tap_for_U				:= { match_tap_for_U(card.rule_text)				or match_tap_for_U(card.level_1_text)				or match_tap_for_U(card.level_2_text)				or match_tap_for_U(card.level_3_text)				or match_tap_for_U(card.level_4_text) }
+can_tap_for_B				:= { match_tap_for_B(card.rule_text)				or match_tap_for_B(card.level_1_text)				or match_tap_for_B(card.level_2_text)				or match_tap_for_B(card.level_3_text)				or match_tap_for_B(card.level_4_text) }
+can_tap_for_R				:= { match_tap_for_R(card.rule_text)				or match_tap_for_R(card.level_1_text)				or match_tap_for_R(card.level_2_text)				or match_tap_for_R(card.level_3_text)				or match_tap_for_R(card.level_4_text) }
+can_tap_for_G				:= { match_tap_for_G(card.rule_text)				or match_tap_for_G(card.level_1_text)				or match_tap_for_G(card.level_2_text)				or match_tap_for_G(card.level_3_text)				or match_tap_for_G(card.level_4_text) }
+can_tap_for_C				:= { match_tap_for_C(card.rule_text)				or match_tap_for_C(card.level_1_text)				or match_tap_for_C(card.level_2_text)				or match_tap_for_C(card.level_3_text)				or match_tap_for_C(card.level_4_text) }
+can_tap_for_any_color		:= { match_tap_for_any_color(card.rule_text)		or match_tap_for_any_color(card.level_1_text)		or match_tap_for_any_color(card.level_2_text)		or match_tap_for_any_color(card.level_3_text)		or match_tap_for_any_color(card.level_4_text) }
+can_tap_for_chosen_color	:= { match_tap_for_chosen_color(card.rule_text)		or match_tap_for_chosen_color(card.level_1_text)	or match_tap_for_chosen_color(card.level_2_text)	or match_tap_for_chosen_color(card.level_3_text)	or match_tap_for_chosen_color(card.level_4_text) or
+								 match_tap_for_chosen_color2(card.rule_text)	or match_tap_for_chosen_color2(card.level_1_text)	or match_tap_for_chosen_color2(card.level_2_text)	or match_tap_for_chosen_color2(card.level_3_text)	or match_tap_for_chosen_color2(card.level_4_text) }
+
+### /Additional Statistics
