@@ -96,7 +96,7 @@ script:
 	#determine if the card is a type that is a "token" i.e. it should be batched with tokens instead of with other cards
 	is_token := {contains(card.shape, match:"token") or contains(card.shape, match:"emblem") or contains(card.shape, match:"rulestip") }
 	is_double := {contains(card.shape, match:"double") }
-	
+
 	#determine if the card is of a rarity that should be included
 	included_rarity := {
 		(is_token() and options.include_Tokens)
@@ -107,37 +107,46 @@ script:
 		or (card.rarity == "mythic rare" and options.include_Mythic)
 		or (card.rarity == "special" and options.include_Special)
 		}
-		
+
 	#Strip bad punctuation from card names
 	strip_card_name :=
 		replace@(match: "’",replace:"'") + #replace bad apostrophe with good apostrophe
 		replace@(match:":", replace:"")+ #remove colons
 		replace@(match:";", replace:"")+ #remove semicolons
 		replace@(match:"\\.", replace:"") #remove periods
-		
+
+	# escape special xml characters
+	xml_escape := replace@(match:"&",replace:"&amp;") #escape ampersands
+		+ replace@(match:"\"",replace:"\\&quot;") #escape double quote
+		+ replace@(match:"\'",replace:"\\&apos;") #escape single quote
+		+ replace@(match:"\<",replace:"\\&lt;") #escape less than sign
+		#+ replace@(match:"\>",replace:"\\&gt;") #escape greater than sign, for some reason this upsets mse and they are technically not needed to escape
+	# escaped set code
+	setcode := xml_escape(set.set_code)
+
 	#functions for the !exportname command
 	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n\<]+")
 	exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
-	
+
 	#determining what name should be used for the card
 	card_name := { if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else card.name }
-	
+
 	#determining what rules text should be used for the card
 	card_rules_text := { if card.special_text != "" then card.special_text else card.rule_text }
 	card_rules_text_2 := { if card.special_text_2 != "" then card.special_text_2 else card.rule_text_2 }
-	
+
 	#helpers to find the correct count for this token relation, and generate the requisite XML
 	token_count_regex := "<([0-9]+|x)>"
 	filter_count := filter_text@(match: token_count_regex)
 	generate_count_XML := replace@(match:token_count_regex, replace:{" count=\"" + _1 + "\""})
 	add_related_count := {if filter_count(input) != "" then generate_count_XML(filter_count(input)) else ""}
-	
+
 	#helpers to find if a auto-attachment is desired for this token relation, and generate the requisite XML
 	add_attachment := {if filter_text(match: "<attach>", input) != "" then " attach=\"attach\"" else ""}
-	
+
 	#helper functions for converted_related later
 	related_entry_regex := "(.+?[^[:space:]]);"
-	
+
 	#convert the !related command field to <reverse-related> XML blocks
 	convert_related :=
 		replace@(match: "!related ?\n?", replace:"")+ #blank out the related command itself
@@ -145,20 +154,42 @@ script:
 		replace@(match: "’",replace:"'") + #replace bad apostrophe with good apostrophe
 		replace@(match: "<X>",replace:"<x>") + #replace accidentily capital X with lowercase X
 		replace@(match:"!",replace: "") + #blank out the command ender
-		
+
 		#for every other card name, surround it with reverse-related tags and put in relevant attributes
-		{for each entry in (break_text(match:related_entry_regex, input)) do ("\<reverse-related" + add_related_count(entry)  + add_attachment(entry) + ">" + strip_card_name(entry) + "\</reverse-related>\n")}
-	
+		{for each entry in (break_text(match:related_entry_regex, input)) do ("\<reverse-related" + add_related_count(entry)  + add_attachment(entry) + ">" + xml_escape(strip_card_name(entry)) + "\</reverse-related>\n")}
+
 	#remove accidentily created empty <reverse-related> XML blocks
 	remove_empty := replace@(match:"\<reverse-related>\</reverse-related>", replace:"")
-	
+
 	filter_related := filter_text@(match:"!relate ?[^!]+!?")
-	
+
 	#functions for the !tapped command
 	contains_tapped := contains@(match:"!tapped")
-	
-	CIPT := {if contains_tapped(card.notes) then "\n "+"\<cipt>" + "1" + "\</cipt>" else ""}
-	
+
+	CIPT := {if contains_tapped(card.notes) then "\n      "+"\<cipt>" + "1" + "\</cipt>" else ""}
+
+	# maintype, used in cockatrice's card type sorting,
+	# no longer automatically determined in v4 xml,
+	# first use the same heuristic used in "oracle" else do the same thing v3 xml did
+	# !maintype [type]! in the card notes overwrites this
+	filter_maintype := filter_text@(match:"!maintype ?[^!]+!?")
+	maintype :=
+	{
+		"\n        "+"\<maintype>"
+		+(
+			if filter_maintype(card.notes) != "" then xml_escape(replace(match:"!$", replace:"", replace(match:"^!maintype ?", replace:"", filter_maintype(card.notes))))
+			else if contains(card.type, match:"Planeswalker") then "Planeswalker"
+			else if contains(card.type, match:"Creature") then "Creature"
+			else if contains(card.type, match:"Land") then "Land"
+			else if contains(card.type, match:"Sorcery") then "Sorcery"
+			else if contains(card.type, match:"Instant") then "Instant"
+			else if contains(card.type, match:"Artifact") then "Artifact"
+			else if contains(card.type, match:"Enchantment") then "Enchantment"
+			else xml_escape(replace(match:"^.* ", replace:"", replace(match:" —.*$", replace:"", card.type)))
+		)
+		+"\</maintype>"
+	}
+
 	card_color :=
 	{
 		if contains(card.type, match:"land") or contains(card.rule_text, match:"Devoid") then "" else
@@ -170,7 +201,7 @@ script:
 			+(if contains(card.card_color, match:"green") or contains(card.casting_cost, match:"G") then "G" else "")
 		)
 	}
-	
+
 	card_color_2 :=
 	{
 		if contains(card.type, match:"land") or contains(card.rule_text_2, match:"Devoid") then "" else
@@ -182,37 +213,37 @@ script:
 			+(if contains(card.card_color_2, match:"green") or contains(card.casting_cost_2, match:"G") then "G" else "")
 		)
 	}
-	
+
 	#write a normal card's XML text
 	write_normal := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ ">"+set.set_code+"\</set>"
+			+ ">"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n ")
-			+(if contains(card.type, match:"Creature") then "\<pt>")
-			+(if contains(card.type, match:"Creature") then card.pt)
-			+(if contains(card.type, match:"Creature") then "\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") then "3"
 			 else if contains(card.type, match:"Creature") then "2"
 			 else if contains(card.type, match:"Land") then "0"
@@ -221,28 +252,28 @@ script:
 		#CIPT
 		+ CIPT()
 		# Rules Text
-		+"\n "+"\<text>"+card_rules_text()+"\</text>"
-		+"\n"+"\</card>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text())+"\</text>"
+		+"\n    "+"\</card>"
 	}
 	write_token := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+strip_card_name(card_name())+(if options.append_Set_Code_To_Tokens then " " + set.set_code else "")+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(strip_card_name(card_name())+(if options.append_Set_Code_To_Tokens then " " + setcode else ""))+"\</name>"
 		# Set
-		+"\n "+"\<set>"+set.set_code+"\</set>"
+		+"\n      "+"\<set>"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n ")
-			+(if contains(card.type, match:"Creature") then "\<pt>")
-			+(if contains(card.type, match:"Creature") then card.pt)
-			+(if contains(card.type, match:"Creature") then "\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") then "3"
 			 else if contains(card.type, match:"Creature") then "2"
 			 else if contains(card.type, match:"Land") then "0"
@@ -251,30 +282,31 @@ script:
 		#CIPT
 		+ CIPT()
 		# Rules Text
-		+"\n "+"\<text>"+card_rules_text()+"\</text>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text())+"\</text>"
 		# Token
-		+ "\n \<token>1\</token>"
+		+ "\n     "+"\<token>1\</token>"
 		# Reverse Related
 		#if there is a !related block in the cards notes, set up the reverse-related XML elements
 		+ (if filter_related(card.notes) != "" then remove_empty("\n" + convert_related(filter_related(card.notes))))
-		+"\n"+"\</card>"
+		+"\n    "+"\</card>"
 	}
 	write_flip := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
 		#+" // "+strip_card_name(card.name_2)
 		+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ ">"+set.set_code+"\</set>"
+			+ ">"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 			+(if contains(card.shape, match:"flip") then
 			 	(if contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"hybrid") then "M"
 			 	else if contains(card.card_color, match:"white") then "W"
@@ -283,7 +315,7 @@ script:
 			 	else if contains(card.card_color, match:"red") then "R"
 			 	else if contains(card.card_color, match:"green") then "G"
 			 	else "")
-			 else if card.card_color != "" and card.card_color != "land" and card.card_color != "artifact" and card.card_color_2 != "" and card.card_color_2 != "land" and card.card_color_2 != "artifact"then 
+			 else if card.card_color != "" and card.card_color != "land" and card.card_color != "artifact" and card.card_color_2 != "" and card.card_color_2 != "land" and card.card_color_2 != "artifact"then
 			 	(if contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"hybrid") or card.card_color != card.card_color_2 then "M"
 			 	else if contains(card.card_color, match:"white") and contains(card.card_color_2, match:"white") then "W"
 				else if contains(card.card_color, match:"blue") and contains(card.card_color_2, match:"blue") then "U"
@@ -302,150 +334,154 @@ script:
 			 )
 			+"\</color>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost
+		+"\n        "+"\<manacost>"+card.casting_cost
 		 +(if card.casting_cost_2 != "" then " // "+card.casting_cost_2)
 		 +"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+" // "+replace(card.type_2, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-")+" // "+replace(card.type_2, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# P/T
-		+(if contains(card.type, match:"Creature") or contains(card.type_2, match:"Creature") then "\n ")
+		+(if contains(card.type, match:"Creature") or contains(card.type_2, match:"Creature") then "\n    ")
 			+(if contains(card.type, match:"Creature") or contains(card.type_2, match:"Creature") then "\<pt>")
-			+(if contains(card.type, match:"Creature") then card.pt)
+			+(if contains(card.type, match:"Creature") then xml_escape(card.pt))
 			+(if contains(card.type, match:"Creature") and contains(card.type_2, match:"Creature") then " // ")
-			+(if contains(card.type_2, match:"Creature") then card.pt_2)
+			+(if contains(card.type_2, match:"Creature") then xml_escape(card.pt_2))
 			+(if contains(card.type, match:"Creature") or contains(card.type_2, match:"Creature") then "\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") or contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type, match:"Creature") or contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type, match:"Land") or contains(card.type_2, match:"Land")  then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n "+"\<text>"+card_rules_text()+"\n--- \n"+card_rules_text_2()+"\</text>"
-		+"\n"+"\</card>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text()+"\n--- \n"+card_rules_text_2())+"\</text>"
+		+"\n    "+"\</card>"
 	}
 	write_double := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
-		# Name of the related card
-		+"\n "+"\<related attach=\"attach\">"+strip_card_name(card.name_2)+"\</related>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n ")
-			+(if contains(card.type, match:"Creature") then "\<pt>")
-			+(if contains(card.type, match:"Creature") then card.pt)
-			+(if contains(card.type, match:"Creature") then "\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") then "3"
 			 else if contains(card.type, match:"Creature") then "2"
 			 else if contains(card.type, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n "+"\<text>"+card_rules_text()
-		+"\n---\n(Back): "+strip_card_name(card.name_2)+"\</text>"
-		+"\n"+"\</card>"
-		+"\n"+"\<card>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text()
+		+"\n---\n(Back): "+strip_card_name(card.name_2))+"\</text>"
+		# Name of the related card
+		+"\n      "+"\<related attach=\"attach\">"+xml_escape(strip_card_name(card.name_2))+"\</related>"
+		+"\n    "+"\</card>"
+		+"\n    "+"\<card>"
 		# Name II
-		+"\n "+"\<name>"
+		+"\n      "+"\<name>"
 		#+"("+strip_card_name(card_name())+") | "
-		+strip_card_name(card.name_2)
+		+xml_escape(strip_card_name(card.name_2))
 		+"\</name>"
 		# Set II
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color II
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color_2()
 			+"\</color>"
 		# Mana Cost II
-		+"\n "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
 		# Converted Mana Cost II
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type II
-		+"\n "+"\<type>"+replace(card.type_2, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type_2, match:"—", replace:"-"))+"\</type>"
 		# P/T II
-		+(if contains(card.type_2, match:"Creature") then "\n ")
-			+(if contains(card.type_2, match:"Creature") then "\<pt>")
-			+(if contains(card.type_2, match:"Creature") then card.pt_2)
-			+(if contains(card.type_2, match:"Creature") then "\</pt>")
+		+(if contains(card.type_2, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt_2)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow II
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type_2, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text II
-		+"\n "+"\<text>"+card_rules_text_2()
-		+"\n---\n(Front): "+strip_card_name(card_name())+"\</text>"
-		+"\n"+"\</card>"		
+		+"\n      "+"\<text>"+xml_escape(card_rules_text_2()
+		+"\n---\n(Front): "+strip_card_name(card_name()))+"\</text>"
+		+"\n    "+"\</card>"
 	}
-	
+
 	# Count the number of paragraphs to detect number of walker abilities.
 	paragraph_count := replace@(match:"\n", replace:"•")+
 		filter_text@(match:"•")
-		
+
 	write_walker := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ ">"+set.set_code+"\</set>"
+			+ ">"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# Loyalty
-		+"\n "+"\<loyalty>"+card.loyalty+"\</loyalty>"
+		+"\n      "+"\<loyalty>"+card.loyalty+"\</loyalty>"
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"+"1"+"\</tablerow>"
+		+"\n      "+"\<tablerow>"+"1"+"\</tablerow>"
 		#CIPT
 		+ CIPT()
 		# Rules Text
-		+"\n "+"\<text>"
-		+(if card.special_text or else "" != "" then card.special_text else 
+		+"\n      "+"\<text>"
+		+xml_escape((if card.special_text or else "" != "" then card.special_text else
 			card.loyalty_cost_1
 			+(if card.loyalty_cost_1 !="" then ": ")
 			+split_text(match:"\n", card.rule_text).0
@@ -460,50 +496,51 @@ script:
 		+(if contains(paragraph_count(card.rule_text), match:"•••") then "\n")
 			+card.loyalty_cost_4
 			+(if card.loyalty_cost_4 !="" then ": ")
-			+(if contains(paragraph_count(card.rule_text), match:"•••") then split_text(match:"\n", card.rule_text).3))
+			+(if contains(paragraph_count(card.rule_text), match:"•••") then split_text(match:"\n", card.rule_text).3)))
 		+"\</text>"
-		+"\n"+"\</card>"
+		+"\n    "+"\</card>"
 	}
 	write_double_walker := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
-		# Name of the related card
-		+"\n "+"\<related attach=\"attach\">"+strip_card_name(card.name_2)+"\</related>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# Loyalty
-		+(if contains(card.type, match:"Planeswalker") then "\n "+"\<loyalty>"+card.loyalty+"\</loyalty>")
+		+(if contains(card.type, match:"Planeswalker") then "\n      "+"\<loyalty>"+card.loyalty+"\</loyalty>")
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n "+"\<pt>"+card.pt+"\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type_2, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n "+"\<text>"
-		+(if card.special_text or else "" != "" then card.special_text else 
+		+"\n      "+"\<text>"
+		+xml_escape((if card.special_text or else "" != "" then card.special_text else
 			card.loyalty_cost_1
 			+(if card.loyalty_cost_1 !="" then ": ")
 			+split_text(match:"\n", card.rule_text).0
@@ -516,45 +553,49 @@ script:
 			+(if card.loyalty_cost_3 !="" then ": ")
 			+(if contains(paragraph_count(card.rule_text), match:"••") then split_text(match:"\n", card.rule_text).2)
 		+(if contains(paragraph_count(card.rule_text), match:"•••") then "\n"))
-		+"\n---\n(Back): "+strip_card_name(card.name_2)+"\</text>"
-		+"\n"+"\</card>"
-		+"\n"+"\<card>"
+		+"\n---\n(Back): "+strip_card_name(card.name_2))+"\</text>"
+		# Name of the related card
+		+"\n      "+"\<related attach=\"attach\">"+xml_escape(strip_card_name(card.name_2))+"\</related>"
+		+"\n    "+"\</card>"
+		+"\n    "+"\<card>"
 		# Name II
-		+"\n "+"\<name>"
+		+"\n      "+"\<name>"
 		#+strip_card_name(card_name())+") | "
-		+strip_card_name(card.name_2)+"\</name>"
+		+xml_escape(strip_card_name(card.name_2))+"\</name>"
 		# Set II
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color II
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color_2()
 			+"\</color>"
 		# Mana Cost II
-		+"\n "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
 		# Converted Mana Cost II
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type II
-		+"\n "+"\<type>"+replace(card.type_2, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type_2, match:"—", replace:"-"))+"\</type>"
 		# Loyalty II
-		+(if contains(card.type_2, match:"Planeswalker") then "\n "+"\<loyalty>"+card.loyalty_2+"\</loyalty>")
+		+(if contains(card.type_2, match:"Planeswalker") then "\n        "+"\<loyalty>"+card.loyalty_2+"\</loyalty>")
 		# P/T II
-		+(if contains(card.type_2, match:"Creature") then "\n "+"\<pt>"+card.pt_2+"\</pt>")
+		+(if contains(card.type_2, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt_2)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow II
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type_2, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text II
-		+"\n "+"\<text>"
-		+(if card.special_text_2 or else "" != "" then card.special_text_2 else 
+		+"\n      "+"\<text>"
+		+xml_escape((if card.special_text_2 or else "" != "" then card.special_text_2 else
 			card.loyalty_cost_4
 			+(if card.loyalty_cost_4 !="" then ": ")
 			+split_text(match:"\n", card.rule_text_2).0
@@ -567,88 +608,90 @@ script:
 			+(if card.loyalty_cost_6 !="" then ": ")
 			+(if contains(paragraph_count(card.rule_text_2), match:"••") then split_text(match:"\n", card.rule_text_2).2)
 		+(if contains(paragraph_count(card.rule_text_2), match:"•••") then "\n"))
-		+"\n---\n(Front): "+strip_card_name(card_name())+"\</text>"
-		+"\n"+"\</card>"	
+		+"\n---\n(Front): "+strip_card_name(card_name()))+"\</text>"
+		+"\n    "+"\</card>"
 	}
 	write_sparker := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
-		# Name of the related card
-		+"\n "+"\<related attach=\"attach\">"+strip_card_name(card.name_2)+"\</related>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n ")
-			+(if contains(card.type, match:"Creature") then "\<pt>")
-			+(if contains(card.type, match:"Creature") then card.pt)
-			+(if contains(card.type, match:"Creature") then "\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") then "3"
 			 else if contains(card.type, match:"Creature") then "2"
 			 else if contains(card.type, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n "+"\<text>"+card_rules_text()
-		+"\n---\n(Back): "+strip_card_name(card.name_2)+"\</text>"
-		+"\n"+"\</card>"
-		+"\n"+"\<card>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text()
+		+"\n---\n(Back): "+strip_card_name(card.name_2))+"\</text>"
+		# Name of the related card
+		+"\n      "+"\<related attach=\"attach\">"+xml_escape(strip_card_name(card.name_2))+"\</related>"
+		+"\n    "+"\</card>"
+		+"\n    "+"\<card>"
 		# Name II
-		+"\n "+"\<name>"
+		+"\n      "+"\<name>"
 		#+strip_card_name(card_name())+") | "
-		+strip_card_name(card.name_2)+"\</name>"
+		+xml_escape(strip_card_name(card.name_2))+"\</name>"
 		# Set II
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color II
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color_2()
 			+"\</color>"
 		# Mana Cost II
-		+"\n "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
 		# Converted Mana Cost II
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type II
-		+"\n "+"\<type>"+replace(card.type_2, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type_2, match:"—", replace:"-"))+"\</type>"
 		# Loyalty II
-		+(if contains(card.type_2, match:"Planeswalker") then "\n "+"\<loyalty>"+card.loyalty_2+"\</loyalty>")
+		+(if contains(card.type_2, match:"Planeswalker") then "\n        "+"\<loyalty>"+card.loyalty_2+"\</loyalty>")
 		# P/T II
-		+(if contains(card.type_2, match:"Creature") then "\n "+"\<pt>"+card.pt_2+"\</pt>")
+		+(if contains(card.type_2, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt_2)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow II
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type_2, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text II
-		+"\n "+"\<text>"
-		+(if card.special_text_2 or else "" != "" then card.special_text_2 else 
+		+"\n      "+"\<text>"
+		+xml_escape((if card.special_text_2 or else "" != "" then card.special_text_2 else
 			card.loyalty_cost_4
 			+(if card.loyalty_cost_4 !="" then ": ")
 			+split_text(match:"\n", card.rule_text_2).0
@@ -661,49 +704,50 @@ script:
 			+(if card.loyalty_cost_6 !="" then ": ")
 			+(if contains(paragraph_count(card.rule_text_2), match:"••") then split_text(match:"\n", card.rule_text_2).2)
 		+(if contains(paragraph_count(card.rule_text_2), match:"•••") then "\n"))
-		+"\n---\n(Front): "+strip_card_name(card_name())+"\</text>"
-		+"\n"+"\</card>"	
+		+"\n---\n(Front): "+strip_card_name(card_name()))+"\</text>"
+		+"\n    "+"\</card>"
 	}
 	write_sacrificer := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
-		# Name of the related card 
-		+"\n "+"\<related attach=\"attach\">"+strip_card_name(card.name_2)+"\</related>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# Loyalty
-		+(if contains(card.type, match:"Planeswalker") then "\n "+"\<loyalty>"+card.loyalty+"\</loyalty>")
+		+(if contains(card.type, match:"Planeswalker") then "\n      "+"\<loyalty>"+card.loyalty+"\</loyalty>")
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n "+"\<pt>"+card.pt+"\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type_2, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n "+"\<text>"
-		+(if card.special_text or else "" != "" then card.special_text else 
+		+"\n      "+"\<text>"
+		+xml_escape((if card.special_text or else "" != "" then card.special_text else
 			card.loyalty_cost_1
 			+(if card.loyalty_cost_1 !="" then ": ")
 			+split_text(match:"\n", card.rule_text).0
@@ -716,91 +760,90 @@ script:
 			+(if card.loyalty_cost_3 !="" then ": ")
 			+(if contains(paragraph_count(card.rule_text), match:"••") then split_text(match:"\n", card.rule_text).2)
 		+(if contains(paragraph_count(card.rule_text), match:"•••") then "\n"))
-		+"\n---\n(Back): "+strip_card_name(card.name_2)+"\</text>"
-		+"\n"+"\</card>"
-		+"\n"+"\<card>"
+		+"\n---\n(Back): "+strip_card_name(card.name_2))+"\</text>"
+		# Name of the related card
+		+"\n      "+"\<related attach=\"attach\">"+xml_escape(strip_card_name(card.name_2))+"\</related>"
+		+"\n    "+"\</card>"
+		+"\n    "+"\<card>"
 		# Name II
-		+"\n "+"\<name>"
+		+"\n      "+"\<name>"
 		#+"("+strip_card_name(card_name())+") | "
-		+strip_card_name(card.name_2)
+		+xml_escape(strip_card_name(card.name_2))
 		+"\</name>"
 		# Set II
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+".full." + to_lower(options.images_File_Type) + "\" >"+set.set_code+"\</set>"
+			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + to_lower(options.images_File_Type) + "\" >"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color II
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color_2()
 			+"\</color>"
 		# Mana Cost II
-		+"\n "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost_2+"\</manacost>"
 		# Converted Mana Cost II
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type II
-		+"\n "+"\<type>"+replace(card.type_2, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type_2, match:"—", replace:"-"))+"\</type>"
 		# P/T II
-		+(if contains(card.type_2, match:"Creature") then "\n ")
-			+(if contains(card.type_2, match:"Creature") then "\<pt>")
-			+(if contains(card.type_2, match:"Creature") then card.pt_2)
-			+(if contains(card.type_2, match:"Creature") then "\</pt>")
+		+(if contains(card.type_2, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt_2)+"\</pt>")
+		+"\n      "+"\</prop>"
 		# Tablerow II
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type_2, match:"Instant") or contains(card.type_2, match:"Sorcery") then "3"
 			 else if contains(card.type_2, match:"Creature") then "2"
 			 else if contains(card.type_2, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text II
-		+"\n "+"\<text>"+card_rules_text_2()
-		+"\n---\n(Front): "+strip_card_name(card_name())+"\</text>"
-		+"\n"+"\</card>"	
+		+"\n      "+"\<text>"+xml_escape(card_rules_text_2()
+		+"\n---\n(Front): "+strip_card_name(card_name()))+"\</text>"
+		+"\n    "+"\</card>"
 	}
 	write_leveler := {
-		"\n"+"\<card>"
+		"\n    "+"\<card>"
 		# Name
-		+"\n "+"\<name>"+options.append_String_To_Names+strip_card_name(card_name())+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
 		# Set
-		+"\n "+"\<set rarity="
+		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
 			else if contains(card.rarity,match:"common") then "\"common\""
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ ">"+set.set_code+"\</set>"
+			+ ">"+setcode+"\</set>"
+		+"\n      "+"\<prop>"
 		# Color
-		+"\n "+"\<color>"
+		+"\n        "+"\<color>"
 		+ card_color()
 			+"\</color>"
 		# Mana Cost
-		+"\n "+"\<manacost>"+card.casting_cost+"\</manacost>"
+		+"\n        "+"\<manacost>"+card.casting_cost+"\</manacost>"
 		# Converted Mana Cost
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
-		# Converted Mana Cost II
-		+"\n "+"\<cmc>"+card.cmc+"\</cmc>"
+		+"\n        "+"\<cmc>"+card.cmc+"\</cmc>"
 		# Type
-		+"\n "+"\<type>"+replace(card.type, match:"—", replace:"-")+"\</type>"
+		+"\n        "+"\<type>"+xml_escape(replace(card.type, match:"—", replace:"-"))+"\</type>"
+		+maintype()
 		# P/T
-		+(if contains(card.type, match:"Creature") then "\n ")
-			+(if contains(card.type, match:"Creature") then "\<pt>")
-			+(if contains(card.type, match:"Creature") then card.pt)
-			+(if contains(card.type, match:"Creature") then "\</pt>")
+		+(if contains(card.type, match:"Creature") then "\n        "+"\<pt>"+xml_escape(card.pt)+"\</pt>")
+		+"\n      "+"\</prop>"
 		#CIPT
 		+ CIPT()
 		# Tablerow
-		+"\n "+"\<tablerow>"
+		+"\n      "+"\<tablerow>"
 			+(if contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") then "3"
 			 else if contains(card.type, match:"Creature") then "2"
 			 else if contains(card.type, match:"Land") then "0"
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n "+"\<text>"
+		+"\n      "+"\<text>"
 		#Level I
-		+card_rules_text()
+		+xml_escape(card_rules_text()
 		# Level II
 		+"\nLEVEL " + card.level_1
 		 +(if card.pt_2 != "" then "\n"+card.pt_2)
@@ -808,11 +851,11 @@ script:
 		# Level III
 		+"\nLEVEL " + card.level_2
 		 +(if card.pt_3 != "" then "\n"+card.pt_3)
-		 +"\n"+card.rule_text_3
+		 +"\n"+card.rule_text_3)
 		+"\</text>"
-		+"\n"+"\</card>"
+		+"\n    "+"\</card>"
 	}
-	
+
 	write_card := { if is_token() then ""
 		else if not(included_rarity()) then ""
 		else if contains(card.shape, match:"double") and contains(card.type, match:"Planeswalker") and contains(card.type_2, match:"Planeswalker") then write_double_walker()
@@ -824,7 +867,7 @@ script:
 		else if contains(card.shape, match:"leveler") then write_leveler()
 		else write_normal()
 	}
-	
+
 	#if the currently exported card is a token, write it as a token
 	write_token_if_token := { if is_token() then write_token() else ""}
 
@@ -833,23 +876,23 @@ script:
 	{
 		write_image_file(
 			card,
-			directory: "{set.set_code}",
-			file:"{options.append_String_To_Names+strip_card_name(card_name())+(if is_token() and options.append_Set_Code_To_Tokens then " " + set.set_code else "")+if splitter_name() and is_double() then "_" + card.name_2}.full." + to_lower(options.images_File_Type),
+			directory: set.set_code,
+			file: (options.append_String_To_Names+strip_card_name(card_name())+(if is_token() and options.append_Set_Code_To_Tokens then " " + set.set_code else "")+if splitter_name() and is_double() then "_" + strip_card_name(card.name_2)) + "." + to_lower(options.images_File_Type),
 			width: (if contains(card.shape, match:"split") or contains(card.shape, match:"double") then 752 else 375),
 			height: 523
 			)
 	}
-	
+
 	#if images are set to be rendered, render all images of rarities that have been selected
 	write_images := if options.export_Images then for each card in filter_list(cards,filter:{included_rarity(card:input)}) do write_image() else ""
-	
+
 	write_cards := to_text(for each card in cards do write_card())
 	write_all_tokens := to_text(for each card in cards do write_token_if_token())
-	
+
 	#Main export script
-	
+
 	#tokens in Separate XML
-	if (options.include_Tokens and options.tokens_In_Separate_XML) then write_text_file(file:set.set_code + " Tokens" + ".xml", to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"3\">\n<cards>\n"+write_all_tokens+"\n\n</cards>\n</cockatrice_carddatabase>"))
+	if (options.include_Tokens and options.tokens_In_Separate_XML) then write_text_file(file:set.set_code + " Tokens" + ".xml", to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"4\">\n  <cards>\n"+write_all_tokens+"\n\n  </cards>\n</cockatrice_carddatabase>"))
 
 	#other cards
-	to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"3\">\n<sets>\n<set>\n<name>"+set.set_code+"</name>\n<longname>"+set.title+"</longname>\n<settype>"+options.cockatrice_Set_Type+"</settype>\n</set>\n</sets>\n<cards>\n"+write_cards+if (options.include_Tokens and not(options.tokens_In_Separate_XML)) then ("\n\n<!-->Tokens</-->\n"+write_all_tokens)+"\n\n</cards>\n</cockatrice_carddatabase>")
+	to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"4\">\n  <sets>\n    <set>\n      <name>"+setcode+"</name>\n      <longname>"+xml_escape(set.title)+"</longname>\n      <settype>"+xml_escape(options.cockatrice_Set_Type)+"</settype>\n    </set>\n  </sets>\n  <cards>\n"+write_cards+if (options.include_Tokens and not(options.tokens_In_Separate_XML)) then ("\n\n    <!-->Tokens</-->\n"+write_all_tokens)+"\n\n  </cards>\n</cockatrice_carddatabase>")
