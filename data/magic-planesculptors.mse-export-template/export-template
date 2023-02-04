@@ -2,7 +2,7 @@
 short name: PlaneSculptors
 full name: PlaneSculptors Export 1.4
 position hint: 006
-version: 2018-06-24
+version: 2023-02-04
 installer group: magic/Export/planesculptors
 create directory: true
 
@@ -21,9 +21,7 @@ option field:
 	name: export images
 	choice: no
 	choice: .jpg
-	choice: .png
 	choice: .full.jpg
-	choice: .full.png
 	description: Export images
 script:
 	symbol_font      := "magic-mana-small"
@@ -34,7 +32,7 @@ script:
 		replace@(match: "\\[", replace: "", in_context: "<match>(\\+|-)?[0-9]+: ")
 	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n]+")
 	exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
-	card_name := { replace(if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else card.name, match:" $", replace:"") }
+	card_name := { remove_tags(replace(replace(if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else card.name, match:" $", replace:""), match:"’", replace:"'")) }
 	compare_card_name := { if exporter_name_grabber(exporter_name_filter(input.notes)) != "" then exporter_name_grabber(exporter_name_filter(input.notes)) else input.name }
 	determine_shape := {
 		if (contains(card.shape, match:"normal") or contains(card.shape, match:"planeswalker") or card.loyalty_2 != "") and card.name_2 != "" then "double"
@@ -175,7 +173,7 @@ script:
 		+"\n"+escape_linebreaks(to_html(card.flavor_text))
 		+"\n"+to_html(remove_linebreaks(card.illustrator))
 		
-		+"\n"+remove_linebreaks(card.name_2)
+		+"\n"+remove_linebreaks(remove_tags(card.name_2))
 		+"\n"+card.card_color_2
 		+"\n"+symbols_to_html(card.casting_cost_2)
 		+"\n"+remove_linebreaks(to_text(card.type_2))
@@ -194,7 +192,9 @@ script:
 	write_images := if options.export_images == "no" then "" else for each card in cards do write_image_file(card, file:card_name()+options.export_images)
 	for each card in cards do if check_unique(cards, name:card_name()) > 1 then trace("Warning: Repeated name: " + card.name)
 	write_cards := for each card in cards do write_card()
-	to_string(
+	wordshtml := to_string(
 		 set.title+"\n"
 		 +"1.0\n"
 		 +write_cards)
+	write_text_file(file:"set.txt", wordshtml)
+	wordshtml
