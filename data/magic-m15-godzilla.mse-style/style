@@ -99,7 +99,29 @@ init script:
 	ancestral_mana := { styling.ancestral_mana_symbols }
 	has_identity := { styling.color_indicator_dot }
 	is_unsorted := {styling.remove_from_autocount}
+	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
+	un_png := replace@(match:".png", replace: "")
 	
+	alt_rarity := {styling.alt_rarity_color != ""}
+	alt_rarity_color := {
+		string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+		if match(styling.alt_rarity_color, match:":$") then string := styling.alt_rarity_color
+		colons := length(filter_text(string, match:":"))
+		output := split_text(string, match:",|:")
+		splits := split_text(string, match:":")
+		if colons == 4
+			then output := split_text(string+"0.07:", match:",|:")
+		if colons == 3
+			then output := split_text(string+splits[2]+"0.07:", match:",|:")
+		else if colons == 2
+			then output := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
+		else if colons == 1
+			then output := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
+		
+		output
+	}
+	alt_symbol := {symbol_variation(symbol:set.symbol, border_radius: alt_rarity_color().12, fill_type: "linear gradient", fill_color_1: rgb(alt_rarity_color().0, alt_rarity_color().1, alt_rarity_color().2), fill_color_2: rgb(alt_rarity_color().3, alt_rarity_color().4, alt_rarity_color().5), border_color_1: rgb(alt_rarity_color().6, alt_rarity_color().7, alt_rarity_color().8), border_color_2: rgb(alt_rarity_color().9, alt_rarity_color().10, alt_rarity_color().11), center_x:0.5, center_y:0.5, end_x:1, end_y:1)}
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -136,6 +158,10 @@ styling field:
 	type: text
 	name: shrink typeline text
 	description: Shrinks the typeline's font size
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
 styling field:
 	type: text
 	name: flavor bar offset
@@ -378,17 +404,40 @@ card style:
 			# Images based on the set symbol
 			basic land:
 				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			common:
 				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+			uncommon:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	text:
 		left: 29
