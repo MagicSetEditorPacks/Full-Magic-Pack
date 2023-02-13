@@ -40,19 +40,22 @@ init script:
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	mainframe_walker := {true}
 	text_filter := text_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
-	template_prefix := [card: "" card2: "" card3: "fullart/" card4: "fullart/" page:"page/" nyx:"nyx/" stamp: "" alias: "alias/" snowtexture:"snow/" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.png" card2: "card2.png" card3: "card.jpg" card4: "card2.jpg" page:"card2.png" nyx:"nyx.png" stamp: "stamp.png" snowtexture:"snow.png" alias:"alias.png", identity: "identity.png"]
+	template_prefix := [card: "" card2: "" card3: "" card3: "" card4: "" page:"page/" page2: "page/" nyx:"nyx/" stamp: "" alias: "alias/" snowtexture:"snow/" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.png" card2: "card2.png" card3: "card3.png" card4: "card4.png" page:"card.png" page2:"card2.png" nyx:"nyx.png" stamp: "stamp.png" snowtexture:"snow.png" alias:"alias.png", identity: "identity.png"]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + "c" + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
-
+	
 	# This will create two seperate card faces
 	card_background2 := { color_background(type:"card2", base_hybrid:card_hybrid) }
+	card_background3 := { color_background(type:"card3", base_hybrid:card_hybrid) }
+	card_background4 := { color_background(type:"card4", base_hybrid:card_hybrid) }
 	alias_bar := { color_background(type:"alias", base_hybrid:card_hybrid) }
 	nyx_background := { color_background(type:"nyx", base_hybrid:card_hybrid) }
 	snow_texture := { color_background(type:"snowtexture", base_hybrid:card_hybrid) }
 	card_background_page := { color_background(type:"page", base_hybrid:card_hybrid) }
+	card_background_page2 := { color_background(type:"page2", base_hybrid:card_hybrid) }
 
 	# Use the normal tap symbol
 	mana_t := {
@@ -81,7 +84,7 @@ init script:
 	is_promo := { styling.promo }
 	
 	# Does the card have four abilities?
-	has_four_abilities := { max_level() > 3 or force_tall()}
+	has_four_abilities := { not force_short() and max_level() > 3 or force_tall()}
 	has_two_abilities := { max_level() < 3 }
 	is_stamped := { is_rare() and styling.holofoil_stamped_rares }
 	is_normal_size := { styling.default_image_size }
@@ -103,7 +106,7 @@ init script:
 
 	global_chop_top := { to_int(pull_comma_array(styling.combined_chop, cell:0, end:0, default:0))}
 	global_chop_bot := { to_int(pull_comma_array(styling.combined_chop, cell:1, end:0, default:0))}
-	global_chop_right := { to_int(pull_comma_array(styling.combined_chop, cell:3, end:0, default:0)) + (if is_adventure() then 150 else 0)}
+	global_chop_right := { to_int(pull_comma_array(styling.combined_chop, cell:3, end:0, default:0)) + (if use_adv() then 150 else 0)}
 	top_of_textbox := {if has_four_abilities() then 292+global_chop_top()+(if is_clear() then 5 else 0) else 329+global_chop_top()}
 	use_full_art := { contains(styling.other_options, match:"mythic edition fullart") }
 	mask_script := {
@@ -190,6 +193,7 @@ init script:
 		else "auto"
 	}
 	force_tall := { contains(styling.other_options, match:"use taller frame")}
+	force_short := { contains(styling.other_options, match:"use short frame")}
 	has_identity := { styling.color_indicator_dot}
 	is_unsorted := {styling.remove_from_autocount}
 	##shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
@@ -207,6 +211,8 @@ init script:
 	is_clear := {styling.clear or contains(styling.other_options, match:"clear frame")}
 	is_nyx := {chosen(styling.other_options, choice:"nyx")}
 	is_adventure := {chosen(styling.other_options, choice:"adventure")}
+	is_tale := {chosen(styling.other_options, choice:"reversed adventure")}
+	use_adv := {is_adventure() or is_tale()}
 	is_snow := {chosen(styling.other_options, choice:"snow")}
 	is_vehicle := {chosen(styling.other_options, choice:"vehicle")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
@@ -220,6 +226,7 @@ init script:
 			+ (if card.loyalty_cost_5 != "" then "[" + card.loyalty_cost_5 + "]" + ": " else "") + (if card.level_5_text != "" then card.level_5_text+"\n" else if contains(paragraph_count(card.rule_text), match:"~~~~") then split_text(match:"\n", card.rule_text).4+"\n" else "")
 			+ (if card.loyalty_cost_6 != "" then "[" + card.loyalty_cost_6 + "]" + ": " else "") + (if card.level_6_text != "" then card.level_6_text+"\n" else if contains(paragraph_count(card.rule_text), match:"~~~~~") then split_text(match:"\n", card.rule_text).5 else "")
 		out := replace(out, match:"\n\n+", replace:"")
+		out := replace(out, match:"\n+$", replace:"")
 		out
 	}
 	pw_font_size := { if styling.font_size != "" then styling.font_size else 12 }
@@ -243,7 +250,12 @@ init script:
 		output
 	}
 	alt_symbol := {symbol_variation(symbol:set.symbol, border_radius: alt_rarity_color().12, fill_type: "linear gradient", fill_color_1: rgb(alt_rarity_color().0, alt_rarity_color().1, alt_rarity_color().2), fill_color_2: rgb(alt_rarity_color().3, alt_rarity_color().4, alt_rarity_color().5), border_color_1: rgb(alt_rarity_color().6, alt_rarity_color().7, alt_rarity_color().8), border_color_2: rgb(alt_rarity_color().9, alt_rarity_color().10, alt_rarity_color().11), center_x:0.5, center_y:0.5, end_x:1, end_y:1)}
-
+	card_shape := {if use_adv() then "adventure" else "planeswalker"}
+	page_image := {
+		page := if has_four_abilities() then card_background_page2() else card_background_page()
+		if is_tale() then page := flip_horizontal(page)
+		page
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -298,6 +310,7 @@ styling field:
 	name: other options
 	choice: clear frame
 	choice: use taller frame
+	choice: use short frame
 	choice: ancestral generic mana
 	choice: prerelease stamp
 	choice: un-indent nonloyalty abilities
@@ -308,6 +321,7 @@ styling field:
 	choice: snow
 	choice: vehicle
 	choice: adventure
+	choice: reversed adventure
 	choice: pride pinlines
 	initial: un-indent nonloyalty abilities
 styling field:
@@ -435,7 +449,7 @@ card style:
 		render style: image
 		popup style: in place
 		image: { if is_clear() then "" else if has_four_abilities() then card_background2() else card_background() }
-		mask: {if contains(styling.custom_mask, match:".png") then invert_image("/magic-mainframe-extras.mse-include/" + styling.custom_mask) else (if max_level() > 3 or force_tall() then "four_" else "") + (if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
+		mask: {if contains(styling.custom_mask, match:".png") then invert_image("/magic-mainframe-extras.mse-include/" + styling.custom_mask) else (if not force_short() and max_level() > 3 or force_tall() then "four_" else "") + (if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
 	############################# Name line
 	name:
 		left: { if card.card_symbol=="none" then 31 else 48 }
@@ -492,7 +506,7 @@ card style:
 		width: { if use_full_art() or is_clear() then 375 else if is_normal_size() then 324 else 345 }
 		height:	{ if use_full_art() or is_clear() then 523 else if is_normal_size() then 427.5 else 493 }
 		z index: -1
-		mask: {if contains(styling.custom_mask, match:".png") then "" else "guidelines/" + (if is_clear() then "clear_" else if is_normal_size() or use_full_art() then "" else "wide_") + (if max_level() > 3 or force_tall() then "four_" else "") + (if is_clear() then "frame_mask" else if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
+		mask: {if contains(styling.custom_mask, match:".png") then "" else "guidelines/" + (if is_clear() then "clear_" else if is_normal_size() or use_full_art() then "" else "wide_") + (if not force_short() and max_level() > 3 or force_tall() then "four_" else "") + (if is_clear() then "frame_mask" else if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
 	image 2:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
@@ -570,7 +584,7 @@ card style:
 					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	text:
-		left: 48
+		left: {if is_adventure() then 198 else 48}
 		top: { top_of_textbox() }
 		width: {300 - global_chop_right()}
 		bottom: {477-global_chop_bot()-(if is_stamped() then 2 else 0)}
@@ -625,7 +639,7 @@ card style:
 			color: white
 	loyalty cost 1:
 		z index: 7
-		left: 28
+		left: {if is_adventure() then 178 else 28}
 		top: { abil_center(0) - 17.3 - 2 - loyal_move() }
 		width: 18
 		height:	35
@@ -636,7 +650,7 @@ card style:
 			color: white
 	loyalty cost 2:
 		z index: 7
-		left: 28
+		left: {if is_adventure() then 178 else 28}
 		top: { abil_center(1) - 17.3 - 2 - loyal_move2() }
 		width: 18
 		height:	35
@@ -647,7 +661,7 @@ card style:
 			color: white
 	loyalty cost 3:
 		z index: 7
-		left: 28
+		left: {if is_adventure() then 178 else 28}
 		top: { abil_center(2) - 17.3 - 2 - loyal_move3() }
 		width: {if card.loyalty_cost_3 != "" or max_level() > 1 then 18 else 0}
 		height:	35
@@ -658,7 +672,7 @@ card style:
 			color: white
 	loyalty cost 4:
 		z index: 7
-		left: 28
+		left: {if is_adventure() then 178 else 28}
 		top: { abil_center(3) - 17.3 - 2 - loyal_move4() }
 		width: {if card.loyalty_cost_4 != "" or max_level() > 2 then 18 else 0}
 		height:	35
@@ -669,7 +683,7 @@ card style:
 			color: white
 	loyalty cost 5:
 		z index: 7
-		left: 28
+		left: {if is_adventure() then 178 else 28}
 		top: { abil_center(4) - 17.3 - 2 - loyal_move5() }
 		width: {if card.loyalty_cost_5 != "" or max_level() > 3 then 18 else 0}
 		height:	35
@@ -680,7 +694,7 @@ card style:
 			color: white
 	loyalty cost 6:
 		z index: 7
-		left: 28
+		left: {if is_adventure() then 178 else 28}
 		top: { abil_center(5) - 17.3 - 2 - loyal_move6() }
 		width: {if card.loyalty_cost_6 != "" or max_level() > 4 then 18 else 0}
 		height:	35
@@ -726,10 +740,10 @@ card style:
 			weight: bold
 ################################### Adventure stuff
 	name 2:
-		left: 202
-		top: {323+shrink_name2()}
-		right: { 35 + card_style.casting_cost_2.content_width }
-		height: {if is_adventure() then 20-shrink_name2() else 0}
+		left: {if is_adventure() then 22 else 202}
+		top: {324+(0.5*shrink_name2())-(if has_four_abilities() then 36 else 0)}
+		width: { 139 - card_style.casting_cost_2.content_width }
+		height: {if use_adv() then 20-shrink_name2() else 0}
 		alignment: bottom shrink-overflow
 		z index: 4
 		font:
@@ -737,10 +751,10 @@ card style:
 			size: {12 - shrink_name2() }
 			color: white
 	casting cost 2:
-		right: 345
-		top: 323
+		right: {if is_adventure() then 165 else 345}
+		top: {if has_four_abilities() then 288 else 323}
 		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
-		height: {if is_adventure() then 23 else 0}
+		height: {if use_adv() then 23 else 0}
 		alignment: middle right
 		symbol font:
 			name: magic-mana-large
@@ -750,10 +764,10 @@ card style:
 		z index: 4
 		padding top: 0
 	type 2:
-		left: 202
-		top: {347+ shrink_type2()}
+		left: {if is_adventure() then 22 else 202}
+		top: {348+ shrink_type2()-(if has_four_abilities() then 36 else 0)}
 		width: 151
-		height: {if is_adventure() then 20 else 0}
+		height: {if use_adv() then 20 else 0}
 		alignment: top shrink-overflow
 		z index: 4
 		padding top: 2
@@ -763,10 +777,10 @@ card style:
 			color: white
 			separator color: red
 	text 2:
-		left: 198
-		top: 367
-		width: {if is_adventure() then 149 else 0}
-		bottom: 479
+		left: {if is_adventure() then 20 else 198}
+		top: {if has_four_abilities() then 332 else 372}
+		width: {if use_adv() then 149 else 0}
+		bottom: {if is_tale() then 475 else 479}
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
@@ -794,14 +808,14 @@ card style:
 		line height hard max: 1.3
 		line height line max: 1.6
 	card color 2:
-		left:	193
-		top:	322
-		width:	{if is_adventure() then 165 else 0}
-		height:	155
-		z index: 3
+		left:	{if is_adventure() then 10 else 193}
+		top:	{if has_four_abilities() then 287 else 322}
+		width:	{if use_adv() then 165 else 0}
+		height:	{if has_four_abilities() then 195 else 160}
+		z index: 4
 		render style: image
 		popup style: in place
-		image: { card_background_page() }
+		image: { page_image() }
 
 ############################################################## Extra card fields
 extra card field:
@@ -1065,6 +1079,12 @@ extra card field:
 	save value: true
 	editable: true
 	description: Where they put mtgstory.com on story spotlights.
+extra card field:
+	type: choice
+	name: adventure cover
+	script: card.card_color
+	save value: false
+	editable: false
 extra card style:
 	card code:
 		left: 24
@@ -1123,7 +1143,7 @@ extra card style:
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 	loyalty cost box 1:
-		left: 15
+		left: {if is_adventure() then 165 else 15}
 		top: { abil_center(0) - 17.3 - 2 - loyal_move() }
 		width: 45
 		height: 36
@@ -1135,7 +1155,7 @@ extra card style:
 			loyalty down: loyaltydown.png
 			loyalty naught: loyaltynaught.png
 	loyalty cost box 2:
-		left: 15
+		left: {if is_adventure() then 165 else 15}
 		top: { abil_center(1) - 17.3 - 2 - loyal_move2() }
 		width: 45
 		height: 36
@@ -1147,7 +1167,7 @@ extra card style:
 			loyalty down: loyaltydown.png
 			loyalty naught: loyaltynaught.png
 	loyalty cost box 3:
-		left: 15
+		left: {if is_adventure() then 165 else 15}
 		top: { abil_center(2) - 17.3 - 2 - loyal_move3() }
 		width: 45
 		height: 36
@@ -1159,7 +1179,7 @@ extra card style:
 			loyalty down: loyaltydown.png
 			loyalty naught: loyaltynaught.png
 	loyalty cost box 4:
-		left: 15
+		left: {if is_adventure() then 165 else 15}
 		top: { abil_center(3) - 17.3 - 2 - loyal_move4() }
 		width: 45
 		height: 36
@@ -1171,7 +1191,7 @@ extra card style:
 			loyalty down: loyaltydown.png
 			loyalty naught: loyaltynaught.png
 	loyalty cost box 5:
-		left: 15
+		left: {if is_adventure() then 165 else 15}
 		top: { abil_center(4) - 17.3 - 2 - loyal_move5() }
 		width: 45
 		height: 36
@@ -1183,7 +1203,7 @@ extra card style:
 			loyalty down: loyaltydown.png
 			loyalty naught: loyaltynaught.png
 	loyalty cost box 6:
-		left: 15
+		left: {if is_adventure() then 165 else 15}
 		top: { abil_center(5) - 17.3 - 2 - loyal_move6() }
 		width: 45
 		height: 36
@@ -1195,7 +1215,7 @@ extra card style:
 			loyalty down: loyaltydown.png
 			loyalty naught: loyaltynaught.png
 	colon 1:
-		left: 59
+		left: {if is_adventure() then 209 else 59}
 		top: { abil_center(0) - 17.3 + 10 - loyal_move() }
 		width: 5
 		height: 10
@@ -1208,7 +1228,7 @@ extra card style:
 		alignment: middle center
 		visible: { card.loyalty_cost_1 != "" }
 	colon 2:
-		left: 59
+		left: {if is_adventure() then 209 else 59}
 		top: { abil_center(1) - 17.3 + 10 - loyal_move2() }
 		width: 5
 		height: 10
@@ -1221,7 +1241,7 @@ extra card style:
 		alignment: middle center
 		visible: { card.loyalty_cost_2 != "" }
 	colon 3:
-		left: 59
+		left: {if is_adventure() then 209 else 59}
 		top: { abil_center(2) - 17.3 + 10 - loyal_move3() }
 		width: {if has_two_abilities() then 0 else 5}
 		height: 10
@@ -1234,7 +1254,7 @@ extra card style:
 		alignment: middle center
 		visible: { card.loyalty_cost_3 != "" }
 	colon 4:
-		left: 59
+		left: {if is_adventure() then 209 else 59}
 		top: { abil_center(3) - 17.3 + 10 - loyal_move4() }
 		width: { if has_four_abilities() then 5 else 0 }
 		height: 10
@@ -1247,7 +1267,7 @@ extra card style:
 		alignment: middle center
 		visible: { card.loyalty_cost_4 != "" }
 	colon 5:
-		left: 59
+		left: {if is_adventure() then 209 else 59}
 		top: { abil_center(4) - 17.3 + 10 - loyal_move5() }
 		width: { if has_four_abilities() then 5 else 0 }
 		height: 10
@@ -1260,7 +1280,7 @@ extra card style:
 		alignment: middle center
 		visible: { card.loyalty_cost_5 != "" }
 	colon 6:
-		left: 59
+		left: {if is_adventure() then 209 else 59}
 		top: { abil_center(5) - 17.3 + 10 - loyal_move6() }
 		width: { if has_four_abilities() then 5 else 0 }
 		height: 10
@@ -1500,3 +1520,12 @@ extra card style:
 			size: 7
 			color: white
 			weight: bold
+	adventure cover:
+		left: 0
+		top: {if has_four_abilities() then 288 else 324}
+		width: 375
+		height: {if has_four_abilities() then 200 else 164}
+		z index: 2
+		image: {if has_four_abilities() then card_background4() else card_background3()}
+		visible: {is_adventure()}
+		render style: image
