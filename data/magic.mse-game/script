@@ -5,16 +5,16 @@ include file: language
 include file: /magic-blends.mse-include/new-blends
 
 ############################################################## version check
-version_date := {"2022-01-30"}
+version_date := {"2023-02-21"}
 ############################################################## Sorting mana symbols
 
 # correctly sort a mana symbol (no guild mana)
-mana_sort       := sort_text@(order: "\\?XYZI[0123456789]VLHSCAIE(WUBRG)") 
+mana_sort       := sort_text@(order: "\\?XYZI[0123456789]VLHSFCAIE(WUBRG)") 
 # correctly sort wedge mana
-mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VLHSCAIE(WBGUR)")
+mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VLHSFCAIE(WBGUR)")
 mana_unsort := sort_text@(order:"[/\\?XYZI0123456789VLHSCAIEWUBRG]")
 # correctly sort guild mana
-mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VLHSCAIEWUBRG/|]") +
+mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VLHSFCAIEWUBRG/|]") +
 		replace@(
 			# No lookbehind :(
 			#match: "(?<!/)(./.|././.|./././.|.[|])(?!/)",
@@ -60,7 +60,6 @@ mana_filter_t := replace@(               # Remove [] used for forcing mana symbo
 			match: "[\\[\\]]",
 			replace: ""
 		) + { tap_reduction(tap_filter()) + mana_filter() }
-
 
 ############################################################## Determine card color
 
@@ -232,9 +231,9 @@ card_color_filter := {
 
 ############################################################## Card number
 # exportname
-	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
-	exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
-	export_name := { exporter_name_grabber(exporter_name_filter(card.notes))}
+exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
+exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
+export_name := { exporter_name_grabber(exporter_name_filter(card.notes))}
 	
 # Index for sorting, white cards are first, so white->A, blue->B, .. ,
 # The code consists of 3 parts:
@@ -344,6 +343,15 @@ rarity_sort := {
 	else if set.sort_special_rarity == "with the rest" or card.rarity != "special" then " "
 	else "S"
 }
+card_partition := {"A"}
+over_partition := {
+	my_pos := number_partition()
+	mn_pos := if set.last_main_partition == "" then "M" else to_upper(substring(set.last_main_partition, end:1))
+	posis := [my_pos, mn_pos]
+	higher := sort_list(posis).0
+	my_pos != higher
+}
+number_partition := { to_upper(substring(card_partition(), end:1)) }
 set_filter := {
 	# TODO: what about rulestips?
 	if is_unsorted() then 
@@ -359,11 +367,11 @@ set_filter := {
 	else if is_masterpiece() and card.shape != "token" and card.shape != "emblem" then
 		{ is_masterpiece() and card.shape != "token" and card.shape != "emblem" }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist"}
+		{ not over_partition() and not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist"}
 	else if card.rarity == "special" then
-		{ not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity == "special" }
+		{ not over_partition() and not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity == "special" }
 	else
-		{ not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity != "special" }
+		{ not over_partition() and not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity != "special" }
 }
 card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:false, default:0)}
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
@@ -371,7 +379,7 @@ card_number := {
 	position (
 		of: card
 		in: set
-		order_by: { rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
+		order_by: { number_partition() + rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
 		filter:   set_filter()
 	) + 1 + to_number(card_number_offset())
 }
@@ -601,7 +609,6 @@ inserts_values := {
 	split_text(set.inserts+";;;;;;;;;", match:";")
 }
 ############################################################## The text box
-
 # Filters for the text box
 # context in which mana symbols are found
 mana_context :=
@@ -633,6 +640,9 @@ mana_un_context := "(converted mana costs? <match>|<match> life)"
 # truncates the name of legends
 legend_filter := replace@(match:"(, | of | the | \"| “).*", replace: "" )
 
+# does this frame support Alchemy Rebalanced name symbol?
+alch_compatible := {false}
+
 # these are considered a correct 'word' for spellchecking in the text box:
 additional_text_words := match@(match:
 	"(?ix)^(?:                         # match whole word
@@ -650,7 +660,9 @@ this_or_that := {
 	this := "this"
 	that := "that"
 	type := input
-	if is_creaturish(card.type) then type := "creature"
+	if input == "type" then type := main_type(card.type)
+	else if is_creaturish(card.type) then type := "creature"
+	if type == "" then type := "permanent"
 	if upper then (
 		this := "This"
 		that := "That"
@@ -878,7 +890,7 @@ text_filter :=
 	{ if set.mark_errors then
 		check_spelling(
 			language: language().spellcheck_code,
-			extra_dictionary: "/magic.mse-game/magic-words",
+			extra_dictionary: "/magic.mse-game/dictionary/magic-words",
 			extra_match: additional_text_words
 		)
 	  else input
@@ -921,18 +933,17 @@ break_subtypes := split_text@(match: " +|<atom-sep>[^<]*</atom-sep>", include_em
 sub_type_filter := {
 	input := remove_tag(tag: "<word-list-")
 	input := remove_tag(tag: "<soft")
-	lang  := language()
 	# What word list to use?
-	list_type_rest := if      lang.is_creature(type)    then "class"
-	                  else if lang.is_land(type)        then "land"
-	                  else if lang.is_artifact(type)    then "artifact"
-	                  else if lang.is_enchantment(type) then "enchantment"
-	                  else if lang.is_spell(type)       then "spell"
-	                  else if lang.is_planeswalker(type)       then "planeswalker"
-	                  else if lang.is_plane(type)       then "plane"
+	list_type_rest := if      languages[lang_name()].is_creature(type)    then "class"
+	                  else if languages[lang_name()].is_land(type)        then "land"
+	                  else if languages[lang_name()].is_artifact(type)    then "artifact"
+	                  else if languages[lang_name()].is_enchantment(type) then "enchantment"
+	                  else if languages[lang_name()].is_spell(type)       then "spell"
+	                  else if languages[lang_name()].is_planeswalker(type)       then "planeswalker"
+	                  else if languages[lang_name()].is_plane(type)       then "plane"
 					  else nil
 	if list_type_rest != nil then (
-		if lang.is_creature(type) or lang.is_tribal(type) then (
+		if languages[lang_name()].is_creature(type) or languages[lang_name()].is_tribal(type) then (
 			list_type_first := "race"
 		) else (
 			list_type_first := list_type_rest
@@ -943,11 +954,11 @@ sub_type_filter := {
 			if i == 0 then
 				"<word-list-{list_type_first}>{part}</word-list-{list_type_first}>"
 			else
-				lang.subtype_separator + "<word-list-{list_type_rest}>{part}</word-list-{list_type_rest}>"
+				languages[lang_name()].subtype_separator + "<word-list-{list_type_rest}>{part}</word-list-{list_type_rest}>"
 		) +
 		(if length(parts) > 0 then
 			# Add a new box at the end
-			"<soft>{lang.subtype_separator}</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
+			"<soft>{languages[lang_name()].subtype_separator}</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
 		 else
 			"<word-list-{list_type_first}></word-list-{list_type_first}>"
 		)
@@ -1186,6 +1197,9 @@ round_up := {to_int(0.99999999999998+input)}
 round_near := {to_int(0.5+input)}
 to_title := replace@(match:"(^| )([A-z])([^ ]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
 to_sentence := replace@(match:"(^|\n)([A-z])([^\n]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
+join_arrays := {
+	a1 + for x from 0 to length(a2)-1 do [a2[x]]
+}
 join := {
 	string := ""
 	if length(input) == 2 then spacer := " "
@@ -1194,11 +1208,21 @@ join := {
 		string := string + (if x == length(input)-1 then closing else "") + input[x] + (if x == length(input)-1 then "" else spacer)
 	string
 }@(spacer:", ", closing:"and ")
-includes := { flagged := false
-	for x from 0 to length(array)-1 do
-		if array[x] == input then flagged := true;
-	flagged
+ar_position := {
+	pos := -1
+	dummy := for x from 0 to length(in)-1 do (
+		if in[x] == of then pos := x
+		"filler"
+	)
+	pos
 }
+unique_elements := {
+	e1 := []
+	e2 := []
+	e1 := e1 + for x from 0 to length(of)-1 do if ar_position(of:of[x], in:from) == -1 then [of[x]]
+}
+includes := {ar_position(of:input in:array) != -1}
+
 pull_comma_array := {
 	array := split_text(input, match:divider)
 	length := length(comma_count(input))
@@ -1408,7 +1432,8 @@ mana_ability := {
 }
 main_type := {
 	types := main_types(input)
-	if includes("Creature", array:types)
+	if length(types) == 0 then ""
+	else if includes("Creature", array:types)
 		then "Creature"
 	else if includes("Land", array:types)
 		then "Land"
@@ -1427,6 +1452,19 @@ use_hybrid_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"
 v_mana_name := {if not use_v_mana() then "" else replace(set.custom_mana_symbol_name, match:"(.+/|\\.png)", replace:"")}
 v_mana_loc := {if not use_v_mana() then "" else replace(set.custom_mana_symbol_name, match:"{v_mana_name()}\\.png", replace:"")}
 v_mana_num := {max(to_number(set.number_hybrid_variants),0) or else -1}
+
+ub_stamp := { card.card_stamp == "universes beyond" }
+use_custom_stamp := {contains(set.custom_stamp_name, match:".png")}
+c_stamp_name := {
+	if not use_custom_stamp() then ""
+	else if card.stamp == "custom" then set.custom_stamp_name
+	else if card.stamp == "custom color" then replace(set.custom_stamp_name, match:"(.+/|\\.png)", replace:"")
+	else ""
+}
+c_stamp_loc := {
+	if card.stamp != "custom color" or not use_custom_stamp() then ""
+	else replace(set.custom_stamp_name, match:"{c_stamp_name()}\\.png", replace:"")
+}
 
 searchPull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
 searchSnip := replace@(match:"search(name|mana|type|rules|flavor|text|notes)_", replace:"")
@@ -1784,7 +1822,15 @@ card_face := {
 	back := if card[input+"_2"] or else "" != "" then card[input+"_2"] else card[input]
 	if match(margin_code, match:"(text[2456]|lv[5678])") then back else front
 }
-strip_card_codes := replace@(match:"^[CURMSL][WUBRGMZACL][0-9]+ ?[-—]? ?", replace:"")
+cc_filter := replace@(match:"^[CURMSL][WUBRGMZACL][0-9]+ ?[-—]? ?", replace:"")
+strip_card_codes := {
+	save := input
+	input := cc_filter(input)
+	input := if input == "" or input == " " then save else input
+	if alch_compatible() and card.card_symbol == "alchemy"
+		then "<sym>A-</sym>" + input
+	else input
+}
 name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
 
 face_code := {
@@ -1792,6 +1838,9 @@ face_code := {
 	if margin_code == "text2" or margin_code == "lv5" or margin_code == "lv6" or margin_code == "lv7" or margin_code == "lv8" then face := "_2"
 	output := face_scripts[input](face) or else if_parse(input, face:face) or else input
 	output
+}
+flip_face := {
+	if input == "_2" then "" else "_2"
 }
 face_scripts := [
 	iscreature: {is_creature(card["type"+face])},
@@ -1806,6 +1855,10 @@ face_scripts := [
 		contains(card[field+face], match:query)
 	},
 	notcontains: {not contains(card[field+face], match:query)},
+	name: {card["name"+face]},
+	cost: {card["casting_cost"+face]},
+	altname: {card["name"+flip_face(face)]},
+	altcost: {card["casting_cost"+flip_face(face)]},
 ]
 expand_facecodes := [
 	subtype: "sub_type",
@@ -1843,3 +1896,64 @@ phy_reminder := {
 		reminder_text := ""
 	reminder_text
 }
+
+# rough type_of script
+# fine for nil, boolean, color, date, string, number, and array
+# map and image are trickier
+# if you don't care about the difference use as normal, will return "map or image"
+# if you do, include key:"" parameter that's a key of the potential map
+# ex if you want to know if some_object is an image or [x:1]
+# use type_of(some_object, key:"x")
+type_of := {
+	test := to_string(input) or else nil
+	type := "idk"
+	if test == "" and input == nil then type := "nil"
+	else if test != nil and (input == true or input == false) then type := "boolean"
+	else if (test != nil and test + 0 == input + 0) then (
+		if to_color(test) or else nil == input
+			then type := "color"
+		else if to_date(test) or else nil == input
+			then type := "date"
+		else type := "string"
+	)
+	else if test != nil then type := "number"
+	else if input[0] or else nil != nil then type := "array"
+	else if key == "" then type := "map or image"
+	else if input[key] or else nil == nil then type := "image"
+	else type := "map"
+	type
+}@(key:"")
+
+is_string := {
+	test := to_string(input) or else nil
+	if test == "" and input == nil then false
+	else if test == nil then false
+	else test == input
+}
+
+# mapping := ["up":"test/up.png" "down":"test/down.png" "left":"test/left.png" "right":"test/right.png"]
+multi_choice_image := {
+	## input = option string
+	##img_map =  map of image links
+	coll := split_text(input, match:", ?")
+	imgs := for each x in coll do if img_map[x] or else false != false then [img_map[x]]
+	len := length(imgs)
+	if len == 0 then
+		""
+	else if len == 1 then
+		imgs[0]
+	else if len == 2 then
+		combine_blend(image1:imgs[0] image2:imgs[1], combine:combine)
+	else mass_combine(imgs:imgs, combine:combine)
+		
+}@(combine:"and")
+mass_combine := {
+	base := combine_blend(image1:imgs[0] image2:imgs[1], combine:combine)
+	for x from 2 to length(imgs)-1 do (
+		base := combine_blend(image1:base image2:imgs[x] combine:combine)
+		"" # this is junk output so it doesn't try to add the images as strings
+	)
+	base
+}@(combine:"and")
+
+zwsp := "​"
