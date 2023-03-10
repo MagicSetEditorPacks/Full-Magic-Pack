@@ -88,8 +88,8 @@ color_identity_statistic :=
 		(if has_identity_2() then distil_color_words_statistic(card.indicator_2) else "") +
 	
 		# Colors defined by casting cost symbols.
-		card.casting_cost +
-		(if check_2_statistic() then " " + card.casting_cost_2 else "")
+		card.casting_cost + " " +
+		card.casting_cost_2
 	
 	total_colors := distil_colors_statistic(total_colors)
 	if total_colors == "" then "C" else total_colors
@@ -1569,33 +1569,73 @@ suffix_to_check_statistic :=
 filter_from_statistic :=
 {
 	if set.filter_statistics == "" then "Kept" else (
-	values := get_filter_values_statistic(set.filter_statistics)
-	keys := get_filter_keys_statistic(set.filter_statistics)
-	modes := get_filter_modes_statistic(set.filter_statistics)
-	count := length(values)-1
-	if count != length(keys)-1 or count != length(modes)-1 then "!! Failed to parse filters !!" else (
-	values := for x from 0 to count do [remove_quotes_statistic(values[x])]
+	initial_filters := get_filter_values_statistic(set.filter_statistics)
+	initial_keys := get_filter_keys_statistic(set.filter_statistics)
+	initial_modes := get_filter_modes_statistic(set.filter_statistics)
+	initial_count := length(initial_filters)-1
+	if initial_count != length(initial_keys)-1 or initial_count != length(initial_modes)-1 then "!! Failed to parse filters !!" else (
+	fields := []
+	filters := []
+	keys := []
+	modes := []
+	for x from 0 to initial_count do
+	(
+		key := trim(initial_keys[x])
+		mode := initial_modes[x]
+		field :=		if		key == "color"
+							or	key == "colors" then			color_statistic()
+						else if	key == "color_identity"
+							or	key == "color identity" then	color_identity_statistic()
+						else if	key == "mana_value"
+							or	key == "mana value"
+							or	key == "cmc" then				cmc(card.casting_cost)
+						else									(card[key] or else card[replace(key, match: " ", replace:"_")]) or else nil
+		filter :=		if		key == "color"
+							or	key == "colors"
+							or	key == "color_identity"
+							or	key == "color identity" then	(	colors := distil_color_filter_statistic(initial_filters[x])
+																	if mode == "==" then		[colors]
+																	else if mode == "!=" then	(field := sort_text(field, order:colors); [colors])
+																	else						break_text(distil_color_filter_statistic(initial_filters[x]), match:"."))
+						else									[remove_quotes_statistic(initial_filters[x])]
+		for y from 0 to length(filter)-1 do
+		(
+			fields := fields + [field]
+			filters := filters + [filter[y]]
+			keys := keys + [key]
+			modes := modes + [mode]
+		)
+	)
+	count := length(filters)-1
 	message := "Kept"
 	for x from 0 to count do
 	(
 		if message == "Kept" or message == "Filtered" then (
-		field_value := card[keys[x]] or else nil
-		if keys[x] == "mana_value" or keys[x] == "cmc" then field_value := cmc(card.casting_cost)
-		if		field_value == nil																					then message := "!! Could not find field named [ " + keys[x] + " ] !!"
-		else if	(modes[x] == ":" and not contains(to_lower(remove_tags(field_value)), match: to_lower(values[x])))
-			or	(modes[x] == "==" and remove_tags(field_value) != values[x])
-			or	(modes[x] == "!=" and contains(to_lower(remove_tags(field_value)), match: to_lower(values[x])))		then message := "Filtered"
-		else if (modes[x] == "\<=" or modes[x] == ">=") and field_value != ""												then (	field_number := to_number(field_value) or else nil
-																															number := to_number(values[x]) or else nil
-																															if		field_number == nil																				then message := "!! Could not convert field [ " + keys[x] + " ] to numeric value !!"
-																															else if	number == nil																					then message := "!! Could not convert filter [ " + keys[x] + (if modes[x] == "\<=" then "<=" else ">=") + values[x] + " ] to numeric value !!"
-																															else if (modes[x] == "\<=" and field_number > number) or (modes[x] == ">=" and field_number < number)	then message := "Filtered"))
+		if fields[x] == nil then message := "!! Could not find field named [ " + keys[x] + " ] !!" else (
+		field := remove_tags(fields[x])
+		filter := filters[x]
+		key := keys[x]
+		mode := modes[x]
+		if		(mode == "==" and field != filter)
+			or	(mode == ":" and not contains(to_lower(field), match: to_lower(filter)))
+			or	(mode == "!=" and contains(to_lower(field), match: to_lower(filter)))		then message := "Filtered"
+		else if (mode == "\<=" or mode == ">=") and field != ""								then (	field_number := to_number(field) or else nil
+																									filter_number := to_number(filter) or else nil
+																									if		field_number == nil									then message := "!! Could not convert field [ " + key + " ] to numeric value !!"
+																									else if	filter_number == nil								then message := "!! Could not convert filter [ " + key + (if mode == "\<=" then "<=" else ">=") + filter + " ] to numeric value !!"
+																									else if	(mode == "\<=" and field_number > filter_number)
+																										or	(mode == ">=" and field_number < filter_number)		then message := "Filtered")))
 	)
 	message))
 }
 get_filter_values_statistic := trim + break_text@(match: "\"[^\"]*\"")
 get_filter_keys_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + replace@(match: ":|==|!=|\<=|>=", replace: "") + split_text@(match: ", ?")
 get_filter_modes_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + break_text@(match: ":|==|!=|\<=|>=")
+distil_color_filter_statistic :=
+{
+	filter := distil_color_words_statistic(input)
+	if filter == "" then distil_colors_statistic(input) else filter
+}
 remove_quotes_statistic := replace@(match: "\"", replace: "")
 
 trim_from_statistic :=
