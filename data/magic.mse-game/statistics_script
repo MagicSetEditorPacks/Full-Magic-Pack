@@ -1569,9 +1569,11 @@ suffix_to_check_statistic :=
 filter_from_statistic :=
 {
 	if set.filter_statistics == "" then "Kept" else (
-	initial_filters := get_filter_values_statistic(set.filter_statistics)
-	initial_keys := get_filter_keys_statistic(set.filter_statistics)
-	initial_modes := get_filter_modes_statistic(set.filter_statistics)
+	initial := set.filter_statistics
+	negate := if initial.0 == "!" then (initial := substring(initial, begin:1); true) else false
+	initial_filters := get_filter_values_statistic(initial)
+	initial_keys := get_filter_keys_statistic(initial)
+	initial_modes := get_filter_modes_statistic(initial)
 	initial_count := length(initial_filters)-1
 	if initial_count != length(initial_keys)-1 or initial_count != length(initial_modes)-1 then "!! Failed to parse filters !!" else (
 	fields := []
@@ -1622,7 +1624,9 @@ filter_from_statistic :=
 																									else if	(mode == "\<=" and field_number > filter_number)
 																										or	(mode == ">=" and field_number < filter_number)		then message := "Filtered")))
 	)
-	message))
+	if		message == "Filtered" and negate then	"Kept"
+	else if	message == "Kept" and negate then		"Filtered"
+	else											message))
 }
 get_filter_values_statistic := trim + break_text@(match: "\"[^\"]*\"")
 get_filter_keys_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + replace@(match: ":|==|!=|\<=|>=", replace: "") + split_text@(match: ", ?")
