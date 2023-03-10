@@ -1578,18 +1578,24 @@ filter_from_statistic :=
 	message := "Kept"
 	for x from 0 to count do
 	(
+		if message == "Kept" or message == "Filtered" then (
 		field_value := card[keys[x]] or else nil
-		if		field_value == nil																					then (message := "!! No field named: " + keys[x] + " !!";0)
-		else if	(modes[x] == ":" and contains(to_lower(remove_tags(field_value)), match: to_lower(values[x])))
-			or	(modes[x] == "==" and remove_tags(field_value) == values[x])
-			or	(modes[x] == "!=" and not contains(to_lower(remove_tags(field_value)), match: to_lower(values[x])))	then 0
-		else if	message == "Kept"																					then (message := "Filtered";0)
+		if keys[x] == "mana_value" or keys[x] == "cmc" then field_value := cmc(card.casting_cost)
+		if		field_value == nil																					then message := "!! Could not find field named [ " + keys[x] + " ] !!"
+		else if	(modes[x] == ":" and not contains(to_lower(remove_tags(field_value)), match: to_lower(values[x])))
+			or	(modes[x] == "==" and remove_tags(field_value) != values[x])
+			or	(modes[x] == "!=" and contains(to_lower(remove_tags(field_value)), match: to_lower(values[x])))		then message := "Filtered"
+		else if (modes[x] == "\<=" or modes[x] == ">=") and field_value != ""												then (	field_number := to_number(field_value) or else nil
+																															number := to_number(values[x]) or else nil
+																															if		field_number == nil																				then message := "!! Could not convert field [ " + keys[x] + " ] to numeric value !!"
+																															else if	number == nil																					then message := "!! Could not convert filter [ " + keys[x] + (if modes[x] == "\<=" then "<=" else ">=") + values[x] + " ] to numeric value !!"
+																															else if (modes[x] == "\<=" and field_number > number) or (modes[x] == ">=" and field_number < number)	then message := "Filtered"))
 	)
 	message))
 }
 get_filter_values_statistic := trim + break_text@(match: "\"[^\"]*\"")
-get_filter_keys_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + replace@(match: ":|==|!=", replace: "") + split_text@(match: ", ?")
-get_filter_modes_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + break_text@(match: ":|==|!=")
+get_filter_keys_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + replace@(match: ":|==|!=|\<=|>=", replace: "") + split_text@(match: ", ?")
+get_filter_modes_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + break_text@(match: ":|==|!=|\<=|>=")
 remove_quotes_statistic := replace@(match: "\"", replace: "")
 
 trim_from_statistic :=
