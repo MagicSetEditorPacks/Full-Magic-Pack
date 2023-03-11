@@ -308,7 +308,7 @@ colored_pips_count_statistic :=
 # Count how many lands can produce white mana in the set. Repeat for other colors.
 mana_production_list_statistic :=
 {
-	is_land := contains(card.type, match: "Land") or contains(card.type, match: "land") or contains(card.type_2, match: "Land") or contains(card.type_2, match: "land") or contains(card.type_3, match: "Land") or contains(card.type_3, match: "land")
+	is_land := has_type_statistic("Land")
 	if check == "land" and not is_land then "" else (
 	if check == "nonland" and is_land then "" else (
 	
@@ -495,36 +495,10 @@ split_notes_clauses_statistic := replace@(match: " *(,|\\.|;|(?=!)|\\n) *", repl
 land_drop_hit_percentage_statistic :=
 {
 	if card != set.cards.0 then "" else (
-	
-	cards := for each c in set.cards do
-	(
-		if	contains(c.notes, match: "commander")
-		or	contains(c.notes, match: "Commander")
-		or	(set.trim_statistics and (card.rarity == "special" or card.rarity == "masterpiece"))
-		or	c.shape == "token"
-		or	c.shape == "emblem"
-		or	contains(card.type, match: "token")
-		or	contains(card.type, match: "Token")
-		or	contains(card.type, match: "emblem")
-		or	contains(card.type, match: "Emblem")
-		or	contains(c.type, match: "Hero")
-		or	contains(c.type, match: "hero")
-		or	contains(c.type, match: "dungeon")
-		or	contains(c.type, match: "Dungeon")
-		or	contains(c.type, match: "conspiracy")
-		or	contains(c.type, match: "Conspiracy")
-		or	contains(c.type, match: "vanguard")
-		or	contains(c.type, match: "Vanguard")
-		or	contains(c.type, match: "scheme")
-		or	contains(c.type, match: "Scheme")
-		or	contains(c.type, match: "phenomenon")
-		or	contains(c.type, match: "Phenomenon")
-		or	match_plane_statistic(c.type)
-		or	filter_from_statistic(card: c) == "Filtered"
-		then [] else [c]
-	)
+	set_count := length(set.cards)-1
+	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
 	card_count := length(cards)
-	if card_count <= start then "Not enough non-commander non-promo cards to draw a starting hand. Add normal cards." else (
+	if card_count <= start then "Not enough non-commander non-promo cards to draw an opening hand. Add normal cards." else (
 	
 	land_count := for each c in cards do (if contains(c.super_type, match: "Land") or contains(c.super_type, match: "land") or contains(c.super_type_2, match: "Land") or contains(c.super_type_2, match: "land") or contains(c.super_type_3, match: "Land") or contains(c.super_type_3, match: "land") then 1 else 0)
 	if land_count == 0 then "No lands found. 0% chance to hit land drops." else (
@@ -561,6 +535,82 @@ n_choose_k_statistic :=
 	for x from 0 to k-1 do (accumulator := accumulator * to_real(n-x) / to_real(k-x))
 	accumulator
 }
+
+# Average number of cards in an opening hand
+average_opening_hand_statistic :=
+{
+	averages := split_text(set.global_variable_average_opening_hand, match: ",")
+	if length(averages) != 8 then set.global_variable_average_opening_hand else (
+	types :=	[has_type_statistic("Land")] +
+				(if has_type_statistic("Artifact") then (if mana_production_list_statistic(check: "nonland") == "" then [false, true] else [true, false]) else [false, false]) +
+				[has_type_statistic("Enchantment")] +
+				[has_type_statistic("Planeswalker")] +
+				[has_type_statistic("Creature")] +
+				[has_type_statistic("Sorcery")] +
+				[has_type_statistic("Instant")]
+	result := for x from 0 to 7 do (if types[x] then format_type_statistic[x] + averages[x] else "")
+	if result == "" then "" else substring(result, begin: 1))
+}
+global_variable_average_opening_hand_statistic :=
+{
+	set_count := length(set.cards)-1
+	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
+	card_count := length(cards)-1
+	card_count_real := to_number(card_count+1)
+	if card_count < 7 then "Not enough non-commander non-promo cards to draw an opening hand. Add normal cards." else (
+	
+	lands := 0
+	creatures := 0
+	manaartifacts := 0
+	nonmanaartifacts := 0
+	enchantments := 0
+	planeswalkers := 0
+	sorceries := 0
+	instants := 0
+	
+	for x from 0 to card_count do
+	(
+		c := cards[x]
+		if has_type_statistic(card:c, "Land") then lands := lands + 1
+		if has_type_statistic(card:c, "Creature") then creatures := creatures + 1
+		if has_type_statistic(card:c, "Artifact") then (if mana_production_list_statistic(card: c, check: "nonland") == "" then (nonmanaartifacts := nonmanaartifacts + 1) else (manaartifacts := manaartifacts + 1))
+		if has_type_statistic(card:c, "Enchantment") then enchantments := enchantments + 1
+		if has_type_statistic(card:c, "Planeswalker") then planeswalkers := planeswalkers + 1
+		if has_type_statistic(card:c, "Sorcery") then sorceries := sorceries + 1
+		if has_type_statistic(card:c, "Instant") then instants := instants + 1
+	)
+	
+	lands_average := format_average_statistic(7.0 * to_number(lands) / card_count_real)
+	creatures_average := format_average_statistic(7.0 * to_number(creatures) / card_count_real)
+	manaartifacts_average := format_average_statistic(7.0 * to_number(manaartifacts) / card_count_real)
+	nonmanaartifacts_average := format_average_statistic(7.0 * to_number(nonmanaartifacts) / card_count_real)
+	enchantments_average := format_average_statistic(7.0 * to_number(enchantments) / card_count_real)
+	planeswalkers_average := format_average_statistic(7.0 * to_number(planeswalkers) / card_count_real)
+	sorceries_average := format_average_statistic(7.0 * to_number(sorceries) / card_count_real)
+	instants_average := format_average_statistic(7.0 * to_number(instants) / card_count_real)
+	
+	lands_average + "," + manaartifacts_average + "," + nonmanaartifacts_average + "," + enchantments_average + "," + planeswalkers_average + "," + creatures_average + "," + sorceries_average + "," + instants_average)
+}
+format_average_statistic :=
+{
+	split := split_text(match: "\\.", to_string(input))
+	number := split[0]
+	digits := if (split[1] or else "") == "" then "00" else split[1]
+	if length(digits) == 1 then digits := digits + "0"
+	else if length(digits) > 2 then digits := substring(digits, end:2)
+	number + "." + digits
+}
+format_type_statistic :=
+[
+	",​Lands — ",
+	",​​Mana Artifacts — ",
+	",​​​Non-Mana Artifacts — ",
+	",​​​​Enchantments — ",
+	",​​​​​Planeswalkers — ",
+	",​​​​​​Creatures — ",
+	",​​​​​​​Sorceries — ",
+	",​​​​​​​​Instants — ",
+]
 
 # Rarities.
 rarity_statistic :=
@@ -704,6 +754,13 @@ is_canon_supertype_statistic :=
 	or	input == "Ongoing"		or input == "ongoing"
 	or	input == "Elite"		or input == "elite"
 	or	input == "Host"			or input == "host"
+}
+has_type_statistic :=
+{
+	lower_input := to_lower(input)
+	contains(card.type, match: input) or
+	contains(card.type, match: lower_input) or
+	(check_2_statistic(card:card) and (contains(card.type_2, match: input) or contains(card.type_2, match: lower_input)))
 }
 match_plane_statistic := match@(match: "(?i)Plane(?!swalker)")
 
@@ -1281,13 +1338,26 @@ loyalty_statistic :=
 # Should we check the card.casting_cost_2 or card.type_2 fields?
 check_2_statistic :=
 {
-	shape := card_shape()
-	(shape == "double faced" and chosen(set.count_secondary_faces, choice: "MDFC") and contains(styling.dfc_type or else "modal", match: "modal")) or
-	(shape == "double faced" and chosen(set.count_secondary_faces, choice: "TDFC") and contains(styling.dfc_type or else "transform", match: "transform")) or
-	(shape == "aftermath" and chosen(set.count_secondary_faces, choice: "Aftermath")) or
-	(shape == "adventure" and chosen(set.count_secondary_faces, choice: "Adventure")) or
-	(shape == "flip" and chosen(set.count_secondary_faces, choice: "Flip")) or
-	(contains(shape, match: "split") and chosen(set.count_secondary_faces, choice: "Split"))
+	shape := card_shape_statistic(card)
+	(shape == "double faced" and contains(styling.dfc_type or else "modal", match: "modal")			and chosen(set.count_secondary_faces, choice: "MDFC")) or
+	(shape == "MDFC"																				and chosen(set.count_secondary_faces, choice: "MDFC")) or
+	(shape == "double faced" and contains(styling.dfc_type or else "transform", match: "transform")	and chosen(set.count_secondary_faces, choice: "TDFC")) or
+	(shape == "TDFC"																				and chosen(set.count_secondary_faces, choice: "TDFC")) or
+	(shape == "aftermath"																			and chosen(set.count_secondary_faces, choice: "Aftermath")) or
+	(shape == "adventure"																			and chosen(set.count_secondary_faces, choice: "Adventure")) or
+	(shape == "flip"																				and chosen(set.count_secondary_faces, choice: "Flip")) or
+	(contains(shape, match: "split")																and chosen(set.count_secondary_faces, choice: "Split"))
+}
+card_shape_statistic :=
+{
+	name := card.stylesheet.short_name or else set.stylesheet.short_name
+	if		name == "Mainframe Splits" then	"split"
+	else if	name == "M15 Flip" then			"flip"
+	else if	name == "Gen Adventure" then	"adventure"
+	else if	name == "M15 Adventures" then	"adventure"
+	else if	name == "M15 Aftermath" then	"aftermath"
+	else if	name == "Mainframe DFC" then	if contains(card.styling.dfc_type or else "transform", match: "transform") then "TDFC" else "MDFC"
+	else									card_shape()
 }
 # Should we check the card.rule_text_X fields, or the card.level_X_text fields?
 text_to_check_statistic :=
@@ -1678,4 +1748,31 @@ trim_from_statistic :=
 		or	match_plane_statistic(card.type)
 	)
 	else false
+}
+
+trim_from_draw_statistic :=
+{
+			contains(card.notes, match: "commander")
+		or	contains(card.notes, match: "Commander")
+		or	(set.trim_statistics and (card.rarity == "special" or card.rarity == "masterpiece"))
+		or	card.shape == "token"
+		or	card.shape == "emblem"
+		or	contains(card.type, match: "token")
+		or	contains(card.type, match: "Token")
+		or	contains(card.type, match: "emblem")
+		or	contains(card.type, match: "Emblem")
+		or	contains(card.type, match: "Hero")
+		or	contains(card.type, match: "hero")
+		or	contains(card.type, match: "dungeon")
+		or	contains(card.type, match: "Dungeon")
+		or	contains(card.type, match: "conspiracy")
+		or	contains(card.type, match: "Conspiracy")
+		or	contains(card.type, match: "vanguard")
+		or	contains(card.type, match: "Vanguard")
+		or	contains(card.type, match: "scheme")
+		or	contains(card.type, match: "Scheme")
+		or	contains(card.type, match: "phenomenon")
+		or	contains(card.type, match: "Phenomenon")
+		or	match_plane_statistic(card.type)
+		or	filter_from_statistic(card: card) == "Filtered"
 }
