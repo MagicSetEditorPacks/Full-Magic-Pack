@@ -780,11 +780,7 @@ face_creature_subtype_statistic :=
 	old_subtypes := to_text(input)
 	if old_subtypes == "" then "" else (
 	
-	old_subtypes := replace(old_subtypes, match: "'", replace: "’")
-	old_subtypes := replace(old_subtypes, match: "Bolas’s Meditation Realm", replace: "Bolas’s Meditation Realm")	#Replace spaces within types by EN spaces that won't be split (Is replaced in the lists of subtypes as well.)
-	old_subtypes := replace(old_subtypes, match: "New Phyrexia", replace: "New Phyrexia")
-	old_subtypes := replace(old_subtypes, match: "Serra’s Realm", replace: "Serra’s Realm")
-	
+	old_subtypes := clean_subtypes_statistic(old_subtypes)
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	new_subtypes := for x from 0 to count do
@@ -813,11 +809,7 @@ face_noncreature_subtype_statistic :=
 	old_subtypes := to_text(input)
 	if old_subtypes == "" then "" else (
 	
-	old_subtypes := replace(old_subtypes, match: "'", replace: "’")
-	old_subtypes := replace(old_subtypes, match: "Bolas’s Meditation Realm", replace: "Bolas’s Meditation Realm")	#Replace spaces within types by EN spaces that won't be split (Is replaced in the list of subtypes as well.)
-	old_subtypes := replace(old_subtypes, match: "New Phyrexia", replace: "New Phyrexia")
-	old_subtypes := replace(old_subtypes, match: "Serra’s Realm", replace: "Serra’s Realm")
-	
+	old_subtypes := clean_subtypes_statistic(old_subtypes)
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	new_subtypes := for x from 0 to count do
@@ -845,6 +837,12 @@ face_noncreature_subtype_statistic :=
 	if new_subtypes == nil then "" else new_subtypes)
 }
 split_space_statistic := split_text@(match: " ")
+replace_space_statistic := replace@(match: " ", replace: "_")
+replace_squote_statistic := replace@(match: "'", replace: "’")
+clean_subtypes_statistic :=	replace_squote_statistic +
+							replace@(match: "Bolas’s Meditation Realm", replace: "Bolas’s Meditation Realm") +		#Replace spaces within types by EN spaces that won't be split (Is replaced in the list of subtypes as well.)
+							replace@(match: "New Phyrexia", replace: "New Phyrexia") +
+							replace@(match: "Serra’s Realm", replace: "Serra’s Realm")
 land_subtypes_statistic :=
 		"Desert;"
 	+	"Forest;"
@@ -1651,7 +1649,7 @@ suffix_to_check_statistic :=
 filter_from_statistic :=
 {
 	if set.filter_statistics == "" then "Kept" else (
-	initial := escape_quotes_filter_statistics(set.filter_statistics)
+	initial := escape_quotes_filter_statistics(replace_squote_statistic(set.filter_statistics))
 	negate := if initial.0 == "!" then (initial := substring(initial, begin:1); true) else false
 	initial_filters := get_filter_values_statistic(initial)
 	initial_keys := get_filter_keys_statistic(initial)
@@ -1676,7 +1674,7 @@ filter_from_statistic :=
 						else if	key == "mana_value"
 							or	key == "mana value"
 							or	key == "cmc" then				cmc(card.casting_cost)
-						else									(card[key] or else card[replace(key, match: " ", replace:"_")]) or else nil
+						else									(card[key] or else card[replace_space_statistic(key)]) or else nil
 		filter :=		if		key == "color"
 							or	key == "colors"
 							or	key == "color_identity"
@@ -1684,7 +1682,7 @@ filter_from_statistic :=
 																	if mode == "==" or mode == "!=" then	colors
 																	else									(field := sort_text(field, order:colors); colors))
 						else									remove_quotes_statistic(initial_filters[x])
-		fields := fields + [escape_quotes_field_statistics(field)]
+		fields := fields + [escape_quotes_field_statistics(replace_squote_statistic(field))]
 		filters := filters + [filter]
 		keys := keys + [key]
 		modes := modes + [mode]
