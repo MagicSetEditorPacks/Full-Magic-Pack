@@ -852,24 +852,27 @@ creature_subtype_statistic :=
 {
 	canon := creature_subtypes_statistic
 	custom := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
-	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom)) +
-				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom) else "")
+	excluded := ""
+	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded)) +
+				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded) else "")
 	if result == "" then "" else substring(result, begin: 1)
 }
 creature_race_statistic :=
 {
 	canon := creature_races_statistic
 	custom := replace_commas_statistic(set.custom_creature_races) + ";"
-	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom)) +
-				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom) else "")
+	excluded := replace_commas_statistic(set.custom_creature_classes) + ";"
+	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded)) +
+				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded) else "")
 	if result == "" then "" else substring(result, begin: 1)
 }
 creature_class_statistic :=
 {
 	canon := creature_classes_statistic
 	custom := replace_commas_statistic(set.custom_creature_classes) + ";"
-	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom)) +
-				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom) else "")
+	excluded := replace_commas_statistic(set.custom_creature_races) + ";"
+	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded)) +
+				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded) else "")
 	if result == "" then "" else substring(result, begin: 1)
 }
 
@@ -885,10 +888,11 @@ face_creature_subtype_statistic :=
 	(
 		subtype := split[x]
 		subtypesc := subtype + ";"
-		if		subtype == ""								then	""
+		if		subtype == ""
+			or	contains(excluded_subtypes, match: subtypesc)	then	""
 		else if	contains(canon_subtypes, match: subtypesc)
-			or	contains(custom_subtypes, match: subtypesc)	then	("," + subtype)
-		else														""
+			or	contains(custom_subtypes, match: subtypesc)		then	("," + subtype)
+		else															""
 	)
 	if new_subtypes == nil then "" else new_subtypes)
 }
@@ -2285,6 +2289,7 @@ statistics_info :=
 	
 	If your set uses custom creature sub types, write them all in these fields, separated by commas. Otherwise, they will be counted as non-creature sub types.
 	Some sub types can be auto-detected if they appear on a card that has no other types than creature, but this might miss a few.
+	Some ambiguous sub types like Zombie are counted as both a race and a class. If you want them to only count in one category, add them to the relevant field.
 	
 	
 	
