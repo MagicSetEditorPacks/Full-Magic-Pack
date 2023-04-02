@@ -1,5 +1,5 @@
 
-############################################################## Statistics scripts 14-03-2023
+############################################################## Statistics scripts 30-03-2023
 ############################################################## Blame GenevensiS for this
 
 #Helper Functions
@@ -797,11 +797,82 @@ combined_subtype_statistic :=
 	type_1 + (if type_1 != "" and type_2 != "" then "," else "") + type_2
 }
 
+detect_custom_creature_subtypes_statistic :=
+{
+	set.custom_super_types		#re-run this script when set.custom_super_types changes
+	result := []
+	set_count := length(set.cards)-1
+	for x from 0 to set_count do
+	(
+		c := set.cards[x]
+		types := remove_supertypes_statistic(c.super_type)
+		if types == "Creature" or types == "creature" then
+		(
+			subtypes := split_space_statistic(clean_subtypes_statistic(to_text(c.sub_type)))
+			count := length(subtypes)-1
+			for y from 0 to count do
+			(
+				subtype := subtypes[y]
+				if not contains_element_statistic(result, element: subtype) and not contains(creature_subtypes_statistic, match: subtype + ";") then result := result + [subtype]
+			)
+		)
+	)
+	result := sort_list(result)
+	count := length(result)-2
+	if result == -2 then "" else (for x from 0 to count do result[x] + ", ") + result[count+1]
+}
+remove_legendary_statistic := replace@(match: "[Ll]egendary", replace: "")
+remove_basic_statistic := replace@(match: "[Bb]asic", replace: "")
+remove_snow_statistic := replace@(match: "[Ss]now", replace: "")
+remove_token_statistic := replace@(match: "[Tt]oken", replace: "")
+remove_world_statistic := replace@(match: "[Ww]orld", replace: "")
+remove_ongoing_statistic := replace@(match: "[Oo]ngoing", replace: "")
+remove_elite_statistic := replace@(match: "[Ee]lite", replace: "")
+remove_host_statistic := replace@(match: "[Hh]ost", replace: "")
+remove_custom_supertypes_statistic :=
+{
+	custom_supertypes := custom_supertype_statistic()
+	count := length(custom_supertypes)-1
+	for x from 0 to count do input := replace(input, match: custom_supertypes[x], replace: "")
+	input
+}
+remove_supertypes_statistic :=	to_text +
+								remove_legendary_statistic +
+								remove_basic_statistic +
+								remove_snow_statistic +
+								remove_token_statistic +
+								remove_world_statistic +
+								remove_ongoing_statistic +
+								remove_elite_statistic +
+								remove_host_statistic +
+								remove_custom_supertypes_statistic +
+								trim
+
 creature_subtype_statistic :=
 {
-	result := face_creature_subtype_statistic(card.sub_type, super: card.super_type) + (if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2) else "")
+	canon := creature_subtypes_statistic
+	custom := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
+	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom)) +
+				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom) else "")
 	if result == "" then "" else substring(result, begin: 1)
 }
+creature_race_statistic :=
+{
+	canon := creature_races_statistic
+	custom := replace_commas_statistic(set.custom_creature_races) + ";"
+	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom)) +
+				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom) else "")
+	if result == "" then "" else substring(result, begin: 1)
+}
+creature_class_statistic :=
+{
+	canon := creature_classes_statistic
+	custom := replace_commas_statistic(set.custom_creature_classes) + ";"
+	result :=	(face_creature_subtype_statistic(card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom)) +
+				(if check_2_statistic() then face_creature_subtype_statistic(card.sub_type_2, super: card.super_type_2, canon_subtypes: canon, custom_subtypes: custom) else "")
+	if result == "" then "" else substring(result, begin: 1)
+}
+
 face_creature_subtype_statistic :=
 {
 	old_subtypes := to_text(input)
@@ -810,26 +881,17 @@ face_creature_subtype_statistic :=
 	old_subtypes := clean_subtypes_statistic(old_subtypes)
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
-	custom_creature_subtypes := custom_creature_subtype_statistic()
 	new_subtypes := for x from 0 to count do
 	(
-		type := split[x]
-		if type == ""																		then	""
-		else if contains_element_statistic(custom_creature_subtypes, element: type)			then	("," + type)
-		else if contains(creature_subtypes_statistic, match: type + ";")					then	("," + type)
-		else if contains(land_subtypes_statistic, match: type + ";")
-			or	contains(artifact_subtypes_statistic, match: type + ";")
-			or	contains(enchantment_subtypes_statistic, match: type + ";")
-			or	contains(planeswalker_subtypes_statistic, match: type + ";")
-			or	contains(spell_subtypes_statistic, match: type + ";")
-			or	contains(dungeon_subtypes_statistic, match: type + ";")
-			or	contains(plane_subtypes_statistic, match: type + ";")						then	""
-		else if contains(super, match: "Creature") or contains(super, match: "creature")	then	("," + type)
-		else																						""
+		subtype := split[x]
+		subtypesc := subtype + ";"
+		if		subtype == ""								then	""
+		else if	contains(canon_subtypes, match: subtypesc)
+			or	contains(custom_subtypes, match: subtypesc)	then	("," + subtype)
+		else														""
 	)
 	if new_subtypes == nil then "" else new_subtypes)
 }
-custom_creature_subtype_statistic := split_text@(input: set.custom_creature_sub_types, match: " ?, ?")
 
 noncreature_subtype_statistic :=
 {
@@ -844,40 +906,42 @@ face_noncreature_subtype_statistic :=
 	old_subtypes := clean_subtypes_statistic(old_subtypes)
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
-	custom_creature_subtypes := custom_creature_subtype_statistic()
+	custom_creature_subtypes := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
 	new_subtypes := for x from 0 to count do
 	(
-		type := split[x]
-		if type == ""																				then	""
-		else if contains_element_statistic(custom_creature_subtypes, element: type)					then	""
-		else if contains(creature_subtypes_statistic, match: type + ";")							then	""
-		else if contains(land_subtypes_statistic, match: type + ";")								then	(",​" + type)	# There is a zero width space after the comma so that land types always appear after custom types.
-		else if contains(artifact_subtypes_statistic, match: type + ";")							then	(",​​" + type)	# There are two zero width spaces after the comma so that artifact types always appear after land types, etc...
-		else if contains(enchantment_subtypes_statistic, match: type + ";")							then	(",​​​" + type)
-		else if contains(planeswalker_subtypes_statistic, match: type + ";")						then	(",​​​​" + type)
-		else if contains(spell_subtypes_statistic, match: type + ";")								then	(",​​​​​" + type)
-		else if contains(dungeon_subtypes_statistic, match: type + ";")								then	(",​​​​​​" + type)
-		else if contains(plane_subtypes_statistic, match: type + ";")								then	(",​​​​​​​" + type)
-		else if contains(super, match: "Planeswalker")	or contains(super, match: "planeswalker")	then	(",​​​​" + type)
-		else if contains(super, match: "Artifact")		or contains(super, match: "artifact")		then	(",​​" + type)
-		else if contains(super, match: "Enchantment")	or contains(super, match: "enchantment")	then	(",​​​" + type)
-		else if contains(super, match: "Land")			or contains(super, match: "land")			then	(",​" + type)
+		subtype := split[x]
+		subtypesc := subtype + ";"
+		if subtype == ""																			then	""
+		else if contains(custom_creature_subtypes, match: subtypesc)								then	""
+		else if contains(creature_subtypes_statistic, match: subtypesc)								then	""
+		else if contains(land_subtypes_statistic, match: subtypesc)									then	(",​" + subtype)	# There is a zero width space after the comma so that land subtypes always appear after custom subtypes.
+		else if contains(artifact_subtypes_statistic, match: subtypesc)								then	(",​​" + subtype)	# There are two zero width spaces after the comma so that artifact subtypes always appear after land subtypes, etc...
+		else if contains(enchantment_subtypes_statistic, match: subtypesc)							then	(",​​​" + subtype)
+		else if contains(planeswalker_subtypes_statistic, match: subtypesc)							then	(",​​​​" + subtype)
+		else if contains(spell_subtypes_statistic, match: subtypesc)								then	(",​​​​​" + subtype)
+		else if contains(dungeon_subtypes_statistic, match: subtypesc)								then	(",​​​​​​" + subtype)
+		else if contains(plane_subtypes_statistic, match: subtypesc)								then	(",​​​​​​​" + subtype)
+		else if contains(super, match: "Planeswalker")	or contains(super, match: "planeswalker")	then	(",​​​​" + subtype)
+		else if contains(super, match: "Artifact")		or contains(super, match: "artifact")		then	(",​​" + subtype)
+		else if contains(super, match: "Enchantment")	or contains(super, match: "enchantment")	then	(",​​​" + subtype)
+		else if contains(super, match: "Land")			or contains(super, match: "land")			then	(",​" + subtype)
 		else if contains(super, match: "Sorcery")		or contains(super, match: "sorcery")
-			or	contains(super, match: "Instant")		or contains(super, match: "instant")		then	(",​​​​​" + type)
-		else if contains(super, match: "Dungeon")		or contains(super, match: "dungeon")		then	(",​​​​​​" + type)
-		else if match_plane_statistic(super)														then	(",​​​​​​​" + type)
-		else if contains(super, match: "Creature")		or contains(super, match: "creature")		then	""
-		else																								("," + type)
+			or	contains(super, match: "Instant")		or contains(super, match: "instant")		then	(",​​​​​" + subtype)
+		else if contains(super, match: "Dungeon")		or contains(super, match: "dungeon")		then	(",​​​​​​" + subtype)
+		else if match_plane_statistic(super)														then	(",​​​​​​​" + subtype)
+		else																								("," + subtype)
 	)
 	if new_subtypes == nil then "" else new_subtypes)
 }
+replace_commas_statistic := replace@(match: " ?, ?", replace: ";")
 split_space_statistic := split_text@(match: " ")
 replace_space_statistic := replace@(match: " ", replace: "_")
 replace_squote_statistic := replace@(match: "'", replace: "’")
 clean_subtypes_statistic :=	replace_squote_statistic +
-							replace@(match: "Bolas’s Meditation Realm", replace: "Bolas’s Meditation Realm") +		#Replace spaces within types by EN spaces that won't be split (Is replaced in the list of subtypes as well.)
+							replace@(match: "Bolas’s Meditation Realm", replace: "Bolas’s Meditation Realm") +		#Replace spaces within subtypes by EN spaces that won't be split (Is replaced in the list of subtypes as well.)
 							replace@(match: "New Phyrexia", replace: "New Phyrexia") +
 							replace@(match: "Serra’s Realm", replace: "Serra’s Realm")
+
 land_subtypes_statistic :=
 		"Desert;"
 	+	"Forest;"
@@ -1158,6 +1222,7 @@ creature_subtypes_statistic :=
 	+	"Homunculus;"
 	+	"Horror;"
 	+	"Horse;"
+	+	"Hound;"
 	+	"Human;"
 	+	"Hydra;"
 	+	"Hyena;"
@@ -1184,6 +1249,7 @@ creature_subtypes_statistic :=
 	+	"Lhurgoyf;"
 	+	"Licid;"
 	+	"Lizard;"
+	+	"Lord;"
 	+	"Manticore;"
 	+	"Masticore;"
 	+	"Mercenary;"
@@ -1324,6 +1390,310 @@ creature_subtypes_statistic :=
 	+	"Yeti;"
 	+	"Zombie;"
 	+	"Zubera;";
+creature_races_statistic :=
+		"Aetherborn;"
+	+	"Alien;"
+	+	"Angel;"
+	+	"Antelope;"
+	+	"Ape;"
+	+	"Archon;"
+	+	"Assembly-Worker;"
+	+	"Astartes;"
+	+	"Atog;"
+	+	"Aurochs;"
+	+	"Avatar;"
+	+	"Azra;"
+	+	"Badger;"
+	+	"Balloon;"
+	+	"Basilisk;"
+	+	"Bat;"
+	+	"Bear;"
+	+	"Beast;"
+	+	"Beeble;"
+	+	"Beholder;"
+	+	"Bird;"
+	+	"Blinkmoth;"
+	+	"Boar;"
+	+	"Bringer;"
+	+	"Brushwagg;"
+	+	"C’tan;"
+	+	"Camarid;"
+	+	"Camel;"
+	+	"Caribou;"
+	+	"Carrier;"
+	+	"Cat;"
+	+	"Centaur;"
+	+	"Cephalid;"
+	+	"Chimera;"
+	+	"Cockatrice;"
+	+	"Construct;"
+	+	"Crab;"
+	+	"Crocodile;"
+	+	"Custodes;"
+	+	"Cyclops;"
+	+	"Dauthi;"
+	+	"Demigod;"
+	+	"Demon;"
+	+	"Devil;"
+	+	"Dinosaur;"
+	+	"Djinn;"
+	+	"Dog;"
+	+	"Dragon;"
+	+	"Drake;"
+	+	"Dreadnought;"
+	+	"Drone;"
+	+	"Dryad;"
+	+	"Dwarf;"
+	+	"Egg;"
+	+	"Efreet;"
+	+	"Eldrazi;"
+	+	"Elemental;"
+	+	"Elephant;"
+	+	"Elf;"
+	+	"Elk;"
+	+	"Eye;"
+	+	"Faerie;"
+	+	"Ferret;"
+	+	"Fish;"
+	+	"Fox;"
+	+	"Fractal;"
+	+	"Frog;"
+	+	"Fungus;"
+	+	"Gargoyle;"
+	+	"Germ;"
+	+	"Giant;"
+	+	"Gith;"
+	+	"Gnoll;"
+	+	"Gnome;"
+	+	"Goat;"
+	+	"Goblin;"
+	+	"God;"
+	+	"Golem;"
+	+	"Gorgon;"
+	+	"Graveborn;"
+	+	"Gremlin;"
+	+	"Griffin;"
+	+	"Hag;"
+	+	"Halfling;"
+	+	"Hamster;"
+	+	"Harpy;"
+	+	"Hellion;"
+	+	"Hippo;"
+	+	"Hippogriff;"
+	+	"Homarid;"
+	+	"Homunculus;"
+	+	"Horror;"
+	+	"Horse;"
+	+	"Hound;"
+	+	"Human;"
+	+	"Hydra;"
+	+	"Hyena;"
+	+	"Illusion;"
+	+	"Imp;"
+	+	"Incarnation;"
+	+	"Inkling;"
+	+	"Insect;"
+	+	"Jackal;"
+	+	"Jellyfish;"
+	+	"Juggernaut;"
+	+	"Kavu;"
+	+	"Kirin;"
+	+	"Kithkin;"
+	+	"Kobold;"
+	+	"Kor;"
+	+	"Kraken;"
+	+	"Lamia;"
+	+	"Lammasu;"
+	+	"Leech;"
+	+	"Leviathan;"
+	+	"Lhurgoyf;"
+	+	"Licid;"
+	+	"Lizard;"
+	+	"Manticore;"
+	+	"Masticore;"
+	+	"Merfolk;"
+	+	"Metathran;"
+	+	"Minotaur;"
+	+	"Mole;"
+	+	"Mongoose;"
+	+	"Monkey;"
+	+	"Moonfolk;"
+	+	"Mouse;"
+	+	"Mutant;"
+	+	"Myr;"
+	+	"Naga;"
+	+	"Nautilus;"
+	+	"Necron;"
+	+	"Nephilim;"
+	+	"Nightmare;"
+	+	"Nightstalker;"
+	+	"Noggle;"
+	+	"Nymph;"
+	+	"Octopus;"
+	+	"Ogre;"
+	+	"Ooze;"
+	+	"Orb;"
+	+	"Orc;"
+	+	"Orgg;"
+	+	"Otter;"
+	+	"Ouphe;"
+	+	"Ox;"
+	+	"Oyster;"
+	+	"Pangolin;"
+	+	"Pegasus;"
+	+	"Pentavite;"
+	+	"Pest;"
+	+	"Phelddagrif;"
+	+	"Phoenix;"
+	+	"Phyrexian;"
+	+	"Pincher;"
+	+	"Plant;"
+	+	"Praetor;"
+	+	"Primarch;"
+	+	"Prism;"
+	+	"Rabbit;"
+	+	"Raccoon;"
+	+	"Rat;"
+	+	"Reflection;"
+	+	"Rhino;"
+	+	"Robot;"
+	+	"Sable;"
+	+	"Salamander;"
+	+	"Sand;"
+	+	"Saproling;"
+	+	"Satyr;"
+	+	"Scarecrow;"
+	+	"Scorpion;"
+	+	"Sculpture;"
+	+	"Serpent;"
+	+	"Servo;"
+	+	"Shade;"
+	+	"Shapeshifter;"
+	+	"Shark;"
+	+	"Sheep;"
+	+	"Siren;"
+	+	"Skeleton;"
+	+	"Slith;"
+	+	"Sliver;"
+	+	"Slug;"
+	+	"Snake;"
+	+	"Soltari;"
+	+	"Spawn;"
+	+	"Specter;"
+	+	"Sphinx;"
+	+	"Spider;"
+	+	"Spike;"
+	+	"Spirit;"
+	+	"Splinter;"
+	+	"Sponge;"
+	+	"Squid;"
+	+	"Squirrel;"
+	+	"Starfish;"
+	+	"Surrakar;"
+	+	"Tentacle;"
+	+	"Tetravite;"
+	+	"Thalakos;"
+	+	"Thopter;"
+	+	"Thrull;"
+	+	"Tiefling;"
+	+	"Treefolk;"
+	+	"Trilobite;"
+	+	"Triskelavite;"
+	+	"Troll;"
+	+	"Turtle;"
+	+	"Tyranid;"
+	+	"Unicorn;"
+	+	"Vampire;"
+	+	"Vedalken;"
+	+	"Viashino;"
+	+	"Volver;"
+	+	"Wall;"
+	+	"Walrus;"
+	+	"Weird;"
+	+	"Werewolf;"
+	+	"Whale;"
+	+	"Wolf;"
+	+	"Wolverine;"
+	+	"Wombat;"
+	+	"Worm;"
+	+	"Wraith;"
+	+	"Wurm;"
+	+	"Yeti;"
+	+	"Zombie;"
+	+	"Zubera;";
+creature_classes_statistic :=
+		"Advisor;"
+	+	"Ally;"
+	+	"Archer;"
+	+	"Archon;"
+	+	"Army;"
+	+	"Artificer;"
+	+	"Assassin;"
+	+	"Barbarian;"
+	+	"Bard;"
+	+	"Beast;"
+	+	"Berserker;"
+	+	"Bringer;"
+	+	"Carrier;"
+	+	"Child;"
+	+	"Citizen;"
+	+	"Cleric;"
+	+	"Clown;"
+	+	"Coward;"
+	+	"Deserter;"
+	+	"Dreadnought;"
+	+	"Drone;"
+	+	"Druid;"
+	+	"Egg;"
+	+	"Elder;"
+	+	"Employee;"
+	+	"Flagbearer;"
+	+	"Gamer;"
+	+	"Guest;"
+	+	"Horror;"
+	+	"Incarnation;"
+	+	"Inquisitor;"
+	+	"Juggernaut;"
+	+	"Knight;"
+	+	"Leviathan;"
+	+	"Lord;"
+	+	"Mercenary;"
+	+	"Minion;"
+	+	"Monger;"
+	+	"Monk;"
+	+	"Mutant;"
+	+	"Mystic;"
+	+	"Ninja;"
+	+	"Noble;"
+	+	"Nomad;"
+	+	"Peasant;"
+	+	"Performer;"
+	+	"Pilot;"
+	+	"Pirate;"
+	+	"Processor;"
+	+	"Ranger;"
+	+	"Rebel;"
+	+	"Reflection;"
+	+	"Rigger;"
+	+	"Rogue;"
+	+	"Samurai;"
+	+	"Scion;"
+	+	"Scout;"
+	+	"Serf;"
+	+	"Shaman;"
+	+	"Skeleton;"
+	+	"Soldier;"
+	+	"Spawn;"
+	+	"Spellshaper;"
+	+	"Spirit;"
+	+	"Survivor;"
+	+	"Thopter;"
+	+	"Vampire;"
+	+	"Warlock;"
+	+	"Warrior;"
+	+	"Werewolf;"
+	+	"Wizard;"
+	+	"Zombie;";
 
 power_statistic :=
 {
@@ -1911,10 +2281,10 @@ statistics_info :=
 	
 	
 	
-	Custom creature sub types:
+	Custom creature races/classes:
 	
-	If your set uses custom creature sub types, write them all in this field, separated by commas. Otherwise, they may be counted as non-creature sub types,
-	if they appear on a card that has multiple types.
+	If your set uses custom creature sub types, write them all in these fields, separated by commas. Otherwise, they will be counted as non-creature sub types.
+	Some sub types can be auto-detected if they appear on a card that has no other types than creature, but this might miss a few.
 	
 	
 	
