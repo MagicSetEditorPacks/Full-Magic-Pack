@@ -38,13 +38,13 @@ mana_value_statistic :=
 color_statistic :=
 {
 	colors :=	if contains(card.shape, match: "split") or contains(card.shape, match: "aftermath") then	distil_colors_statistic(face_color_statistic(face: 1) + face_color_statistic(face: 2))
-				else																			face_color_statistic(face: 1)		# shape == "adventure", "prototype", "leveler", "saga", "class", "flip", "double faced", "meld" or "normal"
+				else																						face_color_statistic(face: 1)		# shape == "adventure", "prototype", "leveler", "saga", "class", "flip", "double faced", "meld" or "normal"
 	if colors == "" then "C" else colors
 }
 back_face_color_statistic :=
 {
 	colors :=	if contains(card.shape, match: "split") or contains(card.shape, match: "aftermath") then	"C"
-				else																			face_color_statistic(face: 2)		# shape == "adventure", "prototype", "leveler", "saga", "class", "flip", "double faced", "meld" or "normal"
+				else																						face_color_statistic(face: 2)		# shape == "adventure", "prototype", "leveler", "saga", "class", "flip", "double faced", "meld" or "normal"
 	if colors == "" then "C" else colors
 }
 all_faces_color_statistic :=
@@ -571,15 +571,16 @@ n_choose_k_statistic :=
 average_opening_hand_statistic :=
 {
 	averages := split_text(set.global_variable_average_opening_hand, match: ";")
-	if length(averages) != 8 then set.global_variable_average_opening_hand else (
+	if length(averages) != 9 then set.global_variable_average_opening_hand else (
 	types :=	[has_type_statistic("Land")] +
 				(if has_type_statistic("Artifact") then (if mana_production_list_statistic(check_type: "nonland") == "" then [false, true] else [true, false]) else [false, false]) +
 				[has_type_statistic("Enchantment")] +
 				[has_type_statistic("Planeswalker")] +
+				[has_type_statistic("Battle")] +
 				[has_type_statistic("Creature")] +
 				[has_type_statistic("Sorcery")] +
 				[has_type_statistic("Instant")]
-	result := for x from 0 to 7 do (if types[x] then averages[x] else "")
+	result := for x from 0 to 8 do (if types[x] then averages[x] else "")
 	substring(result, begin: 1))
 }
 global_variable_average_opening_hand_statistic :=
@@ -595,6 +596,7 @@ global_variable_average_opening_hand_statistic :=
 	nonmanaartifacts := 0
 	enchantments := 0
 	planeswalkers := 0
+	battles := 0
 	creatures := 0
 	sorceries := 0
 	instants := 0
@@ -606,6 +608,7 @@ global_variable_average_opening_hand_statistic :=
 		if has_type_statistic(card:c, "Artifact") then (if mana_production_list_statistic(card: c, check_type: "nonland") == "" then (nonmanaartifacts := nonmanaartifacts + 1) else (manaartifacts := manaartifacts + 1))
 		if has_type_statistic(card:c, "Enchantment") then enchantments := enchantments + 1
 		if has_type_statistic(card:c, "Planeswalker") then planeswalkers := planeswalkers + 1
+		if has_type_statistic(card:c, "Battle") then battles := battles + 1
 		if has_type_statistic(card:c, "Creature") then creatures := creatures + 1
 		if has_type_statistic(card:c, "Sorcery") then sorceries := sorceries + 1
 		if has_type_statistic(card:c, "Instant") then instants := instants + 1
@@ -616,6 +619,7 @@ global_variable_average_opening_hand_statistic :=
 	nonmanaartifacts_average := format_average_statistic(7.0 * to_number(nonmanaartifacts) / card_count_real)
 	enchantments_average := format_average_statistic(7.0 * to_number(enchantments) / card_count_real)
 	planeswalkers_average := format_average_statistic(7.0 * to_number(planeswalkers) / card_count_real)
+	battles_average := format_average_statistic(7.0 * to_number(battles) / card_count_real)
 	creatures_average := format_average_statistic(7.0 * to_number(creatures) / card_count_real)
 	sorceries_average := format_average_statistic(7.0 * to_number(sorceries) / card_count_real)
 	instants_average := format_average_statistic(7.0 * to_number(instants) / card_count_real)
@@ -625,6 +629,7 @@ global_variable_average_opening_hand_statistic :=
 	";,​​​Non-Mana Artifacts — " + nonmanaartifacts_average +
 	";,​​​​Enchantments — " + enchantments_average +
 	";,​​​​​Planeswalkers — " + planeswalkers_average +
+	";,​​​​​Battles — " + battles_average +
 	";,​​​​​​Creatures — " + creatures_average +
 	";,​​​​​​​Sorceries — " + sorceries_average +
 	";,​​​​​​​​Instants — " + instants_average)
@@ -683,7 +688,8 @@ face_permanent_statistic :=
 	or		contains(input, match: "Enchantment")	or contains(input, match: "enchantment")
 	or		contains(input, match: "Land")			or contains(input, match: "land")
 	or		contains(input, match: "Hero")			or contains(input, match: "hero")
-	or		contains(input, match: "Planeswalker")	or contains(input, match: "Planeswalker")	then	",​​Permanent"
+	or		contains(input, match: "Planeswalker")	or contains(input, match: "planeswalker")
+	or		contains(input, match: "Battle")		or contains(input, match: "battle")			then	",​​Permanent"
 	else if	contains(input, match: "Sorcery")		or contains(input, match: "sorcery")
 	or		contains(input, match: "Instant")		or contains(input, match: "instant")		then	",​​​Non Permanent"
 	else if	contains(input, match: "Emblem")		or contains(input, match: "emblem")
@@ -710,7 +716,7 @@ face_supertype_statistic :=
 	for x from 0 to count do
 	(
 		type := supertypes[x]
-		if		type == "Basic"		or type == "basic"							then	",​Basic"			# There is a zero width space after the comma in ",Basic" so that it always appears firsst.
+		if		type == "Basic"		or type == "basic"							then	",​Basic"			# There is a zero width space after the comma in ",Basic" so that it always appears first.
 		else if	type == "Snow"		or type == "snow"							then	",​​Snow"				# There are two zero width spaces after the comma in ",Snow" so that it always appears second.
 		else if	type == "World"		or type == "world"							then	",​​​World"			# Etc...
 		else if	type == "Legendary"	or type == "legendary"						then	",​​​​Legendary"
@@ -742,6 +748,7 @@ combined_type_statistic :=
 #	(if contains(input, match: "Artifact")		or contains(input, match: "artifact")		then ",Artifact" else "") +
 #	(if contains(input, match: "Enchantment")	or contains(input, match: "enchantment")	then ",Enchantment" else "") +
 #	(if contains(input, match: "Planeswalker")	or contains(input, match: "planeswalker")	then ",Planeswalker" else "") +
+#	(if contains(input, match: "Battle")		or contains(input, match: "battle")			then ",Battle" else "") +
 #	(if contains(input, match: "Sorcery")		or contains(input, match: "sorcery")		then ",Sorcery" else "") +
 #	(if contains(input, match: "Instant")		or contains(input, match: "instant")		then ",Instant" else "")
 #}
@@ -769,15 +776,16 @@ face_type_extended_statistic :=
 		else if	type == "Enchantment"	or type == "enchantment"				then	",​​​​​Enchantment"
 		else if	type == "Emblem"		or type == "emblem"						then	",​​​​​​Emblem"
 		else if	type == "Planeswalker"	or type == "planeswalker"				then	",​​​​​​​Planeswalker"
-		else if	type == "Sorcery"		or type == "sorcery"					then	",​​​​​​​​Sorcery"
-		else if	type == "Instant"		or type == "instant"					then	",​​​​​​​​​Instant"
-		else if	type == "Conspiracy"	or type == "conspiracy"					then	",​​​​​​​​​​Conspiracy"
-		else if	type == "Dungeon"		or type == "dungeon"					then	",​​​​​​​​​​​Dungeon"
-		else if	type == "Hero"			or type == "hero"						then	",​​​​​​​​​​​​Hero"
-		else if	type == "Phenomenon"	or type == "phenomenon"					then	",​​​​​​​​​​​​​Phenomenon"
-		else if	match_plane_statistic(type)										then	",​​​​​​​​​​​​​​Plane"
-		else if	type == "Scheme"		or type == "scheme"						then	",​​​​​​​​​​​​​​​Scheme"
-		else if	type == "Vanguard"		or type == "vanguard"					then	",​​​​​​​​​​​​​​​​Vanguard"
+		else if	type == "Battle"		or type == "battle"						then	",​​​​​​​​Battle"
+		else if	type == "Sorcery"		or type == "sorcery"					then	",​​​​​​​​​Sorcery"
+		else if	type == "Instant"		or type == "instant"					then	",​​​​​​​​​​Instant"
+		else if	type == "Conspiracy"	or type == "conspiracy"					then	",​​​​​​​​​​​Conspiracy"
+		else if	type == "Dungeon"		or type == "dungeon"					then	",​​​​​​​​​​​​Dungeon"
+		else if	type == "Hero"			or type == "hero"						then	",​​​​​​​​​​​​​Hero"
+		else if	type == "Phenomenon"	or type == "phenomenon"					then	",​​​​​​​​​​​​​​Phenomenon"
+		else if	match_plane_statistic(type)										then	",​​​​​​​​​​​​​​​Plane"
+		else if	type == "Scheme"		or type == "scheme"						then	",​​​​​​​​​​​​​​​​Scheme"
+		else if	type == "Vanguard"		or type == "vanguard"					then	",​​​​​​​​​​​​​​​​​Vanguard"
 		else																			("," + type)
 	)
 	if new_types == nil then "" else new_types
@@ -937,17 +945,19 @@ face_noncreature_subtype_statistic :=
 		else if contains(artifact_subtypes_statistic, match: subtypesc)								then	(",​​" + subtype)	# There are two zero width spaces after the comma so that artifact subtypes always appear after land subtypes, etc...
 		else if contains(enchantment_subtypes_statistic, match: subtypesc)							then	(",​​​" + subtype)
 		else if contains(planeswalker_subtypes_statistic, match: subtypesc)							then	(",​​​​" + subtype)
-		else if contains(spell_subtypes_statistic, match: subtypesc)								then	(",​​​​​" + subtype)
-		else if contains(dungeon_subtypes_statistic, match: subtypesc)								then	(",​​​​​​" + subtype)
-		else if contains(plane_subtypes_statistic, match: subtypesc)								then	(",​​​​​​​" + subtype)
+		else if contains(battle_subtypes_statistic, match: subtypesc)								then	(",​​​​​" + subtype)
+		else if contains(spell_subtypes_statistic, match: subtypesc)								then	(",​​​​​​" + subtype)
+		else if contains(dungeon_subtypes_statistic, match: subtypesc)								then	(",​​​​​​​" + subtype)
+		else if contains(plane_subtypes_statistic, match: subtypesc)								then	(",​​​​​​​​" + subtype)
 		else if contains(super, match: "Planeswalker")	or contains(super, match: "planeswalker")	then	(",​​​​" + subtype)
 		else if contains(super, match: "Artifact")		or contains(super, match: "artifact")		then	(",​​" + subtype)
 		else if contains(super, match: "Enchantment")	or contains(super, match: "enchantment")	then	(",​​​" + subtype)
 		else if contains(super, match: "Land")			or contains(super, match: "land")			then	(",​" + subtype)
 		else if contains(super, match: "Sorcery")		or contains(super, match: "sorcery")
-			or	contains(super, match: "Instant")		or contains(super, match: "instant")		then	(",​​​​​" + subtype)
-		else if contains(super, match: "Dungeon")		or contains(super, match: "dungeon")		then	(",​​​​​​" + subtype)
-		else if match_plane_statistic(super)														then	(",​​​​​​​" + subtype)
+			or	contains(super, match: "Instant")		or contains(super, match: "instant")		then	(",​​​​​​" + subtype)
+		else if contains(super, match: "Battle")		or contains(super, match: "battle")			then	(",​​​​​" + subtype)
+		else if contains(super, match: "Dungeon")		or contains(super, match: "dungeon")		then	(",​​​​​​​" + subtype)
+		else if match_plane_statistic(super)														then	(",​​​​​​​​" + subtype)
 		else																								("," + subtype)
 	)
 	if new_subtypes == nil then "" else new_subtypes)
@@ -1075,6 +1085,8 @@ planeswalker_subtypes_statistic :=
 	+	"Yanggu;"
 	+	"Yanling;"
 	+	"Zariel;";
+battle_subtypes_statistic :=
+		"Siege;";
 spell_subtypes_statistic :=
 		"Adventure;"
 	+	"Arcane;"
@@ -1750,11 +1762,20 @@ toughness_statistic :=
 }
 loyalty_statistic :=
 {
-	loyalty_1 := trim(to_text(card.loyalty))
-	if to_number(loyalty_1) or else 0 > 10 then loyalty_1 := "11+"
-	loyalty_2 := if check_2_statistic() then trim(to_text(card.loyalty_2)) else ""
-	if to_number(loyalty_2) or else 0 > 10 then loyalty_2 := "11+"
-	loyalty_1 + (if loyalty_1 != "" and loyalty_2 != "" then "," else "") + loyalty_2
+	result_1 := if contains(card.super_type, match: "Planeswalker") or contains(card.super_type, match: "planeswalker") then trim(to_text(card.loyalty)) else ""
+	if to_number(result_1) or else 0 > 10 then result_1 := "11+"
+	result_2 := if check_2_statistic() and (contains(card.super_type_2, match: "Planeswalker") or contains(card.super_type_2, match: "planeswalker")) then trim(to_text(card.loyalty_2)) else ""
+	if to_number(result_2) or else 0 > 10 then result_2 := "11+"
+	result_1 + (if result_1 != "" and result_2 != "" then "," else "") + result_2
+}
+
+defense_statistic :=
+{
+	result_1 := if contains(card.super_type, match: "Battle") or contains(card.super_type, match: "battle") then trim(to_text(card.loyalty)) else ""
+	if to_number(result_1) or else 0 > 10 then result_1 := "11+"
+	result_2 := if check_2_statistic() and (contains(card.super_type_2, match: "Battle") or contains(card.super_type_2, match: "battle")) then trim(to_text(card.loyalty_2)) else ""
+	if to_number(result_2) or else 0 > 10 then result_2 := "11+"
+	result_1 + (if result_1 != "" and result_2 != "" then "," else "") + result_2
 }
 
 # Should we check the secondary face of the card, like the card.casting_cost_2 or card.type_2 fields?
