@@ -279,13 +279,13 @@ gather_ability_symbols_statistic :=
 }
 
 activated_cost_filter_statistic :=
-	replace@(match: "<[^>]*:[^>]*>", replace: "") +									#Remove tags with : inside them
-	break_text@(match: "(\n|^)[^(\n|^)]+?:")										#Keep only activated ability costs
+	replace@(match: "<[^>]*:[^>]*>", replace: "") +												#Remove tags with : inside them
+	break_text@(match: "(\n|^)[^(\n|^)]+?:")													#Keep only activated ability costs
 triggered_cost_filter_statistic :=
-	replace@(match: "<[^>]*\\.[^>]*>", replace: "") +								#Remove tags with . inside them
-	break_text@(match:" pay .+?\\.", in_context: "(When|At).+?may<match> If")		#Keep only triggered ability costs
+	replace@(match: "<[^>]*\\.[^>]*>", replace: "") +											#Remove tags with . inside them
+	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs
 keyword_cost_filter_statistic :=
-	break_text@(match: "<param[^>]*>.+?</param[^>]*>")								#Keep only keyword parameters
+	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
 
 symbol_aggregate_statistic :=
 {
@@ -496,8 +496,8 @@ soft_line_count_statistic := break_text@(match: "<soft-line>") + length
 # Artists
 illustrator_statistic :=
 {
-	artist_1 := trim(card.illustrator)
-	artist_2 := trim(card.illustrator_2)
+	artist_1 := trim(replace_full_width_commas_statistic(card.illustrator))
+	artist_2 := trim(replace_full_width_commas_statistic(card.illustrator_2))
 	result := artist_1 + (if check_2_statistic() and artist_2 != "" and artist_2 != artist_1 then "," + artist_2 else "")
 	if result == "" then " No Artist" else if result.0 == "," then substring(result, begin: 1) else result
 }
@@ -1762,7 +1762,7 @@ toughness_statistic :=
 }
 loyalty_statistic :=
 {
-	result_1 := if contains(card.super_type, match: "Planeswalker") or contains(card.super_type, match: "planeswalker") then trim(to_text(card.loyalty)) else ""
+	result_1 := if contains(card.super_type, match: "Planeswalker") or contains(card.super_type, match: "planeswalker") or contains(card.shape, match: "planeswalker") then trim(to_text(card.loyalty)) else ""
 	if to_number(result_1) or else 0 > 10 then result_1 := "11+"
 	result_2 := if check_2_statistic() and (contains(card.super_type_2, match: "Planeswalker") or contains(card.super_type_2, match: "planeswalker")) then trim(to_text(card.loyalty_2)) else ""
 	if to_number(result_2) or else 0 > 10 then result_2 := "11+"
@@ -1771,7 +1771,7 @@ loyalty_statistic :=
 
 defense_statistic :=
 {
-	result_1 := if contains(card.super_type, match: "Battle") or contains(card.super_type, match: "battle") then trim(to_text(card.loyalty)) else ""
+	result_1 := if contains(card.super_type, match: "Battle") or contains(card.super_type, match: "battle") or contains(card.shape, match: "battle") then trim(to_text(card.loyalty)) else ""
 	if to_number(result_1) or else 0 > 10 then result_1 := "11+"
 	result_2 := if check_2_statistic() and (contains(card.super_type_2, match: "Battle") or contains(card.super_type_2, match: "battle")) then trim(to_text(card.loyalty_2)) else ""
 	if to_number(result_2) or else 0 > 10 then result_2 := "11+"
@@ -1793,7 +1793,45 @@ check_2_statistic :=
 # Should we check the card.rule_text_X fields, or the card.level_X_text fields?
 text_to_check_statistic :=
 {
-	if contains(card.shape, match: "planeswalker") then
+	if contains(card.shape, match: "double faced") then
+	(
+		front := (card.styling or else styling).front_style or else ""
+		if contains(front, match: "planeswalker") or contains(front, match: "leveler") or contains(card.shape, match: "planeswalker") or contains(card.shape, match: "leveler") then
+		[
+			"level_1_text",
+			"level_2_text",
+			"level_3_text",
+			"level_4_text",
+			"rule_text_3"
+		]
+		else if contains(front, match: "saga") then
+		[
+			"chapter_text",
+			"level_1_text",
+			"level_2_text",
+			"level_3_text",
+			"level_4_text",
+			"rule_text_3"
+		]
+		else if contains(front, match: "class") then
+		[
+			"chapter_text",
+			"level_1_text",
+			"level_2_text",
+			"level_3_text",
+			"level_4_text",
+			"level_9_text",
+			"level_10_text",
+			"level_11_text",
+			"rule_text_3"
+		]
+		else
+		[
+			"rule_text",
+			"rule_text_3"
+		]
+	)
+	else if contains(card.shape, match: "planeswalker") then
 	[
 		"level_1_text",
 		"level_2_text",
@@ -1842,48 +1880,19 @@ text_to_check_statistic :=
 		"level_14_text",
 		"rule_text_3"
 	]
-	else if contains(card.shape, match: "double faced") then
-	(
-		front := (card.styling or else styling).front_style or else ""
-		if contains(front, match: "planeswalker") or contains(front, match: "leveler") then
-		[
-			"level_1_text",
-			"level_2_text",
-			"level_3_text",
-			"level_4_text",
-			"rule_text_3"
-		]
-		else if contains(front, match: "saga") then
-		[
-			"chapter_text",
-			"level_1_text",
-			"level_2_text",
-			"level_3_text",
-			"level_4_text",
-			"rule_text_3"
-		]
-		else if contains(front, match: "class") then
-		[
-			"chapter_text",
-			"level_1_text",
-			"level_2_text",
-			"level_3_text",
-			"level_4_text",
-			"level_9_text",
-			"level_10_text",
-			"level_11_text",
-			"rule_text_3"
-		]
-		else
-		[
-			"rule_text",
-			"rule_text_3"
-		]
-	)
-	else # if contains(card.shape, match: "normal") or contains(card.shape, match: "adventure") or contains(card.shape, match: "flip") or contains(card.shape, match: "aftermath") or contains(card.shape, match: "split") then
+	else if contains(card.shape, match: "split") then
 	[
 		"rule_text",
 		"rule_text_3"
+	]
+	else if has_mutate_text_statistic(card: card) then
+	[
+		"rule_text",
+		"level_1_text"
+	]
+	else # if contains(card.shape, match: "normal") or contains(card.shape, match: "adventure") or contains(card.shape, match: "flip") or contains(card.shape, match: "aftermath") then
+	[
+		"rule_text"
 	]
 }
 text_to_check_2_statistic :=
@@ -1929,6 +1938,13 @@ text_to_check_2_statistic :=
 	else # if contains(card.shape, match: "normal") or contains(card.shape, match: "planeswalker") or contains(card.shape, match: "leveler") or contains(card.shape, match: "saga") or contains(card.shape, match: "class")
 	[
 	]
+}
+has_mutate_text_statistic :=
+{
+	contains(card.shape, match: "normal") and
+	contains((card.styling or else styling).frames or else "", match: "mutate") and
+	card.level_1_text != "" and
+	card.level_1_text != card.rule_text
 }
 
 #Is the given text field visible on the card? This would be much better than the above methods to know which fields to check, but card_style does not initialize properly, so it's not usable atm.
