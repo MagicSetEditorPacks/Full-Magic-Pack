@@ -1,0 +1,2242 @@
+﻿mse version: 2.1.2
+game: magic
+short name: Gen Adventure
+full name: GenevensiS Hi-Res Adventure
+icon: card_sample.png
+position hint: 077
+
+version: 2022-02-22
+depends on:
+	package: magic.mse-game
+	version: 2020-04-25
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2001-01-01
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2001-01-01
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2001-01-01
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2001-01-01
+depends on:
+	package: magic-mana-genevensis-large.mse-symbol-font
+	version: 2022-02-22
+depends on:
+	package: magic-mana-genevensis-small.mse-symbol-font
+	version: 2022-02-22
+depends on:
+	package: magic-genevensis-00-main.mse-style
+	version: 2022-02-22
+
+card width: 750
+card height: 1046
+card dpi: 300
+
+
+############################################################## Extra scripts
+init script:
+	card_shape := { "adventure" }
+	
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	ancestral_mana := { false }
+	
+	mana_t := { "new" }
+	
+	mana_sort :=		sort_text@(order: "\\?XYZI[0123456789]VLHFDSCAIEP(WUBRG)")
+	mana_sort_wedge :=	sort_text@(order: "\\?XYZI[0123456789]VLHFDSCAIEP(WBGUR)")
+	mana_unsort :=		sort_text@(order: "[/\\?XYZI0123456789VLHFDSCAIEPWUBRG]")
+	mana_sort_guild :=	sort_text@(order: "[\\?XYZI01234567890VLHFDSCAIEPWUBRG/|]") +
+		replace@(
+			match: "./.|././.|./././.|.[|]",
+			in_context: "(^|[^/])<match>($|[^/])",
+			replace: {sort_text(order:"in_place(P(WUBRG))")}
+		)
+	
+	is_unsorted :=
+	{
+		styling.remove_from_autocount
+	}
+	
+	shrink_type :=
+	{
+		if styling.shrink_type != "" then (to_int(styling.shrink_type) or else 0)
+		else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1
+		else 0
+	}
+	
+	shrink_name :=
+	{
+		to_int(styling.shrink_name) or else 0
+	}
+	
+	shrink_adventure_type :=
+	{
+		if styling.shrink_adventure_type != "" then to_int(styling.shrink_adventure_type) or else 0
+		else 0
+	}
+	
+	shrink_adventure_name :=
+	{
+		if styling.shrink_adventure_name != "" then to_int(styling.shrink_adventure_name) or else 0
+		else 0
+	}
+	
+	has_extended_art :=
+	{
+		chosen(styling.extended_art, choice: "yes")
+		or
+		(
+			chosen(styling.extended_art, choice: "if land")
+			and (contains(card.super_type, match: "Land") or contains(replace(match: "Planeswalker", replace: "", card.super_type), match: "Plane"))
+		)
+	}
+	
+	has_crown :=
+	{
+		chosen(styling.legend_crown, choice: "normal")
+		or
+		(
+			chosen(styling.legend_crown, choice: "normal if legendary")
+			and contains(card.super_type, match: "Legendary")
+		)
+	}
+	
+	has_special_crown :=
+	{
+		chosen(styling.legend_crown, choice: "special")
+		or
+		(
+			chosen(styling.legend_crown, choice: "special if legendary")
+			and contains(card.super_type, match: "Legendary")
+		)
+	}
+	
+	has_leaf :=
+	{
+		if		has_special_crown() then false
+		else if	chosen(styling.land_leaf, choice: "yes") then true
+		else if (
+					chosen(styling.land_leaf , choice: "if land")
+					and (contains(card.super_type, match: "Land") or contains(replace(match: "Planeswalker", replace: "", card.super_type), match: "Plane"))
+				) then true
+		else false
+	}
+	
+	has_symbol :=
+	{
+		not (styling.symbol == "none")
+	}
+	
+	has_identity :=
+	{
+		styling.color_indicator_dot and length(color_to_base_prefix()) > 0
+	}
+	
+	has_adventure_color_indicator :=
+	{
+		styling.adventure_color_indicator_dot and length(color_to_base_prefix_2()) > 0
+	}
+	
+	has_custom_rarity :=
+	{
+		contains(set.mainframe_rarity_name, match: ".png")
+	}
+	
+	un_png := replace@(match:".png", replace: "")
+	
+	chop_top := { clamp((to_int(pull_comma_array(styling.chop_rule_textbox, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_bot :=
+	{
+		( clamp((to_int(pull_comma_array(styling.chop_rule_textbox, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) ) +
+		( if remove_tags(card.flavor_text) == "" then 0 else (12 + card_style.flavor_text.content_lines*37) ) +
+		( if styling.transformation_reminder == "long" then 14 else 0 )
+	}
+	chop_right := { clamp((to_int(pull_comma_array(styling.chop_rule_textbox, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	
+	chop_flavor_top := { clamp((to_int(pull_comma_array(styling.chop_flavor_textbox, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_flavor_bot := { clamp((to_int(pull_comma_array(styling.chop_flavor_textbox, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_flavor_right := { clamp((to_int(pull_comma_array(styling.chop_flavor_textbox, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	
+	chop_rarity_top := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_rarity_bot := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_rarity_left := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_rarity_right := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:3, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	
+	alt_rarity :=
+	{
+		styling.alt_rarity_color != ""
+	}
+	
+	alt_symbol :=
+	{
+		string := if match(styling.alt_rarity_color, match:":$") then styling.alt_rarity_color else "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+		colons := length(filter_text(string, match:":"))
+		color := split_text(string, match:",|:")
+		splits := split_text(string, match:":")
+		if		colons == 4 then color := split_text(string+"0.07:", match:",|:")
+		else if	colons == 3 then color := split_text(string+splits[2]+"0.07:", match:",|:")
+		else if	colons == 2 then color := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
+		else if	colons == 1 then color := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
+		symbol_variation(symbol:set.symbol, border_radius: color.12, fill_type: "linear gradient", fill_color_1: rgb(color.0, color.1, color.2), fill_color_2: rgb(color.3, color.4, color.5), border_color_1: rgb(color.6, color.7, color.8), border_color_2: rgb(color.9, color.10, color.11), center_x:0.5, center_y:0.5, end_x:1, end_y:1)
+	}
+	
+	nameline_left_margin :=
+	{
+		if has_symbol() then 51 else 0
+	}
+	
+	nameline_right_margin :=
+	{
+		if card.casting_cost != "" then (card_style.casting_cost.content_width + 8) else 0
+	}
+	
+	name_margin :=
+	{
+		name_left_margin := nameline_left_margin()
+		name_right_margin := nameline_right_margin()
+		if name_left_margin > name_right_margin then name_left_margin else name_right_margin
+	}
+	
+	typeline_left_margin :=
+	{
+		if has_identity() then 39 else 0
+	}
+	
+	typeline_right_margin :=
+	{
+		if set.shorten_types_for_rarity then (60 - chop_rarity_left()) else 0
+	}
+	
+	type_margin :=
+	{
+		type_left_margin := typeline_left_margin()
+		type_right_margin := typeline_right_margin()
+		if type_left_margin > type_right_margin then type_left_margin else type_right_margin
+	}
+	
+	proper_order :=
+	{
+		if input == "gr" then "rg"
+		else if input == "bu" then "ub"
+		else if input == "uw" then "wu"
+		else if input == "ru" then "ur"
+		else if input == "gb" then "bg"
+		else if input == "rb" then "br"
+		else if input == "ug" then "gu"
+		else if input == "wg" then "gw"
+		else if input == "bw" then "wb"
+		else if input == "wr" then "rw"
+		else input
+	}
+	
+	color_to_base_prefix :=
+	{
+		initial_prefix :=
+			(if													contains(card.casting_cost, match: "P")	then "s" else "") +
+			(if chosen(choice: "white", card.card_color) or		contains(card.casting_cost, match: "W")	then "w" else "") +
+			(if chosen(choice: "blue", card.card_color) or		contains(card.casting_cost, match: "U")	then "u" else "") +
+			(if chosen(choice: "black", card.card_color) or		contains(card.casting_cost, match: "B")	then "b" else "") +
+			(if chosen(choice: "red", card.card_color) or		contains(card.casting_cost, match: "R")	then "r" else "") +
+			(if chosen(choice: "green", card.card_color) or		contains(card.casting_cost, match: "G")	then "g" else "")
+		ordered_prefix := proper_order(initial_prefix)
+		if chosen(choice: "reversed", card.card_color) then reverse(ordered_prefix)
+		else ordered_prefix
+	}
+	
+	color_to_unforced_prefix :=
+	{
+		prefix := color_to_base_prefix()
+		if chosen(choice: "artifact", card.card_color) then "a"
+		else if length(prefix) > 2 then "m"
+		else if chosen(choice: "multicolor", card.card_color) and not styling.force_hybrid_frame then "m"
+		else if length(prefix) == 0 then (if chosen(choice: "multicolor", card.card_color) then "m" else "c" )
+		else prefix
+	}
+	
+	left_forced_prefix :=
+	{
+		if chosen(choice: "white", styling.force_left_color) then "w"
+		else if chosen(choice: "blue", styling.force_left_color) then "u"
+		else if chosen(choice: "black", styling.force_left_color) then "b"
+		else if chosen(choice: "red", styling.force_left_color) then "r"
+		else if chosen(choice: "green", styling.force_left_color) then "g"
+		else if chosen(choice: "artifact", styling.force_left_color) then "a"
+		else if chosen(choice: "gold", styling.force_left_color) then "m"
+		else if chosen(choice: "colorless", styling.force_left_color) then "c"
+		else if chosen(choice: "purple", styling.force_left_color) then "s"
+		else ""
+	}
+	
+	right_forced_prefix :=
+	{
+		if chosen(choice: "white", styling.force_right_color) then "w"
+		else if chosen(choice: "blue", styling.force_right_color) then "u"
+		else if chosen(choice: "black", styling.force_right_color) then "b"
+		else if chosen(choice: "red", styling.force_right_color) then "r"
+		else if chosen(choice: "green", styling.force_right_color) then "g"
+		else if chosen(choice: "artifact", styling.force_right_color) then "a"
+		else if chosen(choice: "gold", styling.force_right_color) then "m"
+		else if chosen(choice: "colorless", styling.force_right_color) then "c"
+		else if chosen(choice: "purple", styling.force_right_color) then "s"
+		else ""
+	}
+	
+	color_to_prefix :=
+	{
+		unforced_prefix := color_to_unforced_prefix()
+		left_forced := left_forced_prefix()
+		right_forced := right_forced_prefix()
+		left_prefix := if length(left_forced) == 0 then unforced_prefix.0 else left_forced
+		right_prefix := if length(right_forced) == 0 then reverse(unforced_prefix).0 else right_forced
+		if left_prefix == right_prefix then left_prefix else left_prefix + right_prefix
+	}
+	
+	color_to_base_prefix_2 :=
+	{
+		initial_prefix :=
+			(if													contains(card.casting_cost_2, match: "P")	then "s" else "") +
+			(if chosen(choice: "white", card.card_color_2) or	contains(card.casting_cost_2, match: "W")	then "w" else "") +
+			(if chosen(choice: "blue", card.card_color_2) or	contains(card.casting_cost_2, match: "U")	then "u" else "") +
+			(if chosen(choice: "black", card.card_color_2) or	contains(card.casting_cost_2, match: "B")	then "b" else "") +
+			(if chosen(choice: "red", card.card_color_2) or		contains(card.casting_cost_2, match: "R")	then "r" else "") +
+			(if chosen(choice: "green", card.card_color_2) or	contains(card.casting_cost_2, match: "G")	then "g" else "")
+		ordered_prefix := proper_order(initial_prefix)
+		if chosen(choice: "reversed", card.card_color_2) then reverse(ordered_prefix)
+		else ordered_prefix
+	}
+	
+	color_to_unforced_prefix_2 :=
+	{
+		prefix := color_to_base_prefix_2()
+		if chosen(choice: "artifact", card.card_color_2) then "a"
+		else if length(prefix) > 2 then "m"
+		else if chosen(choice: "multicolor", card.card_color_2) and not styling.force_adventure_hybrid_frame then "m"
+		else if length(prefix) == 0 then (if chosen(choice: "multicolor", card.card_color_2) then "m" else "c" )
+		else prefix
+	}
+	
+	left_forced_prefix_2 :=
+	{
+		if chosen(choice: "white", styling.force_adventure_left_color) then "w"
+		else if chosen(choice: "blue", styling.force_adventure_left_color) then "u"
+		else if chosen(choice: "black", styling.force_adventure_left_color) then "b"
+		else if chosen(choice: "red", styling.force_adventure_left_color) then "r"
+		else if chosen(choice: "green", styling.force_adventure_left_color) then "g"
+		else if chosen(choice: "artifact", styling.force_adventure_left_color) then "a"
+		else if chosen(choice: "gold", styling.force_adventure_left_color) then "m"
+		else if chosen(choice: "colorless", styling.force_adventure_left_color) then "c"
+		else if chosen(choice: "purple", styling.force_adventure_left_color) then "s"
+		else ""
+	}
+	
+	right_forced_prefix_2 :=
+	{
+		if chosen(choice: "white", styling.force_adventure_right_color) then "w"
+		else if chosen(choice: "blue", styling.force_adventure_right_color) then "u"
+		else if chosen(choice: "black", styling.force_adventure_right_color) then "b"
+		else if chosen(choice: "red", styling.force_adventure_right_color) then "r"
+		else if chosen(choice: "green", styling.force_adventure_right_color) then "g"
+		else if chosen(choice: "artifact", styling.force_adventure_right_color) then "a"
+		else if chosen(choice: "gold", styling.force_adventure_right_color) then "m"
+		else if chosen(choice: "colorless", styling.force_adventure_right_color) then "c"
+		else if chosen(choice: "purple", styling.force_adventure_right_color) then "s"
+		else ""
+	}
+	
+	color_to_prefix_2 :=
+	{
+		unforced_prefix := color_to_unforced_prefix_2()
+		left_forced := left_forced_prefix_2()
+		right_forced := right_forced_prefix_2()
+		left_prefix := if length(left_forced) == 0 then unforced_prefix.0 else left_forced
+		right_prefix := if length(right_forced) == 0 then reverse(unforced_prefix).0 else right_forced
+		if left_prefix == right_prefix then left_prefix else left_prefix + right_prefix
+	}
+	
+	copyright_color :=
+	{
+		right_color := reverse(color_to_prefix()).0
+		if		right_color == "w" then	rgb(236,211,123)
+		else if	right_color == "u" then	rgb(055,119,186)
+		else if	right_color == "b" then	rgb(120,120,120)
+		else if	right_color == "r" then	rgb(161,037,030)
+		else if	right_color == "g" then	rgb(049,108,043)
+		else if	right_color == "a" then	rgb(116,153,169)
+		else if	right_color == "m" then	rgb(191,128,000)
+		else if	right_color == "c" then	rgb(131,114,103)
+		else if	right_color == "s" then	rgb(150,103,192)
+		else							rgb(255,255,255)
+	}
+	
+	border :=
+	{
+		"/magic-genevensis-00-main.mse-style/borders/" +
+		input + "_border.png"
+	}
+	
+	image :=
+	{
+		"/magic-genevensis-00-main.mse-style/elements/" +
+		input + "/" +
+		( if side == "left" then color_to_prefix().0 else if side == "right" then reverse(color_to_prefix()).0 else color_to_prefix() ) +
+		input + ".png"
+	}
+	
+	image_2 :=
+	{
+		"/magic-genevensis-00-main.mse-style/elements/" +
+		input + "/" +
+		( if side == "left" then color_to_prefix_2().0 else if side == "right" then reverse(color_to_prefix_2()).0 else color_to_prefix_2() ) +
+		input + ".png"
+	}
+	
+	frame_image :=
+	{
+		name := ( if has_extended_art() then "puma" else "" ) + "card"
+		image(name, side: "both")
+	}
+	
+	book_left_image :=
+	{
+		name := "adventurebookleft"
+		image_2(name, side: "both")
+	}
+	
+	book_right_image :=
+	{
+		name := "adventurebookright"
+		image(name, side: "right")
+	}
+	
+	color_indicator_dot_image :=
+	{
+		prefix := color_to_base_prefix()
+		count := length(prefix)
+		if count == 0 then "/magic-genevensis-00-main.mse-style/elements/identity/cidentity.png"
+		else if count == 1 then "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.0 + "identity.png"
+		else if count == 2 then masked_blend(
+			light: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.0 + "identity.png",
+			dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.1 + "identity.png",
+			mask: "/magic-genevensis-00-main.mse-style/imask_21.png")
+		else if count == 3 then masked_blend(
+			light: masked_blend(
+				light: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.0 + "identity.png",
+				dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.1 + "identity.png",
+				mask: "/magic-genevensis-00-main.mse-style/imask_31.png"),
+			dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.2 + "identity.png",
+			mask: "/magic-genevensis-00-main.mse-style/imask_32.png")
+		else if count == 4 then masked_blend(
+			light: masked_blend(
+				light: masked_blend(
+					light: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.0 + "identity.png",
+					dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.1 + "identity.png",
+					mask: "/magic-genevensis-00-main.mse-style/imask_41.png"),
+				dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.2 + "identity.png",
+				mask: "/magic-genevensis-00-main.mse-style/imask_42.png"),
+			dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.3 + "identity.png",
+			mask: "/magic-genevensis-00-main.mse-style/imask_43.png")
+		else masked_blend(
+			light: masked_blend(
+				light: masked_blend(
+					light: masked_blend(
+						light: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.0 + "identity.png",
+						dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.1 + "identity.png",
+						mask: "/magic-genevensis-00-main.mse-style/imask_51.png"),
+					dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.2 + "identity.png",
+					mask: "/magic-genevensis-00-main.mse-style/imask_52.png"),
+				dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.3 + "identity.png",
+				mask: "/magic-genevensis-00-main.mse-style/imask_53.png"),
+			dark: "/magic-genevensis-00-main.mse-style/elements/identity/" + prefix.4 + "identity.png",
+			mask: "/magic-genevensis-00-main.mse-style/imask_54.png")
+	}
+	
+	adventure_color_indicator_dot_image :=
+	{
+		prefix := color_to_base_prefix_2()
+		count := length(prefix)
+		if count == 0 then "/magic-genevensis-00-main.mse-style/elements/adventureidentity/cidentity.png"
+		else if count == 1 then "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.0 + "adventureidentity.png"
+		else if count == 2 then masked_blend(
+			light: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.0 + "adventureidentity.png",
+			dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.1 + "adventureidentity.png",
+			mask: "aimask_21.png")
+		else if count == 3 then masked_blend(
+			light: masked_blend(
+				light: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.0 + "adventureidentity.png",
+				dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.1 + "adventureidentity.png",
+				mask: "aimask_31.png"),
+			dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.2 + "adventureidentity.png",
+			mask: "aimask_32.png")
+		else if count == 4 then masked_blend(
+			light: masked_blend(
+				light: masked_blend(
+					light: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.0 + "adventureidentity.png",
+					dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.1 + "adventureidentity.png",
+					mask: "aimask_41.png"),
+				dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.2 + "adventureidentity.png",
+				mask: "aimask_42.png"),
+			dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.3 + "adventureidentity.png",
+			mask: "aimask_43.png")
+		else masked_blend(
+			light: masked_blend(
+				light: masked_blend(
+					light: masked_blend(
+						light: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.0 + "adventureidentity.png",
+						dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.1 + "adventureidentity.png",
+						mask: "aimask_51.png"),
+					dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.2 + "adventureidentity.png",
+					mask: "aimask_52.png"),
+				dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.3 + "adventureidentity.png",
+				mask: "aimask_53.png"),
+			dark: "/magic-genevensis-00-main.mse-style/elements/adventureidentity/" + prefix.4 + "adventureidentity.png",
+			mask: "aimask_54.png")
+	}
+	
+	symbol_map :=
+	[
+		"1 triangle" : "symbol1triangle"
+		"1 triangle flipped" : "symbol1triangleflipped"
+		"2 triangles" : "symbol2triangle"
+		"compass" : "symbolcompass"
+		"land" : "symbolland"
+		"rising" : "symbolrising"
+		"risen" : "symbolrisen"
+		"closed fan" : "symbolclosedfan"
+		"open fan" : "symbolopenfan"
+		"sun / day" : "symbolsun"
+		"moon / night" : "symbolmoon"
+		"eldrazi" : "symboleldrazi"
+		"brother's war" : "symbolbrowar"
+		"arena" : "symbolarena"
+		"acorn" : "symbolacorn"
+		"swap" : "symbolswap"
+		"tombstone" : "symboltomb"
+		"multitype" : "symbolmultitype"
+		"structure" : "symbolstructure"
+		"creature" : "symbolcreature"
+		"planeswalker" : "symbolplaneswalker"
+		"instant" : "symbolinstant"
+		"sorcery" : "symbolsorcery"
+		"artifact" : "symbolartifact"
+		"enchantment" : "symbolenchantment"
+		"custom" : "symbolcustom"
+	]
+	
+	symbol_image :=
+	{
+		name := symbol_map[styling.symbol] or else ""
+		image(name, side: "left")
+	}
+	
+	reminder_image :=
+	{
+		if styling.use_adventure_colors_for_reminder then image_2("reminderadventure" + styling.transformation_reminder, side: "both")
+		else image("reminderadventure" + styling.transformation_reminder, side: "both")
+	}
+	
+	pt_image :=
+	{
+		name := "adventurept"
+		image(name, side: "right")
+	}
+	
+	opacity_watermark_image :=
+	{
+		image :=	if styling.watermark == "setsymbol" or styling.watermark == "’setsymbol’" or styling.watermark == "'setsymbol'" then set_symbol_image()
+					else if contains(match: ".png", styling.watermark) then ("/magic-watermarks.mse-include/" + styling.watermark)
+					else ""
+		if styling.watermark_opacity_percentage == "" then image
+		else (	alpha_value := to_number(styling.watermark_opacity_percentage) or else 100
+				alpha_value_clamped :=	if alpha_value < 0 then 0
+										else if alpha_value <= 100 then alpha_value/100
+										else 1
+				set_alpha(image, alpha: alpha_value_clamped) )
+	}
+	
+	opacity_adventure_watermark_image :=
+	{
+		image :=	if styling.adventure_watermark == "setsymbol" or styling.adventure_watermark == "’setsymbol’" or styling.adventure_watermark == "'setsymbol'" then set_symbol_image()
+					else if contains(match: ".png", styling.adventure_watermark) then styling.adventure_watermark
+					else ""
+		if styling.adventure_watermark_opacity_percentage == "" then image
+		else (	alpha_value := to_number(styling.adventure_watermark_opacity_percentage) or else 100
+				alpha_value_clamped :=	if alpha_value < 0 then 0
+										else if alpha_value <= 100 then alpha_value/100
+										else 1
+				set_alpha(image, alpha: alpha_value_clamped) )
+	}
+	
+	set_symbol_image :=
+	{
+		image := symbol_variation(symbol: set.symbol, variation: "watermark")
+		enlarged_image := enlarge(border_size: 0.03, image)
+		shadow_image := drop_shadow(offset_x: -0.01, offset_y: 0.03, blur_radius: 0.02, alpha: 1, color: rgb(0,0,0), enlarged_image)
+		set_combine(combine:"shadow", shadow_image)
+	}
+	
+	crown_image :=
+	{
+		name := "crown" + (if has_special_crown() then "special" else "")
+		image(name, side: "both")
+	}
+	
+	leaf_image :=
+	{
+		name := "leaf"
+		image(name, side: "both")
+	}
+	
+	legend_leaf_image :=
+	{
+		name := "legendleaf"
+		image(name, side: "both")
+	}
+	
+	insignia_image :=
+	{
+		name := "insignia" + styling.insignia
+		image(name, side: "both")
+	}
+	
+	illustrator_brush_image :=
+	{
+		recolor_image("/magic-genevensis-00-main.mse-style/illustrator_brush_" + input + ".png", color: if styling.illustrator_text_color == rgb(255,254,255) then copyright_color() else styling.illustrator_text_color )
+	}
+	
+	vorthos_default :=
+	{
+		actual_set_code := if is_masterpiece() then set.masterpiece_set_code else set.set_code
+		set.set_language + (if actual_set_code != "" and set.set_language != "" then " • " else "") + actual_set_code
+	}
+	
+	fuse_image :=
+	{
+		other_prefix := (	if		contains(styling.fuse, match: "white") then		"w"
+							else if	contains(styling.fuse, match: "blue") then		"u"
+							else if	contains(styling.fuse, match: "black") then		"b"
+							else if	contains(styling.fuse, match: "red") then		"r"
+							else if	contains(styling.fuse, match: "green") then		"g"
+							else if	contains(styling.fuse, match: "artifact") then	"a"
+							else if	contains(styling.fuse, match: "gold") then		"m"
+							else if	contains(styling.fuse, match: "colorless") then	"c"
+							else													"s" )
+		own_prefix := if contains(styling.fuse, match: "right") then reverse(color_to_prefix()).0 else color_to_prefix().0
+		prefix :=	if		own_prefix == other_prefix then					own_prefix
+					else if	contains(styling.fuse, match: "right") then		(own_prefix + other_prefix)
+					else													(other_prefix + own_prefix)
+		size := fuse_image_size()
+		"/magic-genevensis-00-main.mse-style/elements/fuse" + size + "/" + prefix + "fuse" + size + ".png"
+	}
+	
+	fuse_image_size :=
+	{
+		text_size := length(remove_tags(card.rule_text_3))
+		if text_size > 9 then "long" else if text_size < 7 then "short" else "medium"
+	}
+	
+	clamp :=
+	{
+		if input < minimum then minimum
+		else if input > maximum then maximum
+		else input
+	}
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: basic land
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(116,186,112)
+			fill color 2: rgb(38,90,30)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+			#fill color 1: rgb(183, 151, 213)
+			#fill color 2: rgb(121, 80, 163)
+			#border color 1: rgb(0,  0,  0)
+			#border color 2: rgb(0,  0,  0)
+set info style:
+	symbol:
+		variation:
+			name: common
+			border radius: 0.07
+			fill type: solid
+			fill color: rgb(0,0,0)
+			border color: rgb(255,255,255)
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(255, 255, 255)
+			fill color 2: rgb(215, 215, 215)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+set info style:
+	symbol:
+		variation:
+			name: uncommon
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(224, 224, 224)
+			fill color 2: rgb(84, 84, 84)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+set info style:
+	symbol:
+		variation:
+			name: rare
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(214, 196, 94)
+			fill color 2: rgb(95, 84, 40)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+set info style:
+	symbol:
+		variation:
+			name: mythic rare
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(245, 148, 31)
+			fill color 2: rgb(186, 45, 38)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+set info style:
+	symbol:
+		variation:
+			name: masterpiece
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(194, 22, 3)
+			fill color 2: rgb(139, 0, 0)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+set info style:
+	symbol:
+		variation:
+			name: purple
+			border radius: 0.07
+			fill type: linear gradient
+			fill color 1: rgb(180,0,245)
+			fill color 2: rgb(100, 0, 165)
+			border color 1: rgb(0,  0,  0)
+			border color 2: rgb(0,  0,  0)
+
+############################################################## Extra style options
+styling field:
+	type: text
+	name: shrink name
+	description: Reduces the name text's font size by N points.
+#	localized caption:
+#		fr: Rapetisser le nom
+#	localized description:
+#		fr: Réduire la taille du nom de N points.
+styling field:
+	type: boolean
+	name: center name
+	description: Center the name text on the card?
+#	localized caption:
+#		fr: Centrer le nom
+#	localized description:
+#		fr: Aligner le nom au milieu de la carte?
+	initial: no
+styling field:
+	type: text
+	name: shrink adventure name
+	description: Reduces the adventure name text's font size by N points.
+#	localized caption:
+#		fr: Rapetisser le nom de l'aventure
+#	localized description:
+#		fr: Réduire la taille du nom de l'aventure de N points.
+styling field:
+	type: boolean
+	name: center adventure name
+	description: Center the adventure name text on the adventure page?
+#	localized caption:
+#		fr: Centrer le nom de l'aventure
+#	localized description:
+#		fr: Aligner le nom de l'aventure au milieu de la page d'aventure?
+	initial: no
+styling field:
+	type: color
+	name: adventure name text color
+	description: Use the specified color for the name of the adventure.
+#	localized caption:
+#		fr: Couleur du nom de l'aventure
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour le texte du nom de l'aventure.
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	initial: black
+styling field:
+	type: text
+	name: shrink type
+	description: Reduces the type text's font size by N points.
+#	localized caption:
+#		fr: Rapetisser le type
+#	localized description:
+#		fr: Réduire la taille du type de N points.
+styling field:
+	type: boolean
+	name: center type
+	description: Center the type text on the card?
+#	localized caption:
+#		fr: Centrer le type
+#	localized description:
+#		fr: Aligner le type au milieu de la carte?
+	initial: no
+styling field:
+	type: text
+	name: shrink adventure type
+	description: Reduces the adventure type text's font size by N points.
+#	localized caption:
+#		fr: Rapetisser le type de l'aventure
+#	localized description:
+#		fr: Réduire la taille du type de l'aventure de N points.
+styling field:
+	type: boolean
+	name: center adventure type
+	description: Center the adventure type text on the adventure page?
+#	localized caption:
+#		fr: Centrer le type de l'aventure
+#	localized description:
+#		fr: Aligner le type de l'aventure au milieu de la page d'aventure?
+	initial: no
+styling field:
+	type: color
+	name: adventure type text color
+	description: Use the specified color for the type of the adventure.
+#	localized caption:
+#		fr: Couleur du type de l'aventure
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour le texte du type de l'aventure.
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	initial: black
+styling field:
+	type: text
+	name: chop rule textbox
+	description: Chops the top, bottom, and right edges of the rule textbox by N pixels. Formatted as "1,2,3"
+#	localized caption:
+#		fr: Tronquer le texte de règles
+#	localized description:
+#		fr: Réduire la taille du haut, du bas, et de la droite de la zone du texte de règles de N pixels. Format: "1,2,3"
+styling field:
+	type: text
+	name: rule text font size cap
+	description: The font size of rule text can't become greater than this. Default is 24.
+#	localized caption:
+#		fr: Caper le texte de règles
+#	localized description:
+#		fr: Limiter la taille maximale de police des textes de règles. Valeur par défaut: 24.
+styling field:
+	type: choice
+	name: center rule text
+	description: When should rule text be centered?
+#	localized caption:
+#		fr: Centrer le texte de règles
+#	localized description:
+#		fr: Aligner le texte de règles au milieu de la zone de texte?
+	choice: always
+	choice: three lines or less
+	choice: two lines or less
+	choice: one line
+	choice: never
+	initial: two lines or less
+styling field:
+	type: text
+	name: chop flavor textbox
+	description: Chops the top, bottom, and right edges of the flavor textbox by N pixels. Formatted as "1,2,3"
+#	localized caption:
+#		fr: Tronquer le texte d'ambiance
+#	localized description:
+#		fr: Réduire la taille du haut, du bas, et de la droite de la zone du texte d'ambiance de N pixels. Format: "1,2,3"
+styling field:
+	type: text
+	name: flavor text font size cap
+	description: The font size of flavor text can't become greater than this. Default is 24.
+#	localized caption:
+#		fr: Caper le texte d'ambiance
+#	localized description:
+#		fr: Limiter la taille maximale de police du texte d'ambiance. Valeur par défaut: 24.
+styling field:
+	type: choice
+	name: center flavor text
+	description: When should flavor text be centered?
+#	localized caption:
+#		fr: Centrer le texte d'ambiance
+#	localized description:
+#		fr: Aligner le texte d'ambiance au milieu de la zone de texte?
+	choice: always
+	choice: one line
+	choice: never
+	initial: always
+styling field:
+	type: choice
+	name: extended art
+	description: Should the illustration extend to the edge of the card? Disables the insignia.
+#	localized caption:
+#		fr: Illustration étendue
+#	localized description:
+#		fr: Étirer l'illustration jusqu'aux bords de la carte? Désactive l'insigne.
+	choice: yes
+	choice: if land
+	choice: no
+	initial: no
+styling field:
+	type: text
+	name: watermark
+	description: The name of a '.png' image inside the /magic-watermarks.mse-include/ folder. Dimensions can be anything, but native is 293x293. Alternatively, write 'setsymbol' to use the set symbol instead.
+#	localized caption:
+#		fr: Filigrane
+#	localized description:
+#		fr: Le chemin d'une image '.png' située dans le dossier /magic-watermarks.mse-include/. Alternativement, écrivez 'setsymbol' pour utiliser le symbole du Set comme filigrane.
+styling field:
+	type: text
+	name: watermark opacity percentage
+	description: Set the opacity percentage for watermark. Opaque is 100, transparent is 0. Leave blank to use image opacity.
+#	localized caption:
+#		fr: Pourcentage d'opacité du filigrane
+#	localized description:
+#		fr: Complètement opaque: 100. Complètement transparent: 0. Laissez vide pour utiliser l'opacité native du filigrane.
+styling field:
+	type: text
+	name: adventure watermark
+	description: The file path of a '.png' image used for adventure watermark. Dimensions can be anything, but native is 217x217. Alternatively, write 'setsymbol' to use the set symbol instead.
+#	localized caption:
+#		fr: Filigrane de l'aventure
+#	localized description:
+#		fr: Le chemin d'une image '.png' à utiliser comme filigrane de l'aventure. Alternativement, écrivez 'setsymbol' pour utiliser le symbole du Set comme filigrane de l'aventure.
+styling field:
+	type: text
+	name: adventure watermark opacity percentage
+	description: Set the opacity percentage for adventure watermark. Opaque is 100, transparent is 0. Leave blank to use image opacity.
+#	localized caption:
+#		fr: Pourcentage d'opacité du filigrane de l'aventure
+#	localized description:
+#		fr: Complètement opaque: 100. Complètement transparent: 0. Laissez vide pour utiliser l'opacité native du filigrane.
+styling field:
+	type: choice
+	name: legend crown
+	description: Is the legend crown visible? Special crown disables the land leaf and the insignia.
+#	localized caption:
+#		fr: Couronne légendaire
+#	localized description:
+#		fr: La couronne légendaire est-elle visible? La couronne spéciale désactive l'insigne.
+	choice: special
+	choice: special if legendary
+	choice: normal
+	choice: normal if legendary
+	choice: none
+	initial: normal if legendary
+styling field:
+	type: choice
+	name: land leaf
+	description: Is the land leaf visible?
+#	localized caption:
+#		fr: Feuille de terrain
+#	localized description:
+#		fr: La feuille de terrain est-elle visible?
+	choice: yes
+	choice: if land
+	choice: no
+	initial: if land
+styling field:
+	type: choice
+	name: insignia
+	description: Is an insignia visible? Disabled by extended art and special crown.
+#	localized caption:
+#		fr: Insigne
+#	localized description:
+#		fr: L'insigne est-elle visible? Désactivé par l'illustration étendue et la couronne spéciale.
+	choice: none
+	choice: lieutenant
+	choice: commander
+	initial: none
+styling field:
+	type: choice
+	name: symbol
+	description: Use a symbol next to the card's name?
+#	localized caption:
+#		fr: Symbole
+#	localized description:
+#		fr: Utiliser un symbole à côté du nom de la carte?
+	choice: none
+	choice: 1 triangle
+	choice: 1 triangle flipped
+	choice: 2 triangles
+	choice: compass
+	choice: land
+	choice: rising
+	choice: risen
+	choice: closed fan
+	choice: open fan
+	choice: sun / day
+	choice: moon / night
+	choice: eldrazi
+	choice: brother's war
+	choice: arena
+	choice: acorn
+	choice: swap
+	choice: tombstone
+	choice: multitype
+	choice: structure
+	choice: creature
+	choice: planeswalker
+	choice: instant
+	choice: sorcery
+	choice: artifact
+	choice: enchantment
+	choice: custom
+	initial: none
+styling field:
+	type: choice
+	name: transformation reminder
+	description: Use a text field to remind some info of the other side?
+#	localized caption:
+#		fr: Rappel de transformation
+#	localized description:
+#		fr: Utiliser un champ de texte pour rappeler certaines informations du dos de la carte?
+	choice: none
+	choice: short
+	choice: medium
+	choice: long
+	initial: none
+styling field:
+	type: boolean
+	name: use adventure colors for reminder
+	description: Use adventure colors instead of card colors for the transformation reminder box?
+#	localized caption:
+#		fr: Utiliser les couleur de l'aventure pour le rappel
+#	localized description:
+#		fr: Utiliser les couleur de l'aventure au lieu des couleurs de la carte pour le rappel de transformation?
+	initial: yes
+styling field:
+	type: choice
+	name: fuse
+	description: Use a textbox overlapping two cards? Choose the color of the other card. Write the entire text on both cards.
+#	localized caption:
+#		fr: Fusion
+#	localized description:
+#		fr: Utiliser un champ de texte commun à deux cartes? Choisissez la couleur de l'autre carte. Écrivez l'entièreté du texte sur chaque carte.
+	choice: none
+	choice: left, mixed with white
+	choice: left, mixed with blue
+	choice: left, mixed with black
+	choice: left, mixed with red
+	choice: left, mixed with green
+	choice: left, mixed with artifact
+	choice: left, mixed with gold
+	choice: left, mixed with colorless
+	choice: left, mixed with purple
+	choice: right, mixed with white
+	choice: right, mixed with blue
+	choice: right, mixed with black
+	choice: right, mixed with red
+	choice: right, mixed with green
+	choice: right, mixed with artifact
+	choice: right, mixed with gold
+	choice: right, mixed with colorless
+	choice: right, mixed with purple
+	initial: none
+styling field:
+	type: boolean
+	name: banner
+	description: Use a text field to write info on the left of the card?
+#	localized caption:
+#		fr: Bannière
+#	localized description:
+#		fr: Utiliser un champ de texte sur la gauche de la carte?
+	initial: no
+styling field:
+	type: boolean
+	name: color indicator dot
+	description: Use the color indicator dot?
+#	localized caption:
+#		fr: Indicateur de couleur
+#	localized description:
+#		fr: Utiliser un indicateur de couleur, par exemple sur les cartes sans coût de lancement?
+	initial: no
+styling field:
+	type: boolean
+	name: adventure color indicator dot
+	description: Use the color indicator dot for the adventure?
+#	localized caption:
+#		fr: Indicateur de couleur sur l'aventure
+#	localized description:
+#		fr: Utiliser un indicateur de couleur sur l'aventure, par exemple si elle n'a pas de coût de lancement?
+	initial: no
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:R3,G3,B3:R4,G4,B4:br:". 1 and 2 are fill colors, 3 and 4 border colors, br is the border radius. Must end with :
+#	localized caption:
+#		fr: Couleur de rareté
+#	localized description:
+#		fr: Utiliser une couleur personnalisée pour le symbole de rareté? Format: "R1,G1,B1:R2,G2,B2:R3,G3,B3:R4,G4,B4:br:". 1 et 2 sont les couleurs de remplissage, 3 et 4 sont les couleur de bordure, br est la taille de bordure. Doit finir par :
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Use the color inverted common rarity symbol, like in Coldsnap?
+#	localized caption:
+#		fr: Couleur des courantes inversée
+#	localized description:
+#		fr: Utiliser des couleurs inversées pour le symbole de rareté des cartes courantes, comme dans l'extension 'Coldsnap'?
+	initial: no
+styling field:
+	type: text
+	name: shrink rarity symbol
+	description: Shrinks the top, bottom, left, and right edges of the rarity symbol by N pixels. Use negatives to enlarge. Formatted as "1,2,3,4"
+#	localized caption:
+#		fr: Rapetisser la rareté
+#	localized description:
+#		fr: Réduire la taille du haut, du bas, de la gauche, et de la droite du symbole de rareté. Utilisez des négatifs pour agrandir. Format: "1,2,3,4"
+styling field:
+	type: choice
+	name: force left color
+	description: Use a specified color for the left half of the frame.
+#	localized caption:
+#		fr: Forcer la couleur gauche
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour la moitié gauche de la carte.
+	choice: none
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: artifact
+	choice: gold
+	choice: colorless
+	choice: purple
+	initial: none
+styling field:
+	type: choice
+	name: force right color
+	description: Use a specified color for the right half of the frame.
+#	localized caption:
+#		fr: Forcer la couleur droite
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour la moitié droite de la carte.
+	choice: none
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: artifact
+	choice: gold
+	choice: colorless
+	choice: purple
+	initial: none
+styling field:
+	type: boolean
+	name: force hybrid frame
+	description: Use a hybrid 2-color frame instead of a gold frame even if the casting cost has no hybrid mana?
+#	localized caption:
+#		fr: Forcer les couleurs hybrides
+#	localized description:
+#		fr: Utiliser un cadre hybride à deux couleurs au lieu d'un cadre doré, même si la carte n'a pas de mana hybride dans son coût de lancement?
+	initial: yes
+styling field:
+	type: choice
+	name: force adventure left color
+	description: Use a specified color for the left half of the adventure page?
+#	localized caption:
+#		fr: Forcer la couleur gauche de l'aventure
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour la moitié gauche de l'aventure.
+	choice: none
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: artifact
+	choice: gold
+	choice: colorless
+	choice: purple
+	initial: none
+styling field:
+	type: choice
+	name: force adventure right color
+	description: Use a specified color for the right half of the adventure page?
+#	localized caption:
+#		fr: Forcer la couleur droite de l'aventure
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour la moitié droite de l'aventure.
+	choice: none
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: artifact
+	choice: gold
+	choice: colorless
+	choice: purple
+	initial: none
+styling field:
+	type: boolean
+	name: force adventure hybrid frame
+	description: Use a hybrid 2-color adventure page instead of a gold page even if the casting cost has no hybrid mana?
+#	localized caption:
+#		fr: Forcer les couleurs hybrides sur l'aventure
+#	localized description:
+#		fr: Utiliser un cadre hybride à deux couleurs au lieu d'un cadre doré, même si l'aventure n'a pas de mana hybride dans son coût de lancement?
+	initial: yes
+styling field:
+	type: color
+	name: illustrator text color
+	description: Use the specified color for the illustrator, copyright, and vorthos text.
+#	localized caption:
+#		fr: Couleur du copyright
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour le nom de l'artiste et les lignes de copyright.
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	choice:
+		name: use card color
+		color: rgb(255,254,255)
+	initial: white
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Remove this card from the automatic card count, to allow for overcounted cards, like in Planeswalker Decks?
+#	localized caption:
+#		fr: Retirer du compte
+#	localized description:
+#		fr: Ne pas compter cette carte dans la numérotation du Set?
+	initial: no
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana?
+#	localized caption:
+#		fr: Mana de guilde
+#	localized description:
+#		fr: Utiliser les symboles de guildes au lieu des symboles moitié/moitié pour le mana hybride?
+	initial: no
+styling field:
+	type: package choice
+	name: casting cost mana symbols
+	description: Mana symbols used for casting cost, name, banner, fuse and transformation reminder.
+#	localized caption:
+#		fr: Symboles des coûts
+#	localized description:
+#		fr: Les symboles à utiliser dans le coût de lancement, le nom, la bannière, la fusion, et le rappel de transformation.
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-genevensis-large.mse-symbol-font
+styling field:
+	type: package choice
+	name: text box mana symbols
+	description: Mana symbols used for rule text and flavor text.
+#	localized caption:
+#		fr: Symboles des textes
+#	localized description:
+#		fr: Les symboles à utiliser dans les textes de règles, et le texte d'ambiance.
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-genevensis-small.mse-symbol-font
+styling field:
+	type: text
+	name: name font
+	description: Font used for the name, alias, type, pt, fuse, transformation reminder, and banner. Hover your mouse over the font file to see it's details, and write it's Title here.
+#	localized caption:
+#		fr: Police du nom
+#	localized description:
+#		fr: Police utilisée pour le nom, alias, type, et force/endurance. Survolez le fichier de police avec la souris pour voir ses informations, et écrivez son titre ici.
+styling field:
+	type: text
+	name: text font
+	description: Font used for the rule text. Hover your mouse over the font file to see it's details, and write it's Title here.
+#	localized caption:
+#		fr: Police du texte des règles
+#	localized description:
+#		fr: Police utilisée pour le texte des règles. Survolez le fichier de police avec la souris pour voir ses informations, et écrivez son titre ici.
+styling field:
+	type: text
+	name: text italic font
+	description: Font used for the flavor text and reminder texts. Hover your mouse over the font file to see it's details, and write it's Title here.
+#	localized caption:
+#		fr: Police du texte d'ambiance
+#	localized description:
+#		fr: Police utilisée pour le text d'ambiance. Survolez le fichier de police avec la souris pour voir ses informations, et écrivez son titre ici.
+styling style:
+	center rule text:
+		render style: both
+		choice images:
+			always: /magic.mse-game/icons/center-all-text.png
+			three lines or less: /magic-genevensis-00-main.mse-style/center-3lines-text.png
+			two lines or less: /magic-genevensis-00-main.mse-style/center-2lines-text.png
+			one line: /magic-genevensis-00-main.mse-style/center-1line-text.png
+			never: /magic.mse-game/icons/center-no-text.png
+	center flavor text:
+		render style: both
+		choice images:
+			always: /magic.mse-game/icons/center-all-text.png
+			one line: /magic-genevensis-00-main.mse-style/center-1line-text.png
+			never: /magic.mse-game/icons/center-no-text.png
+	use guild mana symbols:
+		render style: both
+		choice images:
+			yes: /magic-mana-genevensis-large.mse-symbol-font/mana_guild_wu.png
+			no: /magic-mana-genevensis-large.mse-symbol-font/mana_bi_wu.png
+	inverted common symbol:
+		choice images:
+			no: { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+
+############################################################## Card fields
+card style:
+	############################# Background
+	card color:
+		left:	0
+		top:	0
+		width:	750
+		height:	1046
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { frame_image() }
+	card color 2:
+		left: 34
+		top: 637
+		height: 350
+		width: 341
+		z index: 8
+		render style: image
+		image: { book_left_image() }
+		popup style: in place
+	
+	############################# Name line
+	name:
+		left: { 64 + (if styling.center_name then name_margin() else nameline_left_margin()) }
+		top: 55
+		right: { 686 - (if styling.center_name then name_margin() else nameline_right_margin()) }
+		height: 48
+		alignment: { if styling.center_name then "center middle shrink-overflow" else "left middle shrink-overflow" }
+		z index: 42
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: { 32 - shrink_name() }
+			color: black
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: { 32 - shrink_name() }
+	name 2:
+		left: { 70 + if styling.center_adventure_name then (card_style.casting_cost_2.content_width + 2) else 0 }
+		top: 660
+		right: { 352 - card_style.casting_cost_2.content_width }
+		height: 42
+		alignment: { if styling.center_adventure_name then "center middle shrink-overflow" else "left middle shrink-overflow" }
+		z index: 42
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: { 28 - shrink_adventure_name() }
+			color: { styling.adventure_name_text_color }
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: { 28 - shrink_adventure_name() }
+	casting cost:
+		right: 687
+		top: 55
+		width: { max(60, card_style.casting_cost.content_width) + 10 }
+		height: 48
+		alignment: middle right
+		font:
+			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
+			size: 32
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: 32
+		always symbol: true
+		z index: 42
+	casting cost 2:
+		right: 354
+		top: 660
+		width: { max(40, card_style.casting_cost_2.content_width) + 10 }
+		height: 42
+		alignment: middle right
+		font:
+			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
+			size: 28
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: 28
+		always symbol: true
+		z index: 42
+	alias:
+		left: 149
+		top: 117
+		width: 452
+		height: 24
+		alignment: center middle shrink-overflow
+		z index: 42
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: 18
+			color: black
+	
+	############################# Image
+	image:
+		left: { if has_extended_art() then 0 else 55 }
+		top: 114
+		width: { if has_extended_art() then 750 else 640 }
+		height:	469
+		z index: 10
+		mask: { "/magic-genevensis-00-main.mse-style/image_" + ( if has_extended_art() then "extended_" else "" ) + ( if has_leaf() then "leaf_" else "" ) + "mask.png" }
+
+	############################# Card type
+	type:
+		left: { 73 + (if styling.center_type then type_margin() else typeline_left_margin()) }
+		top: 596
+		right: { 677 - (if styling.center_type then type_margin() else typeline_right_margin()) }
+		height: 44
+		alignment: { if styling.center_type then "center middle shrink-overflow" else "left middle shrink-overflow" }
+		z index: 42
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: { 25 - shrink_type() }
+			color: black
+			separator color: red
+	type 2:
+		left: { if has_adventure_color_indicator() then 100 else 70 }
+		top: 713
+		right: { 354 - if styling.center_adventure_type and has_adventure_color_indicator() then 30 else 0 }
+		height: 29
+		alignment: { if styling.center_adventure_type then "center middle shrink-overflow" else "left middle shrink-overflow" }
+		z index: 42
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: { 21 - shrink_adventure_type() }
+			color: { styling.adventure_type_text_color }
+			separator color: red
+	rarity:
+		left: { 620 - (-chop_rarity_left()) }
+		width: { 60 - chop_rarity_right() - chop_rarity_left() }
+		top: { 588 - (-chop_rarity_top()) }
+		bottom: { 648 - chop_rarity_bot() }
+		z index: 40
+		render style: image
+		choice images:
+			basic land:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "basic land")
+			common:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			masterpiece:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "masterpiece")
+			special:
+				script:
+					if has_custom_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "purple")
+			
+	############################# Text boxes
+	rule text:
+		left: 399
+		top: { 659 - (-chop_top()) }
+		width: { 276 - chop_right() }
+		bottom: { 953 - chop_bot() }
+		font:
+			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
+			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
+			size: { if styling.rule_text_font_size_cap == "" then 24 else to_number(styling.rule_text_font_size_cap) or else 24 }
+			scale down to: 12
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.rule_text_font_size_cap == "" then 24 else to_number(styling.rule_text_font_size_cap) or else 24 }
+			scale down to: 12
+		alignment:
+			script:
+				if (	styling.center_rule_text == "three lines or less"
+					and card_style.rule_text.content_lines <= 3 )
+				or (	styling.center_rule_text == "two lines or less"
+					and card_style.rule_text.content_lines <= 2 )
+				or (	styling.center_rule_text == "one line"
+					and card_style.rule_text.content_lines <= 1 )
+				or styling.center_rule_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 44
+		line height hard: { if contains(card.rule_text, match: "<li>") then 0.9 else 1.2 }
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	rule text 2:
+		left: 74
+		top: 752
+		width: 276
+		bottom: { if styling.transformation_reminder != "none" then 940 else 968 }
+		font:
+			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
+			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
+			size: { if styling.rule_text_font_size_cap == "" then 24 else to_number(styling.rule_text_font_size_cap) or else 24 }
+			scale down to: 12
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.rule_text_font_size_cap == "" then 24 else to_number(styling.rule_text_font_size_cap) or else 24 }
+			scale down to: 12
+		alignment:
+			script:
+				if (	styling.center_rule_text == "three lines or less"
+					and card_style.rule_text_2.content_lines <= 3 )
+				or (	styling.center_rule_text == "two lines or less"
+					and card_style.rule_text_2.content_lines <= 2 )
+				or (	styling.center_rule_text == "one line"
+					and card_style.rule_text_2.content_lines <= 1 )
+				or styling.center_rule_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 44
+		line height hard: { if contains(card.rule_text_2, match: "<li>") then 0.9 else 1.2 }
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	flavor text:
+		left: 399
+		top: { 953 - chop_bot() - (-chop_flavor_top()) }
+		width: { 276 - chop_flavor_right() }
+		bottom: { 970 - chop_flavor_bot() }
+		font:
+			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
+			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
+			size: { if styling.flavor_text_font_size_cap != "" then (to_number(styling.flavor_text_font_size_cap) or else 24) else 24 }
+			scale down to: 12
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { if styling.flavor_text_font_size_cap != "" then (to_number(styling.flavor_text_font_size_cap) or else 24) else 24 }
+			scale down to: 12
+		alignment:
+			script:
+				if (	styling.center_flavor_text == "one line"
+						and card_style.flavor_text.content_lines <= 1 )
+				or styling.center_flavor_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 44
+		padding bottom: { if card.pt != "" or styling.transformation_reminder == "long" then 30 else 22 }
+		line height hard: { if contains(card.flavor_text, match: "<li>") then 0.9 else 1.2 }
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	rule text 3:
+		left: { (if contains(styling.fuse, match: "right") then 750 else 0) - (if length(remove_tags(card.rule_text_3)) > 9 then 22 else 0) - 128 + 36 }
+		top: 521
+		width: { if styling.fuse != "none" then (if length(remove_tags(card.rule_text_3)) > 9 then 228 else 184) else 0 }
+		height: 54
+		z index: 160
+		alignment: center middle shrink-overflow
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: 30
+			scale down to: 12
+			color: black
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: 30
+			scale down to: 12
+	
+	############################# PT
+	pt:
+		z index: 46
+		left: 552
+		top: 950
+		width: 120
+		height: 56
+		alignment: center middle shrink-overflow
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: 32
+			color: black
+			separator color: red
+	
+	############################# Copyright stuff
+	illustrator:
+		left: 225
+		top: 1013
+		width: 300
+		height: 20
+		z index: 40
+		alignment: top center
+		font:
+			name: Beleren Small Caps Bold
+			size: 17
+			color: { if styling.illustrator_text_color == rgb(255,254,255) then copyright_color() else styling.illustrator_text_color }
+
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: card code
+	save value: false
+	script:
+		card_number := if set.automatic_card_numbers and not styling.remove_from_autocount then (card_number_m15() + " ") else ""
+		if length(card_number) == 4 then card_number := "0" + card_number
+		if set.automatic_copyright then	combined_editor(prefix: card_number, field1: card.copyright, separator1: if card.copyright == "" then "" else " ", field2: card.card_code_text)
+		else							forward_editor(prefix: card_number, field: card.card_code_text)
+	description: Card number and copyright, the default value can be changed on the 'set info' tab
+extra card field:
+	type: choice
+	name: book right
+	editable: false
+	save value: false
+	choice: book
+extra card field:
+	type: choice
+	name: transformation symbol
+	editable: false
+	save value: false
+	choice: transformation symbol
+extra card field:
+	type: choice
+	name: transformation reminder
+	editable: false
+	save value: false
+	choice: transformation reminder
+extra card field:
+	type: text
+	name: transformation reminder text
+	save value: true
+extra card field:
+	type: choice
+	name: transformation reminder pt paste
+	editable: false
+	save value: false
+	choice: transformation reminder pt paste
+extra card field:
+	type: choice
+	name: alias box
+	editable: false
+	save value: false
+	choice: alias box
+extra card field:
+	type: text
+	name: ascend
+	save value: true
+	script: replace(value, match: " ", replace: "​")
+extra card field:
+	type: choice
+	name: ascend box
+	editable: false
+	save value: false
+	choice: ascend box
+extra card field:
+	type: choice
+	name: color indicator dot
+	editable: false
+	save value: false
+	choice: color indicator dot
+extra card field:
+	type: choice
+	name: adventure color indicator dot
+	editable: false
+	save value: false
+	choice: color indicator dot
+extra card field:
+	type: choice
+	name: illustrator brush
+	editable: false
+	save value: false
+	choice: illustrator brush
+extra card field:
+	type: choice
+	name: illustrator brush 2
+	editable: false
+	save value: false
+	choice: illustrator brush 2
+extra card field:
+	type: text
+	name: vorthos box
+	save value: true
+	default: vorthos_default()
+	description: Vorthos box of this card, set code and set language, the default value can be changed on the 'set info' tab
+extra card field:
+	type: choice
+	name: pt box
+	editable: false
+	save value: false
+	choice: pt box
+extra card field:
+	type: choice
+	name: watermark image
+	editable: false
+	save value: false
+	show statistics: false
+	choice: watermark image
+extra card field:
+	type: choice
+	name: adventure watermark image
+	editable: false
+	save value: false
+	show statistics: false
+	choice: watermark image
+extra card field:
+	type: choice
+	name: crown
+	editable: false
+	save value: false
+	show statistics: false
+	choice: crown
+extra card field:
+	type: choice
+	name: leaf
+	editable: false
+	save value: false
+	show statistics: false
+	choice: leaf
+extra card field:
+	type: choice
+	name: legend leaf
+	editable: false
+	save value: false
+	show statistics: false
+	choice: legend leaf
+extra card field:
+	type: choice
+	name: insignia
+	editable: false
+	save value: false
+	show statistics: false
+	choice: insignia
+extra card field:
+	type: choice
+	name: fuse box
+	editable: false
+	save value: false
+	show statistics: false
+	choice: fuse box
+extra card field:
+	type: color
+	name: card color border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: book left border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: book right border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: crown border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: leaf border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: legend leaf border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: insignia border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: symbol border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: color indicator dot border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: adventure color indicator dot border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: transformation reminder border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: transformation reminder pt paste border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: alias box border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: ascend box border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: pt border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: fuse box border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: choice
+	name: pride pin
+	choice: none
+	choice: lesbian
+	choice: gay
+	choice: bi
+	choice: trans
+	choice: pan
+	choice: ace
+	choice: aro
+	choice: nonbinary
+	choice: agender
+	choice: genderfluid
+	choice: cis
+	choice: straight
+	choice: rainbow
+	initial: none
+	save value: true
+	editable: true
+extra card style:
+	card code:
+		left: 58
+		top: 1016
+		right: { 328 - ( card_style.illustrator.content_width / 2 ) }
+		height: 20
+		z index: 40
+		alignment: top left shrink-overflow
+		font:
+			name: Beleren Small Caps Bold
+			size: 15
+			color: { if styling.illustrator_text_color == rgb(255,254,255) then copyright_color() else styling.illustrator_text_color }
+	book right:
+		left: 375
+		top: 637
+		height: 350
+		width: 341
+		z index: 8
+		render style: image
+		image: { book_right_image() }
+	transformation symbol:
+		left: 35
+		top: 45
+		height: 78
+		width: 73
+		z index: 8
+		visible: { has_symbol() }
+		render style: image
+		image: { symbol_image() }
+	transformation reminder:
+		left: 0
+		top: { if styling.transformation_reminder == "short" then 926 else 911 }
+		height: { if styling.transformation_reminder == "short" then 91 else 103 }
+		width: { if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
+		z index: 22
+		visible: { styling.transformation_reminder != "none" }
+		render style: image
+		image: { reminder_image() }
+	transformation reminder text:
+		left: { if styling.transformation_reminder == "short" then 4 else 22 }
+		top: 947
+		height: 60
+		width: { if styling.transformation_reminder == "short" then 191 else if styling.transformation_reminder == "medium" then 294 else if styling.transformation_reminder == "long" then 404 else 0 }
+		z index: 26
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: 30
+			color: black
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: 30
+		alignment: center middle shrink-overflow
+	transformation reminder pt paste:
+		left: 456
+		top: 952
+		height: 58
+		width: 76
+		z index: 24
+		visible: { styling.transformation_reminder == "long" and card.pt != ""}
+		render style: image
+		image: 
+			script:
+				"/magic-genevensis-00-main.mse-style/elements/reminderadventurelongptpaste/" +
+				( if styling.use_adventure_colors_for_reminder then reverse(color_to_prefix_2()).0 else "" ) +
+				reverse(color_to_prefix()).0 + "reminderadventurelongptpaste.png"
+	alias box:
+		left: 110
+		top: 112
+		height: 47
+		width: 530
+		z index: 12
+		visible: { card.alias != ""}
+		render style: image
+		image: { image("alias", side: "both") }
+	ascend:
+		left: 18
+		top: 147
+		width: { if styling.banner then 50 else 0 }
+		height: 424
+		direction: vertical
+		z index: 42
+		alignment: center middle
+		font:
+			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
+			size: 18
+			scale down to: 12
+			color: black
+		symbol font:
+			name: { styling.casting_cost_mana_symbols }
+			size: 18
+			scale down to: 12
+	ascend box:
+		left: 9
+		top: 117
+		height: 462
+		width: 68
+		z index: 12
+		visible: { styling.banner }
+		render style: image
+		image: { image("ascend", side: "left") }
+	color indicator dot:
+		left: 66
+		top: 597
+		width: 42
+		height: 42
+		z index: 40
+		visible: { has_identity() }
+		render style: image
+		image: { color_indicator_dot_image() }
+	adventure color indicator dot:
+		left: 68
+		top: 712
+		width: 30
+		height: 30
+		z index: 40
+		visible: { has_adventure_color_indicator() }
+		render style: image
+		image: { adventure_color_indicator_dot_image() }
+	illustrator brush:
+		left: { 334 - ( card_style.illustrator.content_width / 2 ) }
+		top: 1017
+		width: 36
+		height: 18
+		z index: 40
+		render style: image
+		image: { illustrator_brush_image("1") }
+	illustrator brush 2:
+		left: { 380 - ( -card_style.illustrator.content_width / 2 ) }
+		top: 1017
+		width: 36
+		height: 18
+		z index: 40
+		render style: image
+		image: { illustrator_brush_image("2") }
+	vorthos box:
+		left: { 422 - ( -card_style.illustrator.content_width / 2 ) }
+		right: 692
+		top: 1016
+		height: 20
+		z index: 40
+		alignment: top right shrink-overflow
+		font:
+			name: Beleren Small Caps Bold
+			size: 15
+			color: { if styling.illustrator_text_color == rgb(255,254,255) then copyright_color() else styling.illustrator_text_color }
+	pt box:
+		left: 511
+		top: 908
+		width: 215
+		height:	110
+		z index: 22
+		visible: { card.pt != "" }
+		render style: image
+		image: { pt_image() }
+	watermark image:
+		left: 391
+		top: 666
+		width: 293
+		height: 293
+		z index: 10
+		render style: image
+		image: { opacity_watermark_image() }
+	adventure watermark image:
+		left: 104
+		top: 751
+		width: 217
+		height: 217
+		z index: 10
+		render style: image
+		image: { opacity_adventure_watermark_image() }
+		mask: adventure_watermark_mask.png
+	crown:
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 2
+		visible: { has_crown() or has_special_crown() }
+		render style: image
+		image: { crown_image() }
+	leaf:
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 4
+		visible: { has_leaf() }
+		render style: image
+		image: { leaf_image() }
+	legend leaf:
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 6
+		visible: { has_crown() and has_leaf() }
+		render style: image
+		image: { legend_leaf_image() }
+	insignia:
+		left: 0
+		top: 181
+		width: 750
+		height: 66
+		z index: 6
+		visible: { not has_extended_art() and not has_special_crown() and styling.insignia != "none" }
+		render style: image
+		image: { insignia_image() }
+	fuse box:
+		left: { stylesheet.card_style.rule_text_3.left - 36 }
+		top: 501
+		height: 94
+		width: { stylesheet.card_style.rule_text_3.width + 72 }
+		z index: 150
+		visible: { styling.fuse != "none" }
+		render style: image
+		image: { fuse_image() }
+	card color border:
+		visible: { set.border_color != rgb(0,0,0) }
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 1
+		mask: { border((if has_extended_art() then "puma" else "") + "card") }
+	book left border:
+		visible: { set.border_color != rgb(0,0,0) }
+		left: 34
+		top: 637
+		height: 350
+		width: 341
+		z index: 9
+		mask: { border("adventurebookleft") }
+	book right border:
+		visible: { set.border_color != rgb(0,0,0) }
+		left: 375
+		top: 637
+		height: 350
+		width: 341
+		z index: 9
+		mask: { border("adventurebookright") }
+	crown border:
+		visible: { set.border_color != rgb(0,0,0) and (has_crown() or has_special_crown()) }
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 3
+		mask: { border("crown" + (if has_special_crown() then "special" else "")) }
+	leaf border:
+		visible: { set.border_color != rgb(0,0,0) and has_leaf() }
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 5
+		mask: { border("leaf") }
+	legend leaf border:
+		visible: { set.border_color != rgb(0,0,0) and has_crown() and has_leaf() }
+		left: 0
+		top: 0
+		width: 750
+		height: 1046
+		z index: 7
+		mask: { border("legendleaf") }
+	insignia border:
+		visible: { set.border_color != rgb(0,0,0) and not has_extended_art() and styling.insignia != "none" and not has_special_crown() }
+		left: 0
+		top: 181
+		width: 750
+		height: 66
+		z index: 7
+		mask: { border("insignia" + styling.insignia) }
+	symbol border:
+		visible: { set.border_color != rgb(0,0,0) and has_symbol() }
+		left: 35
+		top: 45
+		height: 78
+		width: 73
+		z index: 9
+		mask: { border("symboltomb") }
+	color indicator dot border:
+		visible: { set.border_color != rgb(0,0,0) and has_identity() }
+		left: 66
+		top: 597
+		width: 42
+		height: 42
+		z index: 41
+		mask: { border("identity") }
+	adventure color indicator dot border:
+		visible: { set.border_color != rgb(0,0,0) and has_adventure_color_indicator() }
+		left: 68
+		top: 712
+		width: 30
+		height: 30
+		z index: 41
+		mask: { border("adventureidentity") }
+	transformation reminder border:
+		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder != "none" }
+		left: 0
+		top: { if styling.transformation_reminder == "short" then 926 else 911 }
+		height: { if styling.transformation_reminder == "short" then 91 else 103 }
+		width: { if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
+		z index: 23
+		mask: { border("reminderadventure" + styling.transformation_reminder) }
+	transformation reminder pt paste border:
+		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder == "long" and card.pt != "" }
+		left: 456
+		top: 952
+		height: 58
+		width: 76
+		z index: 25
+		mask: { border("reminderadventurelongptpaste") }
+	alias box border:
+		visible: { set.border_color != rgb(0,0,0) and card.alias != "" }
+		left: 110
+		top: 112
+		height: 47
+		width: 530
+		z index: 13
+		mask: { border("alias") }
+	ascend box border:
+		visible: { set.border_color != rgb(0,0,0) and styling.banner }
+		left: 9
+		top: 117
+		height: 462
+		width: 68
+		z index: 13
+		mask: { border("ascend") }
+	pt border:
+		visible: { set.border_color != rgb(0,0,0) and card.pt != "" }
+		left: 511
+		top: 908
+		width: 215
+		height:	110
+		z index: 23
+		mask: { border("adventurept") }
+	fuse box border:
+		visible: { set.border_color != rgb(0,0,0) and styling.fuse != "none" }
+		left: { stylesheet.card_style.rule_text_3.left - 36 }
+		top: 501
+		height: 94
+		width: { stylesheet.card_style.rule_text_3.width + 72 }
+		z index: 151
+		mask: { border("fuse" + fuse_image_size()) }
+	pride pin:
+		left: 664
+		top: 50
+		width: 41
+		height: 63
+		z index: 8
+		render style: image
+		popup style: in place
+		mask: { "/magic-genevensis-00-main.mse-style/pride_" + (if has_crown() or has_special_crown() then "legend_" else "") + "mask.png" }
+		image: { if input == "none" then "" else "/magic-genevensis-00-main.mse-style/pride/" + input + ".png" }
