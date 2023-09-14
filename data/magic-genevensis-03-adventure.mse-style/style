@@ -1,7 +1,7 @@
 ﻿mse version: 2.1.2
 game: magic
 short name: Gen Adventure
-full name: GenevensiS Hi-Res Adventure
+full name: Hi-Res
 icon: card_sample.png
 position hint: 077
 
@@ -63,25 +63,30 @@ init script:
 	
 	shrink_type :=
 	{
-		if styling.shrink_type != "" then (to_int(styling.shrink_type) or else 0)
-		else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1
+		if styling.shrink_type == "-" then 0
+		else if styling.shrink_type != "" then (clamp(to_int(styling.shrink_type), minimum: -40, maximum: 24) or else 0)
+		else if length(remove_tags(card.type)) > 41 then 2
+		else if length(remove_tags(card.type)) > 38 then 1
 		else 0
 	}
 	
 	shrink_name :=
 	{
-		to_int(styling.shrink_name) or else 0
+		if styling.shrink_name == "-" then 0
+		else clamp(to_int(styling.shrink_name), minimum: -40, maximum: 31) or else 0
 	}
 	
 	shrink_adventure_type :=
 	{
-		if styling.shrink_adventure_type != "" then to_int(styling.shrink_adventure_type) or else 0
+		if styling.shrink_adventure_type == "-" then 0
+		else if styling.shrink_adventure_type != "" then (clamp(to_int(styling.shrink_adventure_type), minimum: -40, maximum: 20) or else 0)
 		else 0
 	}
 	
 	shrink_adventure_name :=
 	{
-		if styling.shrink_adventure_name != "" then to_int(styling.shrink_adventure_name) or else 0
+		if styling.shrink_adventure_name == "-" then 0
+		else if styling.shrink_adventure_name != "" then (clamp(to_int(styling.shrink_adventure_name), minimum: -40, maximum: 27) or else 0)
 		else 0
 	}
 	
@@ -523,6 +528,7 @@ init script:
 		"sorcery" : "symbolsorcery"
 		"artifact" : "symbolartifact"
 		"enchantment" : "symbolenchantment"
+		"lesson" : "symbollesson"
 		"custom" : "symbolcustom"
 	]
 	
@@ -534,8 +540,10 @@ init script:
 	
 	reminder_image :=
 	{
-		if styling.use_adventure_colors_for_reminder then image_2("reminderadventure" + styling.transformation_reminder, side: "both")
-		else image("reminderadventure" + styling.transformation_reminder, side: "both")
+		if		styling.transformation_reminder == "notch" and card.pt == ""	then 	image("reminderadventurenotchrightlow", side: "right")
+		else if	styling.transformation_reminder == "notch"						then	image("reminderadventurenotchright", side: "right")
+		else if	styling.use_adventure_colors_for_reminder						then	image_2("reminderadventure" + styling.transformation_reminder, side: "both")
+		else																			image("reminderadventure" + styling.transformation_reminder, side: "both")
 	}
 	
 	pt_image :=
@@ -550,11 +558,7 @@ init script:
 					else if contains(match: ".png", styling.watermark) then ("/magic-watermarks.mse-include/" + styling.watermark)
 					else ""
 		if styling.watermark_opacity_percentage == "" then image
-		else (	alpha_value := to_number(styling.watermark_opacity_percentage) or else 100
-				alpha_value_clamped :=	if alpha_value < 0 then 0
-										else if alpha_value <= 100 then alpha_value/100
-										else 1
-				set_alpha(image, alpha: alpha_value_clamped) )
+		else set_alpha(image, alpha: get_alpha(styling.watermark_opacity_percentage, default: 100))
 	}
 	
 	opacity_adventure_watermark_image :=
@@ -563,11 +567,7 @@ init script:
 					else if contains(match: ".png", styling.adventure_watermark) then ("/magic-watermarks.mse-include/" + styling.adventure_watermark)
 					else ""
 		if styling.adventure_watermark_opacity_percentage == "" then image
-		else (	alpha_value := to_number(styling.adventure_watermark_opacity_percentage) or else 100
-				alpha_value_clamped :=	if alpha_value < 0 then 0
-										else if alpha_value <= 100 then alpha_value/100
-										else 1
-				set_alpha(image, alpha: alpha_value_clamped) )
+		else set_alpha(image, alpha: get_alpha(styling.adventure_watermark_opacity_percentage, default: 100))
 	}
 	
 	set_symbol_image :=
@@ -636,6 +636,35 @@ init script:
 	{
 		text_size := length(remove_tags(card.rule_text_3))
 		if text_size > 9 then "long" else if text_size < 7 then "short" else "medium"
+	}
+	
+	get_alpha :=
+	{
+		alpha_value :=	if input == "" then default
+						else to_number(input) or else default
+		if alpha_value < 0 then 0.0
+		else if alpha_value <= 100 then alpha_value/100.0
+		else 1.0
+	}
+	
+	current_image_mask :=
+	{
+		"image mask/" + (if has_extended_art() then (if has_leaf() then "leaf" else "noleaf") else "bordered") + ".png"
+	}
+	
+	image_left := { if has_extended_art() then 0 else 55 }
+	image_width := { if has_extended_art() then 750 else 640 }
+	
+	crop_safe :=
+	{
+		if		left < 0
+			or	top < 0
+			or	width <= 0
+			or	height <= 0
+			or	left + width > 750
+			or	top + height > 1046
+		then ""
+		else crop(input, offset_x: left, offset_y: top, width: width, height: height)
 	}
 	
 	clamp :=
@@ -994,6 +1023,7 @@ styling field:
 	choice: acorn
 	choice: swap
 	choice: tombstone
+	choice: lesson
 	choice: multitype
 	choice: structure
 	choice: creature
@@ -1016,6 +1046,7 @@ styling field:
 	choice: short
 	choice: medium
 	choice: long
+	choice: notch
 	initial: none
 styling field:
 	type: boolean
@@ -1398,13 +1429,13 @@ card style:
 	
 	############################# Image
 	image:
-		left: { if has_extended_art() then 0 else 55 }
+		left: { image_left() }
 		top: 114
-		width: { if has_extended_art() then 750 else 640 }
+		width: { image_width() }
 		height:	469
 		z index: 10
-		mask: { "/magic-genevensis-00-main.mse-style/image_" + ( if has_extended_art() then "extended_" else "" ) + ( if has_leaf() then "leaf_" else "" ) + "mask.png" }
-
+		mask: { crop_safe(current_image_mask(), width: image_width(), height: 469, left: image_left(), top: 114) }
+	
 	############################# Card type
 	type:
 		left: { 73 + (if styling.center_type then type_margin() else typeline_left_margin()) }
@@ -1512,7 +1543,7 @@ card style:
 		left: 74
 		top: 752
 		width: 276
-		bottom: { if styling.transformation_reminder != "none" then 940 else 968 }
+		bottom: { if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then 940 else 968 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1916,34 +1947,34 @@ extra card style:
 		render style: image
 		image: { symbol_image() }
 	transformation reminder:
-		left: 0
-		top: { if styling.transformation_reminder == "short" then 926 else 911 }
-		height: { if styling.transformation_reminder == "short" then 91 else 103 }
-		width: { if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
-		z index: 22
+		left: { if styling.transformation_reminder == "notch" then 655 else 0 }
+		top: { if styling.transformation_reminder == "notch" then 859 else if styling.transformation_reminder == "short" then 926 else 911 }
+		height: { if styling.transformation_reminder == "notch" then 121 else if styling.transformation_reminder == "short" then 91 else 103 }
+		width: { if styling.transformation_reminder == "notch" then 90 else if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
+		z index: 24
 		visible: { styling.transformation_reminder != "none" }
 		render style: image
 		image: { reminder_image() }
 	transformation reminder text:
-		left: { if styling.transformation_reminder == "short" then 4 else 22 }
-		top: 947
-		height: 60
-		width: { if styling.transformation_reminder == "short" then 191 else if styling.transformation_reminder == "medium" then 294 else if styling.transformation_reminder == "long" then 404 else 0 }
-		z index: 26
+		left: { if styling.transformation_reminder == "notch" then 623 else if styling.transformation_reminder == "short" then 4 else 22 }
+		top: { if styling.transformation_reminder == "notch" then 905 else 947 }
+		height: { if styling.transformation_reminder == "notch" then 30 else 60 }
+		width: { if styling.transformation_reminder == "notch" then 75 else if styling.transformation_reminder == "short" then 191 else if styling.transformation_reminder == "medium" then 294 else if styling.transformation_reminder == "long" then 404 else 0 }
+		z index: 46
 		font:
-			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
-			size: 30
+			name: { if styling.name_font == "" then (if styling.transformation_reminder == "notch" then "ModMatrix" else "Beleren Bold") else styling.name_font }
+			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
 			color: black
 		symbol font:
 			name: { styling.casting_cost_mana_symbols }
-			size: 30
-		alignment: center middle shrink-overflow
+			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
+		alignment: { if styling.transformation_reminder == "notch" then "right middle" else "center middle shrink-overflow" }
 	transformation reminder pt paste:
 		left: 456
 		top: 952
 		height: 58
 		width: 76
-		z index: 24
+		z index: 26
 		visible: { styling.transformation_reminder == "long" and card.pt != ""}
 		render style: image
 		image: 
@@ -2184,19 +2215,19 @@ extra card style:
 		mask: { border("adventureidentity") }
 	transformation reminder border:
 		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder != "none" }
-		left: 0
-		top: { if styling.transformation_reminder == "short" then 926 else 911 }
-		height: { if styling.transformation_reminder == "short" then 91 else 103 }
-		width: { if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
-		z index: 23
-		mask: { border("reminderadventure" + styling.transformation_reminder) }
+		left: { if styling.transformation_reminder == "notch" then 655 else 0 }
+		top: { if styling.transformation_reminder == "notch" then 859 else if styling.transformation_reminder == "short" then 926 else 911 }
+		height: { if styling.transformation_reminder == "notch" then 121 else if styling.transformation_reminder == "short" then 91 else 103 }
+		width: { if styling.transformation_reminder == "notch" then 90 else if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
+		z index: 25
+		mask: { border("reminderadventure" + styling.transformation_reminder + (if styling.transformation_reminder == "notch" then (if card.pt == "" then "rightlow" else "right") else "")) }
 	transformation reminder pt paste border:
 		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder == "long" and card.pt != "" }
 		left: 456
 		top: 952
 		height: 58
 		width: 76
-		z index: 25
+		z index: 27
 		mask: { border("reminderadventurelongptpaste") }
 	alias box border:
 		visible: { set.border_color != rgb(0,0,0) and card.alias != "" }
@@ -2238,5 +2269,5 @@ extra card style:
 		z index: 8
 		render style: image
 		popup style: in place
-		mask: { "/magic-genevensis-00-main.mse-style/pride_" + (if has_crown() or has_special_crown() then "legend_" else "") + "mask.png" }
 		image: { if input == "none" then "" else "/magic-genevensis-00-main.mse-style/pride/" + input + ".png" }
+		mask: /magic-genevensis-00-main.mse-style/pride_mask.png

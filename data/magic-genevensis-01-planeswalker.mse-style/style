@@ -1,7 +1,7 @@
 mse version: 2.1.2
 game: magic
 short name: Gen Walker
-full name: GenevensiS Hi-Res Planeswalker
+full name: Hi-Res
 icon: card_sample.png
 position hint: 077
 
@@ -66,14 +66,17 @@ init script:
 	
 	shrink_type :=
 	{
-		if styling.shrink_type != "" then (to_int(styling.shrink_type) or else 0)
-		else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1
+		if styling.shrink_type == "-" then 0
+		else if styling.shrink_type != "" then (clamp(to_int(styling.shrink_type), minimum: -40, maximum: 24) or else 0)
+		else if length(remove_tags(card.type)) > 41 then 2
+		else if length(remove_tags(card.type)) > 38 then 1
 		else 0
 	}
 	
 	shrink_name :=
 	{
-		to_int(styling.shrink_name) or else 0
+		if styling.shrink_name == "-" then 0
+		else clamp(to_int(styling.shrink_name), minimum: -40, maximum: 31) or else 0
 	}
 	
 	has_extended_art :=
@@ -314,6 +317,7 @@ init script:
 		"sorcery" : "symbolsorcery"
 		"artifact" : "symbolartifact"
 		"enchantment" : "symbolenchantment"
+		"lesson" : "symbollesson"
 		"custom" : "symbolcustom"
 	]
 	
@@ -325,7 +329,8 @@ init script:
 	
 	reminder_image :=
 	{
-		image("reminderwalker" + styling.transformation_reminder, side: "both")
+		if styling.transformation_reminder == "notch" then	image("remindernotchright" + (if card.pt == "" and card.loyalty == "" then "low" else "") + "transparent", side: "right")
+		else												image("reminderwalker" + styling.transformation_reminder, side: "both")
 	}
 	
 	pt_image :=
@@ -339,14 +344,14 @@ init script:
 					else if contains(match: ".png", styling.watermark) then ("/magic-watermarks.mse-include/" + styling.watermark)
 					else ""
 		if styling.watermark_opacity_percentage == "" then image
-		else (	alpha_value := to_number(styling.watermark_opacity_percentage) or else 100
-				alpha_value_clamped :=	if alpha_value < 0 then 0
-										else if alpha_value <= 100 then alpha_value/100
-										else 1
-				set_alpha(image, alpha: alpha_value_clamped) )
+		else set_alpha(image, alpha: get_alpha(styling.watermark_opacity_percentage, default: 100))
 	}
 	
-	set_symbol_image :=
+	watermark_left := { 219 - type_shift()/2 }
+	watermark_top := { 653 - type_shift() }
+	watermark_size := { 312 + type_shift() }
+	
+	symbol_image :=
 	{
 		image := symbol_variation(symbol: set.symbol, variation: "watermark")
 		enlarged_image := enlarge(border_size: 0.03, image)
@@ -391,25 +396,29 @@ init script:
 	
 	opacity_textbox_image :=
 	{
-		base_image :=	if		styling.textbox_color == rgb(255,254,255)	then	image("walkertextbox" + styling.taller_textboxes, side: "both")
-						else if	styling.textbox_color == rgb(255,255,254)	then	image("walkertextbox" + styling.taller_textboxes + "light", side: "both")
+		base_image :=	if		styling.textbox_color == rgb(255,254,255)	then	crop_safe(image("walkertextbox" + styling.taller_textboxes, side: "both"), left: 0, top: textbox_top(), width: 750, height: textbox_height())
+						else if	styling.textbox_color == rgb(255,255,254)	then	crop_safe(image("walkertextbox" + styling.taller_textboxes + "light", side: "both"), left: 0, top: textbox_top(), width: 750, height: textbox_height())
 						else														recolor_image("textbox_background.png", color: styling.textbox_color)
-		alpha_value :=	if styling.textbox_opacity_percentage == "" then 70
-						else to_number(styling.textbox_opacity_percentage) or else 70
-		alpha_value_clamped :=	if alpha_value < 0 then 0
-								else if alpha_value <= 100 then alpha_value/100
-								else 1
-		set_alpha(base_image, alpha: alpha_value_clamped)
+		set_alpha(base_image, alpha: get_alpha(styling.textbox_opacity_percentage, default: 70))
+	}
+	
+	opacity_namebox_image :=
+	{
+		set_alpha(image("name", side: "both"), alpha: get_alpha(styling.namebox_opacity_percentage, default: 100))
 	}
 	
 	opacity_typebox_image :=
 	{
-		alpha_value :=	if styling.typebox_opacity_percentage == "" then 100
-						else to_number(styling.typebox_opacity_percentage) or else 100
-		alpha_value_clamped :=	if alpha_value < 0 then 0
-								else if alpha_value <= 100 then alpha_value/100
-								else 1
-		set_alpha(image("type", side: "both"), alpha: alpha_value_clamped)
+		set_alpha(image("type", side: "both"), alpha: get_alpha(styling.typebox_opacity_percentage, default: 100))
+	}
+	
+	get_alpha :=
+	{
+		alpha_value :=	if input == "" then default
+						else to_number(input) or else default
+		if alpha_value < 0 then 0.0
+		else if alpha_value <= 100 then alpha_value/100.0
+		else 1.0
 	}
 	
 	mainframe_walker :=
@@ -498,18 +507,9 @@ init script:
 		else															true
 	}
 	
-	loyal_move1 := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:0, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	loyal_move2 := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:1, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	loyal_move3 := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:2, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	loyal_move4 := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:3, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	loyal_move5 := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:4, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	loyal_move6 := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:5, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
+	loyal_move := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:input-1, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
 	
-	separator_move1 := { clamp((to_int(pull_comma_array(styling.move_separators, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
-	separator_move2 := { clamp((to_int(pull_comma_array(styling.move_separators, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
-	separator_move3 := { clamp((to_int(pull_comma_array(styling.move_separators, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
-	separator_move4 := { clamp((to_int(pull_comma_array(styling.move_separators, cell:3, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
-	separator_move5 := { clamp((to_int(pull_comma_array(styling.move_separators, cell:4, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	separator_move := { clamp((to_int(pull_comma_array(styling.move_separators, cell:input-1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	
 	chop_top := { clamp((to_int(pull_comma_array(styling.chop_textbox, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_bot := { clamp((to_int(pull_comma_array(styling.chop_textbox, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
@@ -519,6 +519,42 @@ init script:
 	chop_rarity_bot := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_rarity_left := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_rarity_right := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:3, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	
+	textbox_top := { 653 - type_shift() }
+	textbox_height := { 393 + type_shift() }
+	
+	stripe_top := { -to_int(( -ability_bottom(input-1) - ability_top(input) )/2) - 6 - ( -separator_move(input)) }
+	
+	image_left := { if has_extended_art() or styling.stretch_image_to_whole_card then 0 else if get_alpha(styling.namebox_opacity_percentage, default: 100) < 1.0 then 45 else 54 }
+	image_right :=
+	{
+		if has_extended_art() or styling.stretch_image_to_whole_card then 750
+		else if styling.transformation_reminder == "notch" then (if card.pt == "" and card.loyalty == "" then 709 else 711)
+		else if get_alpha(styling.namebox_opacity_percentage, default: 100) < 1.0 then 705
+		else 696
+	}
+	image_width := { image_right() - image_left() }
+	image_top := { if styling.stretch_image_to_whole_card then 0 else if get_alpha(styling.namebox_opacity_percentage, default: 100) < 1.0 then 50 else 114 }
+	image_bottom :=
+	{
+		if styling.stretch_image_to_whole_card then 1046
+		else if get_alpha(styling.textbox_opacity_percentage, default: 70) < 1.0 then 972
+		else if get_alpha(styling.typebox_opacity_percentage, default: 100) < 1.0 then 652
+		else 583
+	}
+	image_height :=	{ image_bottom() - image_top() }
+	
+	current_mask :=
+	{
+		frame := 	if has_extended_art()							then	"extended_"
+					else													"bordered_"
+		notch :=	if styling.transformation_reminder != "notch"	then	"none_"
+					else if card.pt == "" and card.loyalty == ""	then	"low_"
+					else if card.pt != "" and card.loyalty != ""	then	"high_"
+					else													"mid_"
+		type :=		styling.taller_textboxes
+		"mask/" + frame + notch + type + ".png"
+	}
 	
 	alt_rarity :=
 	{
@@ -624,6 +660,18 @@ init script:
 	{
 		text_size := length(remove_tags(card.rule_text_3))
 		if text_size > 9 then "long" else if text_size < 7 then "short" else "medium"
+	}
+	
+	crop_safe :=
+	{
+		if		left < 0
+			or	top < 0
+			or	width <= 0
+			or	height <= 0
+			or	left + width > 750
+			or	top + height > 1046
+		then ""
+		else crop(input, offset_x: left, offset_y: top, width: width, height: height)
 	}
 	
 	clamp :=
@@ -735,6 +783,29 @@ styling field:
 #	localized description:
 #		fr: Aligner le nom au milieu de la carte?
 	initial: no
+styling field:
+	type: color
+	name: name text color
+	description: Use the specified color for the text in the nameline.
+#	localized caption:
+#		fr: Couleur du nom
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour le texte du nom.
+	choice:
+		name: black
+		color: rgb(0,0,0)
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	initial: black
+styling field:
+	type: text
+	name: namebox opacity percentage
+	description: Set the opacity percentage for the nameline box. Opaque is 100, transparent is 0, default is 100.
+#	localized caption:
+#		fr: Pourcentage d'opacité du nom
+#	localized description:
+#		fr: Complètement opaque: 100. Complètement transparent: 0. Valeur par défaut: 100.
 styling field:
 	type: text
 	name: shrink type
@@ -931,7 +1002,7 @@ styling field:
 styling field:
 	type: text
 	name: watermark
-	description: The name of a '.png' image inside the /magic-watermarks.mse-include/ folder. Dimensions can be anything, but native is 313x313. Alternatively, write 'setsymbol' to use the set symbol instead.
+	description: The name of a '.png' image inside the /magic-watermarks.mse-include/ folder. Dimensions can be anything, but native is 312x312. Alternatively, write 'setsymbol' to use the set symbol instead.
 #	localized caption:
 #		fr: Filigrane
 #	localized description:
@@ -1008,6 +1079,7 @@ styling field:
 	choice: acorn
 	choice: swap
 	choice: tombstone
+	choice: lesson
 	choice: multitype
 	choice: structure
 	choice: creature
@@ -1030,6 +1102,7 @@ styling field:
 	choice: short
 	choice: medium
 	choice: long
+	choice: notch
 	initial: none
 styling field:
 	type: choice
@@ -1248,11 +1321,11 @@ card style:
 		top:	0
 		width:	750
 		height:	1046
-		z index: 0
+		z index: -20
 		render style: image
 		popup style: in place
 		image: { frame_image() }
-		mask: { (if has_extended_art() then "puma_" else "") + styling.taller_textboxes + "_mask.png" }
+		#mask: { (if has_extended_art() then "puma_" else "") + styling.taller_textboxes + "_mask.png" }
 		
 	############################# Name line
 	name:
@@ -1265,7 +1338,7 @@ card style:
 		font:
 			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
 			size: { 32 - shrink_name() }
-			color: black
+			color: { styling.name_text_color }
 		symbol font:
 			name: { styling.casting_cost_mana_symbols }
 			size: { 32 - shrink_name() }
@@ -1297,12 +1370,12 @@ card style:
 	
 	############################# Image
 	image:
-		left: { if has_extended_art() or styling.stretch_image_to_whole_card then 0 else 54 }
-		top: { if styling.stretch_image_to_whole_card then 0 else 114 }
-		width: { if has_extended_art() or styling.stretch_image_to_whole_card then 750 else 642 }
-		height:	{ if styling.stretch_image_to_whole_card then 1046 else 858 }
+		left: { image_left() }
+		top: { image_top() }
+		width: { image_width() }
+		height:	{ image_height() }
 		z index: -10
-		mask: { if styling.stretch_image_to_whole_card then "corner_mask.png" else "" }
+		mask: { crop_safe(current_mask(), width: image_width(), height: image_height(), left: image_left(), top: image_top()) }
 	mainframe image:
 		left: { split := split_text(match: ",", styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then split.0 else 0 }
 		top: { split := split_text(match: ",", styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then split.1 else 0 }
@@ -1373,7 +1446,7 @@ card style:
 		left: 73
 		top: { 661 - (-chop_top()) - type_shift() }
 		width: { 604 - chop_right() }
-		bottom: { 953 - chop_bot() - ( if styling.transformation_reminder != "none" then 15 else 0 ) }
+		bottom: { 953 - chop_bot() - ( if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then 15 else 0 ) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1424,7 +1497,7 @@ card style:
 	loyalty cost 1:
 		z index: 46
 		left: 36
-		top: { ability_center(0) - 18 - ( -loyal_move1()) }
+		top: { ability_center(0) - 18 - ( -loyal_move(1)) }
 		width: 35
 		height:	37
 		alignment: center middle shrink-overflow
@@ -1436,7 +1509,7 @@ card style:
 	loyalty cost 2:
 		z index: 46
 		left: 36
-		top: { ability_center(1) - 18 - ( -loyal_move2()) }
+		top: { ability_center(1) - 18 - ( -loyal_move(2)) }
 		width: { if abilities_count() >= 2 then 35 else 0 }
 		height:	37
 		alignment: center middle shrink-overflow
@@ -1448,7 +1521,7 @@ card style:
 	loyalty cost 3:
 		z index: 46
 		left: 36
-		top: { ability_center(2) - 18 - ( -loyal_move3()) }
+		top: { ability_center(2) - 18 - ( -loyal_move(3)) }
 		width: { if abilities_count() >= 3 then 35 else 0 }
 		height: 37
 		alignment: center middle shrink-overflow
@@ -1460,7 +1533,7 @@ card style:
 	loyalty cost 4:
 		z index: 46
 		left: 36
-		top: { ability_center(3) - 18 - ( -loyal_move4()) }
+		top: { ability_center(3) - 18 - ( -loyal_move(4)) }
 		width: { if abilities_count() >= 4 then 35 else 0 }
 		height: 37
 		alignment: center middle shrink-overflow
@@ -1472,7 +1545,7 @@ card style:
 	loyalty cost 5:
 		z index: 46
 		left: 36
-		top: { ability_center(4) - 18 - ( -loyal_move5()) }
+		top: { ability_center(4) - 18 - ( -loyal_move(5)) }
 		width: { if abilities_count() >= 5 then 35 else 0 }
 		height: 37
 		alignment: center middle shrink-overflow
@@ -1484,7 +1557,7 @@ card style:
 	loyalty cost 6:
 		z index: 46
 		left: 36
-		top: { ability_center(5) - 18 - ( -loyal_move6()) }
+		top: { ability_center(5) - 18 - ( -loyal_move(6)) }
 		width: { if abilities_count() >= 6 then 35 else 0 }
 		height: 37
 		alignment: center middle shrink-overflow
@@ -1750,13 +1823,13 @@ extra card field:
 	save value: false
 	show statistics: false
 	choice: textbox stripe 3
-#extra card field:
-#	type: choice
-#	name: textbox frame
-#	editable: false
-#	save value: false
-#	show statistics: false
-#	choice: textbox frame
+extra card field:
+	type: choice
+	name: namebox background
+	editable: false
+	save value: false
+	show statistics: false
+	choice: namebox background
 extra card field:
 	type: choice
 	name: typebox background
@@ -1890,13 +1963,6 @@ extra card field:
 	save value: false
 	show statistics: false
 	script: set.border_color
-#extra card field:
-#	type: color
-#	name: textbox border
-#	editable: false
-#	save value: false
-#	show statistics: false
-#	script: set.border_color
 extra card field:
 	type: color
 	name: loyalty border
@@ -2012,28 +2078,28 @@ extra card style:
 		render style: image
 		image: { symbol_image() }
 	transformation reminder:
-		left: 0
-		top: { if styling.transformation_reminder == "short" then 926 else 911 }
-		height: { if styling.transformation_reminder == "short" then 91 else 103 }
-		width: { if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
+		left: { if styling.transformation_reminder == "notch" then 687 else 0 }
+		top: { if styling.transformation_reminder == "notch" then (if card.loyalty == "" then (if card.pt == "" then 900 else 875) else (if card.pt == "" then 875 else 815)) else if styling.transformation_reminder == "short" then 926 else 911 }
+		height: { if styling.transformation_reminder == "notch" then 56 else if styling.transformation_reminder == "short" then 91 else 103 }
+		width: { if styling.transformation_reminder == "notch" then 53 else if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
 		z index: 40
 		visible: { styling.transformation_reminder != "none" }
 		render style: image
 		image: { reminder_image() }
 	transformation reminder text:
-		left: { if styling.transformation_reminder == "short" then 4 else 22 }
-		top: 947
-		height: 60
-		width: { if styling.transformation_reminder == "short" then 191 else if styling.transformation_reminder == "medium" then 294 else if styling.transformation_reminder == "long" then 404 else 0 }
+		left: { if styling.transformation_reminder == "notch" then 619 else if styling.transformation_reminder == "short" then 4 else 22 }
+		top: { if styling.transformation_reminder == "notch" then (if card.loyalty == "" then (if card.pt == "" then 906 else 888) else (if card.pt == "" then 888 else 828)) else 947 }
+		height: { if styling.transformation_reminder == "notch" then 30 else 60 }
+		width: { if styling.transformation_reminder == "notch" then 75 else if styling.transformation_reminder == "short" then 191 else if styling.transformation_reminder == "medium" then 294 else if styling.transformation_reminder == "long" then 404 else 0 }
 		z index: 50
 		font:
-			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
-			size: 30
+			name: { if styling.name_font == "" then (if styling.transformation_reminder == "notch" then "ModMatrix" else "Beleren Bold") else styling.name_font }
+			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
 			color: black
 		symbol font:
 			name: { styling.casting_cost_mana_symbols }
-			size: 30
-		alignment: center middle shrink-overflow
+			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
+		alignment: { if styling.transformation_reminder == "notch" then "right middle" else "center middle shrink-overflow" }
 	transformation reminder pt paste:
 		left: 456
 		top: 945
@@ -2125,7 +2191,7 @@ extra card style:
 		image: { image("loy" + ( if card.pt == "" then "" else "top" ), side: "right") }
 	loyalty cost box 1:
 		left: 0
-		top: { ability_center(0) - 40 - ( -loyal_move1()) }
+		top: { ability_center(0) - 40 - ( -loyal_move(1)) }
 		width: 90
 		height: 126
 		z index: 26
@@ -2134,7 +2200,7 @@ extra card style:
 		image: { image( (if contains(card.loyalty_cost_1, match: "+") then "loyup" else if contains(card.loyalty_cost_1, match: "-") then (if is_ult(1) then "loydown2" else "loydown1") else "loynaught"), side: "left") }
 	loyalty cost box 2:
 		left: 0
-		top: { ability_center(1) - 40 - ( -loyal_move2()) }
+		top: { ability_center(1) - 40 - ( -loyal_move(2)) }
 		width: 90
 		height: 126
 		z index: 28
@@ -2143,7 +2209,7 @@ extra card style:
 		image: { image( (if contains(card.loyalty_cost_2, match: "+") then "loyup" else if contains(card.loyalty_cost_2, match: "-") then (if is_ult(2) then "loydown2" else "loydown1") else "loynaught"), side: "left") }
 	loyalty cost box 3:
 		left: 0
-		top: { ability_center(2) - 40 - ( -loyal_move3()) }
+		top: { ability_center(2) - 40 - ( -loyal_move(3)) }
 		width: 90
 		height: 126
 		z index: 30
@@ -2152,7 +2218,7 @@ extra card style:
 		image: { image( (if contains(card.loyalty_cost_3, match: "+") then "loyup" else if contains(card.loyalty_cost_3, match: "-") then (if is_ult(3) then "loydown2" else "loydown1") else "loynaught"), side: "left") }
 	loyalty cost box 4:
 		left: 0
-		top: { ability_center(3) - 40 - ( -loyal_move4()) }
+		top: { ability_center(3) - 40 - ( -loyal_move(4)) }
 		width: 90
 		height: 126
 		z index: 32
@@ -2161,7 +2227,7 @@ extra card style:
 		image: { image( (if contains(card.loyalty_cost_4, match: "+") then "loyup" else if contains(card.loyalty_cost_4, match: "-") then (if is_ult(4) then "loydown2" else "loydown1") else "loynaught"), side: "left") }
 	loyalty cost box 5:
 		left: 0
-		top: { ability_center(4) - 40 - ( -loyal_move5()) }
+		top: { ability_center(4) - 40 - ( -loyal_move(5)) }
 		width: 90
 		height: 126
 		z index: 34
@@ -2170,7 +2236,7 @@ extra card style:
 		image: { image( (if contains(card.loyalty_cost_5, match: "+") then "loyup" else if contains(card.loyalty_cost_5, match: "-") then (if is_ult(5) then "loydown2" else "loydown1") else "loynaught"), side: "left") }
 	loyalty cost box 6:
 		left: 0
-		top: { ability_center(5) - 40 - ( -loyal_move6()) }
+		top: { ability_center(5) - 40 - ( -loyal_move(6)) }
 		width: 90
 		height: 126
 		z index: 36
@@ -2179,7 +2245,7 @@ extra card style:
 		image: { image( (if contains(card.loyalty_cost_6, match: "+") then "loyup" else if contains(card.loyalty_cost_6, match: "-") then (if is_ult(6) then "loydown2" else "loydown1") else "loynaught"), side: "left") }
 	colon 1:
 		left: 92
-		top: { ability_center(0) - 38 - ( -loyal_move1()) }
+		top: { ability_center(0) - 38 - ( -loyal_move(1)) }
 		width: 17
 		height: 70
 		z index: 32
@@ -2191,7 +2257,7 @@ extra card style:
 		alignment: center middle
 	colon 2:
 		left: 92
-		top: { ability_center(1) - 38 - ( -loyal_move2()) }
+		top: { ability_center(1) - 38 - ( -loyal_move(2)) }
 		width: 17
 		height: 70
 		z index: 32
@@ -2203,7 +2269,7 @@ extra card style:
 		alignment: center middle
 	colon 3:
 		left: 92
-		top: { ability_center(2) - 38 - ( -loyal_move3()) }
+		top: { ability_center(2) - 38 - ( -loyal_move(3)) }
 		width: 17
 		height: 70
 		z index: 32
@@ -2215,7 +2281,7 @@ extra card style:
 		alignment: center middle
 	colon 4:
 		left: 92
-		top: { ability_center(3) - 38 - ( -loyal_move4()) }
+		top: { ability_center(3) - 38 - ( -loyal_move(4)) }
 		width: 17
 		height: 70
 		z index: 32
@@ -2227,7 +2293,7 @@ extra card style:
 		alignment: center middle
 	colon 5:
 		left: 92
-		top: { ability_center(4) - 38 - ( -loyal_move5()) }
+		top: { ability_center(4) - 38 - ( -loyal_move(5)) }
 		width: 17
 		height: 70
 		z index: 32
@@ -2239,7 +2305,7 @@ extra card style:
 		alignment: center middle
 	colon 6:
 		left: 92
-		top: { ability_center(5) - 38 - ( -loyal_move6()) }
+		top: { ability_center(5) - 38 - ( -loyal_move(6)) }
 		width: 17
 		height: 70
 		z index: 32
@@ -2259,14 +2325,23 @@ extra card style:
 		render style: image
 		image: { pt_image() }
 	watermark image:
-		left: { 219 - type_shift()/2 }
-		top: { 653 - type_shift() }
-		width: { 313 + type_shift() }
-		height: { 313 + type_shift() }
+		left: { watermark_left() }
+		top: {  watermark_top() }
+		width: {  watermark_size() }
+		height: {  watermark_size() }
 		z index: 24
 		render style: image
 		image: { opacity_watermark_image() }
-		mask: { styling.taller_textboxes + "_watermark_mask.png" }
+		mask: { size := watermark_size(); crop_safe(current_mask(), width: size, height: size, left: watermark_left(), top: watermark_top()) }
+	namebox background:
+		left: 45
+		width: 660
+		top: 50
+		height: 63
+		z index: 0
+		render style: image
+		image: { opacity_namebox_image() }
+		mask: name_mask.png
 	typebox background:
 		left: 55
 		width: 640
@@ -2278,94 +2353,93 @@ extra card style:
 		mask: type_mask.png
 	textbox background:
 		left: 0
-		top: 0
 		width: 750
-		height: 1046
+		top: { textbox_top() }
+		height: { textbox_height() }
 		z index: -5
 		render style: image
 		image: { opacity_textbox_image() }
-		mask: { styling.taller_textboxes + "_textbox_mask.png" }
+		mask: { crop_safe(current_mask(), left: 0, top: textbox_top(), width: 750, height: textbox_height()) }
 	textbox stripe separator 1:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(0) - ability_top(1) )/2) - 6 - ( -separator_move1()) }
+		left: 0
+		width: 750
+		top: { stripe_top(1) }
 		height: 16
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 2 }
 		render style: image
 		image: { set_alpha(recolor_image("stripe_" + styling.stripes + "_bot.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { crop_safe(current_mask(), left: 0, top: stripe_top(1), width: 750, height: 16) }
 	textbox stripe separator 2:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(1) - ability_top(2) )/2) - 6 - ( -separator_move2() ) }
+		left: 0
+		width: 750
+		top: { stripe_top(2) }
 		height: 16
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 3 }
 		render style: image
 		image: { set_alpha(recolor_image("stripe_" + styling.stripes + "_top.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { crop_safe(current_mask(), left: 0, top: stripe_top(2), width: 750, height: 16) }
 	textbox stripe separator 3:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(2) - ability_top(3) )/2) - 6 - ( -separator_move3() ) }
+		left: 0
+		width: 750
+		top: { stripe_top(3) }
 		height: 16
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 4 }
 		render style: image
 		image: { set_alpha(recolor_image("stripe_" + styling.stripes + "_bot.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { crop_safe(current_mask(), left: 0, top: stripe_top(3), width: 750, height: 16) }
 	textbox stripe separator 4:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(3) - ability_top(4) )/2) - 6 - ( -separator_move4() ) }
+		left: 0
+		width: 750
+		top: { stripe_top(4) }
 		height: 16
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 5 }
 		render style: image
 		image: { set_alpha(recolor_image("stripe_" + styling.stripes + "_top.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { crop_safe(current_mask(), left: 0, top: stripe_top(4), width: 750, height: 16) }
 	textbox stripe separator 5:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(4) - ability_top(5) )/2) - 6 - ( -separator_move5() ) }
+		left: 0
+		width: 750
+		top: { stripe_top(5) }
 		height: 16
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 6 }
 		render style: image
 		image: { set_alpha(recolor_image("stripe_" + styling.stripes + "_bot.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { crop_safe(current_mask(), left: 0, top: stripe_top(5), width: 750, height: 16) }
 	textbox stripe 1:
-		left: 54
-		right: 696
+		left: 0
+		width: 750
 		top: { 653 - type_shift() }
-		bottom: { -to_int(( -ability_bottom(0) - ability_top(1) )/2) - 6 - ( -separator_move1()) }
+		bottom: { stripe_top(1) }
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 2 }
 		render style: image
 		image: { set_alpha(recolor_image("textbox_background.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { top := 653 - type_shift(); crop_safe(current_mask(), left: 0, top: top, width: 750, height: stripe_top(1) - top) }
 	textbox stripe 2:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(1) - ability_top(2) )/2) - (-10) - ( -separator_move2() ) }
-		bottom: { if abilities_count() >= 4 then ( -to_int(( -ability_bottom(2) - ability_top(3) )/2) - 6 - ( -separator_move3() ) ) else 1046 }
+		left: 0
+		width: 750
+		top: { stripe_top(2) + 16 }
+		bottom: { if abilities_count() >= 4 then stripe_top(3) else 1046 }
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 3 }
 		render style: image
 		image: { set_alpha(recolor_image("textbox_background.png", color: styling.textbox_color), alpha: 0.35) }
+		mask: { top := stripe_top(2) + 16; crop_safe(current_mask(), left: 0, top: top, width: 750, height: (if abilities_count() >= 4 then stripe_top(3) else 1046) - top) }
 	textbox stripe 3:
-		left: 54
-		right: 696
-		top: { -to_int(( -ability_bottom(3) - ability_top(4) )/2) - (-10) - ( -separator_move4() ) }
-		bottom: { if abilities_count() >= 6 then ( -to_int(( -ability_bottom(4) - ability_top(5) )/2) - 6 - ( -separator_move5() ) ) else 1046 }
+		left: 0
+		width: 750
+		top: { stripe_top(4) + 16 }
+		bottom: { if abilities_count() >= 6 then stripe_top(5) else 1046 }
 		z index: -4
 		visible: { styling.stripes != "none" and abilities_count() >= 5 }
 		render style: image
 		image: { set_alpha(recolor_image("textbox_background.png", color: styling.textbox_color), alpha: 0.35) }
-	#textbox frame:
-	#	left:	0
-	#	top:	0
-	#	width:	750
-	#	height:	1046
-	#	z index: 24
-	#	mask: textbox_mask.png
-	#	render style: image
-	#	image: { frame_image() }
+		mask: { top := stripe_top(4) + 16; crop_safe(current_mask(), left: 0, top: top, width: 750, height: (if abilities_count() >= 6 then stripe_top(5) else 1046) - top) }
 	crown:
 		left: 0
 		top: 0
@@ -2427,7 +2501,7 @@ extra card style:
 		top: 0
 		width: 750
 		height: 1046
-		z index: 1
+		z index: -19
 		mask: { border(( if has_extended_art() then "puma" else "" ) + "walker" + styling.taller_textboxes) }
 	crown border:
 		visible: { set.border_color != rgb(0,0,0) and (has_crown() or has_special_crown()) }
@@ -2487,20 +2561,12 @@ extra card style:
 		mask: { border("identity") }
 	transformation reminder border:
 		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder != "none" }
-		left: 0
-		top: { if styling.transformation_reminder == "short" then 926 else 911 }
-		height: { if styling.transformation_reminder == "short" then 91 else 103 }
-		width: { if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
+		left: { if styling.transformation_reminder == "notch" then 687 else 0 }
+		top: { if styling.transformation_reminder == "notch" then (if card.loyalty == "" then (if card.pt == "" then 900 else 875) else (if card.pt == "" then 875 else 815)) else if styling.transformation_reminder == "short" then 926 else 911 }
+		height: { if styling.transformation_reminder == "notch" then 56 else if styling.transformation_reminder == "short" then 91 else 103 }
+		width: { if styling.transformation_reminder == "notch" then 53 else if styling.transformation_reminder == "short" then 258 else if styling.transformation_reminder == "medium" then 376 else 494 }
 		z index: 41
-		mask: { border("reminderwalker" + styling.transformation_reminder) }
-	#textbox border:
-	#	visible: { set.border_color != rgb(0,0,0) }
-	#	left:	0
-	#	top:	0
-	#	width:	750
-	#	height:	1046
-	#	z index: 25
-	#	mask: textbox_border.png
+		mask: { if styling.transformation_reminder == "notch" then border("remindernotchright" + (if card.pt == "" and card.loyalty == "" then "low" else "")) else border("reminderwalker" + styling.transformation_reminder) }
 	transformation reminder pt paste border:
 		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder == "long" and card.pt != "" }
 		left: 456
@@ -2536,7 +2602,7 @@ extra card style:
 	loyalty cost 1 border:
 		visible: { set.border_color != rgb(0,0,0) and card.loyalty_cost_1 != "" }
 		left: 0
-		top: { ability_center(0) - 40 - ( -loyal_move1()) }
+		top: { ability_center(0) - 40 - ( -loyal_move(1)) }
 		width: 90
 		height: 126
 		z index: 27
@@ -2544,7 +2610,7 @@ extra card style:
 	loyalty cost 2 border:
 		visible: { set.border_color != rgb(0,0,0) and card.loyalty_cost_2 != "" and abilities_count() >= 2 }
 		left: 0
-		top: { ability_center(1) - 40 - ( -loyal_move2()) }
+		top: { ability_center(1) - 40 - ( -loyal_move(2)) }
 		width: 90
 		height: 126
 		z index: 29
@@ -2552,7 +2618,7 @@ extra card style:
 	loyalty cost 3 border:
 		visible: { set.border_color != rgb(0,0,0) and card.loyalty_cost_3 != "" and abilities_count() >= 3 }
 		left: 0
-		top: { ability_center(2) - 40 - ( -loyal_move3()) }
+		top: { ability_center(2) - 40 - ( -loyal_move(3)) }
 		width: 90
 		height: 126
 		z index: 31
@@ -2560,7 +2626,7 @@ extra card style:
 	loyalty cost 4 border:
 		visible: { set.border_color != rgb(0,0,0) and card.loyalty_cost_4 != "" and abilities_count() >= 4 }
 		left: 0
-		top: { ability_center(3) - 40 - ( -loyal_move4()) }
+		top: { ability_center(3) - 40 - ( -loyal_move(4)) }
 		width: 90
 		height: 126
 		z index: 33
@@ -2568,7 +2634,7 @@ extra card style:
 	loyalty cost 5 border:
 		visible: { set.border_color != rgb(0,0,0) and card.loyalty_cost_5 != "" and abilities_count() >= 5 }
 		left: 0
-		top: { ability_center(4) - 40 - ( -loyal_move5()) }
+		top: { ability_center(4) - 40 - ( -loyal_move(5)) }
 		width: 90
 		height: 126
 		z index: 35
@@ -2576,7 +2642,7 @@ extra card style:
 	loyalty cost 6 border:
 		visible: { set.border_color != rgb(0,0,0) and card.loyalty_cost_6 != "" and abilities_count() >= 6 }
 		left: 0
-		top: { ability_center(5) - 40 - ( -loyal_move6()) }
+		top: { ability_center(5) - 40 - ( -loyal_move(6)) }
 		width: 90
 		height: 126
 		z index: 37
@@ -2605,5 +2671,5 @@ extra card style:
 		z index: 8
 		render style: image
 		popup style: in place
-		mask: { "/magic-genevensis-00-main.mse-style/pride_" + (if has_crown() or has_special_crown() then "legend_" else "") + "mask.png" }
 		image: { if input == "none" then "" else "/magic-genevensis-00-main.mse-style/pride/" + input + ".png" }
+		mask: /magic-genevensis-00-main.mse-style/pride_mask.png

@@ -1,7 +1,7 @@
 ﻿mse version: 2.1.2
 game: magic
 short name: Gen Class
-full name: GenevensiS Hi-Res Class
+full name: Hi-Res
 icon: card_sample.png
 position hint: 077
 
@@ -66,14 +66,17 @@ init script:
 	
 	shrink_type :=
 	{
-		if styling.shrink_type != "" then (to_int(styling.shrink_type) or else 0)
-		else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1
+		if styling.shrink_type == "-" then 0
+		else if styling.shrink_type != "" then (clamp(to_int(styling.shrink_type), minimum: -40, maximum: 24) or else 0)
+		else if length(remove_tags(card.type)) > 41 then 2
+		else if length(remove_tags(card.type)) > 38 then 1
 		else 0
 	}
 	
 	shrink_name :=
 	{
-		to_int(styling.shrink_name) or else 0
+		if styling.shrink_name == "-" then 0
+		else clamp(to_int(styling.shrink_name), minimum: -40, maximum: 31) or else 0
 	}
 	
 	has_extended_art :=
@@ -134,14 +137,15 @@ init script:
 	
 	un_png := replace@(match:".png", replace: "")
 	
-	chop_top := { clamp((to_int(pull_comma_array(styling.chop_global_textbox, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
+	chop_top := { clamp((to_int(pull_comma_array(styling.chop_global_textbox, cell:0, end:0, default:0)) or else 0), minimum: -490, maximum: 500) }
 	chop_bot := { clamp((to_int(pull_comma_array(styling.chop_global_textbox, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_right := { clamp((to_int(pull_comma_array(styling.chop_global_textbox, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	
+	textbox_right := { 677 - (if active_abilities() == input then chop_right() else min(chop_right(),0)) - (if styling.banner and styling.layout == "full text" then 8 else 0) + (if has_extended_art() and styling.layout == "full text" then 62 else 0) }
 	textbox_width :=
 	{
 		if		styling.layout == "full art" then	0
-		else if	styling.layout == "full text" then	604 - (if active_abilities() == input then chop_right() else min(chop_right(),0)) - (if styling.banner then 16 else 0)
+		else if	styling.layout == "full text" then	604 - (if active_abilities() == input then chop_right() else min(chop_right(),0)) - (if styling.banner then 16 else 0) + (if has_extended_art() then 124 else 0) - (if styling.banner and has_extended_art() then 60 else 0) 
 		else										290 - (if active_abilities() == input then chop_right() else min(chop_right(),0))
 	}
 	
@@ -336,6 +340,7 @@ init script:
 		"sorcery" : "symbolsorcery"
 		"artifact" : "symbolartifact"
 		"enchantment" : "symbolenchantment"
+		"lesson" : "symbollesson"
 		"custom" : "symbolcustom"
 	]
 	
@@ -347,8 +352,8 @@ init script:
 	
 	reminder_image :=
 	{
-		name := "reminder" + ( if has_extended_art() then "pumaclass" else "saga" ) + ( if has_leaf() then "leaf" else "" ) + styling.transformation_reminder
-		image(name, side: "both")
+		if styling.transformation_reminder == "notch" then	image("remindernotchright" + ( if styling.layout == "full art" then "transparent" else "" ), side: "right")
+		else												image("reminder" + ( if has_extended_art() then "pumaclass" else "saga" ) + ( if has_leaf() then "leaf" else "" ) + styling.transformation_reminder, side: "both")
 	}
 	
 	pt_image :=
@@ -363,11 +368,7 @@ init script:
 					else if contains(match: ".png", styling.watermark) then ("/magic-watermarks.mse-include/" + styling.watermark)
 					else ""
 		if styling.watermark_opacity_percentage == "" then image
-		else (	alpha_value := to_number(styling.watermark_opacity_percentage) or else 100
-				alpha_value_clamped :=	if alpha_value < 0 then 0
-										else if alpha_value <= 100 then alpha_value/100
-										else 1
-				set_alpha(image, alpha: alpha_value_clamped) )
+		else set_alpha(image, alpha: get_alpha(styling.watermark_opacity_percentage, default: 100))
 	}
 	
 	set_symbol_image :=
@@ -407,17 +408,90 @@ init script:
 		recolor_image("/magic-genevensis-00-main.mse-style/illustrator_brush_" + input + ".png", color: if styling.illustrator_text_color == rgb(255,254,255) then copyright_color() else styling.illustrator_text_color )
 	}
 	
-	divider_image :=
+	separator_image :=
 	{
-		if divider == "level" then set_combine(crop("textbox/" + color_to_prefix() + "class_background.png", width: crop_width(), height: height, offset_x: crop_offset(), offset_y: top), combine: "shadow")
-		else "/magic-genevensis-10-saga.mse-style/ability_separator.png"
+		divider :=	if		input == 1	then	styling.first_divider
+					else if	input == 2	then	styling.second_divider
+					else						styling.following_dividers
+		if divider == "line" then "/magic-genevensis-10-saga.mse-style/ability_separator.png"
+		else set_combine(crop_safe("textbox/" + color_to_prefix() + "class_background.png", width: 750, height: separator_height(input), left: 0, top: separator_top(input)), combine: "shadow")
 	}
 	
-	divider_mask :=
+	separator_mask :=
 	{
+		divider :=	if		input == 1	then	styling.first_divider
+					else if	input == 2	then	styling.second_divider
+					else						styling.following_dividers
 		if divider == "line" then ""
-		else (	cropped_mask := crop("level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "mask.png", width: crop_width(), height: height, offset_x: 0, offset_y: 0)
-				combine_blend(image1: cropped_mask, image2: flip_vertical(cropped_mask), combine: "multiply") )
+		else
+		(
+			height := separator_height(input)
+			top := separator_top(input)
+			frame_mask :=	crop_safe(current_textbox_mask(), width: 750, height: height, left: 0, top: top)
+			top_mask :=		crop_safe((if styling.layout == "full text" then "full_" else "") + "separator_mask.png", width: 750, height: height, left: 0, top: 0)
+			combine_blend(
+				combine: "multiply",
+				image1: frame_mask,
+				image2: combine_blend(
+					combine: "multiply",
+					image1: top_mask,
+					image2: flip_vertical(top_mask)
+				)
+			)
+		)
+	}
+	
+	separator_border_mask :=
+	{
+		divider :=	if		input == 1	then	styling.first_divider
+					else if	input == 2	then	styling.second_divider
+					else						styling.following_dividers
+		if divider == "line" then ""
+		else
+		(
+			frame_mask :=	crop_safe(current_textbox_mask(), width: 750, height: 13, left: 0, top: separator_top(input))
+			top_mask :=		(if styling.layout == "full text" then "full_" else "") + "separator_border.png"
+			combine_blend(combine: "multiply", image1: frame_mask, image2: top_mask)
+		)
+	}
+	
+	separator_shrink :=
+	{
+		shrink :=	if		input == 1	then	styling.shrink_first_divider
+					else if	input == 2	then	styling.shrink_second_divider
+					else						styling.shrink_following_dividers
+		clamp(to_int(trim(shrink)) or else 0, minimum: -148, maximum: 28)
+	}
+	separator_left :=
+	{
+		divider :=	if		input == 1	then	styling.first_divider
+					else if	input == 2	then	styling.second_divider
+					else						styling.following_dividers
+		if divider == "level" then 0 else if styling.layout == "full text" then 77 else 394
+	}
+	separator_top := { to_int(card_style["level_" + input + "_text"].bottom) }
+	separator_width :=
+	{
+		divider :=	if		input == 1	then	styling.first_divider
+					else if	input == 2	then	styling.second_divider
+					else						styling.following_dividers
+		if divider == "level" then 750 else if styling.layout == "full text" then 596 else 279
+	}
+	separator_height :=
+	{
+		divider :=	if		input == 1	then	styling.first_divider
+					else if	input == 2	then	styling.second_divider
+					else						styling.following_dividers
+		if divider == "line" then 2 else 52 - separator_shrink(input)
+	}
+	
+	get_alpha :=
+	{
+		alpha_value :=	if input == "" then default
+						else to_number(input) or else default
+		if alpha_value < 0 then 0.0
+		else if alpha_value <= 100 then alpha_value/100.0
+		else 1.0
 	}
 	
 	seven_abilities := { styling.textboxes == "seven" }
@@ -438,33 +512,20 @@ init script:
 		else 1
 	}
 	
-	separator_shrink1 := { clamp(to_int(trim(styling.shrink_first_divider)) or else 0, minimum: -148, maximum: 28) }
-	separator_shrink2 := { clamp(to_int(trim(styling.shrink_second_divider)) or else 0, minimum: -148, maximum: 28) }
-	separator_shrink := { clamp(to_int(trim(styling.shrink_following_dividers)) or else 0, minimum: -148, maximum: 28) }
-	
-	separator_height1 := { if styling.first_divider == "line" then 2 else (52 - separator_shrink1()) }
-	separator_height2 := { if styling.second_divider == "line" then 2 else (52 - separator_shrink2()) }
-	separator_height := { if styling.following_dividers == "line" then 2 else (52 - separator_shrink()) }
-	
-	textbox_move1 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:0, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	textbox_move2 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:1, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	textbox_move3 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:2, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	textbox_move4 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:3, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	textbox_move5 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:4, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	textbox_move6 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:5, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
-	textbox_move7 := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:6, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
+	textbox_move := { clamp((to_int(pull_comma_array(styling.move_textbox_bottoms, cell:input-1, end:0, default:0)) or else 0), minimum: -700, maximum: 700) }
 	
 	chop_rarity_top := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:0, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_rarity_bot := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:1, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_rarity_left := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:2, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	chop_rarity_right := { clamp((to_int(pull_comma_array(styling.shrink_rarity_symbol, cell:3, end:0, default:0)) or else 0), minimum: -500, maximum: 500) }
 	
+	watermark_left := { if styling.layout == "full art" then 375 - to_int(watermark_height()/2) else if styling.layout == "full text" then 214 else 372 }
+	watermark_top := { if styling.layout == "full art" then full_art_textbox_background_top() + to_int((913-full_art_textbox_background_top()-watermark_height())/2) else 513 - to_int(watermark_height()/2) }
+	watermark_width := { if styling.layout == "full art" then watermark_height() else 323 }
 	watermark_height :=
 	{
-		desired_height := 323 + (to_int(styling.increase_watermark_height) or else 0)
-		if desired_height > 800 then 800
-		else if desired_height < 0 then 0
-		else desired_height
+		if styling.layout == "full art" then clamp(913 - full_art_textbox_background_top(), minimum: 0, maximum: 312) else
+		clamp(323 + (to_int(styling.increase_watermark_height) or else 0), minimum: 0, maximum: 800)
 	}
 	
 	alt_rarity :=
@@ -555,9 +616,49 @@ init script:
 		if styling.font_size == "" then 26 else to_number(styling.font_size) or else 26
 	}
 	
-	#break_hard_line := break_text@(match: "\\n")
+	image_left := { if has_extended_art() then 0 else 55 }
+	image_width :=
+	{
+		if		styling.layout == "full text" then	0
+		else if	styling.layout == "full art" then	( if has_extended_art() then 750 else if styling.transformation_reminder == "notch" then 655 else 640 )
+		else										( if has_extended_art() then 378 else 323 )
+	}
 	
-	#break_soft_line := break_text@(match: "<soft-line>")
+	current_image_mask :=
+	{
+		image :=	if styling.layout == "full art"								then	"full_"
+					else if styling.layout == "full text"						then	"none_"
+					else																"left_"
+		frame := 	if has_extended_art()										then	"extended"
+					else if styling.transformation_reminder != "notch"			then	"normal"
+					else if card.pt == ""										then	"notchlow"
+					else																"notchhigh"
+		"mask/" + image + frame + ".png"
+	}
+	
+	current_textbox_mask :=
+	{
+		image :=	if styling.layout == "full art"								then	"none_"
+					else if styling.layout == "full text"						then	"full_"
+					else																"right_"
+		frame := 	if has_extended_art() and styling.layout == "full text"	then	"extended"
+					else if styling.transformation_reminder != "notch"			then	"normal"
+					else if card.pt == ""										then	"notchlow"
+					else																"notchhigh"
+		"mask/" + image + frame + ".png"
+	}
+	
+	crop_safe :=
+	{
+		if		left < 0
+			or	top < 0
+			or	width <= 0
+			or	height <= 0
+			or	left + width > 750
+			or	top + height > 1046
+		then ""
+		else crop(input, offset_x: left, offset_y: top, width: width, height: height)
+	}
 	
 	clamp :=
 	{
@@ -569,32 +670,28 @@ init script:
 	full_art_textbox_background_top := 
 	{
 		desired_top := 653 + chop_top()
-		if desired_top < 10 then 10 else if desired_top > 1040 then 1040 else desired_top
+		if desired_top > 1040 then 1040 else desired_top
 	}
 	
 	full_art_textbox_background_image :=
 	{
-		base_image := 	if		styling.full_art_textbox_color == rgb(255,254,255)	then	image("fullartclasstextbox", side: "both")
-						else if	styling.full_art_textbox_color == rgb(255,255,254)	then	image("fullartclasstextboxlight", side: "both")
+		base_image := 	if		styling.full_art_textbox_color == rgb(255,254,255)	then	crop_safe(image("fullartclasstextbox", side: "both"), width: 750, height: 1046-full_art_textbox_background_top(), left: 0, top: full_art_textbox_background_top())
+						else if	styling.full_art_textbox_color == rgb(255,255,254)	then	crop_safe(image("fullartclasstextboxlight", side: "both"), width: 750, height: 1046-full_art_textbox_background_top(), left: 0, top: full_art_textbox_background_top())
 						else																recolor_image("textbox_background.png", color: styling.full_art_textbox_color)
-		opacity_image(crop(base_image, width: 750, height: 1046-full_art_textbox_background_top(), offset_x: 0, offset_y: full_art_textbox_background_top()))
+		opacity_textbox_image(base_image)
 	}
 	
 	full_art_textbox_wings_image :=
 	{
-		base_image := 	if		styling.full_art_textbox_color == rgb(255,254,255)	then	image("fullartclasstextbox", side: "both")
-						else if	styling.full_art_textbox_color == rgb(255,255,254)	then	image("fullartclasstextboxlight", side: "both")
+		base_image := 	if		styling.full_art_textbox_color == rgb(255,254,255)	then	crop_safe(image("fullartclasstextbox", side: "both"), width: 750, height: 67, left: 0, top: full_art_textbox_background_top()-67)
+						else if	styling.full_art_textbox_color == rgb(255,255,254)	then	crop_safe(image("fullartclasstextboxlight", side: "both"), width: 750, height: 67, left: 0, top: full_art_textbox_background_top()-67)
 						else																recolor_image("textbox_background.png", color: styling.full_art_textbox_color)
-		opacity_image(crop(base_image, width: 750, height: 67, offset_x: 0, offset_y: full_art_textbox_background_top()-67))
+		opacity_textbox_image(base_image)
 	}
 	
-	opacity_image :=
+	opacity_textbox_image :=
 	{
-		alpha_value :=	to_number(styling.full_art_textbox_opacity_percentage) or else 0
-		alpha_value_clamped :=	if alpha_value < 0 then 0
-								else if alpha_value <= 100 then alpha_value/100
-								else 1
-		set_alpha(input, alpha: alpha_value_clamped)
+		set_alpha(input, alpha: get_alpha(styling.full_art_textbox_opacity_percentage, default: 0))
 	}
 	
 	textbox_heights :=
@@ -604,15 +701,15 @@ init script:
 		
 		active_count := active_abilities() - 1
 		
-		first_level_divider_height := if active_count > 0 then separator_height1() else 0
-		second_level_divider_height := if active_count > 1 then separator_height2() else 0
-		following_level_divider_height := if active_count > 2 then (active_count-2) * separator_height() else 0
+		first_level_divider_height := if active_count > 0 then separator_height(1) else 0
+		second_level_divider_height := if active_count > 1 then separator_height(2) else 0
+		following_level_divider_height := if active_count > 2 then (active_count-2) * separator_height(3) else 0
 		total_max_possible_height :=	784 -
 										first_level_divider_height -
 										second_level_divider_height -
 										following_level_divider_height -
 										(if card.alias != "" then 28 else 0) -
-										(if styling.layout == "full text" and styling.transformation_reminder != "none" then 58 else 0) -
+										(if styling.layout == "full text" and styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then 58 else 0) -
 										(if styling.layout == "normal" and styling.transformation_reminder == "long" then 58 else 0) -
 										chop_top() -
 										chop_bot()
@@ -1029,6 +1126,7 @@ styling field:
 	choice: acorn
 	choice: swap
 	choice: tombstone
+	choice: lesson
 	choice: multitype
 	choice: structure
 	choice: creature
@@ -1051,6 +1149,7 @@ styling field:
 	choice: short
 	choice: medium
 	choice: long
+	choice: notch
 	initial: none
 styling field:
 	type: choice
@@ -1269,7 +1368,7 @@ card style:
 		top:	0
 		width:	750
 		height:	1046
-		z index: 10
+		z index: -10
 		render style: image
 		popup style: in place
 		image: { frame_image() }
@@ -1317,22 +1416,12 @@ card style:
 	
 	############################# Image
 	image:
-		left: { if has_extended_art() then 0 else 55 }
+		left: { image_left() }
 		top: 114
-		width:
-			script:
-				if		styling.layout == "full text" then	0
-				else if	styling.layout == "full art" then	( if has_extended_art() then 750 else 640 )
-				else										( if has_extended_art() then 378 else 323 )
+		width: { image_width() }
 		height: 799
 		z index: 20
-		mask:
-			script:
-				"image_" +
-				( if styling.layout == "full art" then "full_" else "" ) +
-				( if has_extended_art() then "extended_" else "" ) +
-				"mask.png"
-
+		mask: { crop_safe(current_image_mask(), width: image_width(), height: 799, left: image_left(), top: 114) }
 	############################# Card type
 	type:
 		left: { 73 + (if styling.center_type then type_margin() else typeline_left_margin()) }
@@ -1393,10 +1482,10 @@ card style:
 			
 	############################# Text boxes
 	level 1 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 1 then chop_right() else min(chop_right(),0)) }
+		right: { textbox_right(1) }
 		top: { ( if card.alias != "" then 151 else 123 ) - (-chop_top()) }
 		width: { textbox_width(1) }
-		height: { textbox_heights()[0] - (-textbox_move1()) }
+		height: { textbox_heights()[0] - (-textbox_move(1)) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1415,10 +1504,10 @@ card style:
 		line height line max: 1.6
 		line height soft max: 0.9
 	level 2 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 2 then chop_right() else min(chop_right(),0)) }
-		top: { card_style.level_1_text.bottom + separator_height1() }
+		right: { textbox_right(2) }
+		top: { card_style.level_1_text.bottom + separator_height(1) }
 		width: { textbox_width(2) }
-		height: { if active_abilities() > 1 then textbox_heights()[1] - (-textbox_move2()) else 0 }
+		height: { if active_abilities() > 1 then textbox_heights()[1] - (-textbox_move(2)) else 0 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1437,10 +1526,10 @@ card style:
 		line height line max: 1.6
 		line height soft max: 0.9
 	level 3 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 3 then chop_right() else min(chop_right(),0)) }
-		top: { card_style.level_2_text.bottom + separator_height2() }
+		right: { textbox_right(3) }
+		top: { card_style.level_2_text.bottom + separator_height(2) }
 		width: { textbox_width(3) }
-		height: { if active_abilities() > 2 then textbox_heights()[2] - (-textbox_move3()) else 0 }
+		height: { if active_abilities() > 2 then textbox_heights()[2] - (-textbox_move(3)) else 0 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1459,10 +1548,10 @@ card style:
 		line height line max: 1.6
 		line height soft max: 0.9
 	level 4 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 4 then chop_right() else min(chop_right(),0)) }
-		top: { card_style.level_3_text.bottom + separator_height() }
+		right: { textbox_right(4) }
+		top: { card_style.level_3_text.bottom + separator_height(3) }
 		width: { textbox_width(4) }
-		height: { if active_abilities() > 3 then textbox_heights()[3] - (-textbox_move4()) else 0 }
+		height: { if active_abilities() > 3 then textbox_heights()[3] - (-textbox_move(4)) else 0 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1481,10 +1570,10 @@ card style:
 		line height line max: 1.6
 		line height soft max: 0.9
 	level 5 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 5 then chop_right() else min(chop_right(),0)) }
-		top: { card_style.level_4_text.bottom + separator_height() }
+		right: { textbox_right(5) }
+		top: { card_style.level_4_text.bottom + separator_height(3) }
 		width: { textbox_width(5) }
-		height: { if active_abilities() > 4 then textbox_heights()[4] - (-textbox_move5()) else 0 }
+		height: { if active_abilities() > 4 then textbox_heights()[4] - (-textbox_move(5)) else 0 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1503,10 +1592,10 @@ card style:
 		line height line max: 1.6
 		line height soft max: 0.9
 	level 6 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 6 then chop_right() else min(chop_right(),0)) }
-		top: { card_style.level_5_text.bottom + separator_height() }
+		right: { textbox_right(6) }
+		top: { card_style.level_5_text.bottom + separator_height(3) }
 		width: { textbox_width(6) }
-		height: { if active_abilities() > 5 then textbox_heights()[5] - (-textbox_move6()) else 0 }
+		height: { if active_abilities() > 5 then textbox_heights()[5] - (-textbox_move(6)) else 0 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1525,10 +1614,10 @@ card style:
 		line height line max: 1.6
 		line height soft max: 0.9
 	level 7 text:
-		right: { 677 - (if styling.banner and styling.layout == "full text" then 8 else 0) - (if active_abilities() == 7 then chop_right() else min(chop_right(),0)) }
-		top: { card_style.level_6_text.bottom + separator_height() }
+		right: { textbox_right(7) }
+		top: { card_style.level_6_text.bottom + separator_height(3) }
 		width: { textbox_width(7) }
-		height: { if active_abilities() > 6 then textbox_heights()[6] - (-textbox_move7()) else 0 }
+		height: { if active_abilities() > 6 then textbox_heights()[6] - (-textbox_move(7)) else 0 }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -1638,6 +1727,12 @@ extra card field:
 	editable: false
 	save value: false
 	choice: transformation reminder
+extra card field:
+	type: choice
+	name: transformation reminder notch
+	editable: false
+	save value: false
+	choice: transformation reminder notch
 extra card field:
 	type: text
 	name: transformation reminder text
@@ -1916,6 +2011,13 @@ extra card field:
 	script: set.border_color
 extra card field:
 	type: color
+	name: transformation reminder notch border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
 	name: transformation reminder pt paste border
 	editable: false
 	save value: false
@@ -2037,30 +2139,42 @@ extra card style:
 		top: 834
 		height: 101
 		width: { if styling.transformation_reminder == "long" then 506 else 400 }
-		z index: 32
-		visible: { styling.transformation_reminder != "none" }
+		z index: 36
+		visible: { styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" }
+		render style: image
+		image: { reminder_image() }
+	transformation reminder notch:
+		left: 687
+		top: { if card.pt == "" then 845 else 785 }
+		height: 56
+		width: 53
+		z index: 24
+		visible: { styling.transformation_reminder == "notch" and not (has_extended_art() and styling.layout != "normal") }
 		render style: image
 		image: { reminder_image() }
 	transformation reminder text:
-		left: 6
-		top: 857
-		height: 60
-		width: { if styling.transformation_reminder == "short" then 298 else if styling.transformation_reminder == "medium" then 356 else if styling.transformation_reminder == "long" then 462 else 0 }
+		left: { if styling.transformation_reminder == "notch" then 620 else 6 }
+		top: { if styling.transformation_reminder == "notch" then (if card.pt == "" then 858 else 798) else 857 }
+		height: { if styling.transformation_reminder == "notch" then 30 else 60 }
+		width: { if styling.transformation_reminder == "notch" then (if has_extended_art() and styling.layout != "normal" then 0 else 75) else if styling.transformation_reminder == "short" then 298 else if styling.transformation_reminder == "medium" then 356 else if styling.transformation_reminder == "long" then 462 else 0 }
 		z index: 44
 		font:
-			name: { if styling.name_font == "" then "Beleren Bold" else styling.name_font }
-			size: 30
-			color: black
+			name: { if styling.name_font == "" then (if styling.transformation_reminder == "notch" then "ModMatrix" else "Beleren Bold") else styling.name_font }
+			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
+			color: { if styling.transformation_reminder == "notch" and styling.layout == "full art" then styling.full_art_text_color else "black" }
+			shadow color: { if styling.transformation_reminder == "notch" and styling.layout == "full art" and (to_number(styling.full_art_textbox_opacity_percentage) or else 0) <= 20 then (if styling.full_art_text_color == rgb(0,0,0) then "grey" else "black") else rgba(0,0,0,0) }
+			shadow displacement x: -2
+			shadow displacement y: 2
 		symbol font:
 			name: { styling.casting_cost_mana_symbols }
-			size: 30
-		alignment: center middle shrink-overflow
+			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
+		alignment: { if styling.transformation_reminder == "notch" then "right middle" else "center middle shrink-overflow" }
 	transformation reminder pt paste:
 		left: 496
 		top: 867
 		height: 42
 		width: 38
-		z index: 34
+		z index: 38
 		visible: { styling.transformation_reminder == "long" and card.pt != ""}
 		render style: image
 		image: { image("remindersagalongptpaste", side: "right") }
@@ -2069,7 +2183,7 @@ extra card style:
 		top: 112
 		height: 47
 		width: 530
-		z index: 22
+		z index: 34
 		visible: { card.alias != ""}
 		render style: image
 		image: { image("alias", side: "both") }
@@ -2077,7 +2191,7 @@ extra card style:
 		left: 18
 		top: 147
 		width: { if styling.banner then 50 else 0 }
-		height: { if styling.transformation_reminder != "none" then 694 else 754 }
+		height: { if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then 694 else 754 }
 		direction: vertical
 		z index: 42
 		alignment: center middle
@@ -2093,12 +2207,12 @@ extra card style:
 	ascend box:
 		left: 9
 		top: 117
-		height: { if styling.transformation_reminder != "none" then 732 else 792 }
+		height: { if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then 732 else 792 }
 		width: 68
-		z index: 34
+		z index: 38
 		visible: { styling.banner }
 		render style: image
-		image: { image("ascendsaga" + ( if styling.transformation_reminder != "none" then "reminder" else "" ), side: "left") }
+		image: { image("ascendsaga" + ( if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then "reminder" else "" ), side: "left") }
 	color indicator dot:
 		left: 66
 		top: 927
@@ -2143,7 +2257,7 @@ extra card style:
 		z index: 0
 		render style: image
 		image: { "textbox/" + color_to_prefix() + "class_background.png" }
-		mask: textbox_background_mask.png
+		mask: { current_textbox_mask() }
 	full art textbox background:
 		left: 0
 		right: 750
@@ -2153,7 +2267,7 @@ extra card style:
 		visible: { styling.layout == "full art" }
 		render style: image
 		image: { full_art_textbox_background_image() }
-		mask: { crop("full_art_textbox_background_" + (if has_extended_art() then "extended_" else "" ) + "mask.png", width: 750, height: 1046-full_art_textbox_background_top(), offset_x: 0, offset_y: full_art_textbox_background_top()) }
+		mask: { top := full_art_textbox_background_top(); crop_safe(current_image_mask(), width: 750, height: 1046-top, left: 0, top: top) }
 	full art textbox background wings:
 		left: 0
 		right: 750
@@ -2163,86 +2277,86 @@ extra card style:
 		visible: { desired_top := full_art_textbox_background_top(); styling.layout == "full art" and has_extended_art() and desired_top < 890 and desired_top > 200 }
 		render style: image
 		image: { full_art_textbox_wings_image() }
-		mask: full_art_textbox_wings_mask.png
+		mask: { combine_blend(image1: crop_safe(current_image_mask(), width: 750, height: 67, left: 0, top: full_art_textbox_background_top()-67), image2: "full_art_textbox_wings_mask.png", combine: "multiply") }
 	pt box:
 		left: 524
 		top: 852
 		width: 189
 		height:	75
-		z index: 24
+		z index: 34
 		visible: { card.pt != "" }
 		render style: image
 		image: { pt_image() }
 	ability separator 1:
-		right: { if styling.first_divider == "level" then 696 else 673 }
-		top: { hack_to_force_update := card_style.level_1_text.content_width; card_style.level_1_text.bottom }
-		width: { if styling.first_divider == "level" then crop_width() else ( if styling.layout == "full text" then 596 else 279) }
-		height: { separator_height1() }
-		z index: 8
+		left: { separator_left(1) }
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(1) }
+		width: { separator_width(1) }
+		height: { separator_height(1) }
+		z index: 30
 		visible: { styling.layout != "full art" and active_abilities() > 1 }
 		render style: image
-		image: { divider_image(divider: styling.first_divider, height: separator_height1(), top: card_style.level_1_text.bottom) }
-		mask: { divider_mask(divider: styling.first_divider, height: separator_height1()) }
+		image: { separator_image(1) }
+		mask: { separator_mask(1) }
 	ability separator 2:
-		right: { if styling.second_divider == "level" then 696 else 673 }
-		top: { hack_to_force_update := card_style.level_2_text.content_width; card_style.level_2_text.bottom }
-		width: { if styling.second_divider == "level" then crop_width() else ( if styling.layout == "full text" then 596 else 279) }
-		height: { separator_height2() }
-		z index: 8
+		left: { separator_left(2) }
+		top: { hack_to_force_update := card_style.level_2_text.content_width; separator_top(2) }
+		width: { separator_width(2) }
+		height: { separator_height(2) }
+		z index: 30
 		visible: { styling.layout != "full art" and active_abilities() > 2 }
 		render style: image
-		image: { divider_image(divider: styling.second_divider, height: separator_height2(), top: card_style.level_2_text.bottom) }
-		mask: { divider_mask(divider: styling.second_divider, height: separator_height2()) }
+		image: { separator_image(2) }
+		mask: { separator_mask(2) }
 	ability separator 3:
-		right: { if styling.following_dividers == "level" then 696 else 673 }
-		top: { hack_to_force_update := card_style.level_3_text.content_width; card_style.level_3_text.bottom }
-		width: { if styling.following_dividers == "level" then crop_width() else ( if styling.layout == "full text" then 596 else 279) }
-		height: { separator_height() }
-		z index: 8
+		left: { separator_left(3) }
+		top: { hack_to_force_update := card_style.level_3_text.content_width; separator_top(3) }
+		width: { separator_width(3) }
+		height: { separator_height(3) }
+		z index: 30
 		visible: { styling.layout != "full art" and active_abilities() > 3 }
 		render style: image
-		image: { divider_image(divider: styling.following_dividers, height: separator_height(), top: card_style.level_3_text.bottom) }
-		mask: { divider_mask(divider: styling.following_dividers, height: separator_height()) }
+		image: { separator_image(3) }
+		mask: { separator_mask(3) }
 	ability separator 4:
-		right: { if styling.following_dividers == "level" then 696 else 673 }
-		top: { hack_to_force_update := card_style.level_4_text.content_width; card_style.level_4_text.bottom }
-		width: { if styling.following_dividers == "level" then crop_width() else ( if styling.layout == "full text" then 596 else 279) }
-		height: { separator_height() }
-		z index: 8
+		left: { separator_left(4) }
+		top: { hack_to_force_update := card_style.level_4_text.content_width; separator_top(4) }
+		width: { separator_width(4) }
+		height: { separator_height(4) }
+		z index: 30
 		visible: { styling.layout != "full art" and active_abilities() > 4 }
 		render style: image
-		image: { divider_image(divider: styling.following_dividers, height: separator_height(), top: card_style.level_4_text.bottom) }
-		mask: { divider_mask(divider: styling.following_dividers, height: separator_height()) }
+		image: { separator_image(4) }
+		mask: { separator_mask(4) }
 	ability separator 5:
-		right: { if styling.following_dividers == "level" then 696 else 673 }
-		top: { hack_to_force_update := card_style.level_5_text.content_width; card_style.level_5_text.bottom }
-		width: { if styling.following_dividers == "level" then crop_width() else ( if styling.layout == "full text" then 596 else 279) }
-		height: { separator_height() }
-		z index: 8
+		left: { separator_left(5) }
+		top: { hack_to_force_update := card_style.level_5_text.content_width; separator_top(5) }
+		width: { separator_width(5) }
+		height: { separator_height(5) }
+		z index: 30
 		visible: { styling.layout != "full art" and active_abilities() > 5 }
 		render style: image
-		image: { divider_image(divider: styling.following_dividers, height: separator_height(), top: card_style.level_5_text.bottom) }
-		mask: { divider_mask(divider: styling.following_dividers, height: separator_height()) }
+		image: { separator_image(5) }
+		mask: { separator_mask(5) }
 	ability separator 6:
-		right: { if styling.following_dividers == "level" then 696 else 673 }
-		top: { hack_to_force_update := card_style.level_2_text.content_width; card_style.level_6_text.bottom }
-		width: { if styling.following_dividers == "level" then crop_width() else ( if styling.layout == "full text" then 596 else 279) }
-		height: { separator_height() }
-		z index: 8
+		left: { separator_left(6) }
+		top: { hack_to_force_update := card_style.level_6_text.content_width; separator_top(6) }
+		width: { separator_width(6) }
+		height: { separator_height(6) }
+		z index: 30
 		visible: { styling.layout != "full art" and active_abilities() > 6 }
 		render style: image
-		image: { divider_image(divider: styling.following_dividers, height: separator_height(), top: card_style.level_6_text.bottom) }
-		mask: { divider_mask(divider: styling.following_dividers, height: separator_height()) }
+		image: { separator_image(6) }
+		mask: { separator_mask(6) }
 	ability separator 1 text left:
 		visible: { styling.layout != "full art" and active_abilities() > 1 }
-		left: { if styling.layout == "full text" then 73 else 387 }
+		left: { if styling.layout == "full text" then (if has_extended_art() then 11 else 73) else 387 }
 		top: { hack_to_force_update := card_style.level_1_text.content_width; card_style.level_1_text.bottom + 4 }
 		width:
 			script:
 				if		styling.first_divider != "level" or styling.layout == "full art" or active_abilities() <= 1 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink1() }
+		height: { 43 - separator_shrink(1) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2257,14 +2371,14 @@ extra card style:
 		z index: 55
 	ability separator 1 text right:
 		visible: { styling.layout != "full art" and active_abilities() > 1 }
-		right: 677
+		right: { if has_extended_art() and styling.layout == "full text" then 739 else 677 }
 		top: { hack_to_force_update := card_style.level_1_text.content_width; card_style.level_1_text.bottom + 4 }
 		width:
 			script:
 				if		styling.first_divider != "level" or styling.layout == "full art" or active_abilities() <= 1 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink1() }
+		height: { 43 - separator_shrink(1) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2279,14 +2393,14 @@ extra card style:
 		z index: 55
 	ability separator 2 text left:
 		visible: { styling.layout != "full art" and active_abilities() > 2 }
-		left: { if styling.layout == "full text" then 73 else 387 }
+		left: { if styling.layout == "full text" then (if has_extended_art() then 11 else 73) else 387 }
 		top: { hack_to_force_update := card_style.level_2_text.content_width; card_style.level_2_text.bottom + 4 }
 		width:
 			script:
 				if		styling.second_divider != "level" or styling.layout == "full art" or active_abilities() <= 2 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink2() }
+		height: { 43 - separator_shrink(2) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2301,14 +2415,14 @@ extra card style:
 		z index: 55
 	ability separator 2 text right:
 		visible: { styling.layout != "full art" and active_abilities() > 2 }
-		right: 677
+		right: { if has_extended_art() and styling.layout == "full text" then 739 else 677 }
 		top: { hack_to_force_update := card_style.level_2_text.content_width; card_style.level_2_text.bottom + 4 }
 		width:
 			script:
 				if		styling.second_divider != "level" or styling.layout == "full art" or active_abilities() <= 2 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink2() }
+		height: { 43 - separator_shrink(2) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2323,14 +2437,14 @@ extra card style:
 		z index: 55
 	ability separator 3 text left:
 		visible: { styling.layout != "full art" and active_abilities() > 3 }
-		left: { if styling.layout == "full text" then 73 else 387 }
+		left: { if styling.layout == "full text" then (if has_extended_art() then 11 else 73) else 387 }
 		top: { hack_to_force_update := card_style.level_3_text.content_width; card_style.level_3_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 3 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2345,14 +2459,14 @@ extra card style:
 		z index: 55
 	ability separator 3 text right:
 		visible: { styling.layout != "full art" and active_abilities() > 3 }
-		right: 677
+		right: { if has_extended_art() and styling.layout == "full text" then 739 else 677 }
 		top: { hack_to_force_update := card_style.level_3_text.content_width; card_style.level_3_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 3 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2367,14 +2481,14 @@ extra card style:
 		z index: 55
 	ability separator 4 text left:
 		visible: { styling.layout != "full art" and active_abilities() > 4 }
-		left: { if styling.layout == "full text" then 73 else 387 }
+		left: { if styling.layout == "full text" then (if has_extended_art() then 11 else 73) else 387 }
 		top: { hack_to_force_update := card_style.level_4_text.content_width; card_style.level_4_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 4 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2389,14 +2503,14 @@ extra card style:
 		z index: 55
 	ability separator 4 text right:
 		visible: { styling.layout != "full art" and active_abilities() > 4 }
-		right: 677
+		right: { if has_extended_art() and styling.layout == "full text" then 739 else 677 }
 		top: { hack_to_force_update := card_style.level_4_text.content_width; card_style.level_4_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 4 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2411,14 +2525,14 @@ extra card style:
 		z index: 55
 	ability separator 5 text left:
 		visible: { styling.layout != "full art" and active_abilities() > 5 }
-		left: { if styling.layout == "full text" then 73 else 387 }
+		left: { if styling.layout == "full text" then (if has_extended_art() then 11 else 73) else 387 }
 		top: { hack_to_force_update := card_style.level_5_text.content_width; card_style.level_5_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 5 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2433,14 +2547,14 @@ extra card style:
 		z index: 55
 	ability separator 5 text right:
 		visible: { styling.layout != "full art" and active_abilities() > 5 }
-		right: 677
+		right: { if has_extended_art() and styling.layout == "full text" then 739 else 677 }
 		top: { hack_to_force_update := card_style.level_5_text.content_width; card_style.level_5_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 5 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2455,14 +2569,14 @@ extra card style:
 		z index: 55
 	ability separator 6 text left:
 		visible: { styling.layout != "full art" and active_abilities() > 6 }
-		left: { if styling.layout == "full text" then 73 else 387 }
+		left: { if styling.layout == "full text" then (if has_extended_art() then 11 else 73) else 387 }
 		top: { hack_to_force_update := card_style.level_6_text.content_width; card_style.level_6_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 6 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2477,14 +2591,14 @@ extra card style:
 		z index: 55
 	ability separator 6 text right:
 		visible: { styling.layout != "full art" and active_abilities() > 6 }
-		right: 677
+		right: { if has_extended_art() and styling.layout == "full text" then 739 else 677 }
 		top: { hack_to_force_update := card_style.level_6_text.content_width; card_style.level_6_text.bottom + 4 }
 		width:
 			script:
 				if		styling.following_dividers != "level" or styling.layout == "full art" or active_abilities() <= 6 then 0
 				else if	styling.layout == "full text" then 302
 				else 145
-		height: { 43 - separator_shrink() }
+		height: { 43 - separator_shrink(3) }
 		font:
 			name: { if styling.text_font == "" then "MPlantin" else styling.text_font }
 			italic name: { if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
@@ -2498,14 +2612,14 @@ extra card style:
 		alignment: middle right
 		z index: 55
 	watermark image:
-		left: { if styling.layout == "full text" then 214 else 372 }
-		top: { 513 - to_int(watermark_height()/2) }
-		width: 323
+		left: { watermark_left() }
+		top: { watermark_top() }
+		width: { watermark_width() }
 		height: { watermark_height() }
-		z index: 6
+		z index: 26
 		render style: image
 		image: { opacity_watermark_image() }
-		mask: { if styling.layout != "normal" then "" else crop("watermark_mask.png", width: 323, height: watermark_height(), offset_x: 0, offset_y: 400 - to_int(watermark_height()/2)) }
+		mask: { crop_safe(if styling.layout == "full art" then current_image_mask() else current_textbox_mask(), width: watermark_width(), height: watermark_height(), left: watermark_left(), top: watermark_top()) }
 	crown:
 		left: 0
 		top: 0
@@ -2520,7 +2634,7 @@ extra card style:
 		top: 0
 		width: 750
 		height: 1046
-		z index: 22
+		z index: 30
 		visible: { has_leaf() }
 		render style: image
 		image: { leaf_image() }
@@ -2529,7 +2643,7 @@ extra card style:
 		top: 0
 		width: 750
 		height: 1046
-		z index: 24
+		z index: 32
 		visible: { has_crown() and has_leaf() }
 		render style: image
 		image: { legend_leaf_image() }
@@ -2539,7 +2653,7 @@ extra card style:
 		width: 750
 		height: 66
 		z index: 16
-		visible: { ( styling.layout == "full text" or not has_extended_art() ) and not has_special_crown() and styling.insignia != "none" }
+		visible: { not has_extended_art() and not has_special_crown() and styling.insignia != "none" }
 		render style: image
 		image: { insignia_image() }
 	fuse box:
@@ -2565,7 +2679,7 @@ extra card style:
 		top: 0
 		width: 750
 		height: 1046
-		z index: 11
+		z index: -9
 		mask: { border( if has_extended_art() and styling.layout == "normal" then "pumaclass" else if has_extended_art() and styling.layout == "full art" then "pumaclassfull" else "class" ) }
 	crown border:
 		visible: { set.border_color != rgb(0,0,0) and (has_crown() or has_special_crown()) }
@@ -2581,7 +2695,7 @@ extra card style:
 		top: 0
 		width: 750
 		height: 1046
-		z index: 23
+		z index: 31
 		mask: { border("sagaleaf") }
 	legend leaf border:
 		visible: { set.border_color != rgb(0,0,0) and has_crown() and has_leaf() }
@@ -2589,10 +2703,10 @@ extra card style:
 		top: 0
 		width: 750
 		height: 1046
-		z index: 25
+		z index: 33
 		mask: { border("legendleaf") }
 	insignia border:
-		visible: { set.border_color != rgb(0,0,0) and (styling.layout == "full text" or not has_extended_art()) and styling.insignia != "none" and not has_special_crown() }
+		visible: { set.border_color != rgb(0,0,0) and not has_extended_art() and not has_special_crown() and styling.insignia != "none" }
 		left: 0
 		top: 181
 		width: 750
@@ -2616,93 +2730,101 @@ extra card style:
 		z index: 51
 		mask: { border("identity") }
 	transformation reminder border:
-		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder != "none" }
+		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" }
 		left: 0
 		top: 834
 		height: 101
 		width: { if styling.transformation_reminder == "long" then 506 else 400 }
-		z index: 33
+		z index: 37
 		mask: { border("reminder" + ( if has_extended_art() then "pumaclass" else "saga" ) + ( if has_leaf() then "leaf" else "" ) + styling.transformation_reminder) }
+	transformation reminder notch border:
+		left: 687
+		top: { if card.pt == "" then 845 else 785 }
+		height: 56
+		width: 53
+		z index: 25
+		visible: { styling.transformation_reminder == "notch" and not (has_extended_art() and styling.layout != "normal") }
+		mask: { border("remindernotchright") }
 	transformation reminder pt paste border:
 		visible: { set.border_color != rgb(0,0,0) and styling.transformation_reminder == "long" and card.pt != "" }
 		left: 496
 		top: 867
 		height: 42
 		width: 38
-		z index: 35
+		z index: 39
 		mask: { border("remindersagalongptpaste") }
 	ability separator 1 border:
 		visible: { styling.layout != "full art" and styling.first_divider == "level" and active_abilities() > 1 }
-		right: 696
-		top: { hack_to_force_update := card_style.level_1_text.content_width; card_style.level_1_text.bottom }
-		width: { crop_width() }
+		left: 0
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(1) }
+		width: 750
 		height: 13
-		z index: 9
-		mask: { "level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "border.png" }
+		z index: 31
+		mask: { separator_border_mask(1) }
 	ability separator 2 border:
 		visible: { styling.layout != "full art" and styling.second_divider == "level" and active_abilities() > 2 }
-		right: 696
-		top: { hack_to_force_update := card_style.level_2_text.content_width; card_style.level_2_text.bottom }
-		width: { crop_width() }
+		left: 0
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(2) }
+		width: 750
 		height: 13
-		z index: 9
-		mask: { "level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "border.png" }
+		z index: 31
+		mask: { separator_border_mask(2) }
 	ability separator 3 border:
 		visible: { styling.layout != "full art" and styling.following_dividers == "level" and active_abilities() > 3 }
-		right: 696
-		top: { hack_to_force_update := card_style.level_3_text.content_width; card_style.level_3_text.bottom }
-		width: { crop_width() }
+		left: 0
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(3) }
+		width: 750
 		height: 13
-		z index: 9
-		mask: { "level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "border.png" }
+		z index: 31
+		mask: { separator_border_mask(3) }
 	ability separator 4 border:
 		visible: { styling.layout != "full art" and styling.following_dividers == "level" and active_abilities() > 4 }
-		right: 696
-		top: { hack_to_force_update := card_style.level_4_text.content_width; card_style.level_4_text.bottom }
-		width: { crop_width() }
+		left: 0
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(4) }
+		width: 750
 		height: 13
-		z index: 9
-		mask: { "level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "border.png" }
+		z index: 31
+		mask: { separator_border_mask(4) }
 	ability separator 5 border:
 		visible: { styling.layout != "full art" and styling.following_dividers == "level" and active_abilities() > 5 }
-		right: 696
-		top: { hack_to_force_update := card_style.level_5_text.content_width; card_style.level_5_text.bottom }
-		width: { crop_width() }
+		left: 0
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(5) }
+		width: 750
 		height: 13
-		z index: 9
-		mask: { "level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "border.png" }
+		z index: 31
+		mask: { separator_border_mask(5) }
 	ability separator 6 border:
 		visible: { styling.layout != "full art" and styling.following_dividers == "level" and active_abilities() > 6 }
-		right: 696
-		top: { hack_to_force_update := card_style.level_6_text.content_width; card_style.level_6_text.bottom }
-		width: { crop_width() }
+		left: 0
+		top: { hack_to_force_update := card_style.level_1_text.content_width; separator_top(6) }
+		width: 750
 		height: 13
-		z index: 9
-		mask: { "level_separator_" + ( if styling.layout == "full text" then "full_" else "" ) + "border.png" }
+		z index: 31
+		mask: { separator_border_mask(6) }
 	alias box border:
 		visible: { set.border_color != rgb(0,0,0) and card.alias != "" }
 		left: 110
 		top: 112
 		height: 47
 		width: 530
-		z index: 23
+		z index: 35
 		mask: { border("alias") }
 	ascend box border:
 		visible: { set.border_color != rgb(0,0,0) and styling.banner }
 		left: 9
 		top: 117
-		height: { if styling.transformation_reminder != "none" then 732 else 792 }
+		height: { if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then 732 else 792 }
 		width: 68
-		z index: 35
-		mask: { border("ascendsaga" + ( if styling.transformation_reminder != "none" then "reminder" else "" )) }
+		z index: 39
+		mask: { border("ascendsaga" + ( if styling.transformation_reminder != "none" and styling.transformation_reminder != "notch" then "reminder" else "" )) }
 	pt border:
 		visible: { set.border_color != rgb(0,0,0) and card.pt != "" }
 		left: 524
 		top: 852
 		width: 189
 		height:	75
-		z index: 25
-		mask: { border(( if (styling.layout == "full art" and has_extended_art()) then "puma" else "" ) + "sagapt") }
+		z index: 35
+		mask: { border(( if (styling.layout != "normal" and has_extended_art()) then "puma" else "" ) + "sagapt") }
 	fuse box border:
 		visible: { set.border_color != rgb(0,0,0) and styling.fuse != "none" }
 		left: { stylesheet.card_style.rule_text_3.left - 36 }
@@ -2719,5 +2841,5 @@ extra card style:
 		z index: 18
 		render style: image
 		popup style: in place
-		mask: { "/magic-genevensis-00-main.mse-style/pride_" + (if has_crown() or has_special_crown() then "legend_" else "") + "mask.png" }
 		image: { if input == "none" then "" else "/magic-genevensis-00-main.mse-style/pride/" + input + ".png" }
+		mask: /magic-genevensis-00-main.mse-style/pride_mask.png

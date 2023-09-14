@@ -1,7 +1,7 @@
 ﻿mse version: 2.1.2
 game: magic
 short name: Gen Plane
-full name: GenevensiS Hi-Res Planechase
+full name: Hi-Res
 icon: card_sample.png
 position hint: 077
 
@@ -66,14 +66,17 @@ init script:
 	
 	shrink_type :=
 	{
-		if styling.shrink_type != "" then (to_int(styling.shrink_type) or else 0)
-		else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1
+		if styling.shrink_type == "-" then 0
+		else if styling.shrink_type != "" then (clamp(to_int(styling.shrink_type), minimum: -40, maximum: 24) or else 0)
+		else if length(remove_tags(card.type)) > 41 then 2
+		else if length(remove_tags(card.type)) > 38 then 1
 		else 0
 	}
 	
 	shrink_name :=
 	{
-		to_int(styling.shrink_name) or else 0
+		if styling.shrink_name == "-" then 0
+		else clamp(to_int(styling.shrink_name), minimum: -40, maximum: 31) or else 0
 	}
 	
 	has_extended_art :=
@@ -415,6 +418,7 @@ init script:
 		"sorcery" : "symbolsorcery"
 		"artifact" : "symbolartifact"
 		"enchantment" : "symbolenchantment"
+		"lesson" : "symbollesson"
 		"custom" : "symbolcustom"
 	]
 	
@@ -442,11 +446,7 @@ init script:
 					else if contains(match: ".png", styling.watermark) then ("/magic-watermarks.mse-include/" + styling.watermark)
 					else ""
 		if styling.watermark_opacity_percentage == "" then image
-		else (	alpha_value := to_number(styling.watermark_opacity_percentage) or else 100
-				alpha_value_clamped :=	if alpha_value < 0 then 0
-										else if alpha_value <= 100 then alpha_value/100
-										else 1
-				set_alpha(image, alpha: alpha_value_clamped) )
+		else set_alpha(image, alpha: get_alpha(styling.watermark_opacity_percentage, default: 100))
 	}
 	
 	set_symbol_image :=
@@ -489,19 +489,18 @@ init script:
 	textbox_image :=
 	{
 		base_image :=	if		styling.textbox_color == rgb(255,254,255)	then	image("planetextbox", side: "both")
-						else if	styling.textbox_color == rgb(255,254,255)	then	image("planetextboxlight", side: "both")
+						else if	styling.textbox_color == rgb(255,255,254)	then	image("planetextboxlight", side: "both")
 						else														recolor_image("/magic-genevensis-70-token.mse-style/textbox_background.png", color: styling.textbox_color)
-		opacity_image(base_image, percentage: styling.textbox_opacity_percentage, default: 50)
+		set_alpha(base_image, alpha: get_alpha(styling.textbox_opacity_percentage, default: 50))
 	}
 	
-	opacity_image :=
+	get_alpha :=
 	{
-		alpha_value :=	if percentage == "" then default
-						else to_number(percentage) or else default
-		alpha_value_clamped :=	if alpha_value < 0 then 0
-								else if alpha_value <= 100 then alpha_value/100
-								else 1
-		set_alpha(input, alpha: alpha_value_clamped)
+		alpha_value :=	if input == "" then default
+						else to_number(input) or else default
+		if alpha_value < 0 then 0.0
+		else if alpha_value <= 100 then alpha_value/100.0
+		else 1.0
 	}
 	
 	vorthos_default :=
@@ -927,6 +926,7 @@ styling field:
 	choice: acorn
 	choice: swap
 	choice: tombstone
+	choice: lesson
 	choice: multitype
 	choice: structure
 	choice: creature
@@ -1903,7 +1903,7 @@ extra card style:
 		height: 68
 		z index: 12
 		render style: image
-		image: { opacity_image("type/" + color_to_prefix() + "planetype.png", percentage: styling.typebox_opacity_percentage, default: 70) }
+		image: { set_alpha("type/" + color_to_prefix() + "planetype.png", alpha: get_alpha(styling.typebox_opacity_percentage, default: 70)) }
 		mask: type_mask.png
 	card color border:
 		visible: { set.border_color != rgb(0,0,0) }
@@ -2002,5 +2002,5 @@ extra card style:
 		z index: 8
 		render style: image
 		popup style: in place
-		mask: { "/magic-genevensis-00-main.mse-style/pride_" + (if has_crown() or has_special_crown() then "legend_" else "") + "mask.png" }
 		image: { if input == "none" then "" else "/magic-genevensis-00-main.mse-style/pride/" + input + ".png" }
+		mask: /magic-genevensis-00-main.mse-style/pride_mask.png
