@@ -1,0 +1,1536 @@
+﻿mse version:		2.1.2
+game:				magic
+short name:			Gatewatch
+full name:			Secret Lair
+icon:				card_sample.png
+position hint:		096
+
+version:			2023-09-20
+depends on:
+	package:			magic.mse-game
+	version:			2014-06-25
+depends on:
+	package:			magic-watermarks.mse-include
+	version:			2007-09-23
+depends on:
+	package:			magic-identity-new.mse-include
+	version:			2012-01-22
+depends on:
+	package:			magic-mana-large.mse-symbol-font
+	version:			2007-09-23
+depends on:
+	package:			magic-mana-small.mse-symbol-font
+	version:			2007-09-23
+depends on:
+	package:			magic-mana-secret-lair-gatewatch.mse-symbol-font
+	version:			2023-09-19
+depends on:
+	package:			magic-mana-circleless-colorable.mse-symbol-font
+	version:			2023-09-19
+depends on:
+	package:			magic-mana-circleless-colorable-baloo.mse-symbol-font
+	version:			2023-09-19
+depends on:
+	package:			magic-mainframe-extras.mse-include
+	version:			2007-09-23
+
+card width:			751
+card height:		523
+card dpi:			150
+
+
+### blanks by GenevensiS
+### code by GenevensiS
+
+
+############################################################## Extra scripts
+
+init script:
+	template_prefix :=
+	[
+		card:			"card/",
+		stamprim:		"stamprim/",
+		identity:		"/magic-identity-new.mse-include/",
+		loyalty:		"loyalty/"
+		logo:			"logo/"
+	]
+	template_suffix :=
+	[
+		card:			"card.png",
+		stamprim:		"stamprim.png",
+		identity:		"identity.png"
+		loyalty:		"loyalty.png",
+		logo:			"logo.png",
+	]
+	template :=
+	{
+		if type == "loyalty" then crop_safe("loyalty/" + input + "loyalty.png", offset_x: 0, offset_y: 150-move_baseball(), width: 375, height: 523)
+		else template_prefix[type] + input + template_suffix[type]
+	}
+	land_template		:= template
+	
+	card_background		:= { color_background(input: card.card_color, type: "card",		base_hybrid: card_hybrid) }@(offset:0)
+	card_identity		:= { color_background(input: card.card_color, type: "identity",	base_hybrid: card_hybrid) }@(offset:0)
+	card_loyaltybox		:= { color_background(input: card.card_color, type: "loyalty",	base_hybrid: card_hybrid) }@(offset:0)
+	card_stamprim		:= { color_background(input: card.card_color, type: "stamprim",	base_hybrid: card_hybrid) }@(offset:0)
+	card_logo			:= { color_background(input: card.card_color, type: "logo",		base_hybrid: card_hybrid) }@(offset:0)
+	card_stampholofoil	:=
+	{
+		if card.card_stamp == "none" then "" else (
+		prefix :=	if card.card_stamp == "universes beyond" then "holofoil/standard"
+					else "holofoil/" + card.card_stamp
+		prefix + (if is_foil_stamped() then ".png" else "_void.png"))
+	}
+	
+	mana_t :=
+	{
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	guild_mana		:= { styling.use_guild_mana_symbols }
+	ancestral_mana	:= { styling.use_ancestral_mana_symbols }
+	
+	has_identity	:= { styling.color_indicator_dot }
+	has_identity_2	:= { false }
+	
+	is_promo		:= { styling.promo }
+	
+	is_unsorted		:= { styling.remove_from_autocount }
+
+	is_stamped		:= { card.card_stamp != "none" and (contains(styling.holofoil_stamps, match: "yes") or (styling.holofoil_stamps == "only rares and mythics" and is_rare()))}
+	is_foil_stamped	:= { styling.holofoil_stamps == "yes, all foil" or is_rare() }
+	
+	is_crowned		:= { styling.gatewatch_logo == "yes" or (styling.gatewatch_logo == "if legendary" and contains(to_lower(card.super_type), match:"legendary")) }
+	
+	shrink_type		:= { if styling.shrink_type_text == "-" then 0 else if styling.shrink_type_text != "" then clamp(to_number(styling.shrink_type_text), minimum: -30, maximum: 40) else 0 }
+	shrink_name		:= { if styling.shrink_name_text == "-" then 0 else if styling.shrink_name_text != "" then clamp(to_number(styling.shrink_name_text), minimum: -30, maximum: 46) else 0 }
+	
+	use_main_rarity	:= { contains(set.mainframe_rarity_name, match: ".png") }
+	
+	alt_rarity := { styling.alt_rarity_color != "" }
+	alt_rarity_color :=
+	{
+		string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+		if match(styling.alt_rarity_color, match:":$") then string := styling.alt_rarity_color
+		colons := length(filter_text(string, match:":"))
+		output := split_text(string, match:",|:")
+		splits := split_text(string, match:":")
+		if colons == 4
+			then output := split_text(string+"0.07:", match:",|:")
+		if colons == 3
+			then output := split_text(string+splits[2]+"0.07:", match:",|:")
+		else if colons == 2
+			then output := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
+		else if colons == 1
+			then output := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
+		output
+	}
+	alt_symbol :=
+	{
+		colors := alt_rarity_color()
+		symbol_variation(
+			symbol:			set.symbol,
+			border_radius:	colors.12,
+			fill_type:		"linear gradient",
+			fill_color_1:	rgb(colors.0, colors.1, colors.2),
+			fill_color_2:	rgb(colors.3, colors.4, colors.5),
+			border_color_1:	rgb(colors.6, colors.7, colors.8),
+			border_color_2:	rgb(colors.9, colors.10, colors.11),
+			center_x:		0.5,
+			center_y:		0.5,
+			end_x:			1,
+			end_y:			1
+		)
+	}
+	
+	mainframe_walker :=
+	{
+		true
+	}
+	
+	mainframe_walker_text_script :=
+	{
+		count := abilities_count()
+		if		count == 6 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text, separator4: "<line>\n</line>", field5: card.level_5_text, separator5: "<line>\n</line>", field6: card.level_6_text)
+		else if	count == 5 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text, separator4: "<line>\n</line>", field5: card.level_5_text)
+		else if	count == 4 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text)
+		else if	count == 3 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
+		else if	count == 2 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text)
+		else 					forward_editor(field: card.level_1_text)
+	}
+	
+	margin_left :=
+	{
+		if		input == "lv1" then	(if card.loyalty_cost_1 == "" then 0 else 302)
+		else if	input == "lv2" then	(if card.loyalty_cost_2 == "" then 0 else 302)
+		else if	input == "lv3" then	(if card.loyalty_cost_3 == "" then 0 else 302)
+		else if	input == "lv4" then	(if card.loyalty_cost_4 == "" then 0 else 302)
+		else if	input == "lv5" then	(if card.loyalty_cost_5 == "" then 0 else 302)
+		else if	input == "lv6" then	(if card.loyalty_cost_6 == "" then 0 else 302)
+		else						0
+	}
+	
+	text_filter := text_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
+	
+	add_spacers :=
+	{
+		#The 'then ""' has a zero-width space inside
+		if input == "" and level_is_active(name) then "​"
+		else input
+	}
+	
+	level_is_active :=
+	{
+		if		input == "lv6" then	abilities_count() >= 6
+		else if	input == "lv5" then	abilities_count() >= 5
+		else if	input == "lv4" then	abilities_count() >= 4
+		else if	input == "lv3" then	abilities_count() >= 3
+		else if	input == "lv2" then	abilities_count() >= 2
+		else						true
+	}
+	
+	ability_top :=
+	{
+		if card_style.text.layout.blocks[input].bottom or else 0 > 0 then to_int(card_style.text.top) + to_int(card_style.text.layout.blocks[input].top)
+		else 1200
+	}
+	
+	ability_center :=
+	{
+		if card_style.text.layout.blocks[input].bottom or else 0 > 0 then to_int(card_style.text.top) + to_int(card_style.text.layout.blocks[input].middle)
+		else 1200
+	}
+	
+	ability_bottom :=
+	{
+		if card_style.text.layout.blocks[input].bottom or else 0 > 0 then to_int(card_style.text.top) + to_int(card_style.text.layout.blocks[input].bottom)
+		else 1200
+	}
+	
+	abilities_count :=
+	{
+		if		styling.number_of_textboxes == "three"	then	3
+		else if	styling.number_of_textboxes == "four"	then	4
+		else if	styling.number_of_textboxes == "one"	then	1
+		else if	styling.number_of_textboxes == "two"	then	2
+		else if	styling.number_of_textboxes == "five"	then	5
+		else													6
+	}
+	
+	loyal_move := { clamp((to_int(pull_comma_array(styling.move_loyalty_costs, cell:input-1, end:0, default:0)) or else 0), minimum: -400, maximum: 400) }
+	
+	separator_move := { clamp((to_int(pull_comma_array(styling.move_separators, cell:input-1, end:0, default:0)) or else 0), minimum: -300, maximum: 300) }
+	
+	stripe_top := { -to_int(( -ability_bottom(input-1) - ability_top(input) )/2) - 3 - ( -separator_move(input)) }
+	
+	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then clamp(split.0, minimum: 0, maximum: 1600) else 720 }
+	rarity_top		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 1 and split.1 != "" then clamp(split.1, minimum: 0, maximum: 1200) else 433 }
+	rarity_size		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 2 and split.2 != "" then clamp(split.2, minimum: 0, maximum: 700) else 26 }
+	rarity_left		:= { rarity_right() - rarity_size() }
+	
+	popout_left		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, minimum: -300,	maximum: 1000) else 0 }
+	popout_top		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, minimum: -300,	maximum: 600) else 0 }
+	popout_width	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, minimum: 0,		maximum: 1000) else 0 }
+	popout_height	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, minimum: 0,		maximum: 800) else 0 }
+	
+	move_baseball :=
+	{
+		clamp((to_int(styling.move_baseball) or else 0), minimum: -250, maximum: 150)
+	}
+	
+	back_text_font_size := { if styling.back_text_font_size_cap == "" then 13 else clamp(to_number(styling.back_text_font_size_cap) or else 13, minimum: 2, maximum: 30) }
+	
+	split_comma := split_text@(match: " *, *")
+	
+	un_png := replace@(match:".png", replace: "")
+	
+	clamp :=
+	{
+		if input < minimum then minimum
+		else if input > maximum then maximum
+		else input
+	}
+	
+	crop_safe :=
+	{
+		if		offset_x < 0
+			or	offset_y < 0
+			or	width < 1
+			or	height < 1
+			or	offset_x + width > 375
+			or	offset_y + height > 1023
+		then ""
+		else crop(input, offset_x: offset_x, offset_y: offset_y, width: width, height: height)
+	}
+	
+	symbol_font_color := { rgba(17,47,49,255) }
+	symbol_font_alpha := { 1.0 }
+	symbol_font_baloo_color := { rgba(195,148,120,160) }
+	symbol_font_baloo_alpha := { 0.63 }
+
+
+############################################################## Set info fields
+
+set info style:
+	symbol:
+		variation:
+			name:				invertedcommon
+			border radius:		0.10
+			fill type:			solid
+			fill color:			rgb(255,255,255)
+			border color:		rgb(0,0,0)
+
+
+############################################################## Extra style options
+
+styling field:
+	type:			text
+	name:			popout image coordinates
+	description:	The coordinates for the popout image field, formatted as "left,top,width,height". Used to make the illustration jump in front of the frame.
+styling field:
+	type:			boolean
+	name:			stretch image to whole card
+	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
+	initial:		no
+styling field:
+	type:			choice
+	name:			stats type
+	description:	Should there be loyalty or power/toughness?
+	choice:			Loyalty
+	choice:			PT
+	choice:			None
+	initial:		Loyalty
+styling field:
+	type:			color
+	name:			name text color
+	description:	Use the specified color for the text in the nameline on the front of the card.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		white
+styling field:
+	type:			text
+	name:			shrink name text
+	description:	Shrinks name text X pixels.
+styling field:
+	type:			text
+	name:			shrink type text
+	description:	Shrinks type text X pixels.
+styling field:
+	type:			choice
+	name:			number of textboxes
+	description:	Number of textboxes for abilities and passives. Modify content of textboxes if this has trouble updating after being changed.
+	choice:			one
+	choice:			two
+	choice:			three
+	choice:			four
+	choice:			five
+	choice:			six
+	initial:		three
+styling field:
+	type:			text
+	name:			back text font size cap
+	description:	Caps the font size of the rules text and the flavor text. Default is 13.
+styling field:
+	type:			choice
+	name:			center rule text
+	description:	When to center text (short text means only on one-line cards with no flavor text)
+	choice:			always
+	choice:			short text only
+	choice:			never
+	initial:		never
+styling field:
+	type:			text
+	name:			move separators
+	description:	Moves the limits between abilities down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5"
+styling field:
+	type:			text
+	name:			move loyalty costs
+	description:	Moves loyalty costs down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5,6"
+styling field:
+	type:			text
+	name:			move baseball
+	description:	Move the baseball down this many pixels. Use negatives to move up.
+styling field:
+	type:			choice
+	name:			gatewatch logo
+	description:	Use the gatewatch logo?
+	choice:			yes
+	choice:			if legendary
+	choice:			no
+	initial:		yes
+styling field:
+	type:			boolean
+	name:			trophy
+	description:	Use the trophy for the position?
+	initial:		no
+styling field:
+	type:			choice
+	name:			holofoil stamps
+	description:	Use the security holofoil stamps?
+	choice:			yes, all foil
+	choice:			yes, un/commons not foil
+	choice:			only rares and mythics
+	choice:			no
+	initial:		yes, un/commons not foil
+styling field:
+	type:			boolean
+	name:			color indicator dot
+	description:	Use a dot in the typeline to indicate card color?
+	initial:		no
+styling field:
+	type:			boolean
+	name:			rarity
+	description:	Should the rarity symbol be visible in the typeline?
+	initial:		no
+styling field:
+	type:			boolean
+	name:			inverted common symbol
+	description:	Should the common rarity symbol be inverted, like in Coldsnap?
+	initial:		no
+styling field:
+	type:			text
+	name:			alt rarity color
+	description:	Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
+styling field:
+	type:			text
+	name:			rarity coordinates
+	description:	The coordinates for the set symbol, formatted as "right,top,size". Default is 1428,860,52.
+styling field:
+	type:			boolean
+	name:			colored border
+	description:	Tint the border with the card's color?
+	initial:		yes
+styling field:
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+styling field:
+	type:			choice
+	name:			corners
+	description:	What should the corners of the card look like?
+	choice:			rounded and antialiased
+	choice:			rounded
+	choice:			none
+	initial:		rounded and antialiased
+styling field:
+	type:			boolean
+	name:			remove from autocount
+	description:	Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			promo
+	description:	Is this card a promo card, with the "P" rarity?
+	initial:		no
+styling field:
+	type:			color
+	name:			copyright front text color
+	description:	Color of the copyright, illustrator, and set code text of the front of the card.
+	choice:			white
+	choice:			black
+	initial:		white
+	allow custom:	true
+styling field:
+	type:			color
+	name:			copyright back text color
+	description:	Color of the copyright, illustrator, and set code text of the back of the card.
+	choice:			white
+	choice:			black
+	initial:		white
+	allow custom:	true
+styling field:
+	type:			boolean
+	name:			use ancestral mana symbols
+	description:	Enables ancestral's modified generic mana.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			use guild mana symbols
+	description:	Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial:		yes
+styling field:
+	type:			choice
+	name:			tap symbol
+	description:	What tap and untap symbols should be used on cards?
+	choice:			modern
+	choice:			old
+	choice:			diagonal T
+	initial:		modern
+styling field:
+	type:			package choice
+	name:			casting cost front mana symbols
+	description:	Symbols used in the casting cost.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-secret-lair-gatewatch.mse-symbol-font
+styling field:
+	type:			package choice
+	name:			casting cost back mana symbols
+	description:	Symbols used in the casting cost.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-circleless-colorable-baloo.mse-symbol-font
+styling field:
+	type:			package choice
+	name:			text box mana symbols
+	description:	Symbols used in the rule text and flavor text.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-circleless-colorable.mse-symbol-font
+styling field:
+	type:			text
+	name:			name front font
+	description:	Font used for the name on the front of the card. Hover your mouse over the font file to see it's details, and write it's Title here.
+styling field:
+	type:			text
+	name:			name back font
+	description:	Font used for the name, and type on the back of the card. Hover your mouse over the font file to see it's details, and write it's Title here.
+styling field:
+	type:			text
+	name:			text font
+	description:	Font used for the rule text. Hover your mouse over the font file to see it's details, and write it's Title here.
+styling field:
+	type:			text
+	name:			text italic font
+	description:	Font used for the flavor text and reminder texts. Hover your mouse over the font file to see it's details, and write it's Title here.
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes:				/magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:					/magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style:	both
+		choice images:
+			modern:				/magic-mana-large.mse-symbol-font/mana_t.png
+			old:				/magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T:			/magic-mana-large.mse-symbol-font/mana_t_older.png
+	center rule text:
+		render style:	both
+		choice images:
+			always:				/magic.mse-game/icons/center-all-text.png
+			short text only:	/magic.mse-game/icons/center-short-text.png
+			never:				/magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:					{ symbol_variation(symbol: set.symbol, variation: "common") }
+			yes:				{ symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+
+
+############################################################## Card fields
+
+card style:
+	############################# Background stuff
+	border color:
+		left:				0
+		top :				0
+		width:				375
+		height:				523
+		z index:			210
+		visible:			{ not styling.colored_border }
+		mask:				border_mask.png
+	card color:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			200
+		popup style:		in place
+		render style:		image
+		image:				{ card_background() }
+		mask:				card_mask.png
+	############################# Name line
+	name:
+		left:				0
+		top:				445
+		right:				375
+		height:				28
+		z index:			1000
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.name_front_font == "" then "DharmaGothicModified-Heavy" else styling.name_front_font }
+			size:				{ 25 - shrink_name() }
+			color:				{ styling.name_text_color }
+	name 2:
+		left:				{ 407 + to_int(card_style.casting_cost_2.content_width) }
+		top:				225
+		right:				{ if styling.stats_type == "None" then 716 else 672 }
+		height:				32
+		z index:			1000
+		alignment:			{ if styling.stats_type == "None" then "right middle shrink-overflow" else "center middle shrink-overflow" }
+		font:
+			name:				{ if styling.name_back_font == "" then "DharmaGothicModified-Heavy" else styling.name_back_font }
+			size:				{ 24 - shrink_name() }
+			color:				rgba(195,148,120,160)
+	casting cost:
+		left:				325
+		top:				61
+		width:				56
+		height:				303
+		z index:			1010
+		alignment:			top left
+		direction:			vertical
+		always symbol:		true
+		font:
+			name:				MPlantin
+			size:				30
+			scale down to:		30
+			color:				black
+		symbol font:
+			name:				{ styling.casting_cost_front_mana_symbols }
+			size:				30
+			scale down to:		30
+	casting cost 2:
+		left:				403
+		top:				223
+		width:				{ max(30, card_style.casting_cost_2.content_width) + 5 }
+		height:				31
+		z index:			1010
+		alignment:			left middle
+		always symbol:		true
+		font:
+			name:				MPlantin
+			size:				20
+			scale down to:		15
+			color:				black
+		symbol font:
+			name:				{ styling.casting_cost_back_mana_symbols }
+			size:				20
+			scale down to:		15
+	############################# Image
+	image:
+		left:				{ if styling.stretch_image_to_whole_card then 0 else 29 }
+		top:				{ if styling.stretch_image_to_whole_card then 0 else 43 }
+		width:				{ if styling.stretch_image_to_whole_card then 375 else 317 }
+		height:				{ if styling.stretch_image_to_whole_card then 523 else 379 }
+		z index:			0
+	image 2:
+		left:				571
+		top:				24
+		width:				152
+		height:				191
+		z index:			0
+	mainframe image:
+		left:				{ popout_left() }
+		top:				{ popout_top() }
+		width:				{ popout_width() }
+		height:				{ popout_height() }
+		z index:			2000
+	############################# Card type
+	indicator:
+		left:				406
+		top:				436
+		width:				19
+		height:				19
+		z index:			1000
+		render style:		image
+		visible:			{ has_identity() }
+		image:				{ card_identity() }
+	type:
+		left:				{ if styling.rarity then (if styling.color_indicator_dot then 429 else 407) else 434 }
+		top:				433
+		right:				{ if styling.rarity then (if set.shorten_types_for_rarity then max(555,min(718, rarity_left()-2)) else 718) else 692 }
+		height:				28
+		z index:			1010
+		alignment:			middle left shrink-overflow
+		font:
+			name:				{ if styling.name_back_font == "" then "the#V$NT" else styling.name_back_font }
+			size:				{ 21.5 - shrink_type() }
+			color:				rgba(195,148,120,160)
+			separator color:	red
+	rarity:
+		right:				{ rarity_right() }
+		top:				{ rarity_top() }
+		width:				{ rarity_size() }
+		height:				{ rarity_size() }
+		z index:			1000
+		visible:			{ styling.rarity }
+		alignment:			middle right
+		render style:		image
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# Text box
+	text:
+		left:				407
+		top:				268
+		width:				312
+		height:				155
+		z index:			1000
+		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height line:	1.5
+		line height soft:	0.9
+		line height hard max:	{ if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height line max:	1.6
+		alignment:
+			script:
+				if		(styling.center_rule_text == "short text only" and card_style.text.content_lines <= 2)
+					or	styling.center_rule_text == "always"
+				then "middle center"
+				else "middle left"
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				{ back_text_font_size() }
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ back_text_font_size() }
+			scale down to:		7
+	flavor_text:
+		left:				407
+		top:				132
+		width:				157
+		height:				80
+		z index:			1000
+		line height hard:	1.3
+		line height line:	1.6
+		line height soft:	1.1
+		line height hard max:	1.5
+		line height line max:	2
+		alignment:			left middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				{ back_text_font_size() }
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ back_text_font_size() }
+			scale down to:		7
+	level_11_text:
+		left:				407
+		top:				26
+		width:				174
+		height:				95
+		z index:			1000
+		mask:				text_mask.png
+		line height hard:	1.3
+		line height line:	1.5
+		line height soft:	1.1
+		line height hard max:	1.5
+		line height line max:	1.6
+		alignment:			middle left shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				{ back_text_font_size() }
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ back_text_font_size() }
+			scale down to:		7
+	level_12_text:
+		left:				{ if styling.trophy then 18 else 33 }
+		top:				{ if styling.trophy then 406 else 406 }
+		width:				{ if styling.trophy then 59 else 65 }
+		height:				{ if styling.trophy then 24 else 23 }
+		z index:			1000
+		line height hard:	1
+		line height line:	1.5
+		line height soft:	0.6
+		line height hard max:	1.3
+		line height line max:	1.6
+		alignment:			center middle shrink-overflow
+		font:
+			name:				Baloo Regular
+			size:				{ if contains(card.level_12_text, match: "\n") then 8.5 else 11 }
+			scale down to:		5
+			color:				rgba(0,0,0,210)
+		symbol font:
+			name:				{ styling.casting_cost_front_mana_symbols }
+			size:				{ if contains(card.level_12_text, match: "\n") then 8.5 else 11 }
+			scale down to:		5
+	loyalty cost 1:
+		left:				405
+		top:				{ ability_center(0) - 11 - ( -loyal_move(1)) }
+		width:				{ if abilities_count() >= 1 then 23 else 0 }
+		height:				22
+		z index:			1010
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				13
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+	loyalty cost 2:
+		left:				405
+		top:				{ ability_center(1) - 11 - ( -loyal_move(2)) }
+		width:				{ if abilities_count() >= 2 then 23 else 0 }
+		height:				22
+		z index:			1010
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				26
+			scale down to:		12
+			color:				{ rgb(17,47,49) }
+	loyalty cost 3:
+		left:				405
+		top:				{ ability_center(2) - 11 - ( -loyal_move(3)) }
+		width:				{ if abilities_count() >= 3 then 23 else 0 }
+		height:				22
+		z index:			1010
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				13
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+	loyalty cost 4:
+		left:				405
+		top:				{ ability_center(3) - 11 - ( -loyal_move(4)) }
+		width:				{ if abilities_count() >= 4 then 23 else 0 }
+		height:				22
+		z index:			1010
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				13
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+	loyalty cost 5:
+		left:				405
+		top:				{ ability_center(4) - 11 - ( -loyal_move(5)) }
+		width:				{ if abilities_count() >= 5 then 23 else 0 }
+		height:				22
+		z index:			1010
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				13
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+	loyalty cost 6:
+		left:				405
+		top:				{ ability_center(5) - 11 - ( -loyal_move(6)) }
+		width:				{ if abilities_count() >= 6 then 23 else 0 }
+		height:				22
+		z index:			1010
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ if styling.text_font == "" then "Futura Medium BT" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "Futura Medium Italic BT" else styling.text_italic_font }
+			size:				13
+			scale down to:		7
+			color:				{ rgb(17,47,49) }
+	watermark:
+		left:				385
+		top:				266
+		width:				356
+		height:				158
+		z index:			600
+		render style:		image
+		popup style:		in place
+		alignment:			center middle
+		include file:		/magic-watermarks.mse-include/watermarks
+	############################# PT
+	pt:
+		left:				283
+		top:				{ 371 + move_baseball() }
+		width:				{ if styling.stats_type == "PT" then 65 else 0 }
+		height:				31
+		z index:			1020
+		alignment:			center middle shrink-overflow
+		font:
+			name:				Baloo Regular
+			size:				29
+			color:				rgba(0,0,0,200)
+			separator color:	red
+	pt 2:
+		left:				682
+		top:				228
+		width:				{ if styling.stats_type == "PT" then 34 else 0 }
+		height:				24
+		z index:			1020
+		alignment:			center middle shrink-overflow
+		font:
+			name:				Baloo Regular
+			size:				17.5
+			color:				rgba(195,148,120,160)
+			separator color:	red
+	loyalty:
+		left:				283
+		top:				{ 371 + move_baseball() }
+		width:				{ if styling.stats_type == "Loyalty" then 65 else 0 }
+		height:				31
+		z index:			1020
+		alignment:			center middle shrink-overflow
+		font:
+			name:				Baloo Regular
+			size:				33
+			color:				rgba(0,0,0,200)
+			separator color:	red
+	loyalty 2:
+		left:				683
+		top:				230
+		width:				{ if styling.stats_type == "Loyalty" then 33 else 0 }
+		height:				23
+		z index:			1020
+		alignment:			center middle shrink-overflow
+		font:
+			name:				Baloo Regular
+			size:				19
+			color:				rgba(195,148,120,160)
+			separator color:	red
+	############################# Copyright stuff
+	card stamp:
+		left:				0
+		top:				1
+		width:				375
+		height:				523
+		z index:			720
+		visible:			{ is_stamped() }
+		render style:		image
+		popup style:		in place
+		image:				{ card_stampholofoil() }
+		mask:				mask_stamp_holofoil.png
+	set code:
+		left:				24
+		top:				498
+		width:				55
+		height:				10
+		z index:			1000
+		alignment:			middle left
+		font:
+			name:				Relay-Medium
+			size:				6.5
+			color:				{ styling.copyright_front_text_color }
+			weight:				bold
+	set code 2:
+		left:				400
+		top:				498
+		width:				55
+		height:				10
+		z index:			1000
+		alignment:			middle left
+		font:
+			name:				Relay-Medium
+			size:				6.5
+			color:				{ styling.copyright_back_text_color }
+			weight:				bold
+	illustrator:
+		left:				{ if card.set_code == "" then 36 else 43 + card_style.set_code.content_width }
+		top:				498
+		width:				111
+		height:				10
+		z index:			1000
+		alignment:			middle left
+		font:
+			name:				Beleren Small Caps Bold
+			size:				7
+			color:				{ styling.copyright_front_text_color }
+	illustrator 2:
+		left:				{ if card.set_code_2 == "" then 411 else 418 + card_style.set_code_2.content_width }
+		top:				498
+		width:				111
+		height:				10
+		z index:			1000
+		alignment:			middle left
+		font:
+			name:				Beleren Small Caps Bold
+			size:				7
+			color:				{ styling.copyright_back_text_color }
+	copyright:
+		right:				348
+		top:				489
+		width:				{ if set.automatic_copyright then 0 else 111 }
+		height:				10
+		z index:			1000
+		alignment:			middle right shrink-overflow
+		font:
+			name:				Matrix
+			size:				7
+			color:				{ styling.copyright_front_text_color }
+			weight:				bold
+	copyright 2:
+		right:				724
+		top:				489
+		width:				{ if set.automatic_copyright then 0 else 111 }
+		height:				10
+		z index:			1000
+		alignment:			middle right shrink-overflow
+		font:
+			name:				Matrix
+			size:				7
+			color:				{ styling.copyright_back_text_color }
+			weight:				bold
+
+
+############################################################## Extra card fields
+
+extra card field:
+	type:				text
+	name:				card code
+	save value:			false
+	show statistics:	false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount
+		then forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else combined_editor(field1: card.custom_card_number, separator: (if card.custom_card_number != "" then " " else "") + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type:				text
+	name:				card code 2
+	save value:			false
+	show statistics:	false
+	script:
+		if set.automatic_card_numbers and not styling.remove_from_autocount
+		then forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+		else combined_editor(field1: card.custom_card_number, separator: (if card.custom_card_number != "" then " " else "") + rarity_code() + " ", field2: card.card_code_text)
+extra card field:
+	type:				text
+	name:				auto copyright
+	script:				set.copyright
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				text
+	name:				auto copyright 2
+	script:				set.copyright
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				choice
+	name:				artist arrow
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				artist arrow
+extra card field:
+	type:				choice
+	name:				artist arrow 2
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				artist arrow 2
+extra card field:
+	type:				choice
+	name:				position
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				position
+extra card field:
+	type:				choice
+	name:				back
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				back
+extra card field:
+	type:				choice
+	name:				back stats
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				back stats
+extra card field:
+	type:				choice
+	name:				back star left
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				back star left
+extra card field:
+	type:				choice
+	name:				back star right
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				back star right
+extra card field:
+	type:				choice
+	name:				crown
+	script:				card.card_color
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				choice
+	name:				loyalty box
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				loyalty box
+extra card field:
+	type:				choice
+	name:				card stamp background
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card stamp background
+extra card field:
+	type:				color
+	name:				card stamp background border
+	script:				card.border_color
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				choice
+	name:				foil layer
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				foil layer
+extra card field:
+	type:				color
+	name:				corners
+	script:				rgb(255, 255, 255)
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				color
+	name:				corners 2
+	script:				rgb(255, 255, 255)
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				text
+	name:				colon 1
+	editable:			false
+	save value:			false
+	script:				":"
+extra card field:
+	type:				text
+	name:				colon 2
+	editable:			false
+	save value:			false
+	script:				":"
+extra card field:
+	type:				text
+	name:				colon 3
+	editable:			false
+	save value:			false
+	script:				":"
+extra card field:
+	type:				text
+	name:				colon 4
+	editable:			false
+	save value:			false
+	script:				":"
+extra card field:
+	type:				text
+	name:				colon 5
+	editable:			false
+	save value:			false
+	script:				":"
+extra card field:
+	type:				text
+	name:				colon 6
+	editable:			false
+	save value:			false
+	script:				":"
+extra card field:
+	type:				choice
+	name:				textbox stripe separator 1
+	editable:			false
+	save value:			false
+	choice:				textbox stripe separator 1
+extra card field:
+	type:				choice
+	name:				textbox stripe separator 2
+	editable:			false
+	save value:			false
+	choice:				textbox stripe separator 2
+extra card field:
+	type:				choice
+	name:				textbox stripe separator 3
+	editable:			false
+	save value:			false
+	choice:				textbox stripe separator 3
+extra card field:
+	type:				choice
+	name:				textbox stripe separator 4
+	editable:			false
+	save value:			false
+	choice:				textbox stripe separator 4
+extra card field:
+	type:				choice
+	name:				textbox stripe separator 5
+	editable:			false
+	save value:			false
+	choice:				textbox stripe separator 5
+extra card field:
+	type:				choice
+	name:				textbox stripe 1
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox stripe 1
+extra card field:
+	type:				choice
+	name:				textbox stripe 2
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox stripe 2
+extra card field:
+	type:				choice
+	name:				textbox stripe 3
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox stripe 3
+
+extra card style:
+	card code:
+		left:				24
+		top:				488
+		width:				111
+		height:				10
+		z index:			1000
+		alignment:			middle left shrink-overflow
+		font:
+			name:				Relay-Medium
+			size:				6.5
+			color:				{ styling.copyright_front_text_color }
+			weight:				bold
+	card code 2:
+		left:				400
+		top:				488
+		width:				111
+		height:				10
+		z index:			1000
+		alignment:			middle left shrink-overflow
+		font:
+			name:				Relay-Medium
+			size:				6.5
+			color:				{ styling.copyright_back_text_color }
+			weight:				bold
+	auto copyright:
+		right:				348
+		top:				489
+		width:				{ if set.automatic_copyright then 111 else 0 }
+		height:				10
+		z index:			1000
+		alignment:			middle right shrink-overflow
+		font:
+			name:				Matrix
+			size:				7
+			color:				{ styling.copyright_front_text_color }
+			weight:				bold
+	auto copyright 2:
+		right:				724
+		top:				489
+		width:				{ if set.automatic_copyright then 111 else 0 }
+		height:				10
+		z index:			1000
+		alignment:			middle right shrink-overflow
+		font:
+			name:				Matrix
+			size:				7
+			color:				{ styling.copyright_back_text_color }
+			weight:				bold
+	artist arrow:
+		left:				{ if card.set_code == "" then 24 else 31 + card_style.set_code.content_width }
+		top:				499
+		width:				11
+		height:				7
+		z index:			1000
+		render style:		image
+		image:				{ recolor_image("artist_arrow.png", color: styling.copyright_front_text_color) }
+	artist arrow 2:
+		left:				{ if card.set_code == "" then 400 else 407 + card_style.set_code_2.content_width }
+		top:				499
+		width:				11
+		height:				7
+		z index:			1000
+		render style:		image
+		image:				{ recolor_image("artist_arrow.png", color: styling.copyright_back_text_color) }
+	position:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			310
+		### There is a zero width space in the second ""
+		visible:			{ card.level_12_text != "" and card.level_12_text != "​" }
+		render style:		image
+		image:				{ if styling.trophy then "trophy.png" else "position.png" }
+	back:
+		left:				376
+		top:				0
+		width:				375
+		height:				523
+		z index:			200
+		render style:		image
+		image:				back.png
+	back stats:
+		left:				376
+		top:				0
+		width:				375
+		height:				523
+		z index:			210
+		render style:		image
+		image:				{ if styling.stats_type == "None" then "" else "back_" + styling.stats_type + ".png" }
+	back star left:
+		left:				376
+		top:				0
+		width:				375
+		height:				523
+		z index:			210
+		render style:		image
+		image:				{ if styling.rarity or styling.color_indicator_dot then "" else "back_star_left.png" }
+	back star right:
+		left:				376
+		top:				0
+		width:				375
+		height:				523
+		z index:			210
+		render style:		image
+		image:				{ if styling.rarity then "" else "back_star_right.png" }
+	crown:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			310
+		visible:			{ is_crowned() }
+		render style:		image
+		image:				{ card_logo() }
+	loyalty box:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			810
+		visible:			{ (styling.stats_type == "PT" and card.pt != "") or (styling.stats_type == "Loyalty" and card.loyalty != "") }
+		render style:		image
+		image:				{ card_loyaltybox() }
+	card stamp background:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			700
+		visible:			{ is_stamped() }
+		render style:		image
+		image:				{ card_stamprim() }
+	card stamp background border:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			710
+		visible:			{ is_stamped() and not styling.colored_border }
+		mask:				border_stamp_mask.png
+	foil layer:
+		left:				0
+		top :				0
+		width:				375
+		height:				523
+		z index:			3000
+		visible:			{ styling.overlay != "none" and styling.overlay != "" }
+		render style:		image
+		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
+	corners:
+		left:				0
+		top :				0
+		width:				375
+		height:				523
+		z index:			4000
+		visible:			{ styling.corners != "none" }
+		mask:				{ if styling.corners == "rounded and antialiased" then "mask_rounded_antialiased_corners.png" else "mask_rounded_corners.png" }
+	corners 2:
+		left:				376
+		top :				0
+		width:				375
+		height:				523
+		z index:			4000
+		visible:			{ styling.corners != "none" }
+		mask:				{ if styling.corners == "rounded and antialiased" then "mask_rounded_antialiased_corners.png" else "mask_rounded_corners.png" }
+	colon 1:
+		left:				429
+		top:				{ ability_center(0) - 13 - ( -loyal_move(1)) }
+		width:				6
+		height:				22
+		z index:			1010
+		visible:			{ card.loyalty_cost_1 != "" }
+		font:
+			name:				Futura Medium BT
+			size:				14
+			color:				{ rgb(17,47,49) }
+		alignment: center middle
+	colon 2:
+		left:				429
+		top:				{ ability_center(1) - 13 - ( -loyal_move(2)) }
+		width:				6
+		height:				22
+		z index:			1010
+		visible:			{ card.loyalty_cost_2 != "" and abilities_count() >= 2 }
+		font:
+			name:				Futura Medium BT
+			size:				14
+			color:				{ rgb(17,47,49) }
+		alignment: center middle
+	colon 3:
+		left:				429
+		top:				{ ability_center(2) - 13 - ( -loyal_move(3)) }
+		width:				6
+		height:				22
+		z index:			1010
+		visible:			{ card.loyalty_cost_3 != "" and abilities_count() >= 3 }
+		font:
+			name:				Futura Medium BT
+			size:				14
+			color:				{ rgb(17,47,49) }
+		alignment: center middle
+	colon 4:
+		left:				429
+		top:				{ ability_center(3) - 13 - ( -loyal_move(4)) }
+		width:				6
+		height:				22
+		z index:			1010
+		visible:			{ card.loyalty_cost_4 != "" and abilities_count() >= 4 }
+		font:
+			name:				Futura Medium BT
+			size:				14
+			color:				{ rgb(17,47,49) }
+		alignment: center middle
+	colon 5:
+		left:				429
+		top:				{ ability_center(4) - 13 - ( -loyal_move(5)) }
+		width:				6
+		height:				22
+		z index:			1010
+		visible:			{ card.loyalty_cost_5 != "" and abilities_count() >= 5 }
+		font:
+			name:				Futura Medium BT
+			size:				14
+			color:				{ rgb(17,47,49) }
+		alignment: center middle
+	colon 6:
+		left:				429
+		top:				{ ability_center(5) - 13 - ( -loyal_move(6)) }
+		width:				6
+		height:				22
+		z index:			1010
+		visible:			{ card.loyalty_cost_6 != "" and abilities_count() >= 6 }
+		font:
+			name:				Futura Medium BT
+			size:				14
+			color:				{ rgb(17,47,49) }
+		alignment: center middle
+	textbox stripe separator 1:
+		left:				376
+		width:				375
+		top:				{ stripe_top(1) }
+		height:				7
+		z index:			220
+		visible:			{ abilities_count() >= 2 }
+		render style:		image
+		image:				back_separator.png
+	textbox stripe separator 2:
+		left:				376
+		width:				375
+		top:				{ stripe_top(2) }
+		height:				7
+		z index:			220
+		visible:			{ abilities_count() >= 3 }
+		render style:		image
+		image:				back_separator.png
+	textbox stripe separator 3:
+		left:				376
+		width:				375
+		top:				{ stripe_top(3) }
+		height:				7
+		z index:			220
+		visible:			{ abilities_count() >= 4 }
+		render style:		image
+		image:				back_separator.png
+	textbox stripe separator 4:
+		left:				376
+		width:				375
+		top:				{ stripe_top(4) }
+		height:				7
+		z index:			220
+		visible:			{ abilities_count() >= 5 }
+		render style:		image
+		image:				back_separator.png
+	textbox stripe separator 5:
+		left:				376
+		width:				375
+		top:				{ stripe_top(5) }
+		height:				7
+		z index:			220
+		visible:			{ abilities_count() >= 6 }
+		render style:		image
+		image:				back_separator.png
+	textbox stripe 1:
+		left:				376
+		width:				375
+		top:				{ stripe_top(1)+2 }
+		bottom:				{ stripe_top(2)+2 }
+		z index:			210
+		visible:			{ abilities_count() >= 2 }
+		render style:		image
+		image:				{ crop_safe("back_stripe.png", offset_x: 0, offset_y: stripe_top(1)+2, width: 375, height: stripe_top(2) - stripe_top(1)) }
+	textbox stripe 2:
+		left:				376
+		width:				375
+		top:				{ stripe_top(3)+2 }
+		bottom:				{ stripe_top(4)+2 }
+		z index:			210
+		visible:			{ abilities_count() >= 4 }
+		render style:		image
+		image:				{ crop_safe("back_stripe.png", offset_x: 0, offset_y: stripe_top(3)+2, width: 375, height: stripe_top(4) - stripe_top(3)) }
+	textbox stripe 3:
+		left:				376
+		width:				375
+		top:				{ stripe_top(5)+2 }
+		bottom:				425
+		z index:			210
+		visible:			{ abilities_count() >= 6 }
+		render style:		image
+		image:				{ crop_safe("back_stripe.png", offset_x: 0, offset_y: stripe_top(5)+2, width: 375, height: 425 - (stripe_top(5)+2)) }
