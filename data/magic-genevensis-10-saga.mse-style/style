@@ -76,6 +76,12 @@ init script:
 		else clamp(to_int(styling.shrink_name), minimum: -40, maximum: 31) or else 0
 	}
 	
+	shrink_reminder :=
+	{
+		if styling.shrink_transformation_reminder_text == "-" then 0
+		else clamp(to_int(styling.shrink_transformation_reminder_text), minimum: -40, maximum: 25) or else 0
+	}
+	
 	has_extended_art :=
 	{
 		chosen(styling.extended_art, choice: "yes")
@@ -578,7 +584,7 @@ init script:
 		
 		chapter_icon_height := 62
 		chapter_icon_spacing := 10
-		chapter_icon_spacing_importance := clamp(to_number(styling.chapter_spacing_percentage) or else 0, minimum: 0, maximum: 100) / 100
+		chapter_icon_spacing_importance := (if styling.chapter_spacing_percentage == "" then 70 else clamp(to_number(styling.chapter_spacing_percentage) or else 70, minimum: 0, maximum: 100)) / 100
 		chapter_indexes := chapter_indexes(active_count: active_count)
 		chaptertrain_0_count := 0
 		chaptertrain_1_count := 0
@@ -663,23 +669,31 @@ init script:
 			index := chapter_info[0]
 			subindex := chapter_info[1]
 			count := chapter_info[2]
-			chapter_icon_height := 62
-			chapter_icon_spacing := 10
-			chaptertrain_desired_height := count * (chapter_icon_height + chapter_icon_spacing)																			###how much total space do the chapters and gaps between and around them want
-			textbox_missing_height := chaptertrain_desired_height - card_style["level_" + (index+1) + "_text"].height													###how much space is missing from the textbox
-			chaptertrain_offset := to_int(chapter_icon_spacing/2) - if textbox_missing_height >= 0 and count > 1 then 0 else to_int(textbox_missing_height/2)			###how far from the top of the textbox should the chaptertrain start
-			desired_interior_spacing := (count-1) * chapter_icon_spacing																								###how much total space do the gaps between chapters want
-			effective_interior_spacing := if desired_interior_spacing <= 0 then 0 else desired_interior_spacing - max(textbox_missing_height, 0)						###how much total space do the gaps between chapters actually have
-			effective_interior_spacing_per_chapter := effective_interior_spacing / max(count-1, 1)																		###how much space does each gap have (can be negative, chapters will then overlap)
-			top := card_style["level_" + (index+1) + "_text"].top + chaptertrain_offset + subindex * (chapter_icon_height + effective_interior_spacing_per_chapter)
+			if count < 1 then trace("count < 1 wtf")
+			chapter_icon_height := 57
+			chapter_icon_spacing := 8
+			desired_chapter_height := count * chapter_icon_height																										###how much total space do the chapter icons want
+			desired_spacing := (count-1) * chapter_icon_spacing																											###how much total space do the gaps between chapters want
+			desired_height := desired_chapter_height + desired_spacing																									###how much total space do the chapters and gaps between them want
+			textbox_height := card_style["level_" + (index+1) + "_text"].height																							###how much space is does the textbox offer
+			missing_height := desired_height - textbox_height																											###how much space is missing from the textbox
+			effective_spacing := desired_spacing - max(missing_height, 0)																								###how much total space do the gaps between chapters actually have
+			effective_spacing := max(effective_spacing, (count-1) * (chapter_icon_spacing - chapter_icon_height))														###chapters must always be at least chapter_icon_spacing pixels below the previous one
+			effective_spacing_per_chapter := effective_spacing / max(count-1,1)																							###how much space does each gap have (can be negative, chapters will then overlap)
+			effective_height := desired_chapter_height + effective_spacing																								###how much total space do the chapters and gaps between and around them want
+			offset := (textbox_height - effective_height)/2
+			top := card_style["level_" + (index+1) + "_text"].top + offset + subindex * (chapter_icon_height + effective_spacing_per_chapter)
 			
-			#trace("chaptertrain_desired_height "			+ chaptertrain_desired_height)
-			#trace("textbox_missing_height "					+ textbox_missing_height)
-			#trace("chaptertrain_offset "					+ chaptertrain_offset)
-			#trace("desired_interior_spacing "				+ desired_interior_spacing)
-			#trace("effective_interior_spacing "				+ effective_interior_spacing)
-			#trace("effective_interior_spacing_per_chapter "	+ effective_interior_spacing_per_chapter)
-			#trace("top "									+ top)
+			#trace("desired_chapter_height "			+ desired_chapter_height)
+			#trace("desired_spacing "				+ desired_spacing)
+			#trace("desired_height "					+ desired_height)
+			#trace("textbox_height "					+ textbox_height)
+			#trace("missing_height "					+ missing_height)
+			#trace("effective_spacing "				+ effective_spacing)
+			#trace("effective_spacing_per_chapter "	+ effective_spacing_per_chapter)
+			#trace("effective_height "				+ effective_height)
+			#trace("offset "							+ offset)
+			#trace("top "							+ top)
 			
 			top
 		)
@@ -840,11 +854,11 @@ styling field:
 styling field:
 	type: text
 	name: chapter spacing percentage
-	description: Determines the behavior of chapter icons when there is not enough space. 0 clumps them together. 100 spreads them apart as much as possible. Default is 0.
+	description: Determines the behavior of chapter icons when there is not enough space. 0 clumps them together. 100 spreads them apart as much as possible. Default is 70.
 #	localized caption:
 #		fr: Pourcentage d'espacement des chapitres
 #	localized description:
-#		fr: Espacer les icones des chapitres le plus possible: 100. Resserrer les icones des chapitres le plus possible: 0. Valeur par défaut: 0.
+#		fr: Espacer les icones des chapitres le plus possible: 100. Resserrer les icones des chapitres le plus possible: 0. Valeur par défaut: 70.
 styling field:
 	type: text
 	name: move chapter icons
@@ -1002,6 +1016,14 @@ styling field:
 	choice: long
 	choice: notch
 	initial: none
+styling field:
+	type: text
+	name: shrink transformation reminder text
+	description: Reduces the reminder text's font size by this many points.
+#	localized caption:
+#		fr: Rapetisser le text de rappel
+#	localized description:
+#		fr: Réduire la taille du text de rappel de N points.
 styling field:
 	type: choice
 	name: fuse
@@ -1975,11 +1997,11 @@ extra card style:
 		z index: 46
 		font:
 			name: { if styling.name_font == "" then (if styling.transformation_reminder == "notch" then "ModMatrix" else "Beleren Bold") else styling.name_font }
-			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
+			size: { (if styling.transformation_reminder == "notch" then 27 else 30) - shrink_reminder() }
 			color: black
 		symbol font:
 			name: { styling.casting_cost_mana_symbols }
-			size: { if styling.transformation_reminder == "notch" then 27 else 30 }
+			size: { (if styling.transformation_reminder == "notch" then 27 else 30) - shrink_reminder() }
 		alignment: { if styling.transformation_reminder == "notch" then "left middle" else "center middle shrink-overflow" }
 	transformation reminder pt paste:
 		left: 496
