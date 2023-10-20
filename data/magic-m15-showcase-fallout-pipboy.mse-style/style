@@ -1,17 +1,14 @@
-﻿mse version:		2.0.0
+﻿mse version:		2.1.2
 game:				magic
-short name:			Ixalan
+short name:			Fallout
 full name:			Showcase
 icon:				card_sample.png
 position hint:		095
 
-version:			2021-02-16
+version:			2023-08-15
 depends on:
 	package:			magic.mse-game
 	version:			2014-06-25
-depends on:
-	package:			magic-default-image.mse-include
-	version:			2007-09-23
 depends on:
 	package:			magic-watermarks.mse-include
 	version:			2007-09-23
@@ -40,26 +37,16 @@ card dpi:			150
 ############################################################## Extra scripts
 
 init script:
-	template_prefix		:= [card: "card/", pt: "pt/", crown: "crown/", identity: "/magic-identity-new.mse-include/"]
-	template_suffix		:= [card: "card.png", pt: "pt.png", crown: "crown.png", identity: "identity.png"]
+	template_prefix :=
+	[
+		identity:		"/magic-identity-new.mse-include/"
+	]
+	template_suffix :=
+	[
+		identity:		"identity.png"
+	]
 	template			:= { template_prefix[type] + input + template_suffix[type] }
 	land_template		:= { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
-	
-	card_background		:= { color_background(input: card.card_color, type: "card",		base_hybrid: card_hybrid)		}@(offset:0 )
-	card_crown			:= { color_background(input: card.card_color, type: "crown",	base_hybrid: card_hybrid)		}@(offset:0 )
-	card_ptbox			:= { color_background(input: card.card_color, type: "pt",		base_hybrid: card_hybrid)		}@(offset:0 )
-	
-	pure_colors :=
-	{
-		sort_text(
-			order: if card_is_wedge(input) then "(wbgur)" else "(wubrg)",
-			(if chosen(card.card_color, choice:"white")	then "w") +
-			(if chosen(card.card_color, choice:"blue")	then "u") +
-			(if chosen(card.card_color, choice:"black")	then "b") +
-			(if chosen(card.card_color, choice:"red")	then "r") +
-			(if chosen(card.card_color, choice:"green")	then "g")
-		)
-	}
 	
 	mana_t :=
 	{
@@ -77,15 +64,16 @@ init script:
 	
 	is_unsorted		:= { styling.remove_from_autocount }
 
-	is_stamped		:= { card.card_stamp != "none" and (styling.holofoil_stamps == "yes" or (styling.holofoil_stamps == "rares and mythics" and is_rare())) }
+	is_stamped		:= { card.card_stamp != "none" and (contains(styling.holofoil_stamps, match: "yes") or (styling.holofoil_stamps == "only rares and mythics" and is_rare()))}
+	is_foil_stamped	:= { styling.holofoil_stamps == "yes, all foil" or is_rare() }
 	
-	is_crowned		:= { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and contains(card.super_type, match:"Legendary")) }
+	is_crowned		:= { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and contains(to_lower(card.super_type), match:"legendary")) }
 	
-	chop_top		:= { split := split_comma(styling.chop_rule_textbox); if length(split) > 0 and split.0 != "" then max(min(split.0,1500),-1500) else 0 }
-	chop_bot		:= { split := split_comma(styling.chop_rule_textbox); if length(split) > 1 and split.1 != "" then max(min(split.1,1500),-1500) else 0 }
+	chop_top		:= { split := split_comma(styling.chop_textbox); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 800, minimum: -800) else 0 }
+	chop_bot		:= { split := split_comma(styling.chop_textbox); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 800, minimum: -800) else 0 }
 	
-	shrink_name :=	{ if styling.shrink_name_text == "-"		then 0 else if styling.shrink_name_text != ""		then clamp(to_number(styling.shrink_name_text), minimum: -40, maximum: 13) else 0 }
-	shrink_type :=	{ if styling.shrink_typeline_text == "-"	then 0 else if styling.shrink_typeline_text != ""	then clamp(to_number(styling.shrink_typeline_text), minimum: -40, maximum: 11) else 0 }
+	shrink_name :=	{ if styling.shrink_name_text == "-" then 0 else if styling.shrink_name_text != "" then clamp(to_number(styling.shrink_name_text), minimum: -20, maximum: 9) else 0 }
+	shrink_type :=	{ if styling.shrink_type_text == "-" then 0 else if styling.shrink_type_text != "" then clamp(to_number(styling.shrink_type_text), minimum: -20, maximum: 9) else 0 }
 	
 	use_main_rarity	:= { contains(set.mainframe_rarity_name, match: ".png") }
 	
@@ -125,19 +113,28 @@ init script:
 		)
 	}
 	
-	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then max(min(split.0,1000),0) else 343 }
+	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then max(min(split.0,1000),0) else 346 }
 	rarity_top		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 1 and split.1 != "" then max(min(split.1,1500),0) else 296 }
 	rarity_size		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 2 and split.2 != "" then max(min(split.2,1500),0) else 26 }
 	rarity_left		:= { rarity_right() - rarity_size() }
 	
-	popout_left		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then max(min(split.0,1500),-500) else 0 }
-	popout_top		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then max(min(split.1,2000),-500) else 0 }
-	popout_width	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then max(min(split.2,1500),0) else 0 }
-	popout_height	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then max(min(split.3,2000),0) else 0 }
+	popout_left		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then max(min(split.0,800),-300) else 0 }
+	popout_top		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then max(min(split.1,1000),-300) else 0 }
+	popout_width	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then max(min(split.2,800),0) else 0 }
+	popout_height	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then max(min(split.3,1000),0) else 0 }
 	
 	split_comma	:= split_text@(match: " *, *")
 	
 	un_png		:= replace@(match:".png", replace: "")
+	
+	get_alpha :=
+	{
+		alpha_value :=	if input == "" then default
+						else to_number(input) or else default
+		if alpha_value < 0 then 0.0
+		else if alpha_value <= 100 then alpha_value/100.0
+		else 1.0
+	}
 	
 	clamp :=
 	{
@@ -172,20 +169,35 @@ styling field:
 	initial:		no
 styling field:
 	type:			text
+	name:			hud opacity percentage
+	description:	Set the opacity percentage for the hud. Opaque is 100, transparent is 0, default is 100.
+styling field:
+	type:			text
+	name:			scanlines opacity percentage
+	description:	Set the opacity percentage for the scanlines. Opaque is 100, transparent is 0, default is 60.
+styling field:
+	type:			color
+	name:			scanlines color
+	description:	Use the specified color for the scanlines.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		black
+styling field:
+	type:			text
 	name:			shrink name text
-	description:	Shrinks name X pixels.
+	description:	Shrinks name text X pixels.
 styling field:
 	type:			text
-	name:			shrink typeline text
-	description:	Shrinks type X pixels.
+	name:			shrink type text
+	description:	Shrinks type text X pixels.
 styling field:
 	type:			text
-	name:			rule text font cap
-	description:	Caps the font size of the rules text and the flavor text. Default is 13.5.
-styling field:
-	type:			text
-	name:			chop rule textbox
-	description:	Formatted as "X,Y". Shrinks textbox X pixels from the top and Y from the bottom.
+	name:			rule text font size cap
+	description:	Caps the font size of the rules text and the flavor text. Default is 22.
 styling field:
 	type:			choice
 	name:			center rule text
@@ -194,6 +206,82 @@ styling field:
 	choice:			short text only
 	choice:			never
 	initial:		never
+styling field:
+	type:			text
+	name:			chop textbox
+	description:	Formatted as "X,Y". Shrinks textbox X pixels from the top and Y from the bottom.
+styling field:
+	type:			choice
+	name:			legend crown
+	description:	Use the legend crown?
+	choice:			yes
+	choice:			if legendary
+	choice:			no
+	initial:		if legendary
+styling field:
+	type:			boolean
+	name:			flavor bar
+	description:	Use the flavor bar to separate rule text from flavor text.
+	initial:		yes
+styling field:
+	type:			boolean
+	name:			color indicator dot
+	description:	Use a dot in the typeline to indicate card color?
+	initial:		no
+styling field:
+	type:			choice
+	name:			holofoil stamps
+	description:	Use the security holofoil stamps?
+	choice:			yes, all foil
+	choice:			yes, un/commons not foil
+	choice:			only rares and mythics
+	choice:			no
+	initial:		yes, un/commons not foil
+styling field:
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+styling field:
+	type:			boolean
+	name:			inverted common symbol
+	description:	Should the common rarity symbol be inverted, like in Coldsnap?
+	initial:		no
+styling field:
+	type:			text
+	name:			alt rarity color
+	description:	Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
+styling field:
+	type:			text
+	name:			rarity coordinates
+	description:	The coordinates for the set symbol, formatted as "right,top,size". Default is 689,588,52.
+styling field:
+	type:			choice
+	name:			corners
+	description:	What should the corners of the card look like?
+	choice:			rounded and antialiased
+	choice:			rounded
+	choice:			none
+	initial:		rounded and antialiased
+styling field:
+	type:			boolean
+	name:			remove from autocount
+	description:	Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			promo
+	description:	Is this card a promo card, with the "P" rarity?
+	initial:		no
+styling field:
+	type:			color
+	name:			copyright text color
+	description:	Color of the copyright, illustrator, and set code text.
+	choice:			white
+	choice:			black
+	initial:		white
+	allow custom:	true
 styling field:
 	type:			boolean
 	name:			use ancestral mana symbols
@@ -225,76 +313,17 @@ styling field:
 	match:			magic-mana-*.mse-symbol-font
 	initial:		magic-mana-small.mse-symbol-font
 styling field:
-	type:			choice
-	name:			PT color scheme
-	description:	Use the selected color scheme for the PT box on two color cards
-	choice:			gold
-	choice:			hybrid
-	choice:			blend
-	initial:		gold
-styling field:
-	type:			boolean
-	name:			inverted common symbol
-	description:	Should the common rarity symbol be inverted, like in Coldsnap?
-	initial:		no
+	type:			text
+	name:			name font
+	description:	Font used for the name, type, and pt. Hover your mouse over the font file to see it's details, and write it's Title here.
 styling field:
 	type:			text
-	name:			alt rarity color
-	description:	Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
+	name:			text font
+	description:	Font used for the rule text. Hover your mouse over the font file to see it's details, and write it's Title here.
 styling field:
 	type:			text
-	name:			rarity coordinates
-	description:	The coordinates for the set symbol, formatted as "right,top,size". Default is 343,296,26.
-styling field:
-	type:			choice
-	name:			legend crown
-	description:	Use the legend crown?
-	choice:			yes
-	choice:			if legendary
-	choice:			no
-	initial:		if legendary
-styling field:
-	type:			boolean
-	name:			flavor bar
-	description:	Use the flavor bar to separate rule text from flavor text.
-	initial:		yes
-styling field:
-	type:			boolean
-	name:			color indicator dot
-	description:	Use a dot in the typeline to indicate card color?
-	initial:		no
-styling field:
-	type:			choice
-	name:			holofoil stamps
-	description:	Use the security holofoil stamps?
-	choice:			yes
-	choice:			rares and mythics
-	choice:			no
-	initial:		rares and mythics
-styling field:
-	type:			boolean
-	name:			remove from autocount
-	description:	Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial:		no
-styling field:
-	type:			boolean
-	name:			promo
-	description:	Is this card a promo card, with the "P" rarity?
-	initial:		no
-styling field:
-	type:			color
-	name:			copyright text color
-	description:	Color of the copyright, illustrator, and set code text.
-	choice:			white
-	choice:			black
-	initial:		white
-	allow custom:	true
-styling field:
-	type:			package choice
-	name:			overlay
-	description:	Should there be an overlay applied, such as foil?
-	match:			magic-overlay-*.mse-include
-	required:		false
+	name:			text italic font
+	description:	Font used for the flavor text and reminder texts. Hover your mouse over the font file to see it's details, and write it's Title here.
 styling style:
 	use guild mana symbols:
 		choice images:
@@ -327,40 +356,36 @@ card style:
 		top :				0
 		width:				375
 		height:				523
-		radius:				18
-		left width:			26
-		right width:		26
-		top width:			32
-		bottom width:		53
-		z index:			0
-	card color:
-		left:				0
-		top:				0
-		width:				375
-		height:				523
-		z index:			1
-		render style:		image
-		popup style:		in place
-		image:				{ card_background() }
-		mask:				foil_mask.png
+		z index:			100
+		mask:				border_mask.png
+	#card color:
+	#	left:				0
+	#	top:				0
+	#	width:				375
+	#	height:				523
+	#	z index:			210
+	#	popup style:		in place
+	#	render style:		image
+	#	image:				card.png
+	#	mask:				card_mask.png
 	############################# Name line
 	name:
 		left:				32
-		top:				27
-		right:				{ 343 - (if card_style.casting_cost.content_width == 0 then 0 else card_style.casting_cost.content_width + 6) }
-		height:				26
-		z index:			300
-		alignment:			middle left shrink-overflow
+		top:				{ 33 + shrink_name()/2 }
+		right:				{ 343 - (if card_style.casting_cost.content_width == 0 then 0 else card_style.casting_cost.content_width + 2) }
+		height:				17
+		z index:			1000
+		alignment:			top left shrink-overflow
 		font:
-			name:				Beleren Bold
-			size:				{ 15 - shrink_name() }
+			name:				{ if styling.name_font == "" then "OCRAStd" else styling.name_font }
+			size:				{ 11 - shrink_name() }
 			color:				white
 	casting cost:
-		right:				347
-		top:				27
-		width:				{ max(30, card_style.casting_cost.content_width) + 5 }
-		height:				27
-		z index:			310
+		right:				346
+		top:				28
+		width:				{ max(35, card_style.casting_cost.content_width + 6) }
+		height:				26
+		z index:			1010
 		alignment:			middle right
 		always symbol:		true
 		font:
@@ -370,41 +395,40 @@ card style:
 		symbol font:
 			name:				{ styling.casting_cost_mana_symbols }
 			size:				15
-			#alignment:			middle right
 	############################# Image
 	image:
-		left:				{ if styling.stretch_image_to_whole_card then 0 else 30 }
-		top:				{ if styling.stretch_image_to_whole_card then 0 else 58 }
-		width:				{ if styling.stretch_image_to_whole_card then 375 else 315 }
-		height:				{ if styling.stretch_image_to_whole_card then 523 else 231 }
-		z index:			10
-		mask:				{ if styling.stretch_image_to_whole_card then "image_mask_full.png" else "image_mask.png" }
+		left:				{ if styling.stretch_image_to_whole_card then 0 else 29 }
+		top:				{ if styling.stretch_image_to_whole_card then 0 else 66 }
+		width:				{ if styling.stretch_image_to_whole_card then 375 else 316 }
+		height:				{ if styling.stretch_image_to_whole_card then 523 else 215 }
+		z index:			0
 	mainframe image:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
 		width:				{ popout_width() }
 		height:				{ popout_height() }
-		z index:			400
+		z index:			2000
 	############################# Card type
 	indicator:
-		left:				30
+		left:				29
 		top:				300
 		width:				17
 		height:				17
-		z index:			110
+		z index:			1000
 		render style:		image
 		visible:			{ has_identity() }
 		image:				{ card_identity() }
 	type:
-		left:				{ if has_identity() then 50 else 32 }
-		top:				296
-		right:				{ if set.shorten_types_for_rarity then max(188,min(rarity_left()-4,343)) else 343 }
-		height:				26
-		z index:			110
+		left:				{ if has_identity() then 52 else 32 }
+		top:				294
+		right:				{ if set.shorten_types_for_rarity then clamp(rarity_left()-5, minimum: 180, maximum: 343) else 343 }
+		height:				28
+		z index:			1000
 		alignment:			middle left shrink-overflow
 		font:
-			name:				Beleren Bold
-			size:				{ 13 - shrink_type() }
+			name:				{ if styling.text_font == "" then "NeoSansPro-Regular" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "NeoSansPro-Italic" else styling.text_italic_font }
+			size:				{ 11.5 - shrink_type() }
 			color:				white
 			separator color:	red
 	rarity:
@@ -412,7 +436,7 @@ card style:
 		top:				{ rarity_top() }
 		width:				{ rarity_size() }
 		height:				{ rarity_size() }
-		z index:			111
+		z index:			1010
 		alignment:			middle right
 		render style:		image
 		choice images:
@@ -455,13 +479,11 @@ card style:
 					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	text:
-		left:				31
-		top:				{ 331 + chop_top() }
-		right:				344
-		bottom:				{ 478 - chop_bot() }
-		z index:			100
-		padding left:		6
-		padding right:		4
+		left:				37
+		top:				{ 335 + chop_top() }
+		right:				338
+		bottom:				{ 474 - chop_bot() }
+		z index:			1000
 		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -477,21 +499,21 @@ card style:
 				then "middle center"
 				else "middle left"
 		font:
-			name:				MPlantin
-			italic name:		MPlantin-Italic
-			size:				{ if styling.rule_text_font_cap != "" then to_number(styling.rule_text_font_cap) else 13.5 }
+			name:				{ if styling.text_font == "" then "NeoSansPro-Regular" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "NeoSansPro-Italic" else styling.text_italic_font }
+			size:				{ if styling.rule_text_font_size_cap != "" then to_number(styling.rule_text_font_size_cap) else 11 }
 			scale down to:		6
 			color:				white
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
-			size:				{ if styling.rule_text_font_cap != "" then to_number(styling.rule_text_font_cap) else 13.5 }
+			size:				{ if styling.rule_text_font_size_cap != "" then to_number(styling.rule_text_font_size_cap) else 11 }
 			scale down to:		6
 	watermark:
 		left:				10
-		top:				330
+		top:				333
 		right:				365
-		bottom:				479
-		z index:			10
+		height:				143
+		z index:			700
 		render style:		image
 		popup style:		in place
 		alignment:			middle center
@@ -499,14 +521,14 @@ card style:
 	############################# PT
 	pt:
 		left:				300
-		top:				469
-		width:				47
-		height:				22
-		z index:			100
+		top:				470
+		width:				45
+		height:				23
+		z index:			1000
 		alignment:			center middle shrink-overflow
 		font:
-			name:				Beleren Bold
-			size:				15
+			name:				{ if styling.name_font == "" then "OCRAStd" else styling.name_font }
+			size:				14
 			color:				white
 			separator color:	red
 	############################# Copyright stuff
@@ -515,17 +537,17 @@ card style:
 		top:				0
 		width:				375
 		height:				523
-		z index:			31
+		z index:			620
 		render style:		image
 		popup style:		in place
-		image:				{ if is_stamped() then "stamp.png" else "" }
-		mask:				stamp_mask.png
+		image:				{ if not is_stamped() then "" else if is_foil_stamped() then "holofoil/universes beyond.png" else "holofoil/universes beyond_void.png" }
+		mask:				mask_stamp_holofoil.png
 	set code:
 		left:				24
 		top:				499
 		width:				40
 		height:				10
-		z index:			100
+		z index:			1000
 		alignment:			middle left
 		font:
 			name:				Relay-Medium
@@ -537,7 +559,7 @@ card style:
 		top:				498.5
 		width:				200
 		height:				10
-		z index:			100
+		z index:			1000
 		alignment:			middle left
 		font:
 			name:				Beleren Small Caps Bold
@@ -548,7 +570,7 @@ card style:
 		top:				{ if card.pt != "" then 499 else 494 }
 		width:				{ if set.automatic_copyright then 0 else 140 }
 		height:				10
-		z index:			100
+		z index:			1000
 		alignment:			middle right shrink-overflow
 		font:
 			name:				Matrix
@@ -569,34 +591,6 @@ extra card field:
 		then forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
 		else combined_editor(field1: card.custom_card_number, separator: (if card.custom_card_number != "" then " " else "") + rarity_code() + " ", field2: card.card_code_text)
 extra card field:
-	type:				choice
-	name:				artist arrow
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				artist arrow
-extra card field:
-	type:				choice
-	name:				pt box
-	script:				card.card_color
-	editable:			false
-	save value:			false
-	show statistics:	false
-extra card field:
-	type:				choice
-	name:				crown
-	script:				card.card_color
-	editable:			false
-	save value:			false
-	show statistics:	false
-extra card field:
-	type:				choice
-	name:				foil layer
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				foil layer
-extra card field:
 	type:				text
 	name:				auto copyright
 	script:				set.copyright
@@ -611,6 +605,41 @@ extra card field:
 	show statistics:	false
 	choice:				flavor bar
 extra card field:
+	type:				choice
+	name:				artist arrow
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				artist arrow
+extra card field:
+	type:				choice
+	name:				card background
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card background
+extra card field:
+	type:				choice
+	name:				crown
+	script:				card.card_color
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				choice
+	name:				pt box
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				pt box
+extra card field:
+	type:				choice
+	name:				card stamp rim
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card stamp rim
+extra card field:
 	type:				color
 	name:				card stamp border
 	script:				card.border_color
@@ -619,11 +648,32 @@ extra card field:
 	show statistics:	false
 extra card field:
 	type:				choice
-	name:				image background
+	name:				hud
 	editable:			false
 	save value:			false
 	show statistics:	false
-	choice:				image background
+	choice:				hud
+extra card field:
+	type:				choice
+	name:				scanlines
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				scanlines
+extra card field:
+	type:				choice
+	name:				foil layer
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				foil layer
+extra card field:
+	type:				color
+	name:				corners
+	script:				rgb(255, 255, 255)
+	editable:			false
+	save value:			false
+	show statistics:	false
 
 extra card style:
 	card code:
@@ -631,7 +681,7 @@ extra card style:
 		top:				489
 		width:				120
 		height:				10
-		z index:			100
+		z index:			1000
 		font:
 			name:				Relay-Medium
 			size:				7
@@ -642,7 +692,7 @@ extra card style:
 		top:				{ if card.pt != "" then 499 else 494 }
 		width:				{ if set.automatic_copyright then 140 else 0 }
 		height:				10
-		z index:			100
+		z index:			1000
 		alignment:			middle right shrink-overflow
 		font:
 			name:				Matrix
@@ -654,67 +704,91 @@ extra card style:
 		top:				501
 		width:				12
 		height:				7
-		z index:			100
+		z index:			1000
 		render style:		image
 		image:				{ recolor_image("artist_arrow.png", color: styling.copyright_text_color) }
 	flavor bar:
-		left:				38
-		top:				{ bar_equation() + 1 }
-		right:				337
-		height:				2
-		z index:			20
-		visible:			{ styling.flavor_bar and card.rule_text != "" and remove_tags(card.flavor_text) != "" }
+		left:				0
+		top:				{ bar_equation() }
+		width:				375
+		height:				1
+		z index:			610
 		render style:		image
 		image:				flavor_bar.png
-	pt box:
+		visible:			{ card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
+	card background:
 		left:				0
 		top:				0
 		width:				375
 		height:				523
-		z index:			40
-		visible:			{ card.pt != "" }
+		z index:			200
 		render style:		image
-		image:
-			script:
-				pure := pure_colors()
-				count := length(pure)
-				if styling.PT_color_scheme == "gold" and count > 1 then template("m", type: "pt")
-				else if styling.PT_color_scheme == "hybrid" and count == 2 then masked_blend(mask: "blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
-				else card_ptbox()
-		mask:				pt_mask.png
+		image:				card.png
 	crown:
 		left:				0
 		top:				0
 		width:				375
 		height:				523
-		z index:			40
+		z index:			310
 		visible:			{ is_crowned() }
 		render style:		image
-		image:				{ card_crown() }
-		mask:				crown_mask.png
-	foil layer:
+		image:				crown.png
+	pt box:
 		left:				0
-		top :				0
+		top:				0
 		width:				375
 		height:				523
-		z index:			200
-		visible:			{ styling.overlay != "none" and styling.overlay != "" }
+		z index:			810
+		visible:			{ card.pt != "" }
 		render style:		image
-		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
-		mask:				{ "foil_mask" + (if is_stamped() then "_rare" else "") + (if card.pt != "" then "_pt" else "") + (if is_crowned() then "_crown" else "") + ".png"}
+		image:				pt.png
+	card stamp rim:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			610
+		render style:		image
+		image:				{ if is_stamped() then "stamp_rim.png" else "non_stamp_rim.png" }
 	card stamp border:
 		left:				0
 		top:				0
 		width:				375
 		height:				523
-		z index:			30
+		z index:			600
 		visible:			{ is_stamped() }
-		mask:				stamp_border_mask.png
-	image background:
+		mask:				border_stamp_mask.png
+	scanlines:
 		left:				0
 		top:				0
 		width:				375
 		height:				523
-		z index:			9
+		z index:			10
 		render style:		image
-		image:				image_background.png
+		image:				{ set_alpha(recolor_image("scanlines.png", color: styling.scanlines_color), alpha: get_alpha(styling.scanlines_opacity_percentage, default: 60)) }
+	hud:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			20
+		render style:		image
+		image:				{ set_alpha("hud.png", alpha: get_alpha(styling.hud_opacity_percentage, default: 100)) }
+	foil layer:
+		left:				0
+		top :				0
+		width:				375
+		height:				523
+		z index:			3000
+		visible:			{ styling.overlay != "none" and styling.overlay != "" }
+		render style:		image
+		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
+		mask:				{ "foil_mask" + (if is_stamped() then "_rare" else "") + (if card.pt != "" then "_pt" else "") + (if is_crowned() then "_crown" else "") + ".png" }
+	corners:
+		left:				0
+		top :				0
+		width:				375
+		height:				523
+		z index:			4000
+		visible:			{ styling.corners != "none" }
+		mask:				{ if styling.corners == "rounded and antialiased" then "mask_rounded_antialiased_corners.png" else "mask_rounded_corners.png" }
