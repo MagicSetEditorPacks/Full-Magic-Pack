@@ -40,14 +40,22 @@ card dpi:			150
 ############################################################## Extra scripts
 
 init script:
-	template_prefix		:= [card: "card/", pt: "pt/", crown: "crown/", identity: "/magic-identity-new.mse-include/"]
-	template_suffix		:= [card: "card.png", pt: "pt.png", crown: "crown.png", identity: "identity.png"]
-	template			:= { template_prefix[type] + input + template_suffix[type] }
-	land_template		:= { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
+	template_prefix :=	[card: "card/", pt: "pt/", crown: "crown/", identity: "/magic-identity-new.mse-include/"]
+	template_suffix :=	[card: "card.png", pt: "pt.png", crown: "crown.png", identity: "identity.png"]
+	template :=			{ template_prefix[type] + input + template_suffix[type] }
+	land_template :=	{ template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	
-	card_background		:= { color_background(input: card.card_color, type: "card",		base_hybrid: card_hybrid)		}@(offset:0 )
-	card_crown			:= { color_background(input: card.card_color, type: "crown",	base_hybrid: card_hybrid)		}@(offset:0 )
-	card_ptbox			:= { color_background(input: card.card_color, type: "pt",		base_hybrid: card_hybrid)		}@(offset:0 )
+	card_background :=	{ color_background(input: card.card_color, type: "card",	base_hybrid: card_hybrid)		}@(offset:0 )
+	card_crown :=		{ color_background(input: card.card_color, type: "crown",	base_hybrid: card_hybrid)		}@(offset:0 )
+	card_ptbox :=		{ color_background(input: card.card_color, type: "pt",		base_hybrid: card_hybrid)		}@(offset:0 )
+	card_stampholofoil :=
+	{
+		if card.card_stamp == "none" then "" else
+		"holofoil/" +
+		card.card_stamp +
+		(if is_foil_stamped() then "" else "_void") +
+		".png"
+	}
 	
 	pure_colors :=
 	{
@@ -77,7 +85,8 @@ init script:
 	
 	is_unsorted		:= { styling.remove_from_autocount }
 
-	is_stamped		:= { card.card_stamp != "none" and (styling.holofoil_stamps == "yes" or (styling.holofoil_stamps == "rares and mythics" and is_rare())) }
+	is_stamped :=		{ card.card_stamp != "none" and (contains(styling.holofoil_stamps, match: "yes") or (styling.holofoil_stamps == "only rares and mythics" and is_rare()))}
+	is_foil_stamped :=	{ styling.holofoil_stamps == "yes, all foil" or is_rare() }
 	
 	is_crowned		:= { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and contains(card.super_type, match:"Legendary")) }
 	
@@ -181,7 +190,7 @@ styling field:
 styling field:
 	type:			text
 	name:			rule text font cap
-	description:	Caps the font size of the rules text and the flavor text. Default is 13.5.
+	description:	Caps the font size of the rules text and the flavor text. Default is 24.
 styling field:
 	type:			text
 	name:			chop rule textbox
@@ -194,36 +203,6 @@ styling field:
 	choice:			short text only
 	choice:			never
 	initial:		never
-styling field:
-	type:			boolean
-	name:			use ancestral mana symbols
-	description:	Enables ancestral's modified generic mana.
-	initial:		no
-styling field:
-	type:			boolean
-	name:			use guild mana symbols
-	description:	Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
-	initial:		no
-styling field:
-	type:			choice
-	name:			tap symbol
-	description:	What tap and untap symbols should be used on cards?
-	choice:			modern
-	choice:			old
-	choice:			diagonal T
-	initial:		modern
-styling field:
-	type:			package choice
-	name:			casting cost mana symbols
-	description:	Symbols used in the casting cost.
-	match:			magic-mana-*.mse-symbol-font
-	initial:		magic-mana-large.mse-symbol-font
-styling field:
-	type:			package choice
-	name:			text box mana symbols
-	description:	Symbols used in the rule text and flavor text.
-	match:			magic-mana-*.mse-symbol-font
-	initial:		magic-mana-small.mse-symbol-font
 styling field:
 	type:			choice
 	name:			PT color scheme
@@ -267,10 +246,25 @@ styling field:
 	type:			choice
 	name:			holofoil stamps
 	description:	Use the security holofoil stamps?
-	choice:			yes
-	choice:			rares and mythics
+	choice:			yes, all foil
+	choice:			yes, un/commons not foil
+	choice:			only rares and mythics
 	choice:			no
-	initial:		rares and mythics
+	initial:		yes, un/commons not foil
+styling field:
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+styling field:
+	type:			choice
+	name:			corners
+	description:	What should the corners of the card look like?
+	choice:			rounded and antialiased
+	choice:			rounded
+	choice:			none
+	initial:		rounded and antialiased
 styling field:
 	type:			boolean
 	name:			remove from autocount
@@ -290,11 +284,47 @@ styling field:
 	initial:		white
 	allow custom:	true
 styling field:
+	type:			boolean
+	name:			use ancestral mana symbols
+	description:	Enables ancestral's modified generic mana.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			use guild mana symbols
+	description:	Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial:		no
+styling field:
+	type:			choice
+	name:			tap symbol
+	description:	What tap and untap symbols should be used on cards?
+	choice:			modern
+	choice:			old
+	choice:			diagonal T
+	initial:		modern
+styling field:
 	type:			package choice
-	name:			overlay
-	description:	Should there be an overlay applied, such as foil?
-	match:			magic-overlay-*.mse-include
-	required:		false
+	name:			casting cost mana symbols
+	description:	Symbols used in the casting cost.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-large.mse-symbol-font
+styling field:
+	type:			package choice
+	name:			text box mana symbols
+	description:	Symbols used in the rule text and flavor text.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-small.mse-symbol-font
+styling field:
+	type:			text
+	name:			name font
+	description:	Font used for the name on the front of the card. Hover your mouse over the font file to see it's details in a yellow popup, and write it's Title here.
+styling field:
+	type:			text
+	name:			text font
+	description:	Font used for the rule text. Hover your mouse over the font file to see it's details in a yellow popup, and write it's Title here.
+styling field:
+	type:			text
+	name:			text italic font
+	description:	Font used for the flavor text and reminder texts. Hover your mouse over the font file to see it's details in a yellow popup, and write it's Title here.
 styling style:
 	use guild mana symbols:
 		choice images:
@@ -327,7 +357,6 @@ card style:
 		top :				0
 		width:				375
 		height:				523
-		radius:				18
 		left width:			26
 		right width:		26
 		top width:			32
@@ -352,7 +381,7 @@ card style:
 		z index:			300
 		alignment:			middle left shrink-overflow
 		font:
-			name:				Beleren Bold
+			name:				{ if styling.name_font == "" then "Beleren Bold" else styling.name_font }
 			size:				{ 15 - shrink_name() }
 			color:				white
 	casting cost:
@@ -396,14 +425,14 @@ card style:
 		visible:			{ has_identity() }
 		image:				{ card_identity() }
 	type:
-		left:				{ if has_identity() then 50 else 32 }
+		left:				{ if has_identity() then 52 else 32 }
 		top:				296
 		right:				{ if set.shorten_types_for_rarity then max(188,min(rarity_left()-4,343)) else 343 }
 		height:				26
 		z index:			110
 		alignment:			middle left shrink-overflow
 		font:
-			name:				Beleren Bold
+			name:				{ if styling.name_font == "" then "Beleren Bold" else styling.name_font }
 			size:				{ 13 - shrink_type() }
 			color:				white
 			separator color:	red
@@ -477,8 +506,8 @@ card style:
 				then "middle center"
 				else "middle left"
 		font:
-			name:				MPlantin
-			italic name:		MPlantin-Italic
+			name:				{ if styling.text_font == "" then "MPlantin" else styling.text_font }
+			italic name:		{ if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
 			size:				{ if styling.rule_text_font_cap != "" then to_number(styling.rule_text_font_cap) else 13.5 }
 			scale down to:		6
 			color:				white
@@ -505,7 +534,7 @@ card style:
 		z index:			100
 		alignment:			center middle shrink-overflow
 		font:
-			name:				Beleren Bold
+			name:				{ if styling.name_font == "" then "Beleren Bold" else styling.name_font }
 			size:				15
 			color:				white
 			separator color:	red
@@ -518,7 +547,7 @@ card style:
 		z index:			31
 		render style:		image
 		popup style:		in place
-		image:				{ if is_stamped() then "stamp.png" else "" }
+		image:				{ card_stampholofoil() }
 		mask:				stamp_mask.png
 	set code:
 		left:				24
@@ -619,11 +648,25 @@ extra card field:
 	show statistics:	false
 extra card field:
 	type:				choice
+	name:				card stamp rim
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card stamp rim
+extra card field:
+	type:				choice
 	name:				image background
 	editable:			false
 	save value:			false
 	show statistics:	false
 	choice:				image background
+extra card field:
+	type:				color
+	name:				corners
+	script:				rgb(255, 255, 255)
+	editable:			false
+	save value:			false
+	show statistics:	false
 
 extra card style:
 	card code:
@@ -681,7 +724,6 @@ extra card style:
 				if styling.PT_color_scheme == "gold" and count > 1 then template("m", type: "pt")
 				else if styling.PT_color_scheme == "hybrid" and count == 2 then masked_blend(mask: "blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
 				else card_ptbox()
-		mask:				pt_mask.png
 	crown:
 		left:				0
 		top:				0
@@ -691,17 +733,25 @@ extra card style:
 		visible:			{ is_crowned() }
 		render style:		image
 		image:				{ card_crown() }
-		mask:				crown_mask.png
 	foil layer:
 		left:				0
 		top :				0
 		width:				375
 		height:				523
-		z index:			200
+		z index:			3000
 		visible:			{ styling.overlay != "none" and styling.overlay != "" }
 		render style:		image
 		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
 		mask:				{ "foil_mask" + (if is_stamped() then "_rare" else "") + (if card.pt != "" then "_pt" else "") + (if is_crowned() then "_crown" else "") + ".png"}
+	card stamp rim:
+		left:				0
+		top:				0
+		width:				375
+		height:				523
+		z index:			31
+		visible:			{ is_stamped() }
+		render style:		image
+		image:				stamprim.png
 	card stamp border:
 		left:				0
 		top:				0
@@ -709,7 +759,7 @@ extra card style:
 		height:				523
 		z index:			30
 		visible:			{ is_stamped() }
-		mask:				stamp_border_mask.png
+		mask:				stamp_mask.png
 	image background:
 		left:				0
 		top:				0
@@ -718,3 +768,11 @@ extra card style:
 		z index:			9
 		render style:		image
 		image:				image_background.png
+	corners:
+		left:				0
+		top :				0
+		width:				375
+		height:				523
+		z index:			4000
+		visible:			{ styling.corners != "none" }
+		mask:				{ if styling.corners == "rounded and antialiased" then "corners_rounded_antialiased_mask.png" else "corners_rounded_mask.png" }
