@@ -1,6 +1,7 @@
 ﻿############################################################## Localization
 
 include file: language
+
 # needed by all style files anyway
 include file: /magic-blends.mse-include/new-blends
 
@@ -390,6 +391,23 @@ card_count := {
 #Starting with M15, zero digits in card numbers should be shown up to three.
 card_number_m15 := { (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
 card_count_m15 := { (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
+#Starting with MOM, zero digits in card numbers should be shown up to four
+card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
+
+card_number_script_core := {
+	if is_unsorted() or not set.automatic_card_numbers then
+		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+	else if set.card_number_style == "0001" then
+		forward_editor(prefix: rarity_code() + " " + card_number_mom() + " ", field: card.card_code_text)
+	else if set.card_number_style == "001/099" then
+		forward_editor(prefix: card_number_m15() + (if over_partition() then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card.card_code_text)
+	else if set.card_number_style == "001" then
+		forward_editor(prefix: card_number_m15() + " " + rarity_code() + " ", field: card.card_code_text)
+	else if set.card_number_style == "1/99" then
+		forward_editor(prefix: card_number() + (if over_partition() then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card.card_code_text)
+	else
+		forward_editor(prefix: card_number() + " " + rarity_code() + " ", field: card.card_code_text)
+}
 
 # used by pack scripts
 is_token_card   := { card.shape == "token" or card.shape == "rulestip" or card.shape == "counter" or card.shape == "checklist" or card.shape == "emblem"}
@@ -499,61 +517,62 @@ color_to_mana := replace@(match: "white", replace: "[W]")+
 	replace@(match: "red", replace: "[R]")+
 	replace@(match: "green", replace: "[G]")
 
+digital_map := [
+	"zero": 0,
+	"one": 1,
+	"once": 1,
+	"a": 1,
+	"an": 1,
+	"two": 2,
+	"twice": 2,
+	"three": 3,
+	"thrice": 3,
+	"four": 4,
+	"five": 5,
+	"six": 6,
+	"seven": 7,
+	"eight": 8,
+	"nine": 9,
+	"ten": 10,
+	"eleven": 11,
+	"twelve": 12,
+	"thirteen": 13,
+	"fourteen": 14,
+	"fifteen": 15,
+	"sixteen": 16,
+	"seventeen": 17,
+	"eighteen": 18,
+	"nineteen": 19,
+	"twenty": 20,
+	"thirty": 30,
+	"forty": 40,
+	"fifty": 50,
+	"sixty": 60,
+	"seventy": 70,
+	"eighty": 80,
+	"ninety": 90
+]
 iterate_fix := remove_tags
 	+replace@(match: "^\\.", replace:"")
 	+replace@(match: "^,", replace:"")
-	+replace@(match: "^[ ]$", replace:"")
-iterate_trim := replace@(match:" times", replace:"");
+	+replace@(match: "^[ ]", replace:"")
+	+replace@(match:" times", replace:"")
 iterate_digits := {
-	if iterate_trim(iterate_fix(input)) == "" then "1"
-	else if iterate_trim(iterate_fix(input)) == " one" then "1"
-	else if iterate_trim(iterate_fix(input)) == " once" then "1"
-	else if iterate_trim(iterate_fix(input)) == " two" then "2"
-	else if iterate_trim(iterate_fix(input)) == " twice" then "2"
-	else if iterate_trim(iterate_fix(input)) == " three" then "3"
-	else if iterate_trim(iterate_fix(input)) == " four" then "4"
-	else if iterate_trim(iterate_fix(input)) == " five" then "5"
-	else if iterate_trim(iterate_fix(input)) == " six" then "6"
-	else if iterate_trim(iterate_fix(input)) == " seven" then "7"
-	else if iterate_trim(iterate_fix(input)) == " eight" then "8"
-	else if iterate_trim(iterate_fix(input)) == " nine" then "9"
-	else if iterate_trim(iterate_fix(input)) == " ten" then "10"
-	else if iterate_trim(iterate_fix(input)) == " eleven" then "11"
-	else if iterate_trim(iterate_fix(input)) == " twelve" then "12"
-	else if iterate_trim(iterate_fix(input)) == " thirteen" then "13"
-	else if iterate_trim(iterate_fix(input)) == " fourteen" then "14"
-	else if iterate_trim(iterate_fix(input)) == " fifteen" then "15"
-	else if iterate_trim(iterate_fix(input)) == " sixteen" then "16"
-	else if iterate_trim(iterate_fix(input)) == " seventeen" then "17"
-	else if iterate_trim(iterate_fix(input)) == " eighteen" then "18"
-	else if iterate_trim(iterate_fix(input)) == " nineteen" then "19"
-	else if iterate_trim(iterate_fix(input)) == " twenty" then "20"
-	else iterate_trim(iterate_fix(input))
+	trimmed := iterate_fix(input)
+	if trimmed == "" then 1 else digital_map[trimmed] or else trimmed
 }
 digital_number := {
 	input := replace(input, match:"up to ", replace:"")
-	if input == "zero" then 0
-	else if input == "one" or input == "a" or input == "an" then 1
-	else if input == "two" then 2
-	else if input == "three" then 3
-	else if input == "four" then 4
-	else if input == "five" then 5
-	else if input == "six" then 6
-	else if input == "seven" then 7
-	else if input == "eight" then 8
-	else if input == "nine" then 9
-	else if input == "ten" then 10
-	else if input == "eleven" then 11
-	else if input == "twelve" then 12
-	else if input == "thirteen" then 13
-	else if input == "fourteen" then 14
-	else if input == "fifteen" then 15
-	else if input == "sixteen" then 16
-	else if input == "seventeen" then 17
-	else if input == "eighteen" then 18
-	else if input == "nineteen" then 19
-	else if input == "twenty" then 20
-	else input
+	result := input
+	two_part := filter_text(input, match:"(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)")
+	one_part := filter_text(input, match:"(zero|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)\\b")
+	if two_part != "" and one_part != "" then
+		result := (digital_map[two_part] + digital_map[one_part]) or else input
+	else if two_part != "" then
+		result := digital_map[two_part] or else input
+	else if one_part != "" then
+		result := digital_map[input] or else input
+	result
 }
 reverse_elements := {for element from 1 to length(input) do input[length(input) - element] + " "}
 ######################## Level Margins
@@ -660,7 +679,7 @@ this_or_that := {
 	this := "this"
 	that := "that"
 	type := input
-	if input == "type" then type := main_type(card.type)
+	if input == "type" then type := to_lower(main_type(card.type))
 	else if is_creaturish(card.type) then type := "creature"
 	if type == "" then type := "permanent"
 	if upper then (
@@ -1183,9 +1202,23 @@ ancestral_mana := { card.pt != "" and card.pt == "" }
 is_unsorted := {"false"}
 special_text := { "" }
 special_text2 := { "" }
-exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
+exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!(]+")
 exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
-card_name := { replace(if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else card.name, match:" $", replace:"") }
+clean_name := remove_tags + 
+	replace@(match:"(\n| +$|^ +)", replace:"") +
+	replace@(match:"’", replace:"'")
+	
+card_name := { 
+	test_name := exporter_name_grabber(exporter_name_filter(card.notes))
+	if test_name == "" then test_name := card.name
+	clean_name(test_name)
+}
+dfc_splitter_name := {
+	back_name := card.name_2
+	full_name := card_name()
+	if back_name != "" then full_name := full_name + "_" + clean_name(back_name)
+	full_name
+}
 exporter_num_filter := filter_text@(match:"!num [^\n!]+")
 exporter_num_grabber := replace@(match:"!num ", replace:"")
 trim_zeroes := replace@(match: "^00?", replace: "")+
@@ -1208,6 +1241,11 @@ join := {
 		string := string + (if x == length(input)-1 then closing else "") + input[x] + (if x == length(input)-1 then "" else spacer)
 	string
 }@(spacer:", ", closing:"and ")
+join2 := {
+	if i >= length(input) then ""
+	else if i == length(input)-1 then input[i]
+	else input[i]+sep+join2(input, i: i+1, sep: sep)
+}@(i: 0)
 ar_position := {
 	pos := -1
 	dummy := for x from 0 to length(in)-1 do (
