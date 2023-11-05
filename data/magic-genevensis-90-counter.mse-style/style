@@ -1,0 +1,595 @@
+﻿mse version: 2.1.2
+game: magic
+short name: Gen Counter
+full name: Hi-Res
+icon: card_sample.png
+position hint: 077
+
+version: 2022-02-22
+depends on:
+	package: magic.mse-game
+	version: 2020-04-25
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2001-01-01
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2001-01-01
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2001-01-01
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2001-01-01
+depends on:
+	package: magic-mana-genevensis-large.mse-symbol-font
+	version: 2022-02-22
+depends on:
+	package: magic-mana-genevensis-small.mse-symbol-font
+	version: 2022-02-22
+depends on:
+	package: magic-genevensis-00-main.mse-style
+	version: 2022-02-22
+
+card width: 750
+card height: 260
+card dpi: 300
+
+
+############################################################## Extra scripts
+init script:
+	card_shape := { "counter" }
+	
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	ancestral_mana := { false }
+	
+	mana_t := { "new" }
+	
+	mana_sort :=		sort_text@(order: "\\?XYZI[0123456789]VLHFDSCAIEP(WUBRG)")
+	mana_sort_wedge :=	sort_text@(order: "\\?XYZI[0123456789]VLHFDSCAIEP(WBGUR)")
+	mana_unsort :=		sort_text@(order: "[/\\?XYZI0123456789VLHFDSCAIEPWUBRG]")
+	mana_sort_guild :=	sort_text@(order: "[\\?XYZI01234567890VLHFDSCAIEPWUBRG/|]") +
+		replace@(
+			match: "./.|././.|./././.|.[|]",
+			in_context: "(^|[^/])<match>($|[^/])",
+			replace: {sort_text(order:"in_place(P(WUBRG))")}
+		)
+	
+	shrink_text :=
+	{
+		if styling.shrink_text == "-" then 0
+		else max(-80, min(59, to_int(styling.shrink_text))) or else 0
+	}
+	
+	alignment_text :=
+	{
+		if styling.text_alignment == "left" then "left middle shrink-overflow"
+		else if styling.text_alignment == "right" then "right middle shrink-overflow"
+		else "middle center shrink-overflow"
+	}
+	
+	has_symbol :=
+	{
+		not (styling.symbol == "none")
+	}
+	
+	increased_width :=
+	{
+		width := to_int(styling.increase_width) or else 0
+		if width < 0 then 0
+		else if styling.increase_height and width > 230 then 230
+		else if width > 330 then 330
+		else width
+	}
+	
+	proper_order :=
+	{
+		if input == "gr" then "rg"
+		else if input == "bu" then "ub"
+		else if input == "uw" then "wu"
+		else if input == "ru" then "ur"
+		else if input == "gb" then "bg"
+		else if input == "rb" then "br"
+		else if input == "ug" then "gu"
+		else if input == "wg" then "gw"
+		else if input == "bw" then "wb"
+		else if input == "wr" then "rw"
+		else input
+	}
+	
+	color_to_base_prefix :=
+	{
+		initial_prefix :=
+			(if													contains(card.casting_cost, match: "P")	then "s" else "") +
+			(if chosen(choice: "white", card.card_color) or		contains(card.casting_cost, match: "W")	then "w" else "") +
+			(if chosen(choice: "blue", card.card_color) or		contains(card.casting_cost, match: "U")	then "u" else "") +
+			(if chosen(choice: "black", card.card_color) or		contains(card.casting_cost, match: "B")	then "b" else "") +
+			(if chosen(choice: "red", card.card_color) or		contains(card.casting_cost, match: "R")	then "r" else "") +
+			(if chosen(choice: "green", card.card_color) or		contains(card.casting_cost, match: "G")	then "g" else "")
+		ordered_prefix := proper_order(initial_prefix)
+		if chosen(choice: "reversed", card.card_color) then reverse(ordered_prefix)
+		else ordered_prefix
+	}
+	
+	color_to_unforced_prefix :=
+	{
+		prefix := color_to_base_prefix()
+		if chosen(choice: "artifact", card.card_color) then "a"
+		else if length(prefix) > 2 then "m"
+		else if length(prefix) == 0 then (if chosen(choice: "multicolor", card.card_color) then "m" else "c" )
+		else prefix
+	}
+	
+	left_forced_prefix :=
+	{
+		if chosen(choice: "white", styling.force_left_color) then "w"
+		else if chosen(choice: "blue", styling.force_left_color) then "u"
+		else if chosen(choice: "black", styling.force_left_color) then "b"
+		else if chosen(choice: "red", styling.force_left_color) then "r"
+		else if chosen(choice: "green", styling.force_left_color) then "g"
+		else if chosen(choice: "artifact", styling.force_left_color) then "a"
+		else if chosen(choice: "gold", styling.force_left_color) then "m"
+		else if chosen(choice: "colorless", styling.force_left_color) then "c"
+		else if chosen(choice: "purple", styling.force_left_color) then "s"
+		else ""
+	}
+	
+	right_forced_prefix :=
+	{
+		if chosen(choice: "white", styling.force_right_color) then "w"
+		else if chosen(choice: "blue", styling.force_right_color) then "u"
+		else if chosen(choice: "black", styling.force_right_color) then "b"
+		else if chosen(choice: "red", styling.force_right_color) then "r"
+		else if chosen(choice: "green", styling.force_right_color) then "g"
+		else if chosen(choice: "artifact", styling.force_right_color) then "a"
+		else if chosen(choice: "gold", styling.force_right_color) then "m"
+		else if chosen(choice: "colorless", styling.force_right_color) then "c"
+		else if chosen(choice: "purple", styling.force_right_color) then "s"
+		else ""
+	}
+	
+	color_to_prefix :=
+	{
+		unforced_prefix := color_to_unforced_prefix()
+		left_forced := left_forced_prefix()
+		right_forced := right_forced_prefix()
+		left_prefix := if length(left_forced) == 0 then unforced_prefix.0 else left_forced
+		right_prefix := if length(right_forced) == 0 then reverse(unforced_prefix).0 else right_forced
+		if left_prefix == right_prefix then left_prefix else left_prefix + right_prefix
+	}
+	
+	border :=
+	{
+		"/magic-genevensis-00-main.mse-style/borders/" +
+		input + "_border.png"
+	}
+	
+	image :=
+	{
+		"/magic-genevensis-00-main.mse-style/elements/" +
+		input + "/" +
+		( if side == "left" then color_to_prefix().0 else if side == "right" then reverse(color_to_prefix()).0 else color_to_prefix() ) +
+		input + ".png"
+	}
+	
+	symbol_map :=
+	[
+		"1 triangle" : "symbol1triangle"
+		"1 triangle flipped" : "symbol1triangleflipped"
+		"2 triangles" : "symbol2triangle"
+		"compass" : "symbolcompass"
+		"land" : "symbolland"
+		"rising" : "symbolrising"
+		"risen" : "symbolrisen"
+		"closed fan" : "symbolclosedfan"
+		"open fan" : "symbolopenfan"
+		"sun / day" : "symbolsun"
+		"moon / night" : "symbolmoon"
+		"eldrazi" : "symboleldrazi"
+		"brother's war" : "symbolbrowar"
+		"arena" : "symbolarena"
+		"acorn" : "symbolacorn"
+		"swap" : "symbolswap"
+		"tombstone" : "symboltomb"
+		"multitype" : "symbolmultitype"
+		"structure" : "symbolstructure"
+		"creature" : "symbolcreature"
+		"planeswalker" : "symbolplaneswalker"
+		"instant" : "symbolinstant"
+		"sorcery" : "symbolsorcery"
+		"artifact" : "symbolartifact"
+		"enchantment" : "symbolenchantment"
+		"lesson" : "symbollesson"
+		"custom" : "symbolcustom"
+	]
+	
+	symbol_image :=
+	{
+		name := symbol_map[styling.symbol] or else ""
+		image(name, side: "left")
+	}
+
+############################################################## Extra style options
+styling field:
+	type: text
+	name: increase width
+	description: Increases the width by this many pixels. Can range between 0 and 330. When at 330, the counter is as wide as a card.
+#	localized caption:
+#		fr: Augmenter la largeur
+#	localized description:
+#		fr: Augmenter la largeur de N pixels. Peut varier de 0 a 330. A 330, le compteur est aussi large qu'une carte.
+styling field:
+	type: boolean
+	name: increase height
+	description: Increases the height by adding a line of text.
+#	localized caption:
+#		fr: Augmenter la hauteur
+#	localized description:
+#		fr: Augmenter la hauteur en ajoutant une ligne de texte.
+	initial: no
+styling field:
+	type: text
+	name: shrink text
+	description: Reduces the text's font size by this many points.
+#	localized caption:
+#		fr: Rapetisser le texte
+#	localized description:
+#		fr: Réduire la taille de la police du texte de N points.
+styling field:
+	type: choice
+	name: text alignment
+	description: How should text be aligned?
+#	localized caption:
+#		fr: Alignement du texte
+#	localized description:
+#		fr: Comment le texte doit-il être aligné?
+	choice: left
+	choice: center
+	choice: right
+	initial: center
+styling field:
+	type: boolean
+	name: land leaf
+	description: Is the land leaf visible?
+#	localized caption:
+#		fr: Feuille de terrain
+#	localized description:
+#		fr: La feuille de terrain est-elle visible?
+	initial: no
+styling field:
+	type: choice
+	name: symbol
+	description: Use a symbol next to the counter's text?
+#	localized caption:
+#		fr: Symbole
+#	localized description:
+#		fr: Utiliser un symbole à côté du texte?
+	choice: none
+	choice: 1 triangle
+	choice: 1 triangle flipped
+	choice: 2 triangles
+	choice: compass
+	choice: land
+	choice: rising
+	choice: risen
+	choice: closed fan
+	choice: open fan
+	choice: sun / day
+	choice: moon / night
+	choice: eldrazi
+	choice: brother's war
+	choice: arena
+	choice: acorn
+	choice: swap
+	choice: tombstone
+	choice: lesson
+	choice: multitype
+	choice: structure
+	choice: creature
+	choice: planeswalker
+	choice: instant
+	choice: sorcery
+	choice: artifact
+	choice: enchantment
+	choice: custom
+	initial: none
+styling field:
+	type: choice
+	name: force left color
+	description: Use a specified color for the left half of the frame.
+#	localized caption:
+#		fr: Forcer la couleur gauche
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour la moitié gauche du cadre.
+	choice: none
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: artifact
+	choice: gold
+	choice: colorless
+	choice: purple
+	initial: none
+styling field:
+	type: choice
+	name: force right color
+	description: Use a specified color for the right half of the frame.
+#	localized caption:
+#		fr: Forcer la couleur droite
+#	localized description:
+#		fr: Utiliser la couleur spécifiée pour la moitié droite du cadre.
+	choice: none
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: artifact
+	choice: gold
+	choice: colorless
+	choice: purple
+	initial: none
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana?
+#	localized caption:
+#		fr: Mana de guilde
+#	localized description:
+#		fr: Utiliser les symboles de guildes au lieu des symboles moitié/moitié pour le mana hybride?
+	initial: no
+styling field:
+	type: package choice
+	name: mana symbols
+	description: Mana symbol package used.
+#	localized caption:
+#		fr: Symboles de mana
+#	localized description:
+#		fr: Les symboles de mana à utiliser.
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-genevensis-large.mse-symbol-font
+styling field:
+	type: text
+	name: font
+	description: Font used. Hover your mouse over the font file to see it's details, and write it's Title here.
+#	localized caption:
+#		fr: Police
+#	localized description:
+#		fr: Police utilisée. Survolez le fichier de police avec la souris pour voir ses informations, et écrivez son titre ici.
+styling style:
+	use guild mana symbols:
+		render style: both
+		choice images:
+			yes: /magic-mana-genevensis-large.mse-symbol-font/mana_guild_wu.png
+			no: /magic-mana-genevensis-large.mse-symbol-font/mana_bi_wu.png
+	
+############################################################## Card fields
+card style:
+	############################# Background
+	card color:
+		left:	0
+		top:	0
+		width:	750
+		height:	260
+		z index: 10
+		popup style: in place
+		render style: image
+	
+	############################# Text box
+	name:
+		left: { if has_symbol() then 115 else 64 }
+		top: 33
+		width: { ( if has_symbol() then 241 else 292 ) - ( if styling.increase_height then -100 else 0 ) - ( -increased_width() ) }
+		height: { if styling.increase_height then 94 else 86 }
+		alignment: { alignment_text() }
+		z index: 20
+		font:
+			name: { if styling.font == "" then "Beleren Bold" else styling.font }
+			size: { 60 - shrink_text() }
+			color: black
+		symbol font:
+			name: { styling.mana_symbols }
+			size: { 60 - shrink_text() }
+	name 2:
+		left: { if has_symbol() then 115 else 64 }
+		top: 127
+		width: { ( if has_symbol() then 241 else 292 ) - ( if styling.increase_height then -100 else 0 ) - ( -increased_width() ) }
+		height: { if styling.increase_height then 94 else 0 }
+		alignment: { alignment_text() }
+		z index: 20
+		font:
+			name: { if styling.font == "" then "Beleren Bold" else styling.font }
+			size: { 60 - shrink_text() }
+			color: black
+		symbol font:
+			name: { styling.mana_symbols }
+			size: { 60 - shrink_text() }
+	
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: transformation symbol
+	editable: false
+	save value: false
+	choice: transformation symbol
+extra card field:
+	type: choice
+	name: leaf left
+	editable: false
+	save value: false
+	show statistics: false
+	choice: leaf
+extra card field:
+	type: choice
+	name: leaf right
+	editable: false
+	save value: false
+	show statistics: false
+	choice: leaf
+extra card field:
+	type: choice
+	name: frame left
+	editable: false
+	save value: false
+	show statistics: false
+	choice: frame left
+extra card field:
+	type: choice
+	name: frame middle
+	editable: false
+	save value: false
+	show statistics: false
+	choice: frame middle
+extra card field:
+	type: choice
+	name: frame right
+	editable: false
+	save value: false
+	show statistics: false
+	choice: frame right
+extra card field:
+	type: color
+	name: frame left border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: frame middle border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: frame right border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: leaf left border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: leaf right border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card field:
+	type: color
+	name: symbol border
+	editable: false
+	save value: false
+	show statistics: false
+	script: set.border_color
+extra card style:
+	transformation symbol:
+		left: 35
+		top: 27
+		height: 78
+		width: 73
+		z index: 8
+		visible: { has_symbol() }
+		render style: image
+		image: { symbol_image() }
+	leaf left:
+		left: 0
+		top: 0
+		width: 54
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 4
+		visible: { styling.land_leaf }
+		render style: image
+		image: { image((if styling.increase_height then "tall" else "") + "counterleafleft", side: "left") }
+	leaf right:
+		left: { 366 - (if styling.increase_height then -100 else 0) - ( -increased_width() ) }
+		top: 0
+		width: 54
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 4
+		visible: { styling.land_leaf }
+		render style: image
+		image: { image((if styling.increase_height then "tall" else "") + "counterleafright", side: "right") }
+	frame left:
+		left: 0
+		top: 0
+		width: 72
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 0
+		render style: image
+		image: { image((if styling.increase_height then "tall" else "") + "counterleft", side: "left") }
+	frame middle:
+		left: 72
+		top: 0
+		width: { 1 - ( -increased_width() ) }
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 0
+		render style: image
+		image: { image((if styling.increase_height then "tall" else "") + "countermiddle", side: "left") }
+	frame right:
+		left: { 73 - ( -increased_width() ) }
+		top: 0
+		width: { if styling.increase_height then 447 else 347 }
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 0
+		render style: image
+		image: { image((if styling.increase_height then "tall" else "") + "counterright", side: "both") }
+	frame left border:
+		visible: { set.border_color != rgb(0,0,0) }
+		left: 0
+		top: 0
+		width: 72
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 1
+		mask: { border((if styling.increase_height then "tall" else "") + "counterleft") }
+	frame middle border:
+		visible: { set.border_color != rgb(0,0,0) }
+		left: 72
+		top: 0
+		width: { 1 - ( -increased_width() ) }
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 1
+		mask: { border((if styling.increase_height then "tall" else "") + "countermiddle") }
+	frame right border:
+		visible: { set.border_color != rgb(0,0,0) }
+		left: { 73 - ( -increased_width() ) }
+		top: 0
+		width: { if styling.increase_height then 447 else 347 }
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 1
+		mask: { border((if styling.increase_height then "tall" else "") + "counterright") }
+	leaf left border:
+		visible: { set.border_color != rgb(0,0,0) and styling.land_leaf }
+		left: 0
+		top: 0
+		width: 54
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 5
+		mask: { border((if styling.increase_height then "tall" else "") + "counterleafleft") }
+	leaf right border:
+		visible: { set.border_color != rgb(0,0,0) and styling.land_leaf }
+		left: { 366 - (if styling.increase_height then -100 else 0) - ( -increased_width() ) }
+		top: 0
+		width: 54
+		height: { if styling.increase_height then 260 else 160 }
+		z index: 5
+		mask: { border((if styling.increase_height then "tall" else "") + "counterleafright") }
+	symbol border:
+		visible: { has_symbol() }
+		left: 35
+		top: 27
+		height: 81
+		width: 73
+		z index: 9
+		mask: symbol_border.png
+	
