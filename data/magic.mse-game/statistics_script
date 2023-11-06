@@ -19,6 +19,42 @@ contains_element_statistic :=
 	for x from 0 to count do (if input[x] == element then contained := true;0)
 	contained
 }
+# Add a number of zero width spaces to impose ordering. C has 1, W has 2, U has 3, etc...
+space_prefix :=
+[
+	C 		: "​"
+	W 		: "​​"
+	U 		: "​​​"
+	B 		: "​​​​"
+	R 		: "​​​​​"
+	G 		: "​​​​​​"
+	WU		: "​​​​​​​"
+	WB		: "​​​​​​​​"
+	WR		: "​​​​​​​​​"
+	WG		: "​​​​​​​​​​"
+	UB		: "​​​​​​​​​​​"
+	UR		: "​​​​​​​​​​​​"
+	UG		: "​​​​​​​​​​​​​"
+	BR		: "​​​​​​​​​​​​​​"
+	BG		: "​​​​​​​​​​​​​​​"
+	RG		: "​​​​​​​​​​​​​​​​"
+	WUB		: "​​​​​​​​​​​​​​​​​"
+	WUR		: "​​​​​​​​​​​​​​​​​​"
+	WUG		: "​​​​​​​​​​​​​​​​​​​"
+	WBR		: "​​​​​​​​​​​​​​​​​​​​"
+	WBG		: "​​​​​​​​​​​​​​​​​​​​​"
+	WRG		: "​​​​​​​​​​​​​​​​​​​​​​"
+	UBR		: "​​​​​​​​​​​​​​​​​​​​​​​"
+	UBG		: "​​​​​​​​​​​​​​​​​​​​​​​​"
+	URG		: "​​​​​​​​​​​​​​​​​​​​​​​​​"
+	BRG		: "​​​​​​​​​​​​​​​​​​​​​​​​​​"
+	WUBR	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​"
+	WUBG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
+	WURG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
+	WBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
+	UBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
+	WUBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
+]
 
 # The casting cost
 casting_cost_statistic :=
@@ -35,6 +71,26 @@ mana_value_statistic :=
 }
 
 # The color combinations of the cards in the set.
+prefixed_color_statistic :=
+{
+	color := color_statistic()
+	space_prefix[color] + color
+}
+prefixed_back_face_color_statistic :=
+{
+	color := back_face_color_statistic()
+	space_prefix[color] + color
+}
+prefixed_all_faces_color_statistic :=
+{
+	color := all_faces_color_statistic()
+	space_prefix[color] + color
+}
+prefixed_color_identity_statistic :=
+{
+	color := color_identity_statistic()
+	space_prefix[color] + color
+}
 color_statistic :=
 {
 	colors :=	if contains(card.shape, match: "split") or contains(card.shape, match: "aftermath") then	distil_colors_statistic(face_color_statistic(face: 1) + face_color_statistic(face: 2))
@@ -184,24 +240,25 @@ omniverse_color_statistic :=
 	else																			input
 }
 
-# Count how many cards have one white devotion in the set. Repeat for two white devotion. Repeat for three, then four+, the again for other colors.
+# Count how many cards have one white devotion in the set. Repeat for two white devotion. Repeat for three, then four+, then again for other colors.
 cc_colored_pips_statistic :=
 {
 	split_casting_cost := cmc_split(card.casting_cost)
 	split_casting_cost_2 := if check_2_statistic() then cmc_split(card.casting_cost_2) else []
 	
-	symbol_aggregate_statistic(split_casting_cost, symbol: "W") +
-	symbol_aggregate_statistic(split_casting_cost, symbol: "U") +
-	symbol_aggregate_statistic(split_casting_cost, symbol: "B") +
-	symbol_aggregate_statistic(split_casting_cost, symbol: "R") +
-	symbol_aggregate_statistic(split_casting_cost, symbol: "G") +
-	symbol_aggregate_statistic(split_casting_cost, symbol: "C") +
-	symbol_aggregate_statistic(split_casting_cost_2, symbol: "W") +
-	symbol_aggregate_statistic(split_casting_cost_2, symbol: "U") +
-	symbol_aggregate_statistic(split_casting_cost_2, symbol: "B") +
-	symbol_aggregate_statistic(split_casting_cost_2, symbol: "R") +
-	symbol_aggregate_statistic(split_casting_cost_2, symbol: "G") +
-	symbol_aggregate_statistic(split_casting_cost_2, symbol: "C")
+	result :=	symbol_aggregate_statistic(split_casting_cost, symbol: "W") +
+				symbol_aggregate_statistic(split_casting_cost, symbol: "U") +
+				symbol_aggregate_statistic(split_casting_cost, symbol: "B") +
+				symbol_aggregate_statistic(split_casting_cost, symbol: "R") +
+				symbol_aggregate_statistic(split_casting_cost, symbol: "G") +
+				symbol_aggregate_statistic(split_casting_cost, symbol: "C") +
+				symbol_aggregate_statistic(split_casting_cost_2, symbol: "W") +
+				symbol_aggregate_statistic(split_casting_cost_2, symbol: "U") +
+				symbol_aggregate_statistic(split_casting_cost_2, symbol: "B") +
+				symbol_aggregate_statistic(split_casting_cost_2, symbol: "R") +
+				symbol_aggregate_statistic(split_casting_cost_2, symbol: "G") +
+				symbol_aggregate_statistic(split_casting_cost_2, symbol: "C")
+	substring(result, begin: 1)
 }
 
 # Count the total devotion of all cards in the set.
@@ -223,7 +280,7 @@ ability_colored_pips_statistic :=
 	costs := gather_ability_symbols_statistic()
 	if costs == [] then "" else (
 	count := length(costs) - 1
-	for x from 0 to count do
+	result := for x from 0 to count do
 	(
 		split_text := cmc_split(costs[x])
 	
@@ -233,7 +290,8 @@ ability_colored_pips_statistic :=
 		symbol_aggregate_statistic(split_text, symbol: "R") +
 		symbol_aggregate_statistic(split_text, symbol: "G") +
 		symbol_aggregate_statistic(split_text, symbol: "C")
-	))
+	)
+	substring(result, begin: 1))
 }
 
 # Count the total pips of all the abilities of all the cards in the set.
@@ -257,7 +315,9 @@ ability_colored_pips_totals_statistic :=
 
 colored_pips_statistic :=
 {
-	cc_colored_pips_statistic() + ability_colored_pips_statistic()
+	cc := cc_colored_pips_statistic()
+	ability := ability_colored_pips_statistic()
+	cc + (if cc != "" and ability != "" then "," else "") + ability
 }
 
 colored_pips_totals_statistic :=
@@ -292,16 +352,18 @@ symbol_aggregate_statistic :=
 	if input == [] then "" else (
 	
 	count := for each sym in input do (if contains(sym, match: symbol) then 1 else 0)
-	if count == 0 then		""
-	else if count == 1 then (symbol + ",")
-	else if count == 2 then (symbol + symbol + ",")
-	else if count == 3 then (symbol + symbol + symbol + ",")
-	else					(symbol + symbol + symbol + symbol + "+,"))
+	if count == 0 then "" else (
+	
+	result :=	if		count == 1	then	(symbol)
+				else if count == 2	then	(symbol + symbol)
+				else if count == 3	then	(symbol + symbol + symbol)
+				else						(symbol + symbol + symbol + symbol + "+")
+	"," + space_prefix[symbol] + result))
 }
 symbol_count_list_statistic :=
 {
-	list := for each sym in input do (if contains(sym, match: symbol) then (symbol + ",") else "")
-	if list == nil then "" else list
+	result := for each sym in input do (if contains(sym, match: symbol) then ("," + symbol) else "")
+	if result == nil then "" else substring(result, begin: 1)
 }
 
 # How many colored pips does each casting cost have.
