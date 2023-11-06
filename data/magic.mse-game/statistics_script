@@ -451,8 +451,7 @@ match_add_chosen_color_bis_statistic	:= match@(match: "(—| |^)[Cc]hoose a colo
 
 can_add_W_statistic :=
 {
-	if contains(sub, match: "Plains")
-	or contains(sub, match: "plains")
+	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").0)
 	then true else (
 	
 	count := length(input) - 1
@@ -462,8 +461,7 @@ can_add_W_statistic :=
 }
 can_add_U_statistic :=
 {
-	if contains(sub, match: "Island")
-	or contains(sub, match: "island")
+	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").1)
 	then true else (
 	
 	count := length(input) - 1
@@ -473,8 +471,7 @@ can_add_U_statistic :=
 }
 can_add_B_statistic :=
 {
-	if contains(sub, match: "Swamp")
-	or contains(sub, match: "swamp")
+	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").2)
 	then true else (
 	
 	count := length(input) - 1
@@ -484,8 +481,7 @@ can_add_B_statistic :=
 }
 can_add_R_statistic :=
 {
-	if contains(sub, match: "Mountain")
-	or contains(sub, match: "mountain")
+	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").3)
 	then true else (
 	
 	count := length(input) - 1
@@ -495,8 +491,7 @@ can_add_R_statistic :=
 }
 can_add_G_statistic :=
 {
-	if contains(sub, match: "Forest")
-	or contains(sub, match: "forest")
+	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").4)
 	then true else (
 	
 	count := length(input) - 1
@@ -866,14 +861,7 @@ face_type_extended_statistic :=
 }
 is_canon_supertype_statistic :=
 {
-		input == "Legendary"	or input == "legendary"
-	or	input == "Basic"		or input == "basic"
-	or	input == "Snow"			or input == "snow"
-	or	input == "Token"		or input == "token"
-	or	input == "World"		or input == "world"
-	or	input == "Ongoing"		or input == "ongoing"
-	or	input == "Elite"		or input == "elite"
-	or	input == "Host"			or input == "host"
+	match(input, match:"(?i)^(Legendary|Basic|Snow|Token|World|Ongoing|Elite|Host)$")
 }
 custom_supertype_statistic := split_text@(input: set.custom_super_types, match: " ?, ?", include_empty: false)
 has_type_statistic :=
@@ -906,7 +894,7 @@ detect_custom_creature_subtypes_statistic :=
 		for y from 0 to count do
 		(
 			subtype := subtypes[y]
-			if not contains_element_statistic(result, element: subtype) and not contains(creature_subtypes_statistic, match: subtype + ";") then result := result + [subtype]
+			if not contains_element_statistic(result, element: subtype) and not contains(creature_subtypes_statistic(), match: subtype + ";") then result := result + [subtype]
 		)
 	)
 	result := sort_list(result)
@@ -916,7 +904,7 @@ detect_custom_creature_subtypes_statistic :=
 face_detect_custom_creature_subtypes_statistic :=
 {
 	types := remove_supertypes_statistic(super)
-	if types == "Creature" or types == "creature" then split_space_statistic(clean_subtypes_statistic(to_text(sub))) else []
+	if types == "Creature" or types == "creature" then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
 }
 remove_legendary_statistic := replace@(match: "[Ll]egendary", replace: "")
 remove_basic_statistic := replace@(match: "[Bb]asic", replace: "")
@@ -947,7 +935,7 @@ remove_supertypes_statistic :=	to_text +
 
 creature_subtype_statistic :=
 {
-	canon := creature_subtypes_statistic
+	canon := creature_subtypes_statistic()
 	custom := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
 	excluded := ""
 	result :=	(face_creature_subtype_statistic(sub: card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded)) +
@@ -956,7 +944,7 @@ creature_subtype_statistic :=
 }
 creature_race_statistic :=
 {
-	canon := creature_races_statistic
+	canon := creature_races_statistic()
 	custom := replace_commas_statistic(set.custom_creature_races) + ";"
 	excluded := replace_commas_statistic(set.custom_creature_classes) + ";"
 	result :=	(face_creature_subtype_statistic(sub: card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded)) +
@@ -965,7 +953,7 @@ creature_race_statistic :=
 }
 creature_class_statistic :=
 {
-	canon := creature_classes_statistic
+	canon := creature_classes_statistic()
 	custom := replace_commas_statistic(set.custom_creature_classes) + ";"
 	excluded := replace_commas_statistic(set.custom_creature_races) + ";"
 	result :=	(face_creature_subtype_statistic(sub: card.sub_type, super: card.super_type, canon_subtypes: canon, custom_subtypes: custom, excluded_subtypes: excluded)) +
@@ -975,10 +963,9 @@ creature_class_statistic :=
 
 face_creature_subtype_statistic :=
 {
-	old_subtypes := to_text(sub)
+	old_subtypes := to_text(clean_subtypes_statistic(sub))
 	if old_subtypes == "" then "" else (
 	
-	old_subtypes := clean_subtypes_statistic(old_subtypes)
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	new_subtypes := for x from 0 to count do
@@ -1001,10 +988,9 @@ noncreature_subtype_statistic :=
 }
 face_noncreature_subtype_statistic :=
 {
-	old_subtypes := to_text(sub)
+	old_subtypes := to_text(clean_subtypes_statistic(sub))
 	if old_subtypes == "" then "" else (
 	
-	old_subtypes := clean_subtypes_statistic(old_subtypes)
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	custom_creature_subtypes := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
@@ -1014,15 +1000,15 @@ face_noncreature_subtype_statistic :=
 		subtypesc := subtype + ";"
 		if subtype == ""																			then	""
 		else if contains(custom_creature_subtypes, match: subtypesc)								then	""
-		else if contains(creature_subtypes_statistic, match: subtypesc)								then	""
-		else if contains(land_subtypes_statistic, match: subtypesc)									then	(",​" + subtype)	# There is a zero width space after the comma so that land subtypes always appear after custom subtypes.
-		else if contains(artifact_subtypes_statistic, match: subtypesc)								then	(",​​" + subtype)	# There are two zero width spaces after the comma so that artifact subtypes always appear after land subtypes, etc...
-		else if contains(enchantment_subtypes_statistic, match: subtypesc)							then	(",​​​" + subtype)
-		else if contains(planeswalker_subtypes_statistic, match: subtypesc)							then	(",​​​​" + subtype)
-		else if contains(battle_subtypes_statistic, match: subtypesc)								then	(",​​​​​" + subtype)
-		else if contains(spell_subtypes_statistic, match: subtypesc)								then	(",​​​​​​" + subtype)
-		else if contains(dungeon_subtypes_statistic, match: subtypesc)								then	(",​​​​​​​" + subtype)
-		else if contains(plane_subtypes_statistic, match: subtypesc)								then	(",​​​​​​​​" + subtype)
+		else if contains(creature_subtypes_statistic(), match: subtypesc)								then	""
+		else if contains(land_subtypes_statistic(), match: subtypesc)									then	(",​" + subtype)	# There is a zero width space after the comma so that land subtypes always appear after custom subtypes.
+		else if contains(artifact_subtypes_statistic(), match: subtypesc)								then	(",​​" + subtype)	# There are two zero width spaces after the comma so that artifact subtypes always appear after land subtypes, etc...
+		else if contains(enchantment_subtypes_statistic(), match: subtypesc)							then	(",​​​" + subtype)
+		else if contains(planeswalker_subtypes_statistic(), match: subtypesc)							then	(",​​​​" + subtype)
+		else if contains(battle_subtypes_statistic(), match: subtypesc)								then	(",​​​​​" + subtype)
+		else if contains(spell_subtypes_statistic(), match: subtypesc)								then	(",​​​​​​" + subtype)
+		else if contains(dungeon_subtypes_statistic(), match: subtypesc)								then	(",​​​​​​​" + subtype)
+		else if contains(plane_subtypes_statistic(), match: subtypesc)								then	(",​​​​​​​​" + subtype)
 		else if contains(super, match: "Planeswalker")	or contains(super, match: "planeswalker")	then	(",​​​​" + subtype)
 		else if contains(super, match: "Artifact")		or contains(super, match: "artifact")		then	(",​​" + subtype)
 		else if contains(super, match: "Enchantment")	or contains(super, match: "enchantment")	then	(",​​​" + subtype)
@@ -1040,832 +1026,55 @@ replace_commas_statistic := replace@(match: " ?, ?", replace: ";")
 split_space_statistic := split_text@(match: " ")
 replace_space_statistic := replace@(match: " ", replace: "_")
 replace_squote_statistic := replace@(match: "'", replace: "’")
+# replace normal space with EN space to workaround stat space bug
+en_space_statistic := replace@(match: " ", replace: " ", in_context:"[^>]<match>[^<]")
 clean_subtypes_statistic :=	replace_squote_statistic +
-							replace@(match: "Bolas’s Meditation Realm", replace: "Bolas’s Meditation Realm") +		#Replace spaces within subtypes by EN spaces that won't be split (Is replaced in the list of subtypes as well.)
-							replace@(match: "New Phyrexia", replace: "New Phyrexia") +
-							replace@(match: "Serra’s Realm", replace: "Serra’s Realm") +
-							replace@(match: "Alfava Metraxis", replace: "Alfava Metraxis") +
-							replace@(match: "Androzani Minor", replace: "Androzani Minor") +
-							replace@(match: "Horsehead Nebula", replace: "Horsehead Nebula") +
-							replace@(match: "New Earth", replace: "New Earth") +
-							replace@(match: "Outside Mutter’s Spiral", replace: "Outside Mutter’s Spiral") +
-							replace@(match: "The Abyss", replace: "The Abyss") +
-							replace@(match: "The Dalek Asylum", replace: "The Dalek Asylum") +
-							replace@(match: "The Library", replace: "The Library") +
-							replace@(match: "Unknown Planet", replace: "Unknown Planet") +
-							replace@(match: "Time Lord", replace: "Time Lord")
+							en_space_statistic
+							
 
-land_subtypes_statistic :=
-		"Desert;"
-	+	"Forest;"
-	+	"Gate;"
-	+	"Island;"
-	+	"Lair;"
-	+	"Locus;"
-	+	"Mine;"
-	+	"Mountain;"
-	+	"Plains;"
-	+	"Power-Plant;"
-	+	"Sphere;"
-	+	"Swamp;"
-	+	"Tower;"
-	+	"Urza’s;";
-artifact_subtypes_statistic :=
-		"Attraction;"
-	+	"Blood;"
-	+	"Clue;"
-	+	"Contraption;"
-	+	"Equipment;"
-	+	"Food;"
-	+	"Fortification;"
-	+	"Gold;"
-	+	"Incubator;"
-	+	"Powerstone;"
-	+	"Treasure;"
-	+	"Vehicle;";
-enchantment_subtypes_statistic :=
-		"Aura;"
-	+	"Background;"
-	+	"Cartouche;"
-	+	"Class;"
-	+	"Curse;"
-	+	"Role;"
-	+	"Rune;"
-	+	"Saga;"
-	+	"Shard;"
-	+	"Shrine;";
-planeswalker_subtypes_statistic :=
-		"Ajani;"
-	+	"Aminatou;"
-	+	"Angrath;"
-	+	"Arlinn;"
-	+	"Ashiok;"
-	+	"Bahamut;"
-	+	"Basri;"
-	+	"Bolas;"
-	+	"Calix;"
-	+	"Chandra;"
-	+	"Comet;"
-	+	"Dack;"
-	+	"Dakkon;"
-	+	"Daretti;"
-	+	"Davriel;"
-	+	"Dihada;"
-	+	"Domri;"
-	+	"Dovin;"
-	+	"Ellywick;"
-	+	"Elminster;"
-	+	"Elspeth;"
-	+	"Estrid;"
-	+	"Freyalise;"
-	+	"Garruk;"
-	+	"Gideon;"
-	+	"Grist;"
-	+	"Guff;"
-	+	"Huatli;"
-	+	"Jace;"
-	+	"Jared;"
-	+	"Jaya;"
-	+	"Jeska;"
-	+	"Kaito;"
-	+	"Karn;"
-	+	"Kasmina;"
-	+	"Kaya;"
-	+	"Kiora;"
-	+	"Koth;"
-	+	"Liliana;"
-	+	"Lolth;"
-	+	"Lukka;"
-	+	"Minsc;"
-	+	"Mordenkainen;"
-	+	"Nahiri;"
-	+	"Narset;"
-	+	"Niko;"
-	+	"Nissa;"
-	+	"Nixilis;"
-	+	"Oko;"
-	+	"Ral;"
-	+	"Rowan;"
-	+	"Saheeli;"
-	+	"Samut;"
-	+	"Sarkhan;"
-	+	"Serra;"
-	+	"Sivitri;"
-	+	"Sorin;"
-	+	"Szat;"
-	+	"Tamiyo;"
-	+	"Tasha;"
-	+	"Teferi;"
-	+	"Teyo;"
-	+	"Tezzeret;"
-	+	"Tibalt;"
-	+	"Tyvar;"
-	+	"Ugin;"
-	+	"Urza;"
-	+	"Venser;"
-	+	"Vivien;"
-	+	"Vraska;"
-	+	"Vronos;"
-	+	"Will;"
-	+	"Windgrace;"
-	+	"Wrenn;"
-	+	"Xenagos;"
-	+	"Yanggu;"
-	+	"Yanling;"
-	+	"Zariel;";
-battle_subtypes_statistic :=
-		"Siege;";
-spell_subtypes_statistic :=
-		"Adventure;"
-	+	"Arcane;"
-	+	"Lesson;"
-	+	"Trap;";
-dungeon_subtypes_statistic :=
-		"Undercity;";
-plane_subtypes_statistic :=
-		"Alara;"
-	+	"Alfava Metraxis;"
-	+	"Amonkhet;"
-	+	"Androzani Minor;"
-	+	"Antausia;"
-	+	"Apalapucia;"
-	+	"Arcavios;"
-	+	"Arkhos;"
-	+	"Azgol;"
-	+	"Belenon;"
-	+	"Bolas’s Meditation Realm;"
-	+	"Capenna;"
-	+	"Cridhe;"
-	+	"Darillium;"
-	+	"Dominaria;"
-	+	"Earth;"
-	+	"Echoir;"
-	+	"Eldraine;"
-	+	"Equilor;"
-	+	"Ergamon;"
-	+	"Fabacin;"
-	+	"Fiora;"
-	+	"Gallifrey;"
-	+	"Gargantikar;"
-	+	"Gobakhan;"
-	+	"Horsehead Nebula;"
-	+	"Ikoria;"
-	+	"Innistrad;"
-	+	"Iquatana;"
-	+	"Ir;"
-	+	"Ixalan;"
-	+	"Kaladesh;"
-	+	"Kaldheim;"
-	+	"Kamigawa;"
-	+	"Kandoka;"
-	+	"Karsus;"
-	+	"Kephalai;"
-	+	"Kinshala;"
-	+	"Kolbahan;"
-	+	"Kylem;"
-	+	"Kyneth;"
-	+	"Lorwyn;"
-	+	"Luvion;"
-	+	"Mars;"
-	+	"Mercadia;"
-	+	"Mirrodin;"
-	+	"Moag;"
-	+	"Mongseng;"
-	+	"Moon;"
-	+	"Muraganda;"
-	+	"Necros;"
-	+	"New Earth;"
-	+	"New Phyrexia;"
-	+	"Outside Mutter’s Spiral;"
-	+	"Phyrexia;"
-	+	"Pyrulea;"
-	+	"Rabiah;"
-	+	"Rath;"
-	+	"Ravnica;"
-	+	"Regatha;"
-	+	"Segovia;"
-	+	"Serra’s Realm;"
-	+	"Shadowmoor;"
-	+	"Shandalar;"
-	+	"Shenmeng;"
-	+	"Skaro;"
-	+	"Spacecraft;"
-	+	"Tarkir;"
-	+	"The Abyss;"
-	+	"The Dalek Asylum;"
-	+	"The Library;"
-	+	"Theros;"
-	+	"Time;"
-	+	"Trenzalore;"
-	+	"Ulgrotha;"
-	+	"Unknown Planet;"
-	+	"Valla;"
-	+	"Vryn;"
-	+	"Wildfire;"
-	+	"Xerex;"
-	+	"Zhalfir;"
-	+	"Zendikar;";
-creature_subtypes_statistic :=
-		"Advisor;"
-	+	"Aetherborn;"
-	+	"Alien;"
-	+	"Ally;"
-	+	"Angel;"
-	+	"Antelope;"
-	+	"Ape;"
-	+	"Archer;"
-	+	"Archon;"
-	+	"Army;"
-	+	"Artificer;"
-	+	"Assassin;"
-	+	"Assembly-Worker;"
-	+	"Astartes;"
-	+	"Atog;"
-	+	"Aurochs;"
-	+	"Avatar;"
-	+	"Azra;"
-	+	"Badger;"
-	+	"Balloon;"
-	+	"Barbarian;"
-	+	"Bard;"
-	+	"Basilisk;"
-	+	"Bat;"
-	+	"Bear;"
-	+	"Beast;"
-	+	"Beeble;"
-	+	"Beholder;"
-	+	"Berserker;"
-	+	"Bird;"
-	+	"Blinkmoth;"
-	+	"Boar;"
-	+	"Bringer;"
-	+	"Brushwagg;"
-	+	"Camarid;"
-	+	"Camel;"
-	+	"Caribou;"
-	+	"Carrier;"
-	+	"Cat;"
-	+	"Centaur;"
-	+	"Cephalid;"
-	+	"Child;"
-	+	"Chimera;"
-	+	"Citizen;"
-	+	"Cleric;"
-	+	"Clown;"
-	+	"Cockatrice;"
-	+	"Construct;"
-	+	"Coward;"
-	+	"Crab;"
-	+	"Crocodile;"
-	+	"C’tan;"
-	+	"Custodes;"
-	+	"Cyberman;"
-	+	"Cyclops;"
-	+	"Dalek;"
-	+	"Dauthi;"
-	+	"Demigod;"
-	+	"Demon;"
-	+	"Deserter;"
-	+	"Detective;"
-	+	"Devil;"
-	+	"Dinosaur;"
-	+	"Djinn;"
-	+	"Doctor;"
-	+	"Dog;"
-	+	"Dragon;"
-	+	"Drake;"
-	+	"Dreadnought;"
-	+	"Drone;"
-	+	"Druid;"
-	+	"Dryad;"
-	+	"Dwarf;"
-	+	"Efreet;"
-	+	"Egg;"
-	+	"Elder;"
-	+	"Eldrazi;"
-	+	"Elemental;"
-	+	"Elephant;"
-	+	"Elf;"
-	+	"Elk;"
-	+	"Employee;"
-	+	"Eye;"
-	+	"Faerie;"
-	+	"Ferret;"
-	+	"Fish;"
-	+	"Flagbearer;"
-	+	"Fox;"
-	+	"Fractal;"
-	+	"Frog;"
-	+	"Fungus;"
-	+	"Gamer;"
-	+	"Gargoyle;"
-	+	"Germ;"
-	+	"Giant;"
-	+	"Gith;"
-	+	"Gnoll;"
-	+	"Gnome;"
-	+	"Goat;"
-	+	"Goblin;"
-	+	"God;"
-	+	"Golem;"
-	+	"Gorgon;"
-	+	"Graveborn;"
-	+	"Gremlin;"
-	+	"Griffin;"
-	+	"Guest;"
-	+	"Hag;"
-	+	"Halfling;"
-	+	"Hamster;"
-	+	"Harpy;"
-	+	"Hellion;"
-	+	"Hippo;"
-	+	"Hippogriff;"
-	+	"Homarid;"
-	+	"Homunculus;"
-	+	"Horror;"
-	+	"Horse;"
-	+	"Hound;"
-	+	"Human;"
-	+	"Hydra;"
-	+	"Hyena;"
-	+	"Illusion;"
-	+	"Imp;"
-	+	"Incarnation;"
-	+	"Inkling;"
-	+	"Inquisitor;"
-	+	"Insect;"
-	+	"Jackal;"
-	+	"Jellyfish;"
-	+	"Juggernaut;"
-	+	"Kavu;"
-	+	"Kirin;"
-	+	"Kithkin;"
-	+	"Knight;"
-	+	"Kobold;"
-	+	"Kor;"
-	+	"Kraken;"
-	+	"Lamia;"
-	+	"Lammasu;"
-	+	"Leech;"
-	+	"Leviathan;"
-	+	"Lhurgoyf;"
-	+	"Licid;"
-	+	"Lizard;"
-	+	"Lord;"
-	+	"Manticore;"
-	+	"Masticore;"
-	+	"Mercenary;"
-	+	"Merfolk;"
-	+	"Metathran;"
-	+	"Minion;"
-	+	"Minotaur;"
-	+	"Mite;"
-	+	"Mole;"
-	+	"Monger;"
-	+	"Mongoose;"
-	+	"Monk;"
-	+	"Monkey;"
-	+	"Moonfolk;"
-	+	"Mouse;"
-	+	"Mutant;"
-	+	"Myr;"
-	+	"Mystic;"
-	+	"Naga;"
-	+	"Nautilus;"
-	+	"Necron;"
-	+	"Nephilim;"
-	+	"Nightmare;"
-	+	"Nightstalker;"
-	+	"Ninja;"
-	+	"Noble;"
-	+	"Noggle;"
-	+	"Nomad;"
-	+	"Nymph;"
-	+	"Octopus;"
-	+	"Ogre;"
-	+	"Ooze;"
-	+	"Orb;"
-	+	"Orc;"
-	+	"Orgg;"
-	+	"Otter;"
-	+	"Ouphe;"
-	+	"Ox;"
-	+	"Oyster;"
-	+	"Pangolin;"
-	+	"Peasant;"
-	+	"Pegasus;"
-	+	"Pentavite;"
-	+	"Performer;"
-	+	"Pest;"
-	+	"Phelddagrif;"
-	+	"Phoenix;"
-	+	"Phyrexian;"
-	+	"Pilot;"
-	+	"Pincher;"
-	+	"Pirate;"
-	+	"Plant;"
-	+	"Praetor;"
-	+	"Primarch;"
-	+	"Prism;"
-	+	"Processor;"
-	+	"Rabbit;"
-	+	"Raccoon;"
-	+	"Ranger;"
-	+	"Rat;"
-	+	"Rebel;"
-	+	"Reflection;"
-	+	"Rhino;"
-	+	"Rigger;"
-	+	"Robot;"
-	+	"Rogue;"
-	+	"Sable;"
-	+	"Salamander;"
-	+	"Samurai;"
-	+	"Sand;"
-	+	"Saproling;"
-	+	"Satyr;"
-	+	"Scarecrow;"
-	+	"Scientist;"
-	+	"Scion;"
-	+	"Scorpion;"
-	+	"Scout;"
-	+	"Sculpture;"
-	+	"Serf;"
-	+	"Serpent;"
-	+	"Servo;"
-	+	"Shade;"
-	+	"Shaman;"
-	+	"Shapeshifter;"
-	+	"Shark;"
-	+	"Sheep;"
-	+	"Siren;"
-	+	"Skeleton;"
-	+	"Slith;"
-	+	"Sliver;"
-	+	"Slug;"
-	+	"Snake;"
-	+	"Soldier;"
-	+	"Soltari;"
-	+	"Spawn;"
-	+	"Specter;"
-	+	"Spellshaper;"
-	+	"Sphinx;"
-	+	"Spider;"
-	+	"Spike;"
-	+	"Spirit;"
-	+	"Splinter;"
-	+	"Sponge;"
-	+	"Squid;"
-	+	"Squirrel;"
-	+	"Starfish;"
-	+	"Surrakar;"
-	+	"Survivor;"
-	+	"Tentacle;"
-	+	"Tetravite;"
-	+	"Thalakos;"
-	+	"Thopter;"
-	+	"Thrull;"
-	+	"Tiefling;"
-	+	"Time Lord;"
-	+	"Treefolk;"
-	+	"Trilobite;"
-	+	"Triskelavite;"
-	+	"Troll;"
-	+	"Turtle;"
-	+	"Tyranid;"
-	+	"Unicorn;"
-	+	"Vampire;"
-	+	"Vedalken;"
-	+	"Viashino;"
-	+	"Volver;"
-	+	"Wall;"
-	+	"Walrus;"
-	+	"Warlock;"
-	+	"Warrior;"
-	+	"Weird;"
-	+	"Werewolf;"
-	+	"Whale;"
-	+	"Wizard;"
-	+	"Wolf;"
-	+	"Wolverine;"
-	+	"Wombat;"
-	+	"Worm;"
-	+	"Wraith;"
-	+	"Wurm;"
-	+	"Yeti;"
-	+	"Zombie;"
-	+	"Zubera;";
-creature_races_statistic :=
-		"Aetherborn;"
-	+	"Alien;"
-	+	"Angel;"
-	+	"Antelope;"
-	+	"Ape;"
-	+	"Archon;"
-	+	"Assembly-Worker;"
-	+	"Astartes;"
-	+	"Atog;"
-	+	"Aurochs;"
-	+	"Avatar;"
-	+	"Azra;"
-	+	"Badger;"
-	+	"Balloon;"
-	+	"Basilisk;"
-	+	"Bat;"
-	+	"Bear;"
-	+	"Beast;"
-	+	"Beeble;"
-	+	"Beholder;"
-	+	"Bird;"
-	+	"Blinkmoth;"
-	+	"Boar;"
-	+	"Bringer;"
-	+	"Brushwagg;"
-	+	"C’tan;"
-	+	"Camarid;"
-	+	"Camel;"
-	+	"Caribou;"
-	+	"Carrier;"
-	+	"Cat;"
-	+	"Centaur;"
-	+	"Cephalid;"
-	+	"Chimera;"
-	+	"Cockatrice;"
-	+	"Construct;"
-	+	"Crab;"
-	+	"Crocodile;"
-	+	"Custodes;"
-	+	"Cyberman;"
-	+	"Cyclops;"
-	+	"Dalek;"
-	+	"Dauthi;"
-	+	"Demigod;"
-	+	"Demon;"
-	+	"Devil;"
-	+	"Dinosaur;"
-	+	"Djinn;"
-	+	"Dog;"
-	+	"Dragon;"
-	+	"Drake;"
-	+	"Dreadnought;"
-	+	"Drone;"
-	+	"Dryad;"
-	+	"Dwarf;"
-	+	"Egg;"
-	+	"Efreet;"
-	+	"Eldrazi;"
-	+	"Elemental;"
-	+	"Elephant;"
-	+	"Elf;"
-	+	"Elk;"
-	+	"Eye;"
-	+	"Faerie;"
-	+	"Ferret;"
-	+	"Fish;"
-	+	"Fox;"
-	+	"Fractal;"
-	+	"Frog;"
-	+	"Fungus;"
-	+	"Gargoyle;"
-	+	"Germ;"
-	+	"Giant;"
-	+	"Gith;"
-	+	"Gnoll;"
-	+	"Gnome;"
-	+	"Goat;"
-	+	"Goblin;"
-	+	"God;"
-	+	"Golem;"
-	+	"Gorgon;"
-	+	"Graveborn;"
-	+	"Gremlin;"
-	+	"Griffin;"
-	+	"Hag;"
-	+	"Halfling;"
-	+	"Hamster;"
-	+	"Harpy;"
-	+	"Hellion;"
-	+	"Hippo;"
-	+	"Hippogriff;"
-	+	"Homarid;"
-	+	"Homunculus;"
-	+	"Horror;"
-	+	"Horse;"
-	+	"Hound;"
-	+	"Human;"
-	+	"Hydra;"
-	+	"Hyena;"
-	+	"Illusion;"
-	+	"Imp;"
-	+	"Incarnation;"
-	+	"Inkling;"
-	+	"Insect;"
-	+	"Jackal;"
-	+	"Jellyfish;"
-	+	"Juggernaut;"
-	+	"Kavu;"
-	+	"Kirin;"
-	+	"Kithkin;"
-	+	"Kobold;"
-	+	"Kor;"
-	+	"Kraken;"
-	+	"Lamia;"
-	+	"Lammasu;"
-	+	"Leech;"
-	+	"Leviathan;"
-	+	"Lhurgoyf;"
-	+	"Licid;"
-	+	"Lizard;"
-	+	"Manticore;"
-	+	"Masticore;"
-	+	"Merfolk;"
-	+	"Metathran;"
-	+	"Minotaur;"
-	+	"Mite;"
-	+	"Mole;"
-	+	"Mongoose;"
-	+	"Monkey;"
-	+	"Moonfolk;"
-	+	"Mouse;"
-	+	"Mutant;"
-	+	"Myr;"
-	+	"Naga;"
-	+	"Nautilus;"
-	+	"Necron;"
-	+	"Nephilim;"
-	+	"Nightmare;"
-	+	"Nightstalker;"
-	+	"Noggle;"
-	+	"Nymph;"
-	+	"Octopus;"
-	+	"Ogre;"
-	+	"Ooze;"
-	+	"Orb;"
-	+	"Orc;"
-	+	"Orgg;"
-	+	"Otter;"
-	+	"Ouphe;"
-	+	"Ox;"
-	+	"Oyster;"
-	+	"Pangolin;"
-	+	"Pegasus;"
-	+	"Pentavite;"
-	+	"Pest;"
-	+	"Phelddagrif;"
-	+	"Phoenix;"
-	+	"Phyrexian;"
-	+	"Pincher;"
-	+	"Plant;"
-	+	"Praetor;"
-	+	"Primarch;"
-	+	"Prism;"
-	+	"Rabbit;"
-	+	"Raccoon;"
-	+	"Rat;"
-	+	"Reflection;"
-	+	"Rhino;"
-	+	"Robot;"
-	+	"Sable;"
-	+	"Salamander;"
-	+	"Sand;"
-	+	"Saproling;"
-	+	"Satyr;"
-	+	"Scarecrow;"
-	+	"Scorpion;"
-	+	"Sculpture;"
-	+	"Serpent;"
-	+	"Servo;"
-	+	"Shade;"
-	+	"Shapeshifter;"
-	+	"Shark;"
-	+	"Sheep;"
-	+	"Siren;"
-	+	"Skeleton;"
-	+	"Slith;"
-	+	"Sliver;"
-	+	"Slug;"
-	+	"Snake;"
-	+	"Soltari;"
-	+	"Spawn;"
-	+	"Specter;"
-	+	"Sphinx;"
-	+	"Spider;"
-	+	"Spike;"
-	+	"Spirit;"
-	+	"Splinter;"
-	+	"Sponge;"
-	+	"Squid;"
-	+	"Squirrel;"
-	+	"Starfish;"
-	+	"Surrakar;"
-	+	"Tentacle;"
-	+	"Tetravite;"
-	+	"Thalakos;"
-	+	"Thopter;"
-	+	"Thrull;"
-	+	"Tiefling;"
-	+	"Time Lord;"
-	+	"Treefolk;"
-	+	"Trilobite;"
-	+	"Triskelavite;"
-	+	"Troll;"
-	+	"Turtle;"
-	+	"Tyranid;"
-	+	"Unicorn;"
-	+	"Vampire;"
-	+	"Vedalken;"
-	+	"Viashino;"
-	+	"Volver;"
-	+	"Wall;"
-	+	"Walrus;"
-	+	"Weird;"
-	+	"Werewolf;"
-	+	"Whale;"
-	+	"Wolf;"
-	+	"Wolverine;"
-	+	"Wombat;"
-	+	"Worm;"
-	+	"Wraith;"
-	+	"Wurm;"
-	+	"Yeti;"
-	+	"Zombie;"
-	+	"Zubera;";
-creature_classes_statistic :=
-		"Advisor;"
-	+	"Ally;"
-	+	"Archer;"
-	+	"Archon;"
-	+	"Army;"
-	+	"Artificer;"
-	+	"Assassin;"
-	+	"Barbarian;"
-	+	"Bard;"
-	+	"Beast;"
-	+	"Berserker;"
-	+	"Bringer;"
-	+	"Carrier;"
-	+	"Child;"
-	+	"Citizen;"
-	+	"Cleric;"
-	+	"Clown;"
-	+	"Coward;"
-	+	"Deserter;"
-	+	"Detective;"
-	+	"Doctor;"
-	+	"Dreadnought;"
-	+	"Drone;"
-	+	"Druid;"
-	+	"Egg;"
-	+	"Elder;"
-	+	"Employee;"
-	+	"Flagbearer;"
-	+	"Gamer;"
-	+	"Guest;"
-	+	"Horror;"
-	+	"Incarnation;"
-	+	"Inquisitor;"
-	+	"Juggernaut;"
-	+	"Knight;"
-	+	"Leviathan;"
-	+	"Lord;"
-	+	"Mercenary;"
-	+	"Minion;"
-	+	"Monger;"
-	+	"Monk;"
-	+	"Mutant;"
-	+	"Mystic;"
-	+	"Ninja;"
-	+	"Noble;"
-	+	"Nomad;"
-	+	"Peasant;"
-	+	"Performer;"
-	+	"Pilot;"
-	+	"Pirate;"
-	+	"Processor;"
-	+	"Ranger;"
-	+	"Rebel;"
-	+	"Reflection;"
-	+	"Rigger;"
-	+	"Rogue;"
-	+	"Samurai;"
-	+	"Scientist;"
-	+	"Scion;"
-	+	"Scout;"
-	+	"Serf;"
-	+	"Shaman;"
-	+	"Skeleton;"
-	+	"Soldier;"
-	+	"Spawn;"
-	+	"Spellshaper;"
-	+	"Spirit;"
-	+	"Survivor;"
-	+	"Thopter;"
-	+	"Vampire;"
-	+	"Warlock;"
-	+	"Warrior;"
-	+	"Werewolf;"
-	+	"Wizard;"
-	+	"Zombie;";
+land_subtypes_statistic := {
+	basics := lang_setting("word_lists_basic")
+	list := lang_setting("word_list_land") + ","
+		+ basics.0 + ","
+		+ basics.1 + ","
+		+ basics.2 + ","
+		+ basics.3 + ","
+		+ basics.4 + ","
+	replace_commas_statistic(clean_subtypes_statistic(list))
+}
+artifact_subtypes_statistic := {
+	replace_commas_statistic(clean_subtypes_statistic(lang_setting("word_list_artifact"))) + ";"
+}
+enchantment_subtypes_statistic := {
+	replace_commas_statistic(clean_subtypes_statistic(lang_setting("word_list_enchantment"))) + ";"
+}
+planeswalker_subtypes_statistic := {
+	replace_commas_statistic(clean_subtypes_statistic(lang_setting("word_list_planeswalker"))) + ";"
+}
+battle_subtypes_statistic := {
+	replace_commas_statistic(clean_subtypes_statistic(lang_setting("word_list_battle"))) + ";"
+}
+spell_subtypes_statistic := {
+	replace_commas_statistic(clean_subtypes_statistic(lang_setting("word_list_spell"))) + ";"
+}
+dungeon_subtypes_statistic := {
+	replace_commas_statistic(clean_subtypes_statistic(lang_setting("word_list_dungeon"))) + ";"
+}
+plane_subtypes_statistic := {
+	list := for each submenu in lang_setting("word_lists_plane") do submenu + ",";
+	replace_commas_statistic(clean_subtypes_statistic(list))
+}
+creature_races_statistic := {
+	list := for each submenu in lang_setting("word_lists_race") do submenu + ",";
+	replace_commas_statistic(clean_subtypes_statistic(list))
+}
+creature_classes_statistic := {
+	list := for each submenu in lang_setting("word_lists_class") do submenu + ",";
+	replace_commas_statistic(clean_subtypes_statistic(list))
+}
+creature_subtypes_statistic := {
+	creature_races_statistic() + creature_classes_statistic()
+}
 
 format_number_statistic :=
 {
