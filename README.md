@@ -14,6 +14,6 @@ Pack containing most all public Magic templates for MSE.
 5. Move or copy all other subfolders into your MSE folder.
 
 # CardConjurer
-Some template images are provided by [CardConjurer](https://cardconjurer.com/):
+Some showcase template images are provided by [CardConjurer](https://cardconjurer.com/):
 
-Praetor Showcase, JP Mystical Archive, PT Box for Mystical Archives
+Innistrad Double Feature, New Capenna Golden Age, New Capenna Art Deco, New Capenna Skyscraper, Praetor, JP Mystical Archive, PT Box for Mystical Archives
