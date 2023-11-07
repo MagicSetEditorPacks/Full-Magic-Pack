@@ -159,6 +159,7 @@ color_identity_statistic :=
 	if total_colors == "" then "C" else total_colors
 }
 
+# TODO localize
 cda_to_color_statistic :=
 {
 	if input == "" then "" else (
@@ -352,7 +353,7 @@ activated_cost_filter_statistic :=
 	break_text@(match: "(\n|^)[^(\n|^)]+?:")													#Keep only activated ability costs
 triggered_cost_filter_statistic :=
 	replace@(match: "<[^>]*\\.[^>]*>", replace: "") +											#Remove tags with . inside them
-	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs
+	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs # TODO localize
 keyword_cost_filter_statistic :=
 	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
 
@@ -415,13 +416,15 @@ colored_pips_count_statistic :=
 # Count how many cards can produce white mana in the set. Repeat for other colors.
 mana_production_list_statistic :=
 {
-	result_1 :=	if		check_type == "land" and not contains(card.super_type, match: "Land") and not contains(card.super_type, match: "land")		then	""
-				else if	check_type == "nonland" and (contains(card.super_type, match: "Land") or contains(card.super_type, match: "land"))			then	""
-				else																																		face_mana_production_list_statistic(texts: text_to_check_statistic(card: card), card: card, sub: card.sub_type)
-	result_2 :=	if not check_2_statistic(card: card)																								then	""
-				else if	check_type == "land" and not contains(card.super_type_2, match: "Land") and not contains(card.super_type_2, match: "land")	then	""
-				else if	check_type == "nonland" and (contains(card.super_type_2, match: "Land") or contains(card.super_type_2, match: "land"))		then	""
-				else																																		face_mana_production_list_statistic(texts: text_to_check_2_statistic(card: card), card: card, sub: card.sub_type_2)
+	land1 := lang_setting("is_land")(card.super_type)
+	land2 := lang_setting("is_land")(card.super_type_2)
+	result_1 :=	if		check_type == "land" and not land1		then	""
+				else if	check_type == "nonland" and land1		then	""
+				else											face_mana_production_list_statistic(texts: text_to_check_statistic(card: card), card: card, sub: card.sub_type)
+	result_2 :=	if not check_2_statistic(card: card)			then	""
+				else if	check_type == "land" and not land2		then	""
+				else if	check_type == "nonland" and land2		then	""
+				else											face_mana_production_list_statistic(texts: text_to_check_2_statistic(card: card), card: card, sub: card.sub_type_2)
 	substring(result_1 + result_2, begin: 1)
 }
 face_mana_production_list_statistic :=
@@ -439,6 +442,7 @@ face_mana_production_list_statistic :=
 	can_C)
 }
 
+# TODO localize
 match_add_W_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*W[^<]*<")
 match_add_U_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*U[^<]*<")
 match_add_B_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*B[^<]*<")
@@ -593,10 +597,7 @@ land_drop_hit_percentage_statistic :=
 	
 	land_count := for each c in cards do
 	(
-		if		contains(c.super_type, match: "Land")
-			or	contains(c.super_type, match: "land")
-			or	(check_2_statistic(card: c) and (contains(c.super_type_2, match: "Land") or contains(c.super_type_2, match: "land")))
-		then 1
+		if lang_setting("is_land")(c.super_type) or	(check_2_statistic(card: c) and lang_setting("is_land")(c.super_type_2)) then 1
 		else 0
 	)
 	if land_count == 0 then "No lands found. 0% chance to hit land drops." else (
@@ -639,14 +640,14 @@ average_opening_hand_statistic :=
 {
 	averages := split_text(set.global_variable_average_opening_hand, match: ";")
 	if length(averages) != 9 then set.global_variable_average_opening_hand else (
-	types :=	[has_type_statistic("Land")] +
-				(if has_type_statistic("Artifact") then (if mana_production_list_statistic(check_type: "nonland") == "" then [false, true] else [true, false]) else [false, false]) +
-				[has_type_statistic("Enchantment")] +
-				[has_type_statistic("Planeswalker")] +
-				[has_type_statistic("Battle")] +
-				[has_type_statistic("Creature")] +
-				[has_type_statistic("Sorcery")] +
-				[has_type_statistic("Instant")]
+	types :=	[has_type_statistic("land")] +
+				(if has_type_statistic("artifact") then (if mana_production_list_statistic(check_type: "nonland") == "" then [false, true] else [true, false]) else [false, false]) +
+				[has_type_statistic("enchantment")] +
+				[has_type_statistic("planeswalker")] +
+				[has_type_statistic("battle")] +
+				[has_type_statistic("creature")] +
+				[has_type_statistic("sorcery")] +
+				[has_type_statistic("instant")]
 	result := for x from 0 to 8 do (if types[x] then averages[x] else "")
 	substring(result, begin: 1))
 }
@@ -672,14 +673,14 @@ global_variable_average_opening_hand_statistic :=
 	for x from 0 to card_count do
 	(
 		c := cards[x]
-		if has_type_statistic(card:c, "Land") then lands := lands + 1
-		if has_type_statistic(card:c, "Artifact") then (if mana_production_list_statistic(card: c, check_type: "nonland") == "" then (nonmanaartifacts := nonmanaartifacts + 1) else (manaartifacts := manaartifacts + 1))
-		if has_type_statistic(card:c, "Enchantment") then enchantments := enchantments + 1
-		if has_type_statistic(card:c, "Planeswalker") then planeswalkers := planeswalkers + 1
-		if has_type_statistic(card:c, "Battle") then battles := battles + 1
-		if has_type_statistic(card:c, "Creature") then creatures := creatures + 1
-		if has_type_statistic(card:c, "Sorcery") then sorceries := sorceries + 1
-		if has_type_statistic(card:c, "Instant") then instants := instants + 1
+		if has_type_statistic(card:c, "land") then lands := lands + 1
+		if has_type_statistic(card:c, "artifact") then (if mana_production_list_statistic(card: c, check_type: "nonland") == "" then (nonmanaartifacts := nonmanaartifacts + 1) else (manaartifacts := manaartifacts + 1))
+		if has_type_statistic(card:c, "enchantment") then enchantments := enchantments + 1
+		if has_type_statistic(card:c, "planeswalker") then planeswalkers := planeswalkers + 1
+		if has_type_statistic(card:c, "battle") then battles := battles + 1
+		if has_type_statistic(card:c, "creature") then creatures := creatures + 1
+		if has_type_statistic(card:c, "sorcery") then sorceries := sorceries + 1
+		if has_type_statistic(card:c, "instant") then instants := instants + 1
 	)
 	
 	lands_average := format_average_statistic(7.0 * to_number(lands) / card_count_real)
@@ -715,10 +716,10 @@ format_average_statistic :=
 # Rarities.
 rarity_statistic :=
 {
-	if		card.shape == "Token" or card.shape == "token" or contains(card.super_type, match: "Token") or contains(card.super_type, match: "token") then "token"
-	else if	(contains(card.super_type, match: "Land") or contains(card.super_type, match: "land")) and (contains(card.super_type, match: "Basic") or contains(card.super_type, match: "basic")) then "basic land"	#There is an EN space in this string
-	else if	card.rarity == "basic land" then "basic land"	#There is an EN space in this string
-	else if	card.rarity == "mythic rare" then "mythic rare"		#There is an EN space in this string
+	if		card.shape == "Token" or card.shape == "token" or lang_setting("is_token")(card.super_type) then "token"
+	else if	lang_setting("is_land")(card.super_type) and lang_setting("is_basic")(card.super_type) 		then "basic land"	#There is an EN space in this string
+	else if	card.rarity == "basic land" 																then "basic land"	#There is an EN space in this string
+	else if	card.rarity == "mythic rare" 																then "mythic rare"		#There is an EN space in this string
 	else card.rarity
 }
 
@@ -750,24 +751,17 @@ permanent_statistic :=
 }
 face_permanent_statistic :=
 {
-	if		input == ""																			then	""
-	else if	contains(input, match: "Creature")		or contains(input, match: "creature")		then	",​Creature"
-	else if	contains(input, match: "Artifact")		or contains(input, match: "artifact")
-	or		contains(input, match: "Enchantment")	or contains(input, match: "enchantment")
-	or		contains(input, match: "Land")			or contains(input, match: "land")
-	or		contains(input, match: "Hero")			or contains(input, match: "hero")
-	or		contains(input, match: "Planeswalker")	or contains(input, match: "planeswalker")
-	or		contains(input, match: "Battle")		or contains(input, match: "battle")			then	",​​Permanent"
-	else if	contains(input, match: "Sorcery")		or contains(input, match: "sorcery")
-	or		contains(input, match: "Instant")		or contains(input, match: "instant")		then	",​​​Non Permanent"
-	else if	contains(input, match: "Emblem")		or contains(input, match: "emblem")
-	or		contains(input, match: "Conspiracy")	or contains(input, match: "conspiracy")
-	or		contains(input, match: "Dungeon")		or contains(input, match: "dungeon")
-	or		contains(input, match: "Phenomenon")	or contains(input, match: "phenomenon")
-	or		match_plane_statistic(input)
-	or		contains(input, match: "Scheme")		or contains(input, match: "scheme")
-	or		contains(input, match: "Vanguard")		or contains(input, match: "vanguard")		then	",​​​​Command Zone"
-	else																								",​​​​​Unknown"
+	if		input == ""									then	""
+	else if	lang_setting("is_creature")(input)			then	",​Creature"
+	else if	lang_setting("is_artifact")(input)
+	or		lang_setting("is_enchantment")(input)
+	or		lang_setting("is_land")(input)
+	or		lang_setting("is_hero")(input)
+	or		lang_setting("is_planeswalker")(input)
+	or		lang_setting("is_battle")(input)			then	",​​Permanent"
+	else if	lang_setting("is_spell")(input)				then	",​​​Non Permanent"
+	else if	lang_setting("is_nonstandard")(input)		then	",​​​​Command Zone"
+	else														",​​​​​Unknown"
 }
 
 # Types.
@@ -784,14 +778,14 @@ face_supertype_statistic :=
 	for x from 0 to count do
 	(
 		type := supertypes[x]
-		if		type == "Basic"		or type == "basic"							then	",​Basic"			# There is a zero width space after the comma in ",Basic" so that it always appears first.
-		else if	type == "Snow"		or type == "snow"							then	",​​Snow"				# There are two zero width spaces after the comma in ",Snow" so that it always appears second.
-		else if	type == "World"		or type == "world"							then	",​​​World"			# Etc...
-		else if	type == "Legendary"	or type == "legendary"						then	",​​​​Legendary"
-		else if	type == "Token"		or type == "token"							then	",​​​​​Token"
-		else if	type == "Ongoing"	or type == "ongoing"						then	",​​​​​​Ongoing"
-		else if	type == "Elite"		or type == "elite"							then	",​​​​​​​Elite"
-		else if	type == "Host"		or type == "host"							then	",​​​​​​​​Host"
+		if		lang_setting("is_basic")(type)							then	",​Basic"			# There is a zero width space after the comma in ",Basic" so that it always appears first.
+		else if	lang_setting("is_snow")(type)							then	",​​Snow"				# There are two zero width spaces after the comma in ",Snow" so that it always appears second.
+		else if	lang_setting("is_world")(type)							then	",​​​World"			# Etc...
+		else if	lang_setting("is_legendary")(type)						then	",​​​​Legendary"
+		else if	lang_setting("is_token")(type)							then	",​​​​​Token"
+		else if	lang_setting("is_ongoing")(type)						then	",​​​​​​Ongoing"
+		else if	lang_setting("is_elite")(type)							then	",​​​​​​​Elite"
+		else if	lang_setting("is_host")(type)							then	",​​​​​​​​Host"
 		else if contains_element_statistic(custom_supertypes, element: type)	then	("," + type)
 		else																			""
 	)
@@ -836,42 +830,43 @@ face_type_extended_statistic :=
 		type := old_types[x]
 		if		type == ""														then	""
 		else if	contains_element_statistic(custom_supertypes, element: type)	then	""
-		else if	is_canon_supertype_statistic(type)								then	""
-		else if	type == "Land"			or type == "land"						then	",​Land"				# There is a zero width space after the comma in ",Land" so that it always appears after custom types.
-		else if	type == "Creature"		or type == "creature"					then	",​​Creature"			# There are two zero width spaces after the comma in ",Creature" so that it always appears after lands.
-		else if	type == "Tribal"		or type == "tribal"						then	",​​​Kindred"			# There are three zero width spaces after the comma in ",Kindred", etc...
-		else if	type == "Kindred"		or type == "kindred"					then	",​​​Kindred"
-		else if	type == "Artifact"		or type == "artifact"					then	",​​​​Artifact"
-		else if	type == "Enchantment"	or type == "enchantment"				then	",​​​​​Enchantment"
-		else if	type == "Emblem"		or type == "emblem"						then	",​​​​​​Emblem"
-		else if	type == "Planeswalker"	or type == "planeswalker"				then	",​​​​​​​Planeswalker"
-		else if	type == "Battle"		or type == "battle"						then	",​​​​​​​​Battle"
-		else if	type == "Sorcery"		or type == "sorcery"					then	",​​​​​​​​​Sorcery"
-		else if	type == "Instant"		or type == "instant"					then	",​​​​​​​​​​Instant"
-		else if	type == "Conspiracy"	or type == "conspiracy"					then	",​​​​​​​​​​​Conspiracy"
-		else if	type == "Dungeon"		or type == "dungeon"					then	",​​​​​​​​​​​​Dungeon"
-		else if	type == "Hero"			or type == "hero"						then	",​​​​​​​​​​​​​Hero"
-		else if	type == "Phenomenon"	or type == "phenomenon"					then	",​​​​​​​​​​​​​​Phenomenon"
-		else if	match_plane_statistic(type)										then	",​​​​​​​​​​​​​​​Plane"
-		else if	type == "Scheme"		or type == "scheme"						then	",​​​​​​​​​​​​​​​​Scheme"
-		else if	type == "Vanguard"		or type == "vanguard"					then	",​​​​​​​​​​​​​​​​​Vanguard"
-		else																			("," + type)
+		else if	lang_setting("has_supertype")(type)								then	""
+		else if	lang_setting("is_land")(type)						then	",​Land"				# There is a zero width space after the comma in ",Land" so that it always appears after custom types.
+		else if	lang_setting("is_creature")(type)					then	",​​Creature"			# There are two zero width spaces after the comma in ",Creature" so that it always appears after lands.
+		else if	lang_setting("is_kindred")(type)					then	",​​​Kindred"			# There are three zero width spaces after the comma in ",Kindred", etc...
+		else if	lang_setting("is_artifact")(type)					then	",​​​​Artifact"
+		else if	lang_setting("is_enchantment")(type)				then	",​​​​​Enchantment"
+		else if	lang_setting("is_emblem")(type)						then	",​​​​​​Emblem"
+		else if	lang_setting("is_planeswalker")(type)				then	",​​​​​​​Planeswalker"
+		else if	lang_setting("is_battle")(type)						then	",​​​​​​​​Battle"
+		else if	lang_setting("is_sorcery")(type)					then	",​​​​​​​​​Sorcery"
+		else if	lang_setting("is_instant")(type)					then	",​​​​​​​​​​Instant"
+		else if	lang_setting("is_conspiracy")(type)					then	",​​​​​​​​​​​Conspiracy"
+		else if	lang_setting("is_dungeon")(type)					then	",​​​​​​​​​​​​Dungeon"
+		else if	lang_setting("is_hero")(type)						then	",​​​​​​​​​​​​​Hero"
+		else if	lang_setting("is_phenomenon")(type)					then	",​​​​​​​​​​​​​​Phenomenon"
+		else if	lang_setting("is_plane")(type)						then	",​​​​​​​​​​​​​​​Plane"
+		else if	lang_setting("is_scheme")(type)						then	",​​​​​​​​​​​​​​​​Scheme"
+		else if	lang_setting("is_vanguard")(type)					then	",​​​​​​​​​​​​​​​​​Vanguard"
+		else																("," + type)
 	)
 	if new_types == nil then "" else new_types
 }
-is_canon_supertype_statistic :=
-{
-	match(input, match:"(?i)^(Legendary|Basic|Snow|Token|World|Ongoing|Elite|Host)$")
-}
+
 custom_supertype_statistic := split_text@(input: set.custom_super_types, match: " ?, ?", include_empty: false)
+
+#has_type_statistic :=
+#{
+#	lower_input := to_lower(input)
+#	contains(card.type, match: input) or
+#	contains(card.type, match: lower_input) or
+#	(check_2_statistic(card:card) and (contains(card.type_2, match: input) or contains(card.type_2, match: lower_input)))
+#}
 has_type_statistic :=
 {
-	lower_input := to_lower(input)
-	contains(card.type, match: input) or
-	contains(card.type, match: lower_input) or
-	(check_2_statistic(card:card) and (contains(card.type_2, match: input) or contains(card.type_2, match: lower_input)))
+	type := card.type + (if check_2_statistic(card:card) then " " + card.type_2 else "")
+	lang_setting("is_"+input)(type)
 }
-match_plane_statistic := match@(match: "(?i)Plane(?!swalker)")
 
 combined_subtype_statistic :=
 {
@@ -901,11 +896,17 @@ detect_custom_creature_subtypes_statistic :=
 	count := length(result)-2
 	if count == -2 then "" else (for x from 0 to count do result[x] + ", ") + result[count+1]
 }
+
 face_detect_custom_creature_subtypes_statistic :=
 {
-	types := remove_supertypes_statistic(super)
-	if types == "Creature" or types == "creature" then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
+	if lang_setting("is_creature")(super) then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
 }
+#face_detect_custom_creature_subtypes_statistic :=
+#{
+#	types := remove_supertypes_statistic(super)
+#	if types == "Creature" or types == "creature" then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
+#}
+# TODO none of this is needed?
 remove_legendary_statistic := replace@(match: "[Ll]egendary", replace: "")
 remove_basic_statistic := replace@(match: "[Bb]asic", replace: "")
 remove_snow_statistic := replace@(match: "[Ss]now", replace: "")
@@ -932,6 +933,7 @@ remove_supertypes_statistic :=	to_text +
 								remove_host_statistic +
 								remove_custom_supertypes_statistic +
 								trim
+# TODO none of that is needed?
 
 creature_subtype_statistic :=
 {
@@ -1000,24 +1002,23 @@ face_noncreature_subtype_statistic :=
 		subtypesc := subtype + ";"
 		if subtype == ""																			then	""
 		else if contains(custom_creature_subtypes, match: subtypesc)								then	""
-		else if contains(creature_subtypes_statistic(), match: subtypesc)								then	""
-		else if contains(land_subtypes_statistic(), match: subtypesc)									then	(",​" + subtype)	# There is a zero width space after the comma so that land subtypes always appear after custom subtypes.
-		else if contains(artifact_subtypes_statistic(), match: subtypesc)								then	(",​​" + subtype)	# There are two zero width spaces after the comma so that artifact subtypes always appear after land subtypes, etc...
-		else if contains(enchantment_subtypes_statistic(), match: subtypesc)							then	(",​​​" + subtype)
-		else if contains(planeswalker_subtypes_statistic(), match: subtypesc)							then	(",​​​​" + subtype)
+		else if contains(creature_subtypes_statistic(), match: subtypesc)							then	""
+		else if contains(land_subtypes_statistic(), match: subtypesc)								then	(",​" + subtype)	# There is a zero width space after the comma so that land subtypes always appear after custom subtypes.
+		else if contains(artifact_subtypes_statistic(), match: subtypesc)							then	(",​​" + subtype)	# There are two zero width spaces after the comma so that artifact subtypes always appear after land subtypes, etc...
+		else if contains(enchantment_subtypes_statistic(), match: subtypesc)						then	(",​​​" + subtype)
+		else if contains(planeswalker_subtypes_statistic(), match: subtypesc)						then	(",​​​​" + subtype)
 		else if contains(battle_subtypes_statistic(), match: subtypesc)								then	(",​​​​​" + subtype)
 		else if contains(spell_subtypes_statistic(), match: subtypesc)								then	(",​​​​​​" + subtype)
-		else if contains(dungeon_subtypes_statistic(), match: subtypesc)								then	(",​​​​​​​" + subtype)
+		else if contains(dungeon_subtypes_statistic(), match: subtypesc)							then	(",​​​​​​​" + subtype)
 		else if contains(plane_subtypes_statistic(), match: subtypesc)								then	(",​​​​​​​​" + subtype)
-		else if contains(super, match: "Planeswalker")	or contains(super, match: "planeswalker")	then	(",​​​​" + subtype)
-		else if contains(super, match: "Artifact")		or contains(super, match: "artifact")		then	(",​​" + subtype)
-		else if contains(super, match: "Enchantment")	or contains(super, match: "enchantment")	then	(",​​​" + subtype)
-		else if contains(super, match: "Land")			or contains(super, match: "land")			then	(",​" + subtype)
-		else if contains(super, match: "Sorcery")		or contains(super, match: "sorcery")
-			or	contains(super, match: "Instant")		or contains(super, match: "instant")		then	(",​​​​​​" + subtype)
-		else if contains(super, match: "Battle")		or contains(super, match: "battle")			then	(",​​​​​" + subtype)
-		else if contains(super, match: "Dungeon")		or contains(super, match: "dungeon")		then	(",​​​​​​​" + subtype)
-		else if match_plane_statistic(super)														then	(",​​​​​​​​" + subtype)
+		else if lang_setting("is_planeswalker")(super) or lang_setting("is_emblem")(super)			then	(",​​​​" + subtype)
+		else if lang_setting("is_artifact")(super)													then	(",​​" + subtype)
+		else if lang_setting("is_enchantment")(super)												then	(",​​​" + subtype)
+		else if lang_setting("is_land")(super)														then	(",​" + subtype)
+		else if lang_setting("is_spell")(super)														then	(",​​​​​​" + subtype)
+		else if lang_setting("is_battle")(super)													then	(",​​​​​" + subtype)
+		else if lang_setting("is_dungeon")(super)													then	(",​​​​​​​" + subtype)
+		else if lang_setting("is_plane")(super)														then	(",​​​​​​​​" + subtype)
 		else																								("," + subtype)
 	)
 	if new_subtypes == nil then "" else new_subtypes)
@@ -1109,17 +1110,17 @@ toughness_statistic :=
 }
 loyalty_statistic :=
 {
-	result_1 := if contains(card.super_type, match: "Planeswalker") or contains(card.super_type, match: "planeswalker") or contains(card.shape, match: "planeswalker") then trim(to_text(card.loyalty)) else ""
+	result_1 := if lang_setting("is_planeswalker")(card.super_type) or contains(card.shape, match: "planeswalker") then trim(to_text(card.loyalty)) else ""
 	result_1 := format_number_statistic(result_1)
-	result_2 := if check_2_statistic() and (contains(card.super_type_2, match: "Planeswalker") or contains(card.super_type_2, match: "planeswalker")) then trim(to_text(card.loyalty_2)) else ""
+	result_2 := if check_2_statistic() and lang_setting("is_planeswalker")(card.super_type_2) then trim(to_text(card.loyalty_2)) else ""
 	result_2 := format_number_statistic(result_2)
 	substring(result_1+result_2, begin: 1)
 }
 defense_statistic :=
 {
-	result_1 := if contains(card.super_type, match: "Battle") or contains(card.super_type, match: "battle") or contains(card.shape, match: "battle") then trim(to_text(card.loyalty)) else ""
+	result_1 := if lang_setting("is_battle")(card.super_type) then trim(to_text(card.loyalty)) else ""
 	result_1 := format_number_statistic(result_1)
-	result_2 := if check_2_statistic() and (contains(card.super_type_2, match: "Battle") or contains(card.super_type_2, match: "battle")) then trim(to_text(card.loyalty_2)) else ""
+	result_2 := if check_2_statistic() and lang_setting("is_battle")(card.super_type_2) then trim(to_text(card.loyalty_2)) else ""
 	result_2 := format_number_statistic(result_2)
 	substring(result_1+result_2, begin: 1)
 }
@@ -1137,6 +1138,7 @@ check_2_statistic :=
 }
 
 # Should we check the card.rule_text_X fields, or the card.level_X_text fields?
+# TODO this is gonna need tweaked once we have Urza, Planeswalker support
 text_to_check_statistic :=
 {
 	if contains(card.shape, match: "double faced") then
@@ -1393,23 +1395,7 @@ trim_from_statistic :=
 		or	card.shape == "emblem"
 		or	card.rarity == "special"
 		or	card.rarity == "masterpiece"
-		or	contains(card.type, match: "token")
-		or	contains(card.type, match: "Token")
-		or	contains(card.type, match: "emblem")
-		or	contains(card.type, match: "Emblem")
-		or	contains(card.type, match: "dungeon")
-		or	contains(card.type, match: "Dungeon")
-		or	contains(card.type, match: "hero")
-		or	contains(card.type, match: "Hero")
-		or	contains(card.type, match: "conspiracy")
-		or	contains(card.type, match: "Conspiracy")
-		or	contains(card.type, match: "vanguard")
-		or	contains(card.type, match: "Vanguard")
-		or	contains(card.type, match: "scheme")
-		or	contains(card.type, match: "Scheme")
-		or	contains(card.type, match: "phenomenon")
-		or	contains(card.type, match: "Phenomenon")
-		or	match_plane_statistic(card.type)
+		or  lang_setting("is_nonstandard")(card.type)
 	)
 	else false
 }
@@ -1421,23 +1407,7 @@ trim_from_draw_statistic :=
 		or	(set.trim_statistics and (card.rarity == "special" or card.rarity == "masterpiece"))
 		or	card.shape == "token"
 		or	card.shape == "emblem"
-		or	contains(card.type, match: "token")
-		or	contains(card.type, match: "Token")
-		or	contains(card.type, match: "emblem")
-		or	contains(card.type, match: "Emblem")
-		or	contains(card.type, match: "Hero")
-		or	contains(card.type, match: "hero")
-		or	contains(card.type, match: "dungeon")
-		or	contains(card.type, match: "Dungeon")
-		or	contains(card.type, match: "conspiracy")
-		or	contains(card.type, match: "Conspiracy")
-		or	contains(card.type, match: "vanguard")
-		or	contains(card.type, match: "Vanguard")
-		or	contains(card.type, match: "scheme")
-		or	contains(card.type, match: "Scheme")
-		or	contains(card.type, match: "phenomenon")
-		or	contains(card.type, match: "Phenomenon")
-		or	match_plane_statistic(card.type)
+		or	lang_setting("is_nonstandard")(card.type)
 		or	filter_from_statistic(card: card) == "Filtered"
 }
 
