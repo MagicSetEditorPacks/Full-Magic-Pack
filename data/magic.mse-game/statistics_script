@@ -55,6 +55,8 @@ space_prefix :=
 	UBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
 	WUBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
 ]
+remove_zero_width_spaces_statistic := replace@(match: "​", replace: "")
+replace_en_spaces_statistic := replace@(match: " ", replace: " ")
 
 # The casting cost
 casting_cost_statistic :=
@@ -1347,10 +1349,26 @@ filter_from_statistic :=
 		field :=		if		key == "artist" then			card.illustrator
 						else if	key == "artist_2"
 							or	key == "artist 2" then			card.illustrator_2
+						else if	key == "template" then			stylesheet.short_name
+						else if	key == "color_category"
+							or	key == "color category" then	primary_card_color(card.card_color)
 						else if	key == "color"
-							or	key == "colors" then			color_statistic()
+							or	key == "colors"
+							or	key == "exact_color"
+							or	key == "exact color"
+							or	key == "exact_colors"
+							or	key == "exact colors" then		color_statistic()
 						else if	key == "color_identity"
 							or	key == "color identity" then	color_identity_statistic()
+						else if	key == "color_count"
+							or	key == "color count" then		color_count_statistic()
+						else if	key == "color_identity_count"
+							or	key == "color identity count" then	color_identity_count_statistic()
+						else if	key == "mana_production"
+							or	key == "mana production"
+							or	key == "all_mana_production"
+							or	key == "all mana_production" then	mana_production_list_statistic(check_type: "all")
+						else if	key == "permanent/non" then		replace_en_spaces_statistic(remove_zero_width_spaces_statistic(permanent_statistic()))
 						else if	key == "mana_value"
 							or	key == "mana value"
 							or	key == "cmc" then				cmc(card.casting_cost)
@@ -1371,6 +1389,10 @@ filter_from_statistic :=
 						else if	key == "subtype" then			card.sub_type
 						else if	key == "subtype_2"
 							or	key == "subtype 2" then			card.sub_type_2
+						else if	key == "word_count"
+							or	key == "word count" then		total_word_count_statistic()
+						else if	key == "paragraph_count"
+							or	key == "paragraph count" then	total_paragraph_count_statistic()
 						else if	key == "card_notes"
 							or	key == "card notes"
 							or	key == "sorted_notes"
@@ -1383,7 +1405,7 @@ filter_from_statistic :=
 																	if mode == "==" or mode == "!=" then	colors
 																	else									(field := sort_text(field, order:colors); colors))
 						else									remove_quotes_statistic(initial_filters[x])
-		fields := fields + [escape_quotes_field_statistics(replace_squote_statistic(field))]
+		fields := fields + [field]
 		filters := filters + [filter]
 		keys := keys + [key]
 		modes := modes + [mode]
@@ -1393,7 +1415,7 @@ filter_from_statistic :=
 	(
 		if message == "Kept" or message == "Filtered" then (
 		if fields[x] == nil then message := "!! Could not find card field named [ " + keys[x] + " ] !!" else (
-		field := trim(remove_tags(fields[x]))
+		field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))
 		filter := filters[x]
 		key := keys[x]
 		mode := modes[x]
@@ -1416,7 +1438,7 @@ unescape_quotes_filter_statistics := replace@(match: "\\[\\[quoteescape\\]\\]", 
 escape_quotes_filter_statistics := replace@(match: "(\\\\\")|“|”", replace: "[[quoteescape]]")
 escape_quotes_field_statistics := replace@(match: "(\\\")|“|”", replace: "[[quoteescape]]")
 get_filter_values_statistic := trim + break_text@(match: "\"[^\"]*\"")
-get_filter_keys_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + replace@(match: "=:|!:|==|!=|\<=|>=", replace: "") + split_text@(match: ", ?")
+get_filter_keys_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + replace@(match: "=:|!:|==|!=|\<=|>=", replace: "") + to_lower + split_text@(match: ", ?")
 get_filter_modes_statistic := trim + replace@(match: "\"[^\"]*\"", replace: "") + break_text@(match: "=:|!:|==|!=|\<=|>=")
 distil_color_filter_statistic :=
 {
