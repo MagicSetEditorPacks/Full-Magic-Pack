@@ -832,7 +832,7 @@ face_type_extended_statistic :=
 		type := old_types[x]
 		if		type == ""														then	""
 		else if	contains_element_statistic(custom_supertypes, element: type)	then	""
-		else if	lang_setting("has_supertype")(type)								then	""
+		else if	lang_setting("get_supertypes")(type) != ""						then	""
 		else if	lang_setting("is_land")(type)						then	",​Land"				# There is a zero width space after the comma in ",Land" so that it always appears after custom types.
 		else if	lang_setting("is_creature")(type)					then	",​​Creature"			# There are two zero width spaces after the comma in ",Creature" so that it always appears after lands.
 		else if	lang_setting("is_kindred")(type)					then	",​​​Kindred"			# There are three zero width spaces after the comma in ",Kindred", etc...
@@ -879,6 +879,96 @@ combined_subtype_statistic :=
 
 detect_custom_creature_subtypes_statistic :=
 {
+	all_sub_types := []
+	creature_hard := []
+	artifact_hard := []
+	enchantment_hard := []
+	land_hard := []
+	noncreature_hard := []
+	creature_soft := []
+	
+	for each c in set do (
+		# don't filter second card here
+		subtypes := [face_detect_custom_subtypes_statistic(c.sub_type),
+					face_detect_custom_subtypes_statistic(c.sub_type_2)]
+		for a from 0 to 1 do (
+			super := if a == 1 then c.super_type_2 else c.super_type
+			is_creature 	:= lang_setting("is_creature")(super)
+			is_artifact 	:= lang_setting("is_artifact")(super)
+			is_enchantment 	:= lang_setting("is_enchantment")(super)
+			is_land 		:= lang_setting("is_land")(super)
+			is_just_creature 	:= is_creature and not is_artifact and not is_enchantment and not is_land
+			is_just_artifact 	:= is_artifact and not is_creature and not is_enchantment and not is_land
+			is_just_enchantment := is_enchantment and not is_creature and not is_artifact and not is_land
+			is_just_land 		:= is_land and not is_creature and not is_artifact and not is_enchantment
+			for each s in subtypes[a] do (
+				# is this an existing type?
+				has_creature 	:= if is_creature then contains(creature_subtypes_statistic(), match:s+";") else false
+				has_artifact	:= if is_artifact then contains(artifact_subtypes_statistic(), match:s+";") else false
+				has_enchantment := if is_enchantment then contains(enchantment_subtypes_statistic(), match:s+";") else false
+				has_land 		:= if is_land then contains(land_subtypes_statistic(), match:s+";") else false
+				if not has_creature and not has_artifact and not has_enchantment and not has_land then (
+					all_sub_types := all_sub_types + [s]
+					if is_just_creature 		then creature_hard 		:= creature_hard + [s]
+					else if is_just_artifact 	then artifact_hard 		:= artifact_hard + [s]
+					else if is_just_enchantment then enchantment_hard 	:= enchantment_hard + [s]
+					else if is_just_land 		then land_hard 			:= land_hard + [s]
+					else if is_creature 		then creature_soft 		:= creature_soft + [s]
+					else							 noncreature_hard 	:= noncreature_hard + [s]
+				)
+				""
+			)
+			""
+		)
+		""
+	)
+	
+	all_sub_types := sort_list(all_sub_types, remove_duplicates:true)
+	creature_hard := sort_list(creature_hard, remove_duplicates:true)
+	artifact_hard := sort_list(artifact_hard, remove_duplicates:true)
+	enchantment_hard := sort_list(enchantment_hard, remove_duplicates:true)
+	land_hard := sort_list(land_hard, remove_duplicates:true)
+	noncreature_hard := sort_list(noncreature_hard, remove_duplicates:true)
+	creature_soft := sort_list(creature_soft, remove_duplicates:true)
+	
+	detected_creature_types := []
+	detected_artifact_types := []
+	detected_enchantment_types := []
+	detected_land_types := []
+	detected_noncreature_types := []
+	
+	for each s in all_sub_types do (
+		trace(s)
+		if contains_element_statistic(creature_hard, element:s) then detected_creature_types := detected_creature_types + [s]
+		else if contains_element_statistic(artifact_hard, element:s) then detected_artifact_types := detected_artifact_types + [s]
+		else if contains_element_statistic(enchantment_hard, element:s) then detected_enchantment_types := detected_enchantment_types + [s]
+		else if contains_element_statistic(land_hard, element:s) then detected_land_types := detected_land_types + [s]
+		else if contains_element_statistic(noncreature_hard, element:s) then detected_noncreature_types := detected_noncreature_types + [s]
+		else if contains_element_statistic(creature_soft, element:s) then detected_creature_types := detected_creature_types + [s]
+		""
+	)
+	
+	final := ""
+	for each s in detected_creature_types do final := final + s + ", "
+	#final := final + ";"
+	#for each s in detected_artifact_types do final := final + s + ", "
+	#final := final + ";"
+	#for each s in detected_enchantment_types do final := final + s + ", "
+	#final := final + ";"
+	#for each s in detected_land_types do final := final + s + ", "
+	#final := final + ";"
+	#for each s in detected_noncreature_types do final := final + s + ", "
+	#final := final + ";"
+	final
+}
+face_detect_custom_subtypes_statistic :=
+{
+	split_space_statistic(trim(to_text(clean_subtypes_statistic(input))))
+}
+
+# TODO old detect code, can probably be removed?
+detect_custom_creature_subtypes_statistic_og :=
+{
 	set.custom_super_types		#re-run this script when set.custom_super_types changes
 	result := []
 	set_count := length(set.cards)-1
@@ -898,25 +988,17 @@ detect_custom_creature_subtypes_statistic :=
 	count := length(result)-2
 	if count == -2 then "" else (for x from 0 to count do result[x] + ", ") + result[count+1]
 }
-
 face_detect_custom_creature_subtypes_statistic :=
 {
-	if lang_setting("is_creature")(super) then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
+	if lang_setting("is_creature")(super) then split_space_statistic(trim(to_text(clean_subtypes_statistic(sub)))) else []
 }
 #face_detect_custom_creature_subtypes_statistic :=
 #{
 #	types := remove_supertypes_statistic(super)
 #	if types == "Creature" or types == "creature" then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
 #}
-# TODO none of this is needed?
-remove_legendary_statistic := replace@(match: "[Ll]egendary", replace: "")
-remove_basic_statistic := replace@(match: "[Bb]asic", replace: "")
-remove_snow_statistic := replace@(match: "[Ss]now", replace: "")
-remove_token_statistic := replace@(match: "[Tt]oken", replace: "")
-remove_world_statistic := replace@(match: "[Ww]orld", replace: "")
-remove_ongoing_statistic := replace@(match: "[Oo]ngoing", replace: "")
-remove_elite_statistic := replace@(match: "[Ee]lite", replace: "")
-remove_host_statistic := replace@(match: "[Hh]ost", replace: "")
+# TODO old detect code, can probably be removed?
+
 remove_custom_supertypes_statistic :=
 {
 	custom_supertypes := custom_supertype_statistic()
@@ -925,14 +1007,7 @@ remove_custom_supertypes_statistic :=
 	input
 }
 remove_supertypes_statistic :=	to_text +
-								remove_legendary_statistic +
-								remove_basic_statistic +
-								remove_snow_statistic +
-								remove_token_statistic +
-								remove_world_statistic +
-								remove_ongoing_statistic +
-								remove_elite_statistic +
-								remove_host_statistic +
+								lang_setting("remove_supertypes") +
 								remove_custom_supertypes_statistic +
 								trim
 keep_only_supertypes_statistic :=
@@ -956,7 +1031,6 @@ keep_only_supertypes_statistic :=
 	)
 	trim(result)
 }
-# TODO none of that is needed?
 
 creature_subtype_statistic :=
 {
@@ -1336,6 +1410,17 @@ filter_from_statistic :=
 	initial_filters := get_filter_values_statistic(initial)
 	initial_keys := get_filter_keys_statistic(initial)
 	initial_modes := get_filter_modes_statistic(initial)
+	super_filter := if set.custom_super_types == "" then nil else (
+		base_reg := lang_setting("base_supertypes")
+		for each t in custom_supertype_statistic() do
+		(
+			base_reg := base_reg + "|" + to_string(t);
+			""
+		)
+		"(?i)(" + base_reg + ")\\b ?"
+	)
+	
+	
 	count := length(initial_filters)-1
 	if count != length(initial_keys)-1 or count != length(initial_modes)-1 then "!! Failed to parse filters !!" else (
 	fields := []
@@ -1757,6 +1842,7 @@ statistics_info :=
 	
 	(Scroll up to see the beginning)
 	")
+	""
 }
 statistics_help :=
 {
