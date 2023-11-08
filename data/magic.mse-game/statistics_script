@@ -2,22 +2,27 @@
 ############################################################## Statistics scripts 30-03-2023
 ############################################################## Blame GenevensiS for this
 
-#Helper Functions
+## Clean up text for processing
 remove_flavor_statistic := replace@(match: "<i-flavor>.*?</i-flavor>", replace: "")
 remove_reminder_statistic := replace@(match: "(<i>|<i-auto>).*?(</i>|</i-auto>)", replace: "")
-keep_only_symbols_statistic := filter_text@(match: "<sym[^>]*>.+?</sym[^>]*>")
-keep_only_symbols_list_statistic :=
-{
-	if input == [] then [] else (
-	count := length(input) - 1
-	for x from 0 to count do [to_text(keep_only_symbols_statistic(input[x]))])
-}
+remove_zero_width_spaces_statistic := replace@(match: "​", replace: "")
+replace_en_spaces_statistic := replace@(match: " ", replace: " ")
+
+## workaround cause position() is broken for text arrays
+### optimize? would this be better as filter_list?
 contains_element_statistic :=
 {
 	contained := false
 	count := length(input)-1
 	for x from 0 to count do (if input[x] == element then contained := true;0)
 	contained
+}
+
+keep_only_symbols_statistic := filter_text@(match: "<sym[^>]*>.+?</sym[^>]*>")
+keep_only_symbols_list_statistic :=
+{
+	count := length(input) - 1
+	if count < 0 then [] else for x from 0 to count do [to_text(keep_only_symbols_statistic(input[x]))]
 }
 # Add a number of zero width spaces to impose ordering. C has 1, W has 2, U has 3, etc...
 space_prefix :=
@@ -55,8 +60,6 @@ space_prefix :=
 	UBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
 	WUBRG	: "​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​"
 ]
-remove_zero_width_spaces_statistic := replace@(match: "​", replace: "")
-replace_en_spaces_statistic := replace@(match: " ", replace: " ")
 
 # The casting cost
 casting_cost_statistic :=
@@ -358,7 +361,7 @@ triggered_cost_filter_statistic :=
 	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs # TODO localize
 keyword_cost_filter_statistic :=
 	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
-
+### optimize? would this be better as filter_text?
 symbol_aggregate_statistic :=
 {
 	if input == [] then "" else (
@@ -379,6 +382,7 @@ symbol_count_list_statistic :=
 }
 
 # How many colored pips does each casting cost have.
+### optimize? would these be better as filter_text?
 cc_colored_pips_count_statistic :=
 {
 	check_1 := card.casting_cost != ""
@@ -455,70 +459,32 @@ match_add_any_color_statistic			:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*mana
 match_add_chosen_color_statistic		:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*mana of the chosen color")
 match_add_chosen_color_bis_statistic	:= match@(match: "(—| |^)[Cc]hoose a color[^(\n|^)]+ [Aa]dd [^(\n|^)]*mana of that color")
 
-can_add_W_statistic :=
+can_add_mana_statistic :=
 {
-	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").0)
-	then true else (
-	
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_W_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result)
+	# first check if we have a basic land subtype
+	# if not, see if we have a relevant T: Add M ability
+	if i != nil and match(sub, match:"(?i)"+lang_setting("word_lists_basic")[i]) then true
+	else (
+		result := false
+		for x from 0 to length(input)-1 do
+		(
+			if func(remove_reminder_statistic(card[input[x]])) then
+			(
+				result := true; 0
+			)
+			else 0
+		)
+		result
+	)
 }
-can_add_U_statistic :=
-{
-	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").1)
-	then true else (
-	
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_U_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result)
-}
-can_add_B_statistic :=
-{
-	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").2)
-	then true else (
-	
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_B_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result)
-}
-can_add_R_statistic :=
-{
-	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").3)
-	then true else (
-	
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_R_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result)
-}
-can_add_G_statistic :=
-{
-	if match(sub, match:"(?i)"+lang_setting("word_lists_basic").4)
-	then true else (
-	
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_G_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result)
-}
-can_add_C_statistic :=
-{
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_C_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result
-}
-can_add_any_color_statistic :=
-{
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do (if match_add_any_color_statistic(remove_reminder_statistic(card[input[x]])) then (result := true; 0) else 0)
-	result
-}
+can_add_W_statistic := {can_add_mana_statistic(input, sub:sub, i:0, func:match_add_W_statistic)}
+can_add_U_statistic := {can_add_mana_statistic(input, sub:sub, i:1, func:match_add_U_statistic)}
+can_add_B_statistic := {can_add_mana_statistic(input, sub:sub, i:2, func:match_add_B_statistic)}
+can_add_R_statistic := {can_add_mana_statistic(input, sub:sub, i:3, func:match_add_R_statistic)}
+can_add_G_statistic := {can_add_mana_statistic(input, sub:sub, i:4, func:match_add_G_statistic)}
+can_add_C_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_C_statistic)}
+can_add_any_color_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_any_color_statistic)}
+
 can_add_chosen_color_statistic :=
 {
 	count := length(input) - 1
@@ -543,6 +509,7 @@ total_word_count_statistic :=
 		if text == "" or text == "​" then 0 else word_count(text)		# There is a zero width space in the second ""
 	)
 }
+## TODO card_style checks
 #total_line_count_statistic :=
 #{
 #	texts := text_to_check_statistic() + if check_2_statistic() then text_to_check_2_statistic() else []
@@ -857,13 +824,6 @@ face_type_extended_statistic :=
 
 custom_supertype_statistic := split_text@(input: set.custom_super_types, match: " ?, ?", include_empty: false)
 
-#has_type_statistic :=
-#{
-#	lower_input := to_lower(input)
-#	contains(card.type, match: input) or
-#	contains(card.type, match: lower_input) or
-#	(check_2_statistic(card:card) and (contains(card.type_2, match: input) or contains(card.type_2, match: lower_input)))
-#}
 has_type_statistic :=
 {
 	type := card.type + (if check_2_statistic(card:card) then " " + card.type_2 else "")
@@ -1138,7 +1098,7 @@ en_space_statistic := replace@(match: " ", replace: " ", in_context:"[^>]<matc
 clean_subtypes_statistic :=	replace_squote_statistic +
 							en_space_statistic
 							
-
+## semicolor separated lists of all localized canon subtypes
 land_subtypes_statistic := {
 	basics := lang_setting("word_lists_basic")
 	list := lang_setting("word_list_land") + ","
