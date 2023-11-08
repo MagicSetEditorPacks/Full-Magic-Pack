@@ -1415,7 +1415,8 @@ filter_from_statistic :=
 {
 	if filter_string == "" then "Kept" else (
 	initial := escape_quotes_filter_statistics(replace_squote_statistic(filter_string))
-	negate := if initial.0 == "!" then (initial := substring(initial, begin:1); true) else false
+	# We always AND all the filters together, but we can do OR as well with the following identity:   x OR y = NOT ( (NOT x) AND (NOT y) )
+	negate := if substring(initial, begin:0, end:4) == "[OR]" then (initial := substring(initial, begin:4); true) else false
 	initial_filters := get_filter_values_statistic(initial)
 	initial_keys := get_filter_keys_statistic(initial)
 	initial_modes := get_filter_modes_statistic(initial)	
@@ -1481,17 +1482,20 @@ filter_from_statistic :=
 		field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))
 		filter := filters[x]
 		key := keys[x]
-		mode := modes[x]
+		mode := if negate then negate_mode(modes[x]) else modes[x]
 		if		(mode == "==" and field != filter)
 			or	(mode == "!=" and field == filter)
 			or	(mode == "=:" and not contains(to_lower(field), match: to_lower(filter)))
 			or	(mode == "!:" and contains(to_lower(field), match: to_lower(filter)))		then message := "Filtered"
-		else if (mode == "\<=" or mode == ">=") and field != ""								then (	field_number := to_number(field) or else nil
+		else if field != ""
+			and	(mode == "\<=" or mode == ">=" or mode == "\<" or mode == ">")				then (	field_number := to_number(field) or else nil
 																									filter_number := to_number(filter) or else nil
 																									if		field_number == nil									then message := "!! Could not convert the value of card field [ " + key + " ] to a number !!"
 																									else if	filter_number == nil								then message := "!! Could not convert the value of filter [ " + key + mode + "\"" + unescape_quotes_filter_statistics(filter) + "\" ] to a number !!"
 																									else if	(mode == "\<=" and field_number > filter_number)
-																										or	(mode == ">=" and field_number < filter_number)		then message := "Filtered")))
+																										or	(mode == ">=" and field_number < filter_number)
+																										or	(mode == "\<" and field_number >= filter_number)
+																										or	(mode == ">" and field_number <= filter_number)		then message := "Filtered")))
 	)
 	if		message == "Filtered" and negate then	"Kept"
 	else if	message == "Kept" and negate then		"Filtered"
@@ -1509,6 +1513,17 @@ distil_color_filter_statistic :=
 	if filter == "" then distil_colors_statistic(to_upper(input)) else filter
 }
 remove_quotes_statistic := replace@(match: "\"", replace: "")
+negate_mode :=
+{
+	if		input == "=="	then	"!="
+	else if	input == "!="	then	"=="
+	else if	input == "=:"	then	"!:"
+	else if	input == "!:"	then	"=:"
+	else if	input == "\<="	then	">"
+	else if	input == ">="	then	"<"
+	else if	input == "\<"	then	">="
+	else							"<="
+}
 
 trim_from_statistic :=
 {
@@ -1605,16 +1620,15 @@ statistics_info :=
 	
 	toughness<=\"3\", toughness!=\"\"
 	
-	You can write multiple criteria by separating them with a comma, so:
+	Indeed, you can write multiple criteria by separating them with a comma, so:
 	
-	rule_text=:\"deathtouch\", sub_type!:\"snake\"
+	rule_text=:\"deathtouch\", sub_type=:\"snake\"
 	
-	will only count cards that contain 'deathtouch' in their rule text, AND that are not snakes.
-	You can negate the entire filter by prepending '!'. So if you write:
+	will only count cards that contain 'deathtouch' in their rule text AND that are snakes.
+	If you want cards that contain 'deathtouch' OR that are snakes, write [OR] at the start of the filter:
 	
-	!color!=\"R\",color!=\"G\"
+	[OR] rule_text=:\"deathtouch\", sub_type=:\"snake\"
 	
-	this will keep all the cards that contain either red or green among their colors, because of the following identity: R or G = not ( not R and not G )
 	If you search for \" quotes, you must escape them with \\. For example:
 	
 	rule_text=:\"Creatures you control gain \\\"T: Add G.\\\" until end of turn.\"
