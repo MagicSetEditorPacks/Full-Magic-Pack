@@ -877,15 +877,65 @@ combined_subtype_statistic :=
 	type_1 + (if type_1 != "" and type_2 != "" then "," else "") + type_2
 }
 
+### Scans all cards for unknown subtypes and tries to determine if they're creature types
 detect_custom_creature_subtypes_statistic :=
 {
-	all_sub_types := []
-	creature_hard := []
-	artifact_hard := []
-	enchantment_hard := []
-	land_hard := []
-	noncreature_hard := []
-	#creature_soft := []		# This is kept track of implicitly, by process of elimination. If a subtype is not in any other list, we decided it's creature_soft.
+	creature_hard := []			# on mono-creature cards
+	noncreature_hard := []		# on non-creature cards
+	creature_soft := []			# on multitype creature cards
+	
+	for each c in set do (
+		for a from 0 to 1 do (
+			subtypes :=	if a == 1 then face_detect_custom_subtypes_statistic(c.sub_type_2)	else face_detect_custom_subtypes_statistic(c.sub_type)
+			super :=	if a == 1 then c.super_type_2										else c.super_type
+			is_creature 	:= lang_setting("is_creature")(super)
+			is_artifact 	:= lang_setting("is_artifact")(super)
+			is_enchantment 	:= lang_setting("is_enchantment")(super)
+			is_land 		:= lang_setting("is_land")(super)
+			is_just_creature 	:= is_creature and not is_artifact and not is_enchantment and not is_land
+			for each s in subtypes do (
+				# is this a canon type?
+				has_creature 	:= if is_creature then contains(creature_subtypes_statistic(), match:s+";") else false
+				if not has_creature then (
+					if is_just_creature 		then creature_hard 		:= creature_hard + [s]
+					else if not is_creature 	then noncreature_hard 	:= noncreature_hard + [s]
+					else 							 creature_soft 		:= creature_soft + [s]
+				)
+				"" ## dummy return, otherwise it tries to concat scripts and explodes
+			)
+			""
+		)
+		""
+	)
+	
+	## Remove duplicates
+	noncreature_hard := sort_list(noncreature_hard, remove_duplicates:true)
+	creature_soft := sort_list(creature_soft, remove_duplicates:true)
+	
+	## each potentially creature subtype that's not definitely noncreature is assumed creature
+	## this isn't perfect, things like Reconfigure and Parcel Myr can muck with it
+	## but those sets have noncreature Equipment and a Clue token card, so they would still work here
+	for each s in creature_soft do (
+		if not contains_element_statistic(noncreature_hard, element:s) then creature_hard := creature_hard + [s]
+		""
+	)
+
+	creature_hard := sort_list(creature_hard, remove_duplicates:true)
+	
+	## we're just using this as set option so output as string
+	final := ""
+	for each s in creature_hard do final := final + s + ", "
+	final
+}
+### Scans all cards for unknown subtypes and tries to determine what their associated card type is
+detect_custom_subtypes_statistic :=
+{
+	creature_hard := []			# on mono-creature cards
+	artifact_hard := []			# on mono-artifact cards
+	enchantment_hard := []		# on mono-enchantment cards
+	land_hard := []				# on mono-land cards
+	noncreature_hard := []		# on multitype noncreature cards
+	unknown_sub_types := []		# on multitype creature cards
 	
 	for each c in set do (
 		for a from 0 to 1 do (
@@ -906,107 +956,57 @@ detect_custom_creature_subtypes_statistic :=
 				has_enchantment := if is_enchantment then contains(enchantment_subtypes_statistic(), match:s+";") else false
 				has_land 		:= if is_land then contains(land_subtypes_statistic(), match:s+";") else false
 				if not has_creature and not has_artifact and not has_enchantment and not has_land then (
-					all_sub_types := all_sub_types + [s]
 					if is_just_creature 		then creature_hard 		:= creature_hard + [s]
 					else if is_just_artifact 	then artifact_hard 		:= artifact_hard + [s]
 					else if is_just_enchantment then enchantment_hard 	:= enchantment_hard + [s]
 					else if is_just_land 		then land_hard 			:= land_hard + [s]
-					#else if is_creature 		then creature_soft 		:= creature_soft + [s]
-					#else							 noncreature_hard 	:= noncreature_hard + [s]
 					else if not is_creature 	then noncreature_hard 	:= noncreature_hard + [s]
+					else 							 unknown_sub_types  := unknown_sub_types + [s]
 				)
-				""
+				"" ## dummy return, otherwise it tries to concat scripts and explodes
 			)
 			""
 		)
 		""
 	)
 	
-	all_sub_types := sort_list(all_sub_types, remove_duplicates:true)
-	#creature_hard := sort_list(creature_hard, remove_duplicates:true)		# We can do this later
+	## Remove duplicates
+	unknown_sub_types := sort_list(unknown_sub_types, remove_duplicates:true)
 	artifact_hard := sort_list(artifact_hard, remove_duplicates:true)
 	enchantment_hard := sort_list(enchantment_hard, remove_duplicates:true)
 	land_hard := sort_list(land_hard, remove_duplicates:true)
 	noncreature_hard := sort_list(noncreature_hard, remove_duplicates:true)
-	#creature_soft := sort_list(creature_soft, remove_duplicates:true)
 	
-	#detected_creature_types := []
-	#detected_artifact_types := []
-	#detected_enchantment_types := []
-	#detected_land_types := []
-	#detected_noncreature_types := []
-	#
-	#for each s in all_sub_types do (
-	#	if contains_element_statistic(creature_hard, element:s) then detected_creature_types := detected_creature_types + [s]
-	#	else if contains_element_statistic(artifact_hard, element:s) then detected_artifact_types := detected_artifact_types + [s]
-	#	else if contains_element_statistic(enchantment_hard, element:s) then detected_enchantment_types := detected_enchantment_types + [s]
-	#	else if contains_element_statistic(land_hard, element:s) then detected_land_types := detected_land_types + [s]
-	#	else if contains_element_statistic(noncreature_hard, element:s) then detected_noncreature_types := detected_noncreature_types + [s]
-	#	else if contains_element_statistic(creature_soft, element:s) then detected_creature_types := detected_creature_types + [s]
-	#	""
-	#)
-	
-	# If we only care about creature subtypes, we can skip building the other lists
-	for each s in all_sub_types do (
-		if not	contains_element_statistic(artifact_hard, element:s)
+	## Generally for multityping the main problem child is creatures
+	## noncreature_hard is not trimmed here
+	## and similarly Battles, Planeswalkers, and spells aren't checked (but are addable if the need does arise)
+	for each s in unknown_sub_types do (
+		if  not	contains_element_statistic(artifact_hard, element:s)
 		and not	contains_element_statistic(enchantment_hard, element:s)
 		and not	contains_element_statistic(land_hard, element:s)
 		and not	contains_element_statistic(noncreature_hard, element:s) then creature_hard := creature_hard + [s]
-		#and		contains_element_statistic(creature_soft, element:s) then creature_hard := creature_hard + [s]		# This check can be skipped by process of elimination
 		""
 	)
 	creature_hard := sort_list(creature_hard, remove_duplicates:true)
 	
 	final := ""
 	for each s in creature_hard do final := final + s + ", "
-	#final := final + ";"
-	#for each s in detected_artifact_types do final := final + s + ", "
-	#final := final + ";"
-	#for each s in detected_enchantment_types do final := final + s + ", "
-	#final := final + ";"
-	#for each s in detected_land_types do final := final + s + ", "
-	#final := final + ";"
-	#for each s in detected_noncreature_types do final := final + s + ", "
-	#final := final + ";"
+	final := final + ";"
+	for each s in artifact_hard do final := final + s + ", "
+	final := final + ";"
+	for each s in enchantment_hard do final := final + s + ", "
+	final := final + ";"
+	for each s in land_hard do final := final + s + ", "
+	final := final + ";"
+	for each s in noncreature_hard do final := final + s + ", "
+	final := final + ";"
 	final
 }
+## Clean up subtypes
 face_detect_custom_subtypes_statistic :=
 {
 	split_space_statistic(trim(to_text(clean_subtypes_statistic(input))))
 }
-
-# TODO old detect code, can probably be removed?
-detect_custom_creature_subtypes_statistic_og :=
-{
-	set.custom_super_types		#re-run this script when set.custom_super_types changes
-	result := []
-	set_count := length(set.cards)-1
-	for x from 0 to set_count do
-	(
-		c := set.cards[x]
-		subtypes :=	face_detect_custom_creature_subtypes_statistic(super: c.super_type, sub: c.sub_type) +
-					face_detect_custom_creature_subtypes_statistic(super: c.super_type_2, sub: c.sub_type_2)		# Don't use check_2_statistic() here
-		count := length(subtypes)-1
-		for y from 0 to count do
-		(
-			subtype := subtypes[y]
-			if not contains_element_statistic(result, element: subtype) and not contains(creature_subtypes_statistic(), match: subtype + ";") then result := result + [subtype]
-		)
-	)
-	result := sort_list(result)
-	count := length(result)-2
-	if count == -2 then "" else (for x from 0 to count do result[x] + ", ") + result[count+1]
-}
-face_detect_custom_creature_subtypes_statistic :=
-{
-	if lang_setting("is_creature")(super) then split_space_statistic(trim(to_text(clean_subtypes_statistic(sub)))) else []
-}
-#face_detect_custom_creature_subtypes_statistic :=
-#{
-#	types := remove_supertypes_statistic(super)
-#	if types == "Creature" or types == "creature" then split_space_statistic(to_text(clean_subtypes_statistic(sub))) else []
-#}
-# TODO old detect code, can probably be removed?
 
 remove_custom_supertypes_statistic :=
 {
@@ -1130,7 +1130,7 @@ face_noncreature_subtype_statistic :=
 	if new_subtypes == nil then "" else new_subtypes)
 }
 replace_commas_statistic := replace@(match: " ?, ?", replace: ";")
-split_space_statistic := split_text@(match: " ")
+split_space_statistic := split_text@(match: " ", include_empty:false)
 replace_space_statistic := replace@(match: " ", replace: "_")
 replace_squote_statistic := replace@(match: "'", replace: "’")
 # replace normal space with EN space to workaround stat space bug
