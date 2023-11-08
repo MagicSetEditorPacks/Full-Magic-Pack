@@ -885,14 +885,12 @@ detect_custom_creature_subtypes_statistic :=
 	enchantment_hard := []
 	land_hard := []
 	noncreature_hard := []
-	creature_soft := []
+	#creature_soft := []		# This is kept track of implicitly, by process of elimination. If a subtype is not in any other list, we decided it's creature_soft.
 	
 	for each c in set do (
-		# don't filter second card here
-		subtypes := [face_detect_custom_subtypes_statistic(c.sub_type),
-					face_detect_custom_subtypes_statistic(c.sub_type_2)]
 		for a from 0 to 1 do (
-			super := if a == 1 then c.super_type_2 else c.super_type
+			subtypes :=	if a == 1 then face_detect_custom_subtypes_statistic(c.sub_type_2)	else face_detect_custom_subtypes_statistic(c.sub_type)
+			super :=	if a == 1 then c.super_type_2										else c.super_type
 			is_creature 	:= lang_setting("is_creature")(super)
 			is_artifact 	:= lang_setting("is_artifact")(super)
 			is_enchantment 	:= lang_setting("is_enchantment")(super)
@@ -901,8 +899,8 @@ detect_custom_creature_subtypes_statistic :=
 			is_just_artifact 	:= is_artifact and not is_creature and not is_enchantment and not is_land
 			is_just_enchantment := is_enchantment and not is_creature and not is_artifact and not is_land
 			is_just_land 		:= is_land and not is_creature and not is_artifact and not is_enchantment
-			for each s in subtypes[a] do (
-				# is this an existing type?
+			for each s in subtypes do (
+				# is this a canon type?
 				has_creature 	:= if is_creature then contains(creature_subtypes_statistic(), match:s+";") else false
 				has_artifact	:= if is_artifact then contains(artifact_subtypes_statistic(), match:s+";") else false
 				has_enchantment := if is_enchantment then contains(enchantment_subtypes_statistic(), match:s+";") else false
@@ -913,8 +911,9 @@ detect_custom_creature_subtypes_statistic :=
 					else if is_just_artifact 	then artifact_hard 		:= artifact_hard + [s]
 					else if is_just_enchantment then enchantment_hard 	:= enchantment_hard + [s]
 					else if is_just_land 		then land_hard 			:= land_hard + [s]
-					else if is_creature 		then creature_soft 		:= creature_soft + [s]
-					else							 noncreature_hard 	:= noncreature_hard + [s]
+					#else if is_creature 		then creature_soft 		:= creature_soft + [s]
+					#else							 noncreature_hard 	:= noncreature_hard + [s]
+					else if not is_creature 	then noncreature_hard 	:= noncreature_hard + [s]
 				)
 				""
 			)
@@ -924,31 +923,42 @@ detect_custom_creature_subtypes_statistic :=
 	)
 	
 	all_sub_types := sort_list(all_sub_types, remove_duplicates:true)
-	creature_hard := sort_list(creature_hard, remove_duplicates:true)
+	#creature_hard := sort_list(creature_hard, remove_duplicates:true)		# We can do this later
 	artifact_hard := sort_list(artifact_hard, remove_duplicates:true)
 	enchantment_hard := sort_list(enchantment_hard, remove_duplicates:true)
 	land_hard := sort_list(land_hard, remove_duplicates:true)
 	noncreature_hard := sort_list(noncreature_hard, remove_duplicates:true)
-	creature_soft := sort_list(creature_soft, remove_duplicates:true)
+	#creature_soft := sort_list(creature_soft, remove_duplicates:true)
 	
-	detected_creature_types := []
-	detected_artifact_types := []
-	detected_enchantment_types := []
-	detected_land_types := []
-	detected_noncreature_types := []
+	#detected_creature_types := []
+	#detected_artifact_types := []
+	#detected_enchantment_types := []
+	#detected_land_types := []
+	#detected_noncreature_types := []
+	#
+	#for each s in all_sub_types do (
+	#	if contains_element_statistic(creature_hard, element:s) then detected_creature_types := detected_creature_types + [s]
+	#	else if contains_element_statistic(artifact_hard, element:s) then detected_artifact_types := detected_artifact_types + [s]
+	#	else if contains_element_statistic(enchantment_hard, element:s) then detected_enchantment_types := detected_enchantment_types + [s]
+	#	else if contains_element_statistic(land_hard, element:s) then detected_land_types := detected_land_types + [s]
+	#	else if contains_element_statistic(noncreature_hard, element:s) then detected_noncreature_types := detected_noncreature_types + [s]
+	#	else if contains_element_statistic(creature_soft, element:s) then detected_creature_types := detected_creature_types + [s]
+	#	""
+	#)
 	
+	# If we only care about creature subtypes, we can skip building the other lists
 	for each s in all_sub_types do (
-		if contains_element_statistic(creature_hard, element:s) then detected_creature_types := detected_creature_types + [s]
-		else if contains_element_statistic(artifact_hard, element:s) then detected_artifact_types := detected_artifact_types + [s]
-		else if contains_element_statistic(enchantment_hard, element:s) then detected_enchantment_types := detected_enchantment_types + [s]
-		else if contains_element_statistic(land_hard, element:s) then detected_land_types := detected_land_types + [s]
-		else if contains_element_statistic(noncreature_hard, element:s) then detected_noncreature_types := detected_noncreature_types + [s]
-		else if contains_element_statistic(creature_soft, element:s) then detected_creature_types := detected_creature_types + [s]
+		if not	contains_element_statistic(artifact_hard, element:s)
+		and not	contains_element_statistic(enchantment_hard, element:s)
+		and not	contains_element_statistic(land_hard, element:s)
+		and not	contains_element_statistic(noncreature_hard, element:s) then creature_hard := creature_hard + [s]
+		#and		contains_element_statistic(creature_soft, element:s) then creature_hard := creature_hard + [s]		# This check can be skipped by process of elimination
 		""
 	)
+	creature_hard := sort_list(creature_hard, remove_duplicates:true)
 	
 	final := ""
-	for each s in detected_creature_types do final := final + s + ", "
+	for each s in creature_hard do final := final + s + ", "
 	#final := final + ";"
 	#for each s in detected_artifact_types do final := final + s + ", "
 	#final := final + ";"
