@@ -1392,6 +1392,8 @@ filter_field_map := [
 	type_2: {remove_supertypes_statistic(card.super_type_2)},
 	subtype: {card.sub_type},
 	subtype_2: {card.sub_type_2},
+	defense: {card.loyalty}
+	defense_2: {card.loyalty_2}
 	word_count: {total_word_count_statistic()},
 	paragraph_count: {total_paragraph_count_statistic()},
 	card_notes: {card.notes}
@@ -1419,7 +1421,8 @@ filter_field_alias := [
 	sorted_notes: "card_notes"
 ]
 # turn user input key into its real value or else nil
-filter_key_to_field := {
+filter_key_to_field_statistic :=
+{
 	filter_field_map[filter_field_alias[input] or else input]() or else card[input] or else nil
 }
 filter_from_statistic :=
@@ -1427,7 +1430,8 @@ filter_from_statistic :=
 	if filter_string == "" then "Kept" else (
 	initial := escape_quotes_filter_statistics(replace_squote_statistic(filter_string))
 	# We always AND all the filters together, but we can do OR as well with the following identity:   x OR y = NOT ( (NOT x) AND (NOT y) )
-	negate := if substring(initial, begin:0, end:4) == "[OR]" then (initial := substring(initial, begin:4); true) else false
+	prefix := substring(initial, begin:0, end:4)
+	negate := if prefix == "[OR]" or prefix == "[Or]"  or prefix == "[or]" then (initial := substring(initial, begin:4); true) else false
 	initial_filters := get_filter_values_statistic(initial)
 	initial_keys := get_filter_keys_statistic(initial)
 	initial_modes := get_filter_modes_statistic(initial)	
@@ -1441,16 +1445,12 @@ filter_from_statistic :=
 	(
 		key := replace_space_statistic(trim(initial_keys[x]))
 		mode := initial_modes[x]
-		field := filter_key_to_field(key)
+		field := filter_key_to_field_statistic(key)
 		filter := if filter_field_alias[key] or else key == "color" then
 			(
 				colors := distil_color_filter_statistic(initial_filters[x])
-				if mode == "==" or mode == "!=" then colors
-				else
-				(
-					field := sort_text(field, order:colors)
-					colors
-				)
+				field := sort_text(field, order:colors)
+				colors
 			)
 			else remove_quotes_statistic(initial_filters[x]);
 		fields := fields + [field]
@@ -1470,7 +1470,7 @@ filter_from_statistic :=
 				)
 			else
 			(
-				field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))
+				field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))		# Is the trim necessary? Could prevent from searching things that end in spaces
 				filter := filters[x]
 				key := keys[x]
 				mode := if negate then negate_mode(modes[x]) else modes[x]
@@ -1479,12 +1479,17 @@ filter_from_statistic :=
 				or (mode == "=:" and not contains(to_lower(field), match: to_lower(filter)))
 				or (mode == "!:" and contains(to_lower(field), match: to_lower(filter)))
 					then message := "Filtered"
-				else if field != "" and	(mode == "\<=" or mode == ">=" or mode == "\<" or mode == ">")
+				else if	mode == "\<="
+					or	mode == ">="
+					or	mode == "\<"
+					or	mode == ">"
 					then
 					(
 						field_number := to_number(field) or else nil
 						filter_number := to_number(filter) or else nil
-						if field_number == nil
+						if field == ""
+							then (if not negate then message := "Filtered")
+						else if field_number == nil
 							then message := "!! Could not convert the value of card field [ " + key + " ] to a number !!"
 						else if	filter_number == nil
 							then message := "!! Could not convert the value of filter [ " + key + mode + "\"" + unescape_quotes_filter_statistics(filter) + "\" ] to a number !!"
@@ -1615,12 +1620,8 @@ statistics_info :=
 	
 	toughness<=\"3\"
 	
-	This will not filter cards that have no toughness. In other words, it will keep all cards that have 3 or less toughness, and also keep all cards that don't have toughness.
-	To keep only cards that have toughness AND have 3 or less toughness, you would write:
-	
-	toughness<=\"3\", toughness!=\"\"
-	
-	Indeed, you can write multiple criteria by separating them with a comma, so:
+	This will also filter cards that have no toughness.
+	You can write multiple criteria by separating them with a comma, so:
 	
 	rule_text=:\"deathtouch\", sub_type=:\"snake\"
 	
