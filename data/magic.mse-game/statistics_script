@@ -822,7 +822,7 @@ detect_custom_creature_subtypes_statistic :=
 		for a from 0 to 1 do (
 			subtypes :=	if a == 1 then face_detect_custom_subtypes_statistic(c.sub_type_2)	else face_detect_custom_subtypes_statistic(c.sub_type)
 			super :=	if a == 1 then c.super_type_2										else c.super_type
-			is_creature 	:= lang_setting("is_creature")(super)
+			is_creature 	:= lang_setting("is_creature")(super) or lang_setting("is_kindred")(super)
 			is_artifact 	:= lang_setting("is_artifact")(super)
 			is_enchantment 	:= lang_setting("is_enchantment")(super)
 			is_land 		:= lang_setting("is_land")(super)
@@ -868,6 +868,9 @@ detect_custom_subtypes_statistic :=
 	artifact_hard := []			# on mono-artifact cards
 	enchantment_hard := []		# on mono-enchantment cards
 	land_hard := []				# on mono-land cards
+	spell_hard := []			# on mono-instant/sorcery cards
+	walker_soft := []			# on planeswalker cards
+	battle_soft := []			# on battle cards
 	noncreature_hard := []		# on multitype noncreature cards
 	unknown_sub_types := []		# on multitype creature cards
 	
@@ -875,10 +878,13 @@ detect_custom_subtypes_statistic :=
 		for a from 0 to 1 do (
 			subtypes :=	if a == 1 then face_detect_custom_subtypes_statistic(c.sub_type_2)	else face_detect_custom_subtypes_statistic(c.sub_type)
 			super :=	if a == 1 then c.super_type_2										else c.super_type
-			is_creature 	:= lang_setting("is_creature")(super)
+			is_creature 	:= lang_setting("is_creature")(super) or lang_setting("is_kindred")(super)
 			is_artifact 	:= lang_setting("is_artifact")(super)
 			is_enchantment 	:= lang_setting("is_enchantment")(super)
 			is_land 		:= lang_setting("is_land")(super)
+			is_spell		:= lang_setting("is_spell")(super)
+			is_walker		:= lang_setting("is_planeswalker")(super) or lang_setting("is_emblem")(super)
+			is_battle		:= lang_setting("is_battle")(super)
 			is_just_creature 	:= is_creature and not is_artifact and not is_enchantment and not is_land
 			is_just_artifact 	:= is_artifact and not is_creature and not is_enchantment and not is_land
 			is_just_enchantment := is_enchantment and not is_creature and not is_artifact and not is_land
@@ -889,11 +895,17 @@ detect_custom_subtypes_statistic :=
 				has_artifact	:= if is_artifact then contains(artifact_subtypes_statistic(), match:s+";") else false
 				has_enchantment := if is_enchantment then contains(enchantment_subtypes_statistic(), match:s+";") else false
 				has_land 		:= if is_land then contains(land_subtypes_statistic(), match:s+";") else false
-				if not has_creature and not has_artifact and not has_enchantment and not has_land then (
+				has_spell 		:= if is_spell then contains(spell_subtypes_statistic(), match:s+";") else false
+				has_walker		:= if is_walker then contains(planeswalker_subtypes_statistic(), match:s+";") else false
+				has_battle		:= if is_battle then contains(battle_subtypes_statistic(), match:s+";") else false
+				if not has_creature and not has_artifact and not has_enchantment and not has_land and not has_walker and not has_battle and not has_spell then (
 					if is_just_creature 		then creature_hard 		:= creature_hard + [s]
 					else if is_just_artifact 	then artifact_hard 		:= artifact_hard + [s]
 					else if is_just_enchantment then enchantment_hard 	:= enchantment_hard + [s]
 					else if is_just_land 		then land_hard 			:= land_hard + [s]
+					else if is_walker			then walker_soft		:= walker_soft + [s]
+					else if is_battle			then battle_soft		:= battle_soft + [s]
+					else if is_spell			then spell_hard			:= spell_hard + [s]
 					else if not is_creature 	then noncreature_hard 	:= noncreature_hard + [s]
 					else 							 unknown_sub_types  := unknown_sub_types + [s]
 				)
@@ -910,31 +922,45 @@ detect_custom_subtypes_statistic :=
 	enchantment_hard := sort_list(enchantment_hard, remove_duplicates:true)
 	land_hard := sort_list(land_hard, remove_duplicates:true)
 	noncreature_hard := sort_list(noncreature_hard, remove_duplicates:true)
+	spell_hard := sort_list(spell_hard, remove_duplicates:true)
+	walker_soft := sort_list(walker_soft, remove_duplicates:true)
+	battle_soft := sort_list(battle_soft, remove_duplicates:true)
 	
 	## Generally for multityping the main problem child is creatures
-	## noncreature_hard is not trimmed here
-	## and similarly Battles, Planeswalkers, and spells aren't checked (but are addable if the need does arise)
+	## so planeswalkers, battles, and spells aren't checked here as they don't multitype
+	
+	undetermined_types := []
+	
 	for each s in unknown_sub_types do (
 		if  not	contains_element_statistic(artifact_hard, element:s)
 		and not	contains_element_statistic(enchantment_hard, element:s)
 		and not	contains_element_statistic(land_hard, element:s)
 		and not	contains_element_statistic(noncreature_hard, element:s) then creature_hard := creature_hard + [s]
+		else undetermined_types := undetermined_types + [s]
 		""
 	)
+	
+	for each s in noncreature_hard do (
+		if  not	contains_element_statistic(artifact_hard, element:s)
+		and not	contains_element_statistic(enchantment_hard, element:s)
+		and not	contains_element_statistic(land_hard, element:s) then undetermined_types := undetermined_types + [s]
+		""
+	)
+	
 	creature_hard := sort_list(creature_hard, remove_duplicates:true)
 	
-	final := ""
-	for each s in creature_hard do final := final + s + ", "
-	final := final + ";"
-	for each s in artifact_hard do final := final + s + ", "
-	final := final + ";"
-	for each s in enchantment_hard do final := final + s + ", "
-	final := final + ";"
-	for each s in land_hard do final := final + s + ", "
-	final := final + ";"
-	for each s in noncreature_hard do final := final + s + ", "
-	final := final + ";"
-	final
+	final := "\n"
+	if length(creature_hard) 	> 0 then final := final + "Custom Creature Types:\n" 		+ join(creature_hard, sep:"\n") + "\n\n";
+	if length(artifact_hard) 	> 0 then final := final + "Custom Artifact Types:\n" 		+ join(artifact_hard, sep:"\n") + "\n\n";
+	if length(enchantment_hard) > 0 then final := final + "Custom Enchantment Types:\n" 	+ join(enchantment_hard, sep:"\n") + "\n\n";
+	if length(land_hard) 		> 0 then final := final + "Custom Land Types:\n" 			+ join(land_hard, sep:"\n") + "\n\n";
+	if length(spell_hard) 		> 0 then final := final + "Custom Spell Types:\n" 			+ join(spell_hard, sep:"\n") + "\n\n";
+	if length(walker_soft) 		> 0 then final := final + "Custom Planeswalker Types:\n" 	+ join(walker_soft, sep:"\n") + "\n\n";
+	if length(battle_soft) 		> 0 then final := final + "Custom Battle Types:\n" 			+ join(battle_soft, sep:"\n") + "\n\n";
+	if length(undetermined_types) > 0 then final := final + "Custom Unknown Types:\n" 		+ join(undetermined_types, sep:"\n") + "\n\n";
+
+	trace(final)
+	""
 }
 # Clean up subtypes
 face_detect_custom_subtypes_statistic :=
@@ -977,6 +1003,7 @@ keep_only_supertypes_statistic :=
 
 creature_subtype_statistic :=
 {
+	trace("creature_subtype_statistic")
 	canon := creature_subtypes_statistic()
 	custom := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
 	excluded := ""
@@ -986,6 +1013,7 @@ creature_subtype_statistic :=
 }
 creature_race_statistic :=
 {
+	trace("creature_race_statistic")
 	canon := creature_races_statistic()
 	custom := replace_commas_statistic(set.custom_creature_races) + ";"
 	excluded := replace_commas_statistic(set.custom_creature_classes) + ";"
@@ -995,6 +1023,7 @@ creature_race_statistic :=
 }
 creature_class_statistic :=
 {
+	trace("creature_class_statistic")
 	canon := creature_classes_statistic()
 	custom := replace_commas_statistic(set.custom_creature_classes) + ";"
 	excluded := replace_commas_statistic(set.custom_creature_races) + ";"
@@ -1378,14 +1407,19 @@ filter_field_alias := [
 	exact_colors: "color",
 	all_mana_production: "mana_production",
 	cmc: "mana_value",
+	converted_mana_cost: "mana_value",
+	"mv": "mana_value",
 	cmc_2: "mana_value_2",
+	converted_mana_cost_2: "mana_value_2",
+	mv_2: "mana_value_2",
+	converted_mana_cost2: "mana_value_2",
 	mv2: "mana_value_2",
 	super_type: "supertype"
 	super_type_2: "supertype_2",
 	supertype2: "supertype_2",
 	type2: "type_2",
 	subtype2: "subtype_2",
-	sorted_notes: "card_notes",
+	sorted_notes: "card_notes"
 ]
 # turn user input key into its real value or else nil
 filter_key_to_field := {
