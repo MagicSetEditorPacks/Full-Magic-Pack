@@ -9,7 +9,7 @@ remove_zero_width_spaces_statistic := replace@(match: "​", replace: "")
 replace_en_spaces_statistic := replace@(match: " ", replace: " ")
 
 ## workaround cause position() is broken for text arrays
-### optimize? would this be better as filter_list?
+### TODO optimize? would this be better as filter_list?
 contains_element_statistic :=
 {
 	contained := false
@@ -361,7 +361,7 @@ triggered_cost_filter_statistic :=
 	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs # TODO localize
 keyword_cost_filter_statistic :=
 	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
-### optimize? would this be better as filter_text?
+### TODO optimize? would this be better as filter_text?
 symbol_aggregate_statistic :=
 {
 	if input == [] then "" else (
@@ -382,7 +382,7 @@ symbol_count_list_statistic :=
 }
 
 # How many colored pips does each casting cost have.
-### optimize? would these be better as filter_text?
+### TODO optimize? would these be better as filter_text?
 cc_colored_pips_count_statistic :=
 {
 	check_1 := card.casting_cost != ""
@@ -458,7 +458,10 @@ match_add_C_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>
 match_add_any_color_statistic			:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*mana ((of any [^(\n|^)]*)|(in any combination of ))color")
 match_add_chosen_color_statistic		:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*mana of the chosen color")
 match_add_chosen_color_bis_statistic	:= match@(match: "(—| |^)[Cc]hoose a color[^(\n|^)]+ [Aa]dd [^(\n|^)]*mana of that color")
-
+match_add_a_choice_statistic :=
+{
+	match_add_chosen_color_statistic(input) or match_add_chosen_color_bis_statistic(input)
+}
 can_add_mana_statistic :=
 {
 	# first check if we have a basic land subtype
@@ -484,19 +487,7 @@ can_add_R_statistic := {can_add_mana_statistic(input, sub:sub, i:3, func:match_a
 can_add_G_statistic := {can_add_mana_statistic(input, sub:sub, i:4, func:match_add_G_statistic)}
 can_add_C_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_C_statistic)}
 can_add_any_color_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_any_color_statistic)}
-
-can_add_chosen_color_statistic :=
-{
-	count := length(input) - 1
-	result := false
-	for x from 0 to count do
-	(
-		text := remove_reminder_statistic(card[input[x]])
-		if match_add_chosen_color_statistic(text) or match_add_chosen_color_bis_statistic(text) then (result := true; 0)
-		else 0
-	)
-	result
-}
+can_add_chosen_color_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_a_choice_statistic)}
 
 # Word counting
 total_word_count_statistic :=
@@ -509,14 +500,14 @@ total_word_count_statistic :=
 		if text == "" or text == "​" then 0 else word_count(text)		# There is a zero width space in the second ""
 	)
 }
-## TODO card_style checks
+## card_style only checks the active card when looping, making this not function currently
 #total_line_count_statistic :=
 #{
 #	texts := text_to_check_statistic() + if check_2_statistic() then text_to_check_2_statistic() else []
 #	count := length(texts) - 1
 #	for x from 0 to count do
 #	(
-#		if card[texts[x]] != "" then card_style[texts[x]].content_lines else 0		# card_style does not initialize correctly when loading the set, so this is unreliable atm.
+#		if card[texts[x]] != "" then card_style[texts[x]].content_lines else 0
 #	)
 #}
 total_paragraph_count_statistic :=
@@ -767,23 +758,6 @@ combined_type_statistic :=
 	type_1 + (if type_1 != "" and type_2 != "" then "," else "") + type_2
 }
 
-#type_statistic :=
-#{
-#	result := face_type_statistic(card.super_type) + (if check_2_statistic() then face_type_statistic(card.super_type_2) else "")
-#	substring(result, begin: 1)
-#}
-#face_type_statistic :=
-#{
-#	(if contains(input, match: "Land")			or contains(input, match: "land")			then ",Land" else "") +
-#	(if contains(input, match: "Creature")		or contains(input, match: "creature")		then ",Creature" else "") +
-#	(if contains(input, match: "Artifact")		or contains(input, match: "artifact")		then ",Artifact" else "") +
-#	(if contains(input, match: "Enchantment")	or contains(input, match: "enchantment")	then ",Enchantment" else "") +
-#	(if contains(input, match: "Planeswalker")	or contains(input, match: "planeswalker")	then ",Planeswalker" else "") +
-#	(if contains(input, match: "Battle")		or contains(input, match: "battle")			then ",Battle" else "") +
-#	(if contains(input, match: "Sorcery")		or contains(input, match: "sorcery")		then ",Sorcery" else "") +
-#	(if contains(input, match: "Instant")		or contains(input, match: "instant")		then ",Instant" else "")
-#}
-
 type_extended_statistic :=
 {
 	result := face_type_extended_statistic(card.super_type) + (if check_2_statistic() then face_type_extended_statistic(card.super_type_2) else "")
@@ -837,7 +811,7 @@ combined_subtype_statistic :=
 	type_1 + (if type_1 != "" and type_2 != "" then "," else "") + type_2
 }
 
-### Scans all cards for unknown subtypes and tries to determine if they're creature types
+# Scans all cards for unknown subtypes and tries to determine if they're creature types
 detect_custom_creature_subtypes_statistic :=
 {
 	creature_hard := []			# on mono-creature cards
@@ -887,7 +861,7 @@ detect_custom_creature_subtypes_statistic :=
 	for each s in creature_hard do final := final + s + ", "
 	final
 }
-### Scans all cards for unknown subtypes and tries to determine what their associated card type is
+# Scans all cards for unknown subtypes and tries to determine what their associated card type is
 detect_custom_subtypes_statistic :=
 {
 	creature_hard := []			# on mono-creature cards
@@ -962,7 +936,7 @@ detect_custom_subtypes_statistic :=
 	final := final + ";"
 	final
 }
-## Clean up subtypes
+# Clean up subtypes
 face_detect_custom_subtypes_statistic :=
 {
 	split_space_statistic(trim(to_text(clean_subtypes_statistic(input))))
@@ -1098,7 +1072,7 @@ en_space_statistic := replace@(match: " ", replace: " ", in_context:"[^>]<matc
 clean_subtypes_statistic :=	replace_squote_statistic +
 							en_space_statistic
 							
-## semicolor separated lists of all localized canon subtypes
+# semicolor separated lists of all localized canon subtypes
 land_subtypes_statistic := {
 	basics := lang_setting("word_lists_basic")
 	list := lang_setting("word_list_land") + ","
@@ -1353,6 +1327,7 @@ text_to_check_2_statistic :=
 	[
 	]
 }
+# TODO don't love this implementation
 has_mutate_text_statistic :=
 {
 	contains(card.shape, match: "normal") and
@@ -1371,6 +1346,51 @@ has_mutate_text_statistic :=
 #}
 
 # Should the card be excluded from the statistics?
+# real value of input keys
+filter_field_map := [
+	artist: {card.illustrator},
+	artist_2: {card.illustrator_2},
+	template: {stylesheet.short_name},
+	color_category: {primary_card_color(card.card_color)},
+	color: {color_statistic()},
+	color_identity: {color_identity_statistic()},
+	color_count: {color_count_statistic()},
+	color_identity_count: {color_identity_count_statistic()},
+	mana_production: {mana_production_list_statistic(check_type: "all")},
+	"permanent/non": {replace_en_spaces_statistic(remove_zero_width_spaces_statistic(permanent_statistic()))},
+	mana_value: {cmc(card.casting_cost)},
+	mana_value_2: {cmc(card.casting_cost_2)},
+	supertype: {keep_only_supertypes_statistic(card.super_type)},
+	supertype_2: {keep_only_supertypes_statistic(card.super_type_2)},
+	type: {remove_supertypes_statistic(card.super_type)},
+	type_2: {remove_supertypes_statistic(card.super_type_2)},
+	subtype: {card.sub_type},
+	subtype_2: {card.sub_type_2},
+	word_count: {total_word_count_statistic()},
+	paragraph_count: {total_paragraph_count_statistic()},
+	card_notes: {card.notes}
+]
+# alternate names for input keys
+filter_field_alias := [
+	artist2: "artist_2",
+	colors: "color",
+	exact_color: "color",
+	exact_colors: "color",
+	all_mana_production: "mana_production",
+	cmc: "mana_value",
+	cmc_2: "mana_value_2",
+	mv2: "mana_value_2",
+	super_type: "supertype"
+	super_type_2: "supertype_2",
+	supertype2: "supertype_2",
+	type2: "type_2",
+	subtype2: "subtype_2",
+	sorted_notes: "card_notes",
+]
+# turn user input key into its real value or else nil
+filter_key_to_field := {
+	filter_field_map[filter_field_alias[input] or else input]() or else card[input] or else nil
+}
 filter_from_statistic :=
 {
 	if filter_string == "" then "Kept" else (
@@ -1390,45 +1410,18 @@ filter_from_statistic :=
 	(
 		key := replace_space_statistic(trim(initial_keys[x]))
 		mode := initial_modes[x]
-		field :=		if		key == "artist" then				card.illustrator
-						else if	key == "artist_2" then				card.illustrator_2
-						else if	key == "template" then				stylesheet.short_name
-						else if	key == "color_category" then		primary_card_color(card.card_color)
-						else if	key == "color"
-							or	key == "colors"
-							or	key == "exact_color"
-							or	key == "exact_colors" then			color_statistic()
-						else if	key == "color_identity" then		color_identity_statistic()
-						else if	key == "color_count" then			color_count_statistic()
-						else if	key == "color_identity_count" then	color_identity_count_statistic()
-						else if	key == "mana_production"
-							or	key == "all_mana_production" then	mana_production_list_statistic(check_type: "all")
-						else if	key == "permanent/non" then			replace_en_spaces_statistic(remove_zero_width_spaces_statistic(permanent_statistic()))
-						else if	key == "mana_value"
-							or	key == "cmc" then					cmc(card.casting_cost)
-						else if	key == "mana_value_2"
-							or	key == "cmc_2" then					cmc(card.casting_cost_2)
-						else if	key == "supertype"
-							or	key == "super_type" then			keep_only_supertypes_statistic(card.super_type)
-						else if	key == "supertype_2"
-							or	key == "super_type_2" then			keep_only_supertypes_statistic(card.super_type_2)
-						else if	key == "type" then					remove_supertypes_statistic(card.super_type)
-						else if	key == "type_2" then				remove_supertypes_statistic(card.super_type_2)
-						else if	key == "subtype" then				card.sub_type
-						else if	key == "subtype_2" then				card.sub_type_2
-						else if	key == "word_count" then			total_word_count_statistic()
-						else if	key == "paragraph_count" then		total_paragraph_count_statistic()
-						else if	key == "card_notes"
-							or	key == "sorted_notes" then			card.notes
-						else										card[key] or else nil
-		filter :=		if		key == "color"
-							or	key == "colors"
-							or	key == "exact_color"
-							or	key == "exact_colors"
-							or	key == "color_identity" then		(	colors := distil_color_filter_statistic(initial_filters[x])
-																		if mode == "==" or mode == "!=" then	colors
-																		else									(field := sort_text(field, order:colors); colors))
-						else										remove_quotes_statistic(initial_filters[x])
+		field := filter_key_to_field(key)
+		filter := if filter_field_alias[key] or else key == "color" then
+			(
+				colors := distil_color_filter_statistic(initial_filters[x])
+				if mode == "==" or mode == "!=" then colors
+				else
+				(
+					field := sort_text(field, order:colors)
+					colors
+				)
+			)
+			else remove_quotes_statistic(initial_filters[x]);
 		fields := fields + [field]
 		filters := filters + [filter]
 		keys := keys + [key]
@@ -1437,25 +1430,41 @@ filter_from_statistic :=
 	message := "Kept"
 	for x from 0 to count do
 	(
-		if message == "Kept" or message == "Filtered" then (
-		if fields[x] == nil then message := "!! Could not find card field named [ " + keys[x] + " ] !!" else (
-		field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))
-		filter := filters[x]
-		key := keys[x]
-		mode := if negate then negate_mode(modes[x]) else modes[x]
-		if		(mode == "==" and field != filter)
-			or	(mode == "!=" and field == filter)
-			or	(mode == "=:" and not contains(to_lower(field), match: to_lower(filter)))
-			or	(mode == "!:" and contains(to_lower(field), match: to_lower(filter)))		then message := "Filtered"
-		else if field != ""
-			and	(mode == "\<=" or mode == ">=" or mode == "\<" or mode == ">")				then (	field_number := to_number(field) or else nil
-																									filter_number := to_number(filter) or else nil
-																									if		field_number == nil									then message := "!! Could not convert the value of card field [ " + key + " ] to a number !!"
-																									else if	filter_number == nil								then message := "!! Could not convert the value of filter [ " + key + mode + "\"" + unescape_quotes_filter_statistics(filter) + "\" ] to a number !!"
-																									else if	(mode == "\<=" and field_number > filter_number)
-																										or	(mode == ">=" and field_number < filter_number)
-																										or	(mode == "\<" and field_number >= filter_number)
-																										or	(mode == ">" and field_number <= filter_number)		then message := "Filtered")))
+		if message == "Kept" or message == "Filtered" then
+		(
+			if fields[x] == nil then
+				(
+					if keys[x] == "[or]_type" then message := "!! [OR] applies to all filters and must be at the start !!"
+					else message := "!! Could not find card field named [ " + keys[x] + " ] !!"
+				)
+			else
+			(
+				field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))
+				filter := filters[x]
+				key := keys[x]
+				mode := if negate then negate_mode(modes[x]) else modes[x]
+				if (mode == "==" and field != filter)
+				or (mode == "!=" and field == filter)
+				or (mode == "=:" and not contains(to_lower(field), match: to_lower(filter)))
+				or (mode == "!:" and contains(to_lower(field), match: to_lower(filter)))
+					then message := "Filtered"
+				else if field != "" and	(mode == "\<=" or mode == ">=" or mode == "\<" or mode == ">")
+					then
+					(
+						field_number := to_number(field) or else nil
+						filter_number := to_number(filter) or else nil
+						if field_number == nil
+							then message := "!! Could not convert the value of card field [ " + key + " ] to a number !!"
+						else if	filter_number == nil
+							then message := "!! Could not convert the value of filter [ " + key + mode + "\"" + unescape_quotes_filter_statistics(filter) + "\" ] to a number !!"
+						else if	(mode == "\<=" and field_number > filter_number)
+						or	(mode == ">=" and field_number < filter_number)
+						or	(mode == "\<" and field_number >= filter_number)
+						or	(mode == ">" and field_number <= filter_number)
+							then message := "Filtered"
+					)
+			)
+		)
 	)
 	if		message == "Filtered" and negate then	"Kept"
 	else if	message == "Kept" and negate then		"Filtered"
