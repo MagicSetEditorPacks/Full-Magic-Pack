@@ -1373,7 +1373,8 @@ has_mutate_text_statistic :=
 
 # Should the card be excluded from the statistics?
 # real value of input keys
-filter_field_map := [
+filter_field_map_statistic :=
+[
 	artist: {card.illustrator},
 	artist_2: {card.illustrator_2},
 	template: {stylesheet.short_name},
@@ -1399,7 +1400,8 @@ filter_field_map := [
 	card_notes: {card.notes}
 ]
 # alternate names for input keys
-filter_field_alias := [
+filter_field_alias_statistic :=
+[
 	artist2: "artist_2",
 	colors: "color",
 	exact_color: "color",
@@ -1423,7 +1425,7 @@ filter_field_alias := [
 # turn user input key into its real value or else nil
 filter_key_to_field_statistic :=
 {
-	filter_field_map[filter_field_alias[input] or else input]() or else card[input] or else nil
+	filter_field_map_statistic[input]() or else card[input] or else nil
 }
 filter_from_statistic :=
 {
@@ -1444,12 +1446,13 @@ filter_from_statistic :=
 	for x from 0 to count do
 	(
 		key := replace_space_statistic(trim(initial_keys[x]))
+		key := filter_field_alias_statistic[key] or else key
 		mode := initial_modes[x]
 		field := filter_key_to_field_statistic(key)
-		filter := if filter_field_alias[key] or else key == "color" then
+		filter := if key == "color" then
 			(
 				colors := distil_color_filter_statistic(initial_filters[x])
-				field := sort_text(field, order:colors)
+				field := sort_text(field, order:"in_place(" + colors + ")")
 				colors
 			)
 			else remove_quotes_statistic(initial_filters[x]);
@@ -1470,7 +1473,7 @@ filter_from_statistic :=
 				)
 			else
 			(
-				field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))		# Is the trim necessary? Could prevent from searching things that end in spaces
+				field := trim(escape_quotes_field_statistics(replace_squote_statistic(remove_tags(fields[x]))))
 				filter := filters[x]
 				key := keys[x]
 				mode := if negate then negate_mode(modes[x]) else modes[x]
