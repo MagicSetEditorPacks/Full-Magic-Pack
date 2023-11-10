@@ -404,68 +404,35 @@ mana_production_list_statistic :=
 	land2 := lang_setting("is_land")(card.super_type_2)
 	result_1 :=	if		check_type == "land" and not land1		then	""
 				else if	check_type == "nonland" and land1		then	""
-				else											face_mana_production_list_statistic(texts: text_to_check_statistic(card: card), card: card, sub: card.sub_type)
+				else											face_mana_production_list_statistic(texts: text_to_check_statistic(card: card), card: card, sub: card.sub_type, name:card.name)
 	result_2 :=	if not check_2_statistic(card: card)			then	""
 				else if	check_type == "land" and not land2		then	""
 				else if	check_type == "nonland" and land2		then	""
-				else											face_mana_production_list_statistic(texts: text_to_check_2_statistic(card: card), card: card, sub: card.sub_type_2)
+				else											face_mana_production_list_statistic(texts: text_to_check_2_statistic(card: card), card: card, sub: card.sub_type_2, name:card.name_2)
 	substring(result_1 + result_2, begin: 1)
 }
 face_mana_production_list_statistic :=
 {
-	can_C :=		if can_add_C_statistic(texts, card: card)				then ",C"		else ""
-	can_Any :=		if can_add_any_color_statistic(texts, card: card)		then ",Any"		else ""
-	can_Chosen :=	if can_add_chosen_color_statistic(texts, card: card)	then ",Chosen"	else ""
-	if can_Any != "" or can_Chosen != "" then (can_Any + can_Chosen + can_C) else (
-	
-	(if can_add_W_statistic(texts, card: card, sub: sub) then ",W" else "") +
-	(if can_add_U_statistic(texts, card: card, sub: sub) then ",U" else "") +
-	(if can_add_B_statistic(texts, card: card, sub: sub) then ",B" else "") +
-	(if can_add_R_statistic(texts, card: card, sub: sub) then ",R" else "") +
-	(if can_add_G_statistic(texts, card: card, sub: sub) then ",G" else "") +
-	can_C)
-}
+	# the combined text fields
+	combined_text := for x from 0 to length(texts)-1 do (remove_reminder_statistic(card[texts[x]]) + "\n")
 
-# TODO localize
-match_add_W_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*W[^<]*<")
-match_add_U_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*U[^<]*<")
-match_add_B_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*B[^<]*<")
-match_add_R_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*R[^<]*<")
-match_add_G_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*G[^<]*<")
-match_add_C_statistic					:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*<sym[^>]*>[^<]*C[^<]*<")
-match_add_any_color_statistic			:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*mana ((of any [^(\n|^)]*)|(in any combination of ))color")
-match_add_chosen_color_statistic		:= match@(match: "(—| |^)[Aa]dd [^(\n|^)]*mana of the chosen color")
-match_add_chosen_color_bis_statistic	:= match@(match: "(—| |^)[Cc]hoose a color[^(\n|^)]+ [Aa]dd [^(\n|^)]*mana of that color")
-match_add_a_choice_statistic :=
-{
-	match_add_chosen_color_statistic(input) or match_add_chosen_color_bis_statistic(input)
+	# the text-based mana we can produce
+	# we don't care about specifics just if they're non-empty
+	can_Any := lang_setting("gold_mana_production")(combined_text) != ""
+	can_Chosen := lang_setting("chosen_mana_production")(combined_text) != ""
+
+	# the mana symbols we can produce
+	produced_symbols := wubrgc_break_statistic(lang_setting("mana_symbol_production")(combined_text))
+	
+	(if lang_setting("is_plains")(sub) 		or contains_element(produced_symbols, element:"W") then ",W" else "") +
+	(if lang_setting("is_island")(sub) 		or contains_element(produced_symbols, element:"U") then ",U" else "") +
+	(if lang_setting("is_swamp")(sub) 		or contains_element(produced_symbols, element:"B") then ",B" else "") +
+	(if lang_setting("is_mountain")(sub) 	or contains_element(produced_symbols, element:"R") then ",R" else "") +
+	(if lang_setting("is_forest")(sub) 		or contains_element(produced_symbols, element:"G") then ",G" else "") +
+	(if lang_setting("is_wastes")(name) 	or contains_element(produced_symbols, element:"C") then ",C" else "") +
+	(if can_Any																				 then ",Any" else "") +
+	(if can_Chosen																		  then ",Chosen" else "")
 }
-can_add_mana_statistic :=
-{
-	# first check if we have a basic land subtype
-	# if not, see if we have a relevant T: Add M ability
-	if i != nil and match(sub, match:"(?i)"+lang_setting("word_lists_basic")[i]) then true
-	else (
-		result := false
-		for x from 0 to length(input)-1 do
-		(
-			if func(remove_reminder_statistic(card[input[x]])) then
-			(
-				result := true; 0
-			)
-			else 0
-		)
-		result
-	)
-}
-can_add_W_statistic := {can_add_mana_statistic(input, sub:sub, i:0, func:match_add_W_statistic)}
-can_add_U_statistic := {can_add_mana_statistic(input, sub:sub, i:1, func:match_add_U_statistic)}
-can_add_B_statistic := {can_add_mana_statistic(input, sub:sub, i:2, func:match_add_B_statistic)}
-can_add_R_statistic := {can_add_mana_statistic(input, sub:sub, i:3, func:match_add_R_statistic)}
-can_add_G_statistic := {can_add_mana_statistic(input, sub:sub, i:4, func:match_add_G_statistic)}
-can_add_C_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_C_statistic)}
-can_add_any_color_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_any_color_statistic)}
-can_add_chosen_color_statistic := {can_add_mana_statistic(input, sub:sub, i:nil, func:match_add_a_choice_statistic)}
 
 # Word counting
 total_word_count_statistic :=
