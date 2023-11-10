@@ -9,15 +9,10 @@ remove_zero_width_spaces_statistic := replace@(match: "​", replace: "")
 replace_en_spaces_statistic := replace@(match: " ", replace: " ")
 
 ## workaround cause position() is broken for text arrays
-### TODO optimize? would this be better as filter_list?
 contains_element_statistic :=
 {
-	contained := false
-	count := length(input)-1
-	for x from 0 to count do (if input[x] == element then contained := true;0)
-	contained
+	length(filter_list(input, filter:{input == element})) > 0
 }
-
 keep_only_symbols_statistic := filter_text@(match: "<sym[^>]*>.+?</sym[^>]*>")
 keep_only_symbols_list_statistic :=
 {
@@ -254,36 +249,30 @@ omniverse_color_statistic :=
 # Count how many cards have one white devotion in the set. Repeat for two white devotion. Repeat for three, then four+, then again for other colors.
 cc_colored_pips_statistic :=
 {
-	split_casting_cost := cmc_split(card.casting_cost)
-	split_casting_cost_2 := if check_2_statistic() then cmc_split(card.casting_cost_2) else []
+	cc := card.casting_cost
+	cc2 := if check_2_statistic() then card.casting_cost_2 else ""
 	
-	result :=	symbol_aggregate_statistic(split_casting_cost, symbol: "W") +
-				symbol_aggregate_statistic(split_casting_cost, symbol: "U") +
-				symbol_aggregate_statistic(split_casting_cost, symbol: "B") +
-				symbol_aggregate_statistic(split_casting_cost, symbol: "R") +
-				symbol_aggregate_statistic(split_casting_cost, symbol: "G") +
-				symbol_aggregate_statistic(split_casting_cost, symbol: "C") +
-				symbol_aggregate_statistic(split_casting_cost_2, symbol: "W") +
-				symbol_aggregate_statistic(split_casting_cost_2, symbol: "U") +
-				symbol_aggregate_statistic(split_casting_cost_2, symbol: "B") +
-				symbol_aggregate_statistic(split_casting_cost_2, symbol: "R") +
-				symbol_aggregate_statistic(split_casting_cost_2, symbol: "G") +
-				symbol_aggregate_statistic(split_casting_cost_2, symbol: "C")
+	result :=	symbol_aggregate_statistic(cc, symbol: "W") +
+				symbol_aggregate_statistic(cc, symbol: "U") +
+				symbol_aggregate_statistic(cc, symbol: "B") +
+				symbol_aggregate_statistic(cc, symbol: "R") +
+				symbol_aggregate_statistic(cc, symbol: "G") +
+				symbol_aggregate_statistic(cc, symbol: "C") +
+				symbol_aggregate_statistic(cc2, symbol: "W") +
+				symbol_aggregate_statistic(cc2, symbol: "U") +
+				symbol_aggregate_statistic(cc2, symbol: "B") +
+				symbol_aggregate_statistic(cc2, symbol: "R") +
+				symbol_aggregate_statistic(cc2, symbol: "G") +
+				symbol_aggregate_statistic(cc2, symbol: "C")
 	substring(result, begin: 1)
 }
 
 # Count the total devotion of all cards in the set.
 cc_colored_pips_totals_statistic :=
 {
-	split_casting_cost := cmc_split(card.casting_cost + (if check_2_statistic() then " " + card.casting_cost_2 else ""))
+	cc := card.casting_cost + (if check_2_statistic() then " " + card.casting_cost_2 else "")
 	
-	result :=	symbol_count_list_statistic(split_casting_cost, symbol: "W") +
-				symbol_count_list_statistic(split_casting_cost, symbol: "U") +
-				symbol_count_list_statistic(split_casting_cost, symbol: "B") +
-				symbol_count_list_statistic(split_casting_cost, symbol: "R") +
-				symbol_count_list_statistic(split_casting_cost, symbol: "G") +
-				symbol_count_list_statistic(split_casting_cost, symbol: "C")
-	substring(result, begin: 1)
+	join(wubrgc_break_statistic(cc), sep:",")
 }
 
 # Count how many cards have one white pip in their ability costs. Repeat for two white pips. Repeat for three, then four+, then again for other colors.
@@ -294,14 +283,12 @@ ability_colored_pips_statistic :=
 	count := length(costs) - 1
 	result := for x from 0 to count do
 	(
-		split_text := cmc_split(costs[x])
-	
-		symbol_aggregate_statistic(split_text, symbol: "W") +
-		symbol_aggregate_statistic(split_text, symbol: "U") +
-		symbol_aggregate_statistic(split_text, symbol: "B") +
-		symbol_aggregate_statistic(split_text, symbol: "R") +
-		symbol_aggregate_statistic(split_text, symbol: "G") +
-		symbol_aggregate_statistic(split_text, symbol: "C")
+		symbol_aggregate_statistic(costs[x], symbol: "W") +
+		symbol_aggregate_statistic(costs[x], symbol: "U") +
+		symbol_aggregate_statistic(costs[x], symbol: "B") +
+		symbol_aggregate_statistic(costs[x], symbol: "R") +
+		symbol_aggregate_statistic(costs[x], symbol: "G") +
+		symbol_aggregate_statistic(costs[x], symbol: "C")
 	)
 	substring(result, begin: 1))
 }
@@ -314,14 +301,7 @@ ability_colored_pips_totals_statistic :=
 	count := length(costs) - 1
 	result := for x from 0 to count do
 	(
-		split_text := cmc_split(costs[x])
-		
-		symbol_count_list_statistic(split_text, symbol: "W") +
-		symbol_count_list_statistic(split_text, symbol: "U") +
-		symbol_count_list_statistic(split_text, symbol: "B") +
-		symbol_count_list_statistic(split_text, symbol: "R") +
-		symbol_count_list_statistic(split_text, symbol: "G") +
-		symbol_count_list_statistic(split_text, symbol: "C")
+		"," + join(wubrgc_break_statistic(costs[x]), sep:",")
 	)
 	substring(result, begin: 1))
 }
@@ -361,20 +341,25 @@ triggered_cost_filter_statistic :=
 	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs # TODO localize
 keyword_cost_filter_statistic :=
 	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
-### TODO optimize? would this be better as filter_text?
+
+devotion_filters_statistic := [
+	W: filter_text@(match:"W")
+	U: filter_text@(match:"U")
+	B: filter_text@(match:"B")
+	R: filter_text@(match:"R")
+	G: filter_text@(match:"G")
+	C: filter_text@(match:"C")
+]
+color_pip_break_statistic := break_text@(match:"([A-Z0-9]/|[|])*[WUBRG]")
+wubrgc_break_statistic := break_text@(match:"[WUBRGC]")
 symbol_aggregate_statistic :=
 {
-	if input == [] then "" else (
-	
-	count := for each sym in input do (if contains(sym, match: symbol) then 1 else 0)
-	if count == 0 then "" else (
-	
-	result :=	if		count == 1	then	(symbol)
-				else if count == 2	then	(symbol + symbol)
-				else if count == 3	then	(symbol + symbol + symbol)
-				else						(symbol + symbol + symbol + symbol + "+")
-	"," + space_prefix[symbol] + result))
+	devotion := devotion_filters_statistic[symbol](input)
+	len := length(devotion)
+	if len == 0 then ""
+	else "," + space_prefix[symbol] + (if len > 3 then substring(devotion, end:4) + "+" else devotion)
 }
+
 symbol_count_list_statistic :=
 {
 	result := for each sym in input do (if contains(sym, match: symbol) then ("," + symbol) else "")
@@ -382,13 +367,12 @@ symbol_count_list_statistic :=
 }
 
 # How many colored pips does each casting cost have.
-### TODO optimize? would these be better as filter_text?
 cc_colored_pips_count_statistic :=
 {
 	check_1 := card.casting_cost != ""
 	check_2 := check_2_statistic() and card.casting_cost_2 != ""
-	(if check_1 then colored_pips_count_statistic(cmc_split(card.casting_cost)) else "") +
-	(if check_2 then (if check_1 then "," else "") + colored_pips_count_statistic(cmc_split(card.casting_cost_2)) else "")
+	(if check_1 then colored_pips_count_statistic(card.casting_cost) else "") +
+	(if check_2 then (if check_1 then "," else "") + colored_pips_count_statistic(card.casting_cost_2) else "")
 }
 
 # How many colored pips does each ability cost have.
@@ -399,7 +383,7 @@ ability_colored_pips_count_statistic :=
 	count := length(costs) - 1
 	for x from 0 to count do
 	(
-		colored_pips_count_statistic(cmc_split(costs[x])) + (if x < count then "," else "")
+		colored_pips_count_statistic(costs[x]) + (if x < count then "," else "")
 	))
 }
 
@@ -413,10 +397,8 @@ colored_pips_count_totals_statistic :=
 
 colored_pips_count_statistic :=
 {
-	count := for each sym in input do (if is_colored_mana(sym) then 1 else 0)
-	if count == nil then "0"
-	else if count >= 8 then "8+"
-	else count
+	pips := length(color_pip_break_statistic(input))
+	if pips >= 8 then "8+" else pips	
 }
 
 # Count how many cards can produce white mana in the set. Repeat for other colors.
@@ -1558,7 +1540,6 @@ trim_from_draw_statistic :=
 		or	filter_from_statistic(card: card) == "Filtered"
 }
 
-# TODO, update names and order here once its locked in
 statistics_info :=
 {
 	trace("
