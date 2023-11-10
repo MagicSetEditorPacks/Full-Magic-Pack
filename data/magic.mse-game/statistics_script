@@ -7,7 +7,7 @@ remove_flavor_statistic := replace@(match: "<i-flavor>.*?</i-flavor>", replace: 
 remove_reminder_statistic := replace@(match: "(<i>|<i-auto>).*?(</i>|</i-auto>)", replace: "")
 remove_zero_width_spaces_statistic := replace@(match: "​", replace: "")
 replace_en_spaces_statistic := replace@(match: " ", replace: " ")
-
+filter_numbers_statistic := filter_text@(match:"[0-9]")
 ## workaround cause position() is broken for text arrays
 contains_element_statistic :=
 {
@@ -1402,7 +1402,22 @@ filter_field_alias_statistic :=
 	supertype2: "supertype_2",
 	type2: "type_2",
 	subtype2: "subtype_2",
-	sorted_notes: "card_notes"
+	sorted_notes: "card_notes",
+	power2: "power_2",
+	toughness2: "toughness_2",
+	loyalty2: "loyalty_2",
+	defense2: "defense_2"
+]
+filter_number_variable_statistic :=
+[
+	power: true,
+	power_2: true,
+	toughness: true,
+	toughness_2: true,
+	loyalty: true,
+	loyalty_2: true
+	defense: true,
+	defense_2: true
 ]
 # turn user input key into its real value or else nil
 filter_key_to_field_statistic :=
@@ -1473,6 +1488,8 @@ filter_from_statistic :=
 					(
 						field_number := to_number(field) or else nil
 						filter_number := to_number(filter) or else nil
+						if field_number == nil and filter_number_variable_statistic[key] or else false
+							then field_number := to_number(filter_numbers_statistic(field))
 						if field == ""
 							then (if not negate then message := "Filtered")
 						else if field_number == nil
@@ -1623,7 +1640,8 @@ statistics_info :=
 	
 	[Custom creature races/classes]
 	If your set uses custom creature sub types, write them all in these fields, separated by commas. Otherwise, they will be counted as non-creature sub types.
-	Sub types can be auto-detected, but may find false positives on creatures that are also other card types.
+	Setting this equal to "detect" will have MSE check all your cards and write out any custom creature types it detects.
+	This might find false positives, for example, it will detect a custom artifact type that's only on artifact creatures as a creature type.
 	Some ambiguous canon sub types like Zombie are counted as both a race and a class. If you want them to only count in one category, add them to the corresponding field.
 	
 	
