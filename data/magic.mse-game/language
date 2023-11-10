@@ -2318,3 +2318,133 @@ chinese_japanese_number_map :=
 	1000 : "一千"
 	1000000 : "100万"
 ]
+
+
+# Keyword helper functions. Maybe these belong in the main script file?
+make_list_unique :=
+{
+	unique_list := []
+	count := length(input)-1
+	for x from 0 to count do (if not contains_element(unique_list, element: input[x]) then unique_list := unique_list + [input[x]];0)
+	unique_list
+}
+contains_element :=
+{
+	contained := false
+	count := length(input)-1
+	for x from 0 to count do (if input[x] == element then contained := true;0)
+	contained
+}
+join_list :=
+{
+	count := length(input)-2
+	if count < -1 then "" else if count == -1 then input[0] else (
+	joined_list := for x from 0 to count do (input[x] + glue)
+	joined_list + input[count+1])
+}@(glue: "")
+reverse_list :=
+{
+	count := length(input)-1
+	for x from 0 to count do [input[count-x]]
+}
+
+
+# Keyword functions.
+cost_parameter_script :=
+{
+	input := replace(input, match: "</?sym>", replace: "")
+	if contains(input, match: ",") or contains(input, match: "，") then replace(input, match: "^([^，,]+)(，|,)", replace: "<sym>\\1</sym>\\2")
+	else ("<sym>" + input + "</sym>")
+}
+cost_parameter_dash :=
+{
+	if language().code == "cn" then replace(input, match:"-|―|—", replace:"～")
+	else replace(input, match:"-|―|～", replace:"—")
+}
+localized_phy_reminder :=
+{
+	phy_matches := break_text(card.casting_cost, match:"H(/[WUBRGC])*")
+	if length(phy_matches) < 1 then "" else (
+	multiple := length(phy_matches) > 1
+	phy_matches := make_list_unique(reverse_list(sort_list(phy_matches, order_by: length)))		#First symbol is used for reminder text. Prefer using hybrid mana.
+	letters := split_text(phy_matches[0], match:"/")
+	count := length(letters)
+	costs :=	if count == 1 then	["1"]
+				else				for x from 1 to count-1 do [letters[x]]
+	if		input == "de" then	german_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "pt" then	portuguese_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "zhs" then	chinese_simplified_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "it" then	italian_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "fr" then	french_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "es" then	spanish_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "ja" then	japanese_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "ru" then	russian_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "ko" then	korean_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else if	input == "zht" then	chinese_traditional_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple)
+	else 						english_phy_reminder(costs, phy_matches: phy_matches, multiple: multiple))
+}
+english_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym> can be paid with <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> or 2 life. " +
+	if multiple then	"For each <sym>" + join_list(phy_matches, glue: "</sym> or <sym>") + "</sym> paid with life, this planeswalker enters with two fewer loyalty counters."
+	else				"If life was paid, this planeswalker enters with two fewer loyalty counters."
+}
+german_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym> kann entweder mit <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> oder 2 Lebenspunkten bezahlt werden. " +
+	if multiple then	"Dieser Planeswalker kommt für jedes <sym>" + join_list(phy_matches, glue: "</sym> oder <sym>") + "</sym>, das mit Lebenspunkten bezahlt wurde, mit zwei Loyalitätsmarken weniger ins Spiel."
+	else				"Falls Lebenspunkte bezahlt wurden, kommt dieser Planeswalker mit zwei Loyalitätsmarken weniger ins Spiel."
+}
+portuguese_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym> pode ser pago com <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> ou 2 pontos de vida. " +
+	if multiple then	"Para cada <sym>" + join_list(phy_matches, glue: "</sym> ou <sym>") + "</sym> pago com vida, este planeswalker entra com dois marcadores de lealdade a menos."
+	else				"Se foram pagos pontos de vida, este planeswalker entrará com dois marcadores de lealdade a menos."
+}
+chinese_simplified_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym>可用<sym>" + join_list(costs, glue: "</sym>，<sym>") + "</sym>或2点生命来支付。" +
+	if multiple then	"每有一点以生命支付的<sym>" + join_list(phy_matches, glue: "</sym>或<sym>") + "</sym>，此鹏洛客进战场时上面便少两个忠诚指示物。"
+	else				"如果以生命支付，则此鹏洛客进战场时上面少两个忠诚指示物。"
+}
+italian_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym> può essere pagato con <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> o con 2 punti vita. " +
+	if multiple then	"Per ogni <sym>" + join_list(phy_matches, glue: "</sym> o <sym>") + "</sym> pagato con punti vita, questo planeswalker entra con due segnalini fedeltà in meno."
+	else				"Se sono stati pagati punti vita, questo planeswalker entra con due segnalini fedeltà in meno."
+}
+french_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym> peut être payé au choix avec <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> ou 2 points de vie. " +
+	if multiple then	"Pour chaque <sym>" + join_list(phy_matches, glue: "</sym> ou <sym>") + "</sym> payé avec des points de vie, ce planeswalker arrive avec deux marqueurs « loyauté » de moins."
+	else				"Si des points de vie ont été payés, ce planeswalker arrive avec deux marqueurs « loyauté » de moins."
+}
+spanish_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym> puede pagarse con <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> o 2 vidas. " +
+	if multiple then	"Por cada <sym>" + join_list(phy_matches, glue: "</sym> o <sym>") + "</sym> pagado con vidas, este planeswalker entra con dos contadores de lealtad menos."
+	else				"Si se pagaron vidas, este planeswalker entra con dos contadores de lealtad menos."
+}
+japanese_phy_reminder :=
+{
+						"<sym>" + phy_matches[0] + "</sym>は<sym>" + join_list(costs, glue: "</sym>でも<sym>") + "</sym>でも２点のライフでも支払うことができる。" +
+	if multiple then	"ライフで支払われた<sym>" + join_list(phy_matches, glue: "</sym>でも<sym>") + "</sym>につき、このプレインズウォーカーの上にある忠誠カウンターが２個少ない状態で戦場に出る。"
+	else				"ライフで支払ったなら、このプレインズウォーカーは２個少ない忠誠カウンターで戦場に出る。"
+}
+
+russian_phy_reminder :=
+{
+	"За <sym>" + phy_matches[0] + "</sym> можно заплатить <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> или 2 жизни. " +
+	"Если были заплачены жизни, то у этого planeswalker'а при выходе на поле битвы будет на два жетона верности меньше."
+}
+korean_phy_reminder :=
+{
+	"<sym>" + phy_matches[0] + "</sym>는 <sym>" + join_list(costs, glue: "</sym>, <sym>") + "</sym> 또는 생명 2점으로 지불할 수 있다. " +
+	"생명점이 지불되었다면, 이 플레인즈워커는 충성 카운터를 두 개 적게 가지고 들어온다."
+}
+chinese_traditional_phy_reminder :=
+{
+	"<sym>" + phy_matches[0] + "</sym>可用<sym>" + join_list(costs, glue: "</sym>，<sym>") + "</sym>或2點生命來支付。" +
+	"如果以生命支付，則此鵬洛客進戰場時上面少兩個忠誠指示物。"
+}
+remove_ein := replace@(match: "eine? ", replace: "")
