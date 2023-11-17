@@ -71,14 +71,18 @@ init script:
 	is_clear := { styling.use_clear_frames }
 	is_unsorted := {styling.remove_from_autocount}
 	is_m20 := {contains(styling.frames, match: "M20")}
-	is_snow := {contains(styling.frames, match: "snow") and not is_m20()}
 	is_tall := {contains(styling.frames, match: "tall")}
 	is_textless := {card.rule_text == "" and remove_tags(card.flavor_text) == ""}
 	is_clear := {contains(styling.frames, match: "clear")}
 	mtgo_abil := {contains(styling.frames, match: "MTGO Ability") and not is_m20()}
-	is_legend := {(contains(styling.frames, match: "legend") or (set.auto_legends and contains(card.super_type, match:"Legendary")))}
-	is_nyx := {contains(styling.frames, match: "nyx") and not is_clear() and not is_m20()}
-	is_vehicle := {contains(styling.frames, match: "vehicle") and not is_m20()}
+	is_legend :=	{  auto_legend() 	or contains(styling.frames, match:"legendary") }
+	is_vehicle :=	{ (auto_vehicle()	or contains(styling.frames, match:"vehicle"))	and not is_m20() }
+	is_nyx :=		{ (auto_nyx()		or contains(styling.frames, match:"nyx"))		and not is_m20() and not is_clear() }
+	is_snow :=		{ (auto_snow()		or contains(styling.frames, match:"snow"))		and not is_m20() }
+	auto_legend :=	{ set.auto_legends									and lang_setting("is_legendary")(card.super_type) }
+	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
+	auto_nyx :=		{ contains(styling.auto_frames, match:"nyx")		and lang_setting("is_nyx")(card.super_type) }
+	auto_snow :=	{ contains(styling.auto_frames, match:"snow")		and lang_setting("is_snow")(card.super_type) }
 	is_copy := {contains(styling.frames, match: "copy")}
 	text_shape := {
 		if is_m20() and is_tall() then "9"
@@ -133,6 +137,14 @@ styling field:
 	choice: vehicle
 	choice: nyx
 	choice: snow
+styling field:
+	type: multiple choice
+	name: auto frames
+	description: Automatically applies frames for multi-typed enchantments, snow, or Vehicles on the main card.
+	choice: nyx
+	choice: vehicle
+	choice: snow
+	initial: nyx, vehicle, snow
 styling field:
 	type: multiple choice
 	name: other options
@@ -236,6 +248,9 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 	frames:
+		render style: checklist
+		direction: vertical
+	auto frames:
 		render style: checklist
 		direction: vertical
 	other options:
