@@ -1,5 +1,5 @@
 # Full-Magic-Pack
-Pack containing all public Magic templates for MSE, except outdated ones.
+Pack containing nearly all public Magic templates for MSE, except outdated ones. You can submit things we're missing via Pull Request or linking a source in Issues.
 
 # Installation
 1. Download [this zip file](https://github.com/MagicSetEditorPacks/Full-Magic-Pack/archive/refs/heads/main.zip).
@@ -7,10 +7,10 @@ Pack containing all public Magic templates for MSE, except outdated ones.
     * a subfolder `data`, which is where the templates are installed.
     * a subfolder `Magic - Fonts`, which contains necessary font files.
     * a subfolder `backup`, which contains the previous stable version of the app.
-    * `magicseteditor.exe` and `mse.exe`, the regular version of the app.
+    * `magicseteditor.exe` and `mse.exe`, the regular version of the app. The files are identical.
     * `magicseteditor.com`, a command-line version of MSE for advanced users.
 3. Open the subfolder `Magic - Fonts`. It contains several `.ttf` and/or `.otf` files. Select them all, right-click on one of them, then click Install. Some templates may require additional fonts, provided in the `template specific fonts` subfolder.
-4. If you already had a previous version of MSE, move or copy all other subfolders into your existing MSE folder.
+4. If you already had a previous version of MSE, move or copy all other subfolders into your existing MSE folder. Otherwise, this folder acts as a stand alone installation.
 
 # Change Language
 1. Open the following subfolder:
