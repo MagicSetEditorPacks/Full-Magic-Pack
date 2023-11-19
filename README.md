@@ -1,17 +1,26 @@
 # Full-Magic-Pack
-Pack containing most all public Magic templates for MSE.
+Pack containing all public Magic templates for MSE, except outdated ones.
 
 # Installation
-
-1. Download and extract [this zip file](https://github.com/MagicSetEditorPacks/Full-Magic-Pack/archive/refs/heads/main.zip).
+1. Download [this zip file](https://github.com/MagicSetEditorPacks/Full-Magic-Pack/archive/refs/heads/main.zip).
 2. Extract the zip file. It will contain 5 items:
-    * a folder `data`, which is where the templates are installed.
-    * a folder `Magic - Fonts`, which contains necessary font files.
+    * a subfolder `data`, which is where the templates are installed.
+    * a subfolder `Magic - Fonts`, which contains necessary font files.
+    * a subfolder `backup`, which contains the previous stable version of the app.
     * `magicseteditor.exe` and `mse.exe`, the regular version of the app.
-    * `magicseteditor - 201`, the previous stable version of the app.
     * `magicseteditor.com`, a command-line version of MSE for advanced users.
-4. Inside the extracted folder, open the subfolder `Magic - Fonts`. It contains several `.ttf` and/or `.otf` files. Select them all, right-click on one of them, then click Install. Some templates may require additional fonts, provided in the `template specific fonts` subfolder.
-5. Move or copy all other subfolders into your MSE folder.
+3. Open the subfolder `Magic - Fonts`. It contains several `.ttf` and/or `.otf` files. Select them all, right-click on one of them, then click Install. Some templates may require additional fonts, provided in the `template specific fonts` subfolder.
+4. If you already had a previous version of MSE, move or copy all other subfolders into your existing MSE folder.
+
+# Change Language
+1. Open the following subfolder:
+    MSE Folder/data/magic.mse-game/
+2. Rename the "keywords" file to "keywords_en" (without any extension).
+3. Locate the "keywords_XX" file of your desired language, and rename it to "keywords" (without any extension).
+4. Launch MSE.
+5. Go to Edit menu > Preferences... > select your desired language.
+6. Reload MSE.
+7. Whenever you create a new Set, go to Set info tab > Defaults and Automation section > Card language > select your desired language.
 
 # CardConjurer
 Some template images are provided by [CardConjurer](https://cardconjurer.com/):
