@@ -155,35 +155,33 @@ color_identity_statistic :=
 	if total_colors == "" then "C" else total_colors
 }
 
-# TODO localize
 cda_to_color_statistic :=
 {
 	if input == "" then "" else (
 	
 	text := to_text(input)
 	
-	if contains(text, match: "This card has no color.") then "C" else (
-	if devoid_match_statistic(text) then "C" else (
+	if lang_setting("is_devoid")(input: text) then "C" else (
 	
 	card_name := card["name" + suffix]
-	trigger := color_cda_filter_statistic(text, in_context: "(" + regex_escape(card_name) + "|" + regex_escape(legend_filter(card_name)) + ") <match>\\.")
-	if trigger == "" then "" else (
+	context := "(" + regex_escape(card_name) + "|" + regex_escape(legend_filter(card_name)) + ") ?<match>(\\.|。)"
 	
-	if contains(trigger, match: "all colors") then "WUBRG" else (
+	if lang_setting("is_cda_colorless")(text, in_context: context) then "C" else (
+	if lang_setting("is_cda_all_colors")(text, in_context: context) then "WUBRG" else (
 	
-	distil_color_words_statistic(trigger))))))
+	cda_colors := lang_setting("cda_colors")(text, in_context: context)
+	if cda_colors == "" then "" else (
+	distil_color_words_statistic(cda_colors))))))
 }
-devoid_match_statistic := match@(match: "(\n|^|,| )[Dd]evoid(\n|$|,| |\\()")
-color_cda_filter_statistic := filter_text@(match: "is (colorless|all colors|((blue|white|green|red|black)((,|,? and) (blue|white|green|red|black))*))")
 distil_color_words_statistic :=
 {
 	colors := ""
-	if contains(match: "colorless")	then colors := colors + "C"
-	if contains(match: "white") 	then colors := colors + "W"
-	if contains(match: "blue")  	then colors := colors + "U"
-	if contains(match: "black") 	then colors := colors + "B"
-	if contains(match: "red")   	then colors := colors + "R"
-	if contains(match: "green") 	then colors := colors + "G"
+	if lang_setting("is_colorless")()	then colors := colors + "C"
+	if lang_setting("is_white")() 		then colors := colors + "W"
+	if lang_setting("is_blue")()	  	then colors := colors + "U"
+	if lang_setting("is_black")()	 	then colors := colors + "B"
+	if lang_setting("is_red")()	   		then colors := colors + "R"
+	if lang_setting("is_green")()	 	then colors := colors + "G"
 	
 	if length(colors) > 1 and colors.0 == "C" then substring(colors, begin: 1) else colors
 }
@@ -432,6 +430,7 @@ face_mana_production_list_statistic :=
 	(if lang_setting("is_wastes")(name) 	or contains_element(produced_symbols, element:"C") then ",C" else "") +
 	(if can_Any																				 then ",Any" else "") +
 	(if can_Chosen																		  then ",Chosen" else "")
+	# TODO Localize
 }
 
 # Word counting
@@ -492,20 +491,21 @@ clean_commas_statistic := replace@(match: ",,", replace: ",") + replace@(match: 
 replace_full_width_commas_statistic := replace@(match:",", replace: "，")
 
 # Hypergeometric probability of hitting every single land drop.
+# TODO Localize
 land_drop_hit_percentage_statistic :=
 {
 	if card != set.cards.0 then "" else (
 	set_count := length(set.cards)-1
 	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
 	card_count := length(cards)
-	if card_count <= start then "Not enough non-commander non-promo cards to draw an opening hand. Add normal cards." else (
+	if card_count <= start then "!! Not enough non-commander non-promo cards to draw an opening hand. Add normal cards. !!" else (
 	
 	land_count := for each c in cards do
 	(
 		if lang_setting("is_land")(c.super_type) or	(check_2_statistic(card: c) and lang_setting("is_land")(c.super_type_2)) then 1
 		else 0
 	)
-	if land_count == 0 then "No lands found. 0% chance to hit land drops." else (
+	if land_count == 0 then "!! No lands found. 0% chance to hit land drops. !!" else (
 	
 	max_turns := min(10, card_count-start)
 	probability_per_turn := for t from 1 to max_turns do [100*hypergeometric_sum_statistic(population: card_count, successes_in_population: land_count, sample: start+t, turn: t)]
@@ -597,7 +597,7 @@ global_variable_average_opening_hand_statistic :=
 	creatures_average := format_average_statistic(7.0 * to_number(creatures) / card_count_real)
 	sorceries_average := format_average_statistic(7.0 * to_number(sorceries) / card_count_real)
 	instants_average := format_average_statistic(7.0 * to_number(instants) / card_count_real)
-	
+	# TODO Localize
 	",​Lands — " + lands_average +
 	";,​​Mana Artifacts — " + manaartifacts_average +
 	";,​​​Non-Mana Artifacts — " + nonmanaartifacts_average +
@@ -619,6 +619,7 @@ format_average_statistic :=
 }
 
 # Rarities.
+# TODO Localize
 rarity_statistic :=
 {
 	if		card.shape == "Token" or card.shape == "token" or lang_setting("is_token")(card.super_type) then "token"
@@ -654,6 +655,7 @@ permanent_statistic :=
 	result := face_permanent_statistic(to_text(card.super_type)) + (if check_2_statistic() then face_permanent_statistic(to_text(card.super_type_2)) else "")
 	substring(result, begin: 1)
 }
+# TODO Localize
 face_permanent_statistic :=
 {
 	if		input == ""									then	""
@@ -675,6 +677,7 @@ supertype_statistic :=
 	result := face_supertype_statistic(card.super_type) + (if check_2_statistic() then face_supertype_statistic(card.super_type_2) else "")
 	substring(result, begin: 1)
 }
+# TODO Localize
 face_supertype_statistic :=
 {
 	supertypes := split_space_statistic(to_text(input))
@@ -708,6 +711,7 @@ type_extended_statistic :=
 	result := face_type_extended_statistic(card.super_type) + (if check_2_statistic() then face_type_extended_statistic(card.super_type_2) else "")
 	substring(result, begin: 1)
 }
+# TODO Localize
 face_type_extended_statistic :=
 {
 	old_types := split_space_statistic(to_text(input))
@@ -924,6 +928,7 @@ remove_supertypes_statistic :=	to_text +
 								lang_setting("remove_supertypes") +
 								remove_custom_supertypes_statistic +
 								trim
+# TODO Localize
 keep_only_supertypes_statistic :=
 {
 	supertypes := split_space_statistic(to_text(input))
@@ -1387,6 +1392,7 @@ filter_key_to_field_statistic :=
 {
 	filter_field_map_statistic[input]() or else card[input] or else nil
 }
+# TODO Localize
 filter_from_statistic :=
 {
 	if filter_string == "" then "Kept" else (
