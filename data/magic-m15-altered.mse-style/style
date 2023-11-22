@@ -197,6 +197,7 @@ init script:
 
 	center_map := {is_map() and (card.casting_cost == "" or chosen(styling.other_options, choice:"always center map names"))}
 	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar")}
+	# alternate rarity color
 	alt_rarity := {styling.alt_rarity_color != ""}
 	alt_rarity_color := {
 		string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
@@ -204,18 +205,37 @@ init script:
 		colons := length(filter_text(string, match:":"))
 		output := split_text(string, match:",|:")
 		splits := split_text(string, match:":")
+		final_num := to_real(splits[length(splits)-2]) or else 0
+		final_border := final_num > 0 and final_num < 1
+		final_num := if not final_border then "0.07" else to_string(final_num);
+		if final_border then (
+			colons := colons - 1;
+			string := replace(string, match:"{final_num}:", replace:"")
+		)
 		if colons == 4
-			then output := split_text(string+"0.07:", match:",|:")
+			then output := split_text(string+final_num+":", match:",|:")
 		if colons == 3
-			then output := split_text(string+splits[2]+"0.07:", match:",|:")
+			then output := split_text(string+splits[2]+final_num+":", match:",|:")
 		else if colons == 2
-			then output := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
+			then output := split_text(string+"0,0,0:0,0,0:"+final_num+":", match:",|:")
 		else if colons == 1
-			then output := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
-
+			then output := split_text(string+splits[0]+":0,0,0:0,0,0:"+final_num+":", match:",|:")
+		
 		output
 	}
-	alt_symbol := {symbol_variation(symbol:set.symbol, border_radius: alt_rarity_color().12, fill_type: "linear gradient", fill_color_1: rgb(alt_rarity_color().0, alt_rarity_color().1, alt_rarity_color().2), fill_color_2: rgb(alt_rarity_color().3, alt_rarity_color().4, alt_rarity_color().5), border_color_1: rgb(alt_rarity_color().6, alt_rarity_color().7, alt_rarity_color().8), border_color_2: rgb(alt_rarity_color().9, alt_rarity_color().10, alt_rarity_color().11), center_x:0.5, center_y:0.5, end_x:1, end_y:1)}
+	alt_symbol := {
+		alt_array := alt_rarity_color()
+		symbol_variation(
+			symbol:set.symbol,
+			border_radius: alt_array.12,
+			fill_type: "linear gradient",
+			fill_color_1: rgb(alt_array.0, alt_array.1, alt_array.2),
+			fill_color_2: rgb(alt_array.3, alt_array.4, alt_array.5),
+			border_color_1: rgb(alt_array.6, alt_array.7, alt_array.8),
+			border_color_2: rgb(alt_array.9, alt_array.10, alt_array.11),
+			center_x:0.5, center_y:0.5, end_x:1, end_y:1
+		)
+	}
 	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
 	use_vorthos := {((not is_leveler() or lone_pt()) and card.pt != "") or chosen(styling.other_options, choice:"vorthos box")}
 	clear_tops := {chosen(styling.other_options, choice:"clear tops") and not is_puma()}
@@ -433,7 +453,7 @@ styling field:
 styling field:
 	type: text
 	name: alt rarity color
-	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:...:X:" 1 and 2 are fill color, 3 and 4 border color, X is border thickness. For example, rare is 214,196,94:95,84,40:0,0,0:0,0,0:0.07
 styling field:
 	type: text
 	name: card watermark
