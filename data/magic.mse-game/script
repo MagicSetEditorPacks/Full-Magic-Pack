@@ -498,6 +498,143 @@ protection_code := {
 	output
 }
 self_pro_check := match@(match:"You ha(ve|s) <kw-A><nospellcheck>protection")
+craft_code := {
+	[
+		"en": {
+			## beginning
+			rem := param2.value + ", Exile this artifact, Exile ";
+			
+			## check if a number is given
+			count := filter_text(param1.value, match:"^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|[0-9]+)(-(one|two|three|four|five|six|seven|eight|nine))? (or more)?");
+
+			## replace trailing space
+			count := trim(count)
+
+			## check how many commas are given
+			commas := filter_text(param1.value, match:",");
+
+			## check if this starts with a vowel
+			vowel := match(param1.value, match:"^[aeiouAEIOU]");
+
+			## if we have a comma separated list, use the number of elements as the count
+			## this doesn't support like, Craft with two Islands and two Mountains
+			## you've done that to yourself
+			if commas != "" then count := english_number(length(commas)+1);
+			
+			## unused style (craft with three)
+			#### param1 == "three" count == "three"
+			## counting style (craft with one or more); (craft with six artifacts)
+			#### param1 == "one or more" count == "one"; param1 == "six artifacts" count == "six"
+			## singular style (craft with creature)
+			#### param1 == "creature" count == ""
+			if count == param1.value then
+			(
+				## Exile three other...
+				rem := 	rem
+						+ param1.value
+						+ " other permanents you control and/or cards from your graveyard: "
+			)
+			else if count != "" then
+			(
+				## Exile one or more from among...
+				## Exile the six from among...
+				rem := 	rem
+						+ (if count == "one or more" then param1.value else "the " + count)
+						+ " from among other permanents you control and/or cards in your graveyard: "
+			)
+			else
+			(
+				## Exile another creature you control or...
+				rem := 	rem
+						+ "another " + param1.value + " you control or "
+						+ (if vowel then "an " else "a ") + param1.value + " card from your graveyard: "
+			)
+			
+			## ending and return
+			rem := rem + "Return this card transformed under its owner's control. Craft only as a sorcery."
+			rem
+		},
+		"de": {
+			## beginning
+			rem := param2.value + ", schnicke dieses Artefakt ins Exil, schicke ";
+			
+			## check if a number is given
+			count := filter_text(param1.value, match:"^(zwanzig|dreiβig|vierzig|fünfzig|sechzig|siebzig|achtzig|neunzig|eine[mr]|eins?|zwei|drei|vier|fünf|sechs?|sieben|sieb|acht|neun|zehn|elf|zwölf|[0-9]+)(und)?(zehn|zwanzig|dreiβig|vierzig|fünfzig|sechzig|siebzig|achtzig|neunzig)?( oder mehr(eren)?)? ?");
+
+			## save the thing we're exiling
+			target := trim(replace(param1.value, match:count, replace:""))
+			alt_target := if length(target) > 15 then "Permanente" else target
+
+			## format count
+			count := replace(count, match:"eine[mr]", replace:"eins")
+			count := trim(count)
+
+			## check how many commas are given
+			commas := filter_text(param1.value, match:",");
+
+			## check if this starts with a vowel
+			vowel := match(target, match:"^[aäeiouüAÄEIOUÜ]");
+
+			## if we have a comma separated list, use the number of elements as the count
+			## this doesn't support eg Craft with two Islands and two Mountains
+			## you've done that to yourself
+			if commas != "" then (
+				count := german_number(length(commas)+2);
+				alt_target := "Permanente"
+			}
+
+			## unused style (craft with three)
+			#### param1 == "three" count == "three"
+			## counting style (craft with one or more); (craft with six artifacts)
+			#### param1 == "one or more" count == "one"; param1 == "six artifacts" count == "six"
+			## singular style (craft with creature)
+			#### param1 == "creature" count == ""
+
+			if count == param1.value then
+			(
+				## Exile three other...
+				rem := 	rem
+						+ param1.value
+						+ " weiteren Permanente, die du kontrollierst und/oder Karten aus deinem Friedhof ins Exil: "
+			)
+			else if count != "eins" then
+			(
+				## with one or more...
+				## with four or more
+				## with two+...
+				rem := 	rem
+						+ (
+							if count == "eins oder mehreren" then "ein oder mehrere weitere "
+							else if contains(count, match:"oder") then "die " + count + " weireren "
+							else "die " + count + " oder mehr weiteren "
+							## todo this should list the denumbered param1.value instead
+						)
+						+ alt_target
+						+ (if vowel then ", das du" else ", die du")
+						+ " kontrollierst und/oder Karten aus deinem Friedhof ins Exil: "
+			)
+			else
+			( 
+				## with einem Artefakt
+				## with einem Kreatur
+				rem := 	rem
+						+ (if target == "Artefakt" then "ein weiteres " else "ein ")
+						+ target
+						+ ", "
+						+ (if vowel then "das du" else "die du")
+						+ " kontrollierst, oder "
+						+ (if vowel then "eines " else "eine ") + target
+						+ (if target == "Kreatur" then "en-karte" else "-karte")
+						+" aus deinem Friedhof ins Exile: "
+			)
+			
+			## ending and return
+			rem := rem + "Bringe diese Karte transformiert unter der Kontrolle ihres Besitzers ins Spiel zurück. Spiele Anfertigung wie eine Herexi."
+			rem
+		}
+	][lang_setting("code") or else "en"]()
+}
+
 long_dash := replace@(match:"-", replace:"—")
 
 # Utilities for keywords
