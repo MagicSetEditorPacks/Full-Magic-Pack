@@ -211,6 +211,12 @@ color_identity_count_statistic :=
 # Color Category
 color_category_statistic :=
 {
+	result_1 := face_color_category_statistic(input: card.card_color)
+	result_2 := if check_2_statistic() then face_color_category_statistic(input: card.card_color_2) else ""
+	result_1 + (if result_1 != "" and result_2 != "" then "," else "") + result_2
+}
+face_color_category_statistic :=
+{
 	artifact := chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
 	land     := chosen(choice:"land")
 	multi    := chosen(choice:"multicolor")
@@ -237,6 +243,12 @@ color_category_statistic :=
 
 # Omniverse colors
 omniverse_color_statistic :=
+{
+	result_1 := face_omniverse_color_statistic(input: card.card_color)
+	result_2 := if check_2_statistic() then face_omniverse_color_statistic(input: card.card_color_2) else ""
+	result_1 + (if result_1 != "" and result_2 != "" then "," else "") + result_2
+}
+face_omniverse_color_statistic :=
 {
 	if		chosen(choice: "land")											then	all_en_space_statistic(lang_setting("land"))
 	else if chosen(choice: "multicolor")									then	all_en_space_statistic(lang_setting("multicolor"))
@@ -499,7 +511,7 @@ illustrator_statistic :=
 	artist_1 := trim(replace_full_width_commas_statistic(card.illustrator))
 	artist_2 := trim(replace_full_width_commas_statistic(card.illustrator_2))
 	result := artist_1 + (if check_2_statistic() and artist_2 != "" and artist_2 != artist_1 then "," + artist_2 else "")
-	if result == "" then " No Artist" else if result.0 == "," then substring(result, begin: 1) else result
+	if result == "" then " " + all_en_space_statistic(lang_setting("no_artist")) else if result.0 == "," then substring(result, begin: 1) else result
 }
 
 # Card notes
@@ -588,7 +600,7 @@ global_variable_average_opening_hand_statistic :=
 	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
 	card_count := length(cards)-1
 	card_count_real := to_number(card_count+1)
-	if card_count < 6 then "Not enough non-commander non-promo cards to draw an opening hand. Add normal cards." else (
+	if card_count < 6 then lang_setting("message_drops_no_cards") else (
 	
 	lands := 0
 	manaartifacts := 0
@@ -622,7 +634,7 @@ global_variable_average_opening_hand_statistic :=
 	creatures_average := format_average_statistic(7.0 * to_number(creatures) / card_count_real)
 	sorceries_average := format_average_statistic(7.0 * to_number(sorceries) / card_count_real)
 	instants_average := format_average_statistic(7.0 * to_number(instants) / card_count_real)
-	",​" + lang_setting("land")				+ " — " + lands_average +					# There are zero width spaces in the "," to impose ordering and ",;"
+	",​" + lang_setting("land")				+ " — " + lands_average +					# There are zero width spaces in the "," and ",;" to impose ordering
 	";,​​" + lang_setting("mana_artifact")	+ " — " + manaartifacts_average +
 	";,​​​" + lang_setting("nonmana_artifact")	+ " — " + nonmanaartifacts_average +
 	";,​​​​" + lang_setting("enchantment")		+ " — " + enchantments_average +
@@ -728,7 +740,7 @@ combined_type_statistic :=
 type_extended_statistic :=
 {
 	result := face_type_extended_statistic(card.super_type) + (if check_2_statistic() then face_type_extended_statistic(card.super_type_2) else "")
-	substring(result, begin: 1)
+	if result == "" then " " + all_en_space_statistic(lang_setting("no_type")) else substring(result, begin: 1)
 }
 face_type_extended_statistic :=
 {
@@ -773,10 +785,11 @@ has_type_statistic :=
 
 combined_subtype_statistic :=
 {
-	type_1 := trim(to_text(card.sub_type))
-	type_2 := if check_2_statistic() then trim(to_text(card.sub_type_2)) else ""
+	type_1 := clean_combined_subtype_statistic(card.sub_type)
+	type_2 := if check_2_statistic() then clean_combined_subtype_statistic(card.sub_type_2) else ""
 	type_1 + (if type_1 != "" and type_2 != "" then "," else "") + type_2
 }
+clean_combined_subtype_statistic :=	tag_contents@(tag: "<soft>", contents: {""}) + to_text + trim + replace_full_width_commas_statistic
 
 # Scans all cards for unknown subtypes and tries to determine if they're creature types
 detect_custom_creature_subtypes_statistic :=
