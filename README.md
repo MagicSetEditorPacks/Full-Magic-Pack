@@ -17,10 +17,12 @@ Pack containing nearly all public Magic templates for MSE, except outdated ones.
     MSE Folder/data/magic.mse-game/
 2. Rename the "keywords" file to "keywords_en" (without any extension).
 3. Locate the "keywords_XX" file of your desired language, and rename it to "keywords" (without any extension).
-4. Launch MSE.
-5. Go to Edit menu > Preferences... > select your desired language.
-6. Reload MSE.
-7. Whenever you create a new Set, go to Set info tab > Defaults and Automation section > Card language > select your desired language.
+4. Rename the "statistics" file to "statistics_en" (without any extension).
+5. Locate the "statistics_XX" file of your desired language, and rename it to "statistics" (without any extension).
+6. Launch MSE.
+7. Go to Edit menu > Preferences... > select your desired language.
+8. Reload MSE.
+9. Whenever you create a new Set, go to Set info tab > Defaults and Automation section > Card language > select your desired language.
 
 # CardConjurer
 Some template images are provided by [CardConjurer](https://cardconjurer.com/):

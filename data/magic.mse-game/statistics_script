@@ -371,7 +371,7 @@ activated_cost_filter_statistic :=
 	break_text@(match: "(\n|^)[^(\n|^)]+?:")													#Keep only activated ability costs
 triggered_cost_filter_statistic :=
 	replace@(match: "<[^>]*\\.[^>]*>", replace: "") +											#Remove tags with . inside them
-	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs # TODO localize
+	lang_setting("triggered_cost_filter")														#Keep only triggered ability costs
 keyword_cost_filter_statistic :=
 	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
 
@@ -704,6 +704,10 @@ face_permanent_statistic :=
 }
 
 # Types.
+canon_supertypes_statistic := ["basic", "snow", "world", "legendary", "token", "ongoing", "elite", "host"]
+canon_supertypes_count_statistic := length(canon_supertypes_statistic)-1
+canon_types_statistic := ["land", "creature", "kindred", "artifact", "enchantment", "emblem", "planeswalker", "battle", "sorcery", "instant", "conspiracy", "dungeon", "hero", "phenomenon", "plane", "scheme", "land", "vanguard"]
+canon_types_count_statistic := length(canon_types_statistic)-1
 supertype_statistic :=
 {
 	result := face_supertype_statistic(card.super_type) + (if check_2_statistic() then face_supertype_statistic(card.super_type_2) else "")
@@ -711,23 +715,21 @@ supertype_statistic :=
 }
 face_supertype_statistic :=
 {
-	supertypes := split_space_statistic(to_text(input))
-	count := length(supertypes) - 1
-	custom_supertypes := custom_supertype_statistic()
-	for x from 0 to count do
+	supertypes := to_text(input)
+	result := ""
+	zwsp := ""
+	for x from 0 to canon_supertypes_count_statistic do
 	(
-		type := supertypes[x]
-		if		lang_setting("is_basic")(type)							then	",​" + all_en_space_statistic(lang_setting("basic"))		# There are zero width spaces in the "," to impose ordering
-		else if	lang_setting("is_snow")(type)							then	",​​" + all_en_space_statistic(lang_setting("snow"))
-		else if	lang_setting("is_world")(type)							then	",​​​" + all_en_space_statistic(lang_setting("world"))
-		else if	lang_setting("is_legendary")(type)						then	",​​​​" + all_en_space_statistic(lang_setting("legendary"))
-		else if	lang_setting("is_token")(type)							then	",​​​​​" + all_en_space_statistic(lang_setting("token"))
-		else if	lang_setting("is_ongoing")(type)						then	",​​​​​​" + all_en_space_statistic(lang_setting("ongoing"))
-		else if	lang_setting("is_elite")(type)							then	",​​​​​​​" + all_en_space_statistic(lang_setting("elite"))
-		else if	lang_setting("is_host")(type)							then	",​​​​​​​​" + all_en_space_statistic(lang_setting("host"))
-		else if contains_element(custom_supertypes, element: type)		then	("," + type)
-		else																	""
+		zwsp := zwsp + "​"
+		canon_supertype := canon_supertypes_statistic[x]
+		if lang_setting("is_" + canon_supertype)(supertypes)
+		then result := result + "," + zwsp + all_en_space_statistic(lang_setting(canon_supertype))
+		""
 	)
+	custom_supertypes := custom_supertype_statistic()
+	count := length(custom_supertypes)-1
+	for x from 0 to count do (if contains(supertypes, match: custom_supertypes[x]) then result := result + ("," + custom_supertypes[x]))
+	result
 }
 
 combined_type_statistic :=
@@ -744,35 +746,28 @@ type_extended_statistic :=
 }
 face_type_extended_statistic :=
 {
-	old_types := split_space_statistic(to_text(input))
-	count := length(old_types)-1
+	types := lang_setting("remove_supertypes")(to_text(input))
 	custom_supertypes := custom_supertype_statistic()
-	new_types := for x from 0 to count do
+	count := length(custom_supertypes)-1
+	for x from 0 to count do (types := replace(types, match: "(?i)"+custom_supertypes[x], replace: ""))
+	types := trim(types)
+	result := ""
+	zwsp := ""
+	for x from 0 to canon_types_count_statistic do
 	(
-		type := old_types[x]
-		if		type == ""											then	""
-		else if	contains_element(custom_supertypes, element: type)	then	""
-		else if	lang_setting("get_supertypes")(type) != ""			then	""
-		else if	lang_setting("is_land")(type)						then	",​" + all_en_space_statistic(lang_setting("land"))					# There is a zero width space after the comma in "," so that it always appears after custom types.
-		else if	lang_setting("is_creature")(type)					then	",​​" + all_en_space_statistic(lang_setting("creature"))				# There are two zero width spaces after the comma in "," so that it always appears after lands.
-		else if	lang_setting("is_kindred")(type)					then	",​​​" + all_en_space_statistic(lang_setting("kindred"))				# There are three zero width spaces after the comma in ",", etc...
-		else if	lang_setting("is_artifact")(type)					then	",​​​​" + all_en_space_statistic(lang_setting("artifact"))
-		else if	lang_setting("is_enchantment")(type)				then	",​​​​​" + all_en_space_statistic(lang_setting("enchantment"))
-		else if	lang_setting("is_emblem")(type)						then	",​​​​​​" + all_en_space_statistic(lang_setting("emblem"))
-		else if	lang_setting("is_planeswalker")(type)				then	",​​​​​​​" + all_en_space_statistic(lang_setting("planeswalker"))
-		else if	lang_setting("is_battle")(type)						then	",​​​​​​​​" + all_en_space_statistic(lang_setting("battle"))
-		else if	lang_setting("is_sorcery")(type)					then	",​​​​​​​​​" + all_en_space_statistic(lang_setting("sorcery"))
-		else if	lang_setting("is_instant")(type)					then	",​​​​​​​​​​" + all_en_space_statistic(lang_setting("instant"))
-		else if	lang_setting("is_conspiracy")(type)					then	",​​​​​​​​​​​" + all_en_space_statistic(lang_setting("conspiracy"))
-		else if	lang_setting("is_dungeon")(type)					then	",​​​​​​​​​​​​" + all_en_space_statistic(lang_setting("dungeon"))
-		else if	lang_setting("is_hero")(type)						then	",​​​​​​​​​​​​​" + all_en_space_statistic(lang_setting("hero"))
-		else if	lang_setting("is_phenomenon")(type)					then	",​​​​​​​​​​​​​​" + all_en_space_statistic(lang_setting("phenomenon"))
-		else if	lang_setting("is_plane")(type)						then	",​​​​​​​​​​​​​​​" + all_en_space_statistic(lang_setting("plane"))
-		else if	lang_setting("is_scheme")(type)						then	",​​​​​​​​​​​​​​​​" + all_en_space_statistic(lang_setting("scheme"))
-		else if	lang_setting("is_vanguard")(type)					then	",​​​​​​​​​​​​​​​​​" + all_en_space_statistic(lang_setting("vanguard"))
-		else																"," + type
+		zwsp := zwsp + "​"
+		canon_type := canon_types_statistic[x]
+		if lang_setting("is_" + canon_type)(types) then
+		(
+			result := result + "," + zwsp + all_en_space_statistic(lang_setting(canon_type))
+			types := replace(types, match: "(?i)"+lang_setting(canon_type), replace: "")
+		)
+		""
 	)
-	if new_types == nil then "" else new_types
+	split := split_space_statistic(trim(types))
+	count := length(split)-1
+	for x from 0 to count do (ifresult := result + "," + split[x])
+	result
 }
 
 custom_supertype_statistic := split_text@(input: set.custom_super_types, match: " ?, ?", include_empty: false)
@@ -1011,9 +1006,10 @@ creature_class_statistic :=
 
 face_creature_subtype_statistic :=
 {
-	old_subtypes := to_text(clean_subtypes_statistic(sub))
-	if old_subtypes == "" then "" else (
+	old_subtypes := clean_subtypes_statistic(sub)
+	if to_text(old_subtypes) == "" then "" else (
 	
+	old_subtypes := to_text(replace_atom_sep_statistic(old_subtypes))
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	new_subtypes := for x from 0 to count do
@@ -1036,9 +1032,10 @@ noncreature_subtype_statistic :=
 }
 face_noncreature_subtype_statistic :=
 {
-	old_subtypes := to_text(clean_subtypes_statistic(sub))
-	if old_subtypes == "" then "" else (
+	old_subtypes := clean_subtypes_statistic(sub)
+	if to_text(old_subtypes) == "" then "" else (
 	
+	old_subtypes := to_text(replace_atom_sep_statistic(old_subtypes))
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	custom_creature_subtypes := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
@@ -1071,6 +1068,7 @@ face_noncreature_subtype_statistic :=
 }
 replace_commas_statistic := replace@(match: " ?, ?", replace: ";")
 split_space_statistic := split_text@(match: " ", include_empty:false)
+replace_atom_sep_statistic := replace@(match: "<atom-sep>[^<]*</atom-sep>", replace: " ")
 replace_space_statistic := replace@(match: " ", replace: "_")
 replace_squote_statistic := replace@(match: "'", replace: "’")
 # replace normal space with EN space to workaround stat space bug
@@ -1556,7 +1554,7 @@ trim_from_draw_statistic :=
 		or	filter_from_statistic(card: card) == lang_setting("message_filter_filtered")
 }
 
-statistics_info :=
+statistics_info_en :=
 {
 	trace("
 	
@@ -1740,6 +1738,193 @@ statistics_info :=
 	(Click me or scroll up to see the beginning)
 	")
 	""
+}
+statistics_info_fr :=
+{
+	trace("
+	
+	[[[AIDE DES STATISTIQUES]]]
+	
+	Si certaines cartes sont mal comptées, recharger le programe peux corriger certaines erreures.
+	Si le programe semble compter certaines choses non présentes sur une carte, ce peut être des vestiges
+	d'une version précédente de la carte. Basculez temporairement la carte sur un cadre à double-face,
+	ou un carde de planeswalkers, effacez toutes les données non necessaire pour la version actuelle de la carte,
+	puis retourner sur le bon cadre.
+	
+	
+	[[[ONGLET INFOS DU SET]]]
+	
+	[Trim statistics]
+	Cette option exclue les cartes suivante du decompte des statistiques:
+	- les cartes avec la rareté spéciale
+	- les cartes avec la rareté chef-d'oeuvre
+	- les jetons
+	- les emblèmes
+	- les donjons
+	- les conspirations
+	- les héros
+	- les avant-gardes
+	- les schèmes
+	- les plans
+	- les phénomènes
+	
+	[Filter statistics]
+	Cette option permet de filtrer plus précisément les cartes du décompte dess statistiques.
+	La syntaxe est la suivante:
+	
+	nom_du_champ==\"valeur\"
+	
+	Donc si vous écrivez:
+	
+	notes==\"Pioche\"
+	
+	la page des stats ne comptera que les cartes pour lesquelles les notes sont exactement: 'Pioche'
+	Utilisez != pour l'inégalité. Donc si vous écrivez:
+	
+	notes!=\"Pioche\"
+	
+	la page des stats ne comptera que les cartes pour lesquelles les notes ne sont pas: 'Pioche'
+	Utilisez =: pour compter les cartes donc le champ contient la valeur. Par exemple, si vous écrivez:
+	
+	sub_type=:\"goblin\"
+	
+	la page des stats ne comptera que les cartes qui contiennent 'goblin' parmis leurs sous-types.
+	Utilisez !: pour exclure, donc écrivez:
+	
+	sub_type!:\"goblin\"
+	
+	et la page des stats ne comptera que les cartes qui ne contiennent pas 'goblin' parmis leurs sous-types.
+	Utilisez >= et <= pour les quantités numériques, donc:
+	
+	mana_value>=\"6\"
+	
+	toughness<=\"3\"
+	
+	Vous pouvez écrire plusieurs critères en les séparant d'une virgule, donc:
+	
+	rule_text=:\"lien de vie\", sub_type=:\"ange\"
+	
+	ne comptera que les cartes qui ont 'lien de vie' dans leur text de règle ET qui sont des anges.
+	Si vouss voulez les cartes qui ont 'lien de vie' OU qui sont des anges, ajoutez [OR] au début du filtre:
+	
+	[OR] rule_text=:\"lien de vie\", sub_type=:\"ange\"
+	
+	Si vous cherchez des guillmets \" , vous devez les échaper avec \\. Par exemple:
+	
+	rule_text=:\"Les créatures que vous controllez gagnent \\\"T: Add G.\\\" jusqu'à la fin du tour.\"
+	
+	[Count secondary faces]
+	Cette option permet de compter les faces secondaire sur les cartes à deux faces, les aventures, les cartes avec Répercussion, etc...
+	Certaines choses comme la couleur exacte d'une carte ne prennent jamais en compte les faces secondaires.
+	Certaines choses comme l'identité couleur d'une carte prennent systématiquement en compte toutes les faces secondaires.
+	
+	[Custom super types]
+	Si votre Set contient des supertypes personnalisés, écrivez-les tous ici, séparés par des virgules.
+	Sinon, ils seront comptés comme des types.
+	
+	[Custom creature races/classes]
+	Si votre Set contient des races ou classes de créatures personnalisées, écrivez-les toutes ici, séparées par des virgules.
+	Sinon, elles seront comptées comme des sous-types de noncréature.
+	Si vous écrivez 'detect', MSE essaiera de détécter automatiquement tous vos sous-types personalisés, mais risque d'avoir de faux-positifs.
+	Certains sous-types du canon tel que Zombie sont comptés à la fois comme race et comme classe. Si vous souhaitez qu'ils ne comptent
+	que dans une catégorie, ajoutez-les ici.
+	
+	
+	[[[ONGLET STATISTIQUES]]]
+	
+	[Color Category, Exact Color]
+	La couleur définie par les règles complètes. Ne prends jamais en compte les faces secondaires (comme sur les aventures par exemple),
+	sauf pour les cartes doubles et les cartes avec Répercussion.
+	
+	[Color Identity]
+	L'identité couleur comme définie par les règles de Commander. Prends toujours en compte toutes les faces secondaires.
+	
+	[Casting Cost, Mana Value]
+	Coût de mana (coût de lancement), et coût de mana converti. Compte chaque face séparément, si l'option est cochée dans l'onglet Infos du Set.
+	
+	[Permanent/Non]
+	Compte le nombre de céatures, de permanents noncréatures, et de nonpermanents. Compte chaque face séparément.
+	
+	[All Mana Production]
+	Compte combien de cartes peuvent produire du mana blanc, bleu, etc. Compte aussi les cartes pouvant produire du mana de n'importe quelle couleur,
+	ainsi que les cartes pouvant produire du mana d'une couleur qui est choisie une fois pour toutes.
+	
+	[Land Mana Production]
+	Comme ci-dessus, mais ne compte que les cartes de terrain.
+	
+	[Nonland Mana Production]
+	Comme ci-dessus, mais ne compte que les cartes nonterrain.
+	
+	[Pip Count (Casting Costs)]
+	Compte le nombre de coûts de lancement qui contiennent un symbole de mana coloré. Puis deux, puis trois, etc.
+	
+	[Pip Colors (Casting Costs)]
+	Compte le nombre de coûts de lancement qui contiennent un symbole de mana blanc. Puis deux, puis trois, etc.
+	Puis répète le compte pour les autres couleurs.
+	
+	[Total Pips (Casting Costs)]
+	Compte le nombre total de symboles de mana blanc dans tous les coûts de lancement. Puis répète le compte pour les autres couleurs.
+	
+	[Pip Count (Ability Costs)]
+	Compte le nombre de coûts d'abilités activées/déclenchées/mots-clefs qui contiennent un symbole de mana coloré. Puis deux, puis trois, etc.
+	
+	[Pip Colors (Ability Costs)]
+	Compte le nombre de coûts d'abilités activées/déclenchées/mots-clefs qui contiennent un symbole de mana blanc. Puis deux, puis trois, etc.
+	Puis répète le compte pour les autres couleurs.
+	
+	[Total Pips (Ability Costs)]
+	Compte le nombre total de symboles de mana blanc dans tous les coûts d'abilités activées/déclenchées/mots-clefs.
+	Puis répète le compte pour les autres couleurs.
+	
+	[Card Notes Words]
+	Compte chaque mot apparaissant dans les notes des cartes.
+	
+	[Card Notes Clauses]
+	Découpe les notes des cartes selon l'expression régulière écrite dans le champ 'Card notes clauses split' de l'onglet Infos du Set.
+	Par défault, cela découpe les notes à chaque point, chaque virgule, chaque point-vigule, chaque point d'exclamation et chaque retour à la ligne.
+	Donc par exemple, si vous écrivez dans les notes: 'Pioche, Accélérateur de Mana; A réviser', la carte sera comptée dans la catégorie 'Pioche',
+	dans la catégorie 'Accélérateur de Mana' et dans la catégorie 'A réviser'.
+	
+	[Average Opening Hand]
+	Si le Set est en réalité un deck, compte le nombre moyen de chaque type de carte que contiendra une main de sept cartes.
+	!! Cette statistique ne se met à jour que si le programe est rechargé, ou si une carte est enlevée ou ajoutée au Set !!
+	
+	[Land Drop Hit % (Play)]
+	Si le Set est en réalité un deck, affiche le pourcentage de chance de pouvoir jouer un terrain chaque tour, jusqu'au tour donné.
+	Le compte est fait pour le premier joueur (donc pas de pioche au tour 1).
+	
+	[Land Drop Hit % (Draw)]
+	Si le Set est en réalité un deck, affiche le pourcentage de chance de pouvoir jouer un terrain chaque tour, jusqu'au tour donné.
+	Le compte est fait pour le second joueur (donc pioche au tour 1).
+	
+	[Color Count]
+	Combien de cartes ont une couleur, deux, trois, etc.
+	
+	[Color Identity Count]
+	Combien de cartes ont une couleur dans leur identité couleur, deux, trois, etc.
+	
+	[Color (Secondary Face)]
+	Couleur de la face secondaire.
+	
+	[Color (All Faces)]
+	Couleur combinée des toutes les faces.
+	
+	[Color (Promos)]
+	Couleur des cartes avec la rareté 'spéciale' ou 'chef-d'oeuvre'.
+	
+	[Omniverse Color]
+	Comme la catégorie de couleur, mais compte les couleur étendues (Violet, Rose, Jaune, Orange et Brun)
+	
+	[Filter]
+	Affiche les cartes filtrées par le champ 'filter statistics' de l'onglet Infos du Set.
+	
+	(Cliquez sur moi ou faites défiler vers le haut pour voir le début.)
+	")
+	""
+}
+statistics_info :=
+{
+	if language().code == "fr" then statistics_info_fr() else statistics_info_en()
 }
 statistics_help :=
 {
