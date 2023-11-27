@@ -4,6 +4,7 @@ include file: language
 
 # needed by all style files anyway
 include file: /magic-blends.mse-include/new-blends
+include file: statistics_script
 
 ############################################################## version check
 version_date := {"2023-02-21"}
@@ -953,16 +954,18 @@ sub_type_filter := {
 	input := remove_tag(tag: "<word-list-")
 	input := remove_tag(tag: "<soft")
 	# What word list to use?
-	list_type_rest := if      languages[lang_name()].is_creature(type)    then "class"
-	                  else if languages[lang_name()].is_land(type)        then "land"
-	                  else if languages[lang_name()].is_artifact(type)    then "artifact"
-	                  else if languages[lang_name()].is_enchantment(type) then "enchantment"
-	                  else if languages[lang_name()].is_spell(type)       then "spell"
-	                  else if languages[lang_name()].is_planeswalker(type)       then "planeswalker"
-	                  else if languages[lang_name()].is_plane(type)       then "plane"
+	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class"
+	                  else if lang_setting("is_land")(type)        										then "land"
+	                  else if lang_setting("is_artifact")(type)    										then "artifact"
+	                  else if lang_setting("is_enchantment")(type) 										then "enchantment"
+	                  else if lang_setting("is_spell")(type)       										then "spell"
+	                  else if lang_setting("is_planeswalker")(type) or lang_setting("is_emblem")(type)	then "planeswalker"
+	                  else if lang_setting("is_plane")(type)											then "plane"
+	                  else if lang_setting("is_battle")(type)											then "battle"
+	                  else if lang_setting("is_dungeon")(type)											then "dungeon"
 					  else nil
 	if list_type_rest != nil then (
-		if languages[lang_name()].is_creature(type) or languages[lang_name()].is_tribal(type) then (
+		if lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) then (
 			list_type_first := "race"
 		) else (
 			list_type_first := list_type_rest
@@ -1233,7 +1236,7 @@ to_sentence := replace@(match:"(^|\n)([A-z])([^\n]*)", replace:{_1+ to_upper(_2)
 join_arrays := {
 	a1 + for x from 0 to length(a2)-1 do [a2[x]]
 }
-join := {
+join_list := {
 	string := ""
 	if length(input) == 2 then spacer := " "
 	if length(input) == 1 then closing := ""
@@ -1241,11 +1244,16 @@ join := {
 		string := string + (if x == length(input)-1 then closing else "") + input[x] + (if x == length(input)-1 then "" else spacer)
 	string
 }@(spacer:", ", closing:"and ")
-join2 := {
+join := {
 	if i >= length(input) then ""
 	else if i == length(input)-1 then input[i]
-	else input[i]+sep+join2(input, i: i+1, sep: sep)
-}@(i: 0)
+	else input[i]+sep+join(input, i: i+1, sep: sep)
+}@(i: 0, sep:"")
+
+# workaround cause position() is broken for text arrays
+contains_element := {
+	if input == [] then false else length(filter_list(input, filter:{input == element})) > 0
+}
 ar_position := {
 	pos := -1
 	dummy := for x from 0 to length(in)-1 do (
