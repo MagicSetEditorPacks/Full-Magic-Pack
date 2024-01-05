@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/normal cards
 position hint: 001
 
-version: 2023-02-13
+version: 2024-01-05
 depends on:
 	package: magic.mse-game
 	version: 2020-04-25
@@ -197,25 +197,9 @@ init script:
 
 	center_map := {is_map() and (card.casting_cost == "" or chosen(styling.other_options, choice:"always center map names"))}
 	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar")}
-	alt_rarity := {styling.alt_rarity_color != ""}
-	alt_rarity_color := {
-		string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
-		if match(styling.alt_rarity_color, match:":$") then string := styling.alt_rarity_color
-		colons := length(filter_text(string, match:":"))
-		output := split_text(string, match:",|:")
-		splits := split_text(string, match:":")
-		if colons == 4
-			then output := split_text(string+"0.07:", match:",|:")
-		if colons == 3
-			then output := split_text(string+splits[2]+"0.07:", match:",|:")
-		else if colons == 2
-			then output := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
-		else if colons == 1
-			then output := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
+	# alternate rarity color
+	alt_rarity := {styling.alt_rarity_color}
 
-		output
-	}
-	alt_symbol := {symbol_variation(symbol:set.symbol, border_radius: alt_rarity_color().12, fill_type: "linear gradient", fill_color_1: rgb(alt_rarity_color().0, alt_rarity_color().1, alt_rarity_color().2), fill_color_2: rgb(alt_rarity_color().3, alt_rarity_color().4, alt_rarity_color().5), border_color_1: rgb(alt_rarity_color().6, alt_rarity_color().7, alt_rarity_color().8), border_color_2: rgb(alt_rarity_color().9, alt_rarity_color().10, alt_rarity_color().11), center_x:0.5, center_y:0.5, end_x:1, end_y:1)}
 	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
 	use_vorthos := {((not is_leveler() or lone_pt()) and card.pt != "") or chosen(styling.other_options, choice:"vorthos box")}
 	clear_tops := {chosen(styling.other_options, choice:"clear tops") and not is_puma()}
@@ -223,7 +207,7 @@ init script:
 	pure_snow := {is_snow() and not is_fnm() and not is_inverted() and not is_full_art() and not is_leveler() and not is_shifted()}
 	chop_top := {if styling.chop_top == "" then 0 else if comma_count(styling.chop_top) == "," or comma_count(styling.chop_top) == ",," then split_text(match:",", styling.chop_top).0 else styling.chop_top}
 	chop_bot := {if comma_count(styling.chop_top) == ",," then split_text(match:",", styling.chop_top).1 else if styling.chop_bottom == "" then 0 else styling.chop_bottom}
-	top_of_textbox := {(if is_map() then 340 else if is_full_art() then 359 else if is_mutate() then 395 else 327) - (-chop_top()) }
+	top_of_textbox := {(if is_map() then 340 else if is_full_art() then 359 else if is_mutate() then 395 else 327) - (-chop_top()) + body_font_vertical()}
 	bottom_of_textbox := {(if is_map() then 475 else 481) - chop_bot() }
 
 	is_leveler := {chosen(styling.frames, choice:"leveler")}
@@ -280,7 +264,136 @@ init script:
 		cw := if cw > 44 then (if set.print_fix != "" then set.print_fix else 22) else if cw < 22 then 22 else cw
 		if card_style.rarity.width == 0 then 0 else cw
 	}
+	
+	### Customize fonts
+	swap_font := {styling.apply_custom_fonts}
+	name_font := {
+		swap_font_name(
+			src:styling.custom_name_font, 
+			font_name: if is_map() then "Beleren Small Caps" else "Beleren Bold"
+		)
+	}
+	name_font_size := {
+		swap_font_size(
+			src:styling.custom_name_font, 
+			font_size: if is_map() then 14.8 else 16
+		) - shrink_name()
+	}
+	name_font_color := {
+		swap_font_color(
+			src: styling.custom_name_font,
+			font_color: if is_shifted() or is_fnm() or is_inverted() then "white" else "black"
+		)
+	}
+	name_font_vertical := {
+		swap_font_vertical(
+			src: styling.custom_name_font
+		)
+	}
+	name_font_italic := {
+		swap_font_italic(
+			src: styling.custom_name_font
+		)
+	}
+	
+	type_font := {
+		swap_font_name(
+			src:styling.custom_type_font, 
+			font_name: "Beleren Bold"
+		)
+	}
+	type_font_size := {
+		swap_font_size(
+			src:styling.custom_type_font, 
+			font_size: if is_map() then 12 else 13
+		) - shrink_type()
+	}
+	type_font_color := {
+		swap_font_color(
+			src: styling.custom_type_font,
+			font_color: if is_full_art() or is_puma() or is_shifted() or is_fnm() or is_inverted() then "white" else "black"
+		)
+	}
+	type_font_vertical := {
+		swap_font_vertical(
+			src: styling.custom_type_font
+		)
+	}
+	type_font_italic := {
+		swap_font_italic(
+			src: styling.custom_type_font
+		)
+	}
+	
+	body_font := {
+		swap_font_name(
+			src:styling.custom_body_font, 
+			font_name: "MPlantin"
+		)
+	}
+	body_font_size := {
+		swap_font_size(
+			src:styling.custom_body_font, 
+			font_size: if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14
+		)
+	}
+	body_font_color := {
+		swap_font_color(
+			src: styling.custom_body_font,
+			font_color: if is_full_art() or is_fnm() or is_inverted() then "white" else "black"
+		)
+	}
+	body_font_vertical := {
+		swap_font_vertical(
+			src: styling.custom_body_font
+		)
+	}
+	body_font_italic := {
+		swap_font_italic(
+			src: styling.custom_body_font
+		)
+	}
 
+	pt_font := {
+		swap_font_name(
+			src:styling.custom_pt_font, 
+			font_name: "Beleren Bold"
+		)
+	}
+	loyalty_font_size := {
+		swap_font_size(
+			src:styling.custom_pt_font, 
+			font_size: 14
+		)
+	}
+	loyalty_font_color := {
+		swap_font_color(
+			src: styling.custom_pt_font,
+			font_color: "white"
+		)
+	}
+	pt_font_size := {
+		swap_font_size(
+			src:styling.custom_pt_font, 
+			font_size: if is_map() then 14 else 16
+		)
+	}
+	pt_font_color := {
+		swap_font_color(
+			src: styling.custom_pt_font,
+			font_color: if is_shifted() or is_fnm() or is_inverted() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"
+		)
+	}
+	pt_font_vertical := {
+		swap_font_vertical(
+			src: styling.custom_pt_font
+		)
+	}
+	pt_font_italic := {
+		swap_font_italic(
+			src: styling.custom_pt_font
+		)
+	}
 
 	use_flash_dot := {false}
 ############################################################## Set info fields
@@ -426,18 +539,34 @@ styling field:
 	description: Use the color indicator dot
 	initial: no
 styling field:
-	type: boolean
-	name: remove from autocount
-	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial: no
-styling field:
-	type: text
-	name: alt rarity color
-	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
-styling field:
 	type: text
 	name: card watermark
 	description: Filename in magic-watermarks to use for standalone card watermark
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:...:X:" 1 and 2 are fill color, 3 and 4 border color, X is border thickness. For example, rare is 214,196,94:95,84,40:0,0,0:0,0,0:0.07
+styling field:
+	type: boolean
+	name: apply custom fonts
+	description: Enable to attempt to use custom fonts given below
+	initial: no
+styling field:
+	type: text
+	name: custom name font
+	description: Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
+styling field:
+	type: text
+	name: custom type font
+	description: Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
+styling field:
+	type: text
+	name: custom body font
+	description: Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
+styling field:
+	type: text
+	name: custom pt font
+	description: Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
 styling field:
 	type: choice
 	name: hybrid name
@@ -445,6 +574,11 @@ styling field:
 	choice: gold
 	choice: hybrid
 	description: Use a grey background for the name and type line on hybrid cards like real cards, or gold or hybrid instead.
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
 styling field:
 	type: boolean
 	name: colored multicolor land name
@@ -551,16 +685,18 @@ card style:
 	############################# Name line
 	name:
 		left: { if center_map() then 55 else if is_map() then (if use_node() then 65 else 60) else if use_node() then 58 else if card.card_symbol=="none" then 32 else 50 }
-		top: { if is_map() then 27 else if is_devoid() then 30 else if is_clear() or clear_tops() then 31 else 30 }
+		top: { (if is_map() then 27 else if is_devoid() then 30 else if is_clear() or clear_tops() then 31 else 30)+ name_font_vertical() }
 		right:  { if center_map() then 320 else (if is_map() then 320 else 341) - card_style.casting_cost.content_width }
 		height: { 23 - (0.5 * shrink_name()) }
 		alignment: {if center_map() then "center bottom shrink-overflow" else "left bottom shrink-overflow" }
 		padding bottom: 0
 		z index: 2
 		font:
-			name: { if is_map() then "Beleren Small Caps" else "Beleren Bold" }
-			size: { (if is_map() then 14.8 else 16) - shrink_name() }
-			color: {if is_shifted() or is_fnm() or is_inverted() then "white" else "black"}
+		font:
+			name: { name_font() }
+			italic name: { name_font_italic() }
+			size: { name_font_size() }
+			color: { name_font_color() }
 			shadow color: {if is_shifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -630,16 +766,17 @@ card style:
 		image: { card_identity() }
 	type:
 		left: { if is_map() then 85 else (if use_flash_dot() then 3 else 0) + if is_season() then (if styling.color_indicator_dot then 64 else 44)+(if is_clear() then 4 else 0) else (if styling.color_indicator_dot then 52 else 32) + (if is_clear() then 4 else 0) }
-		top: { (if is_map() then 297.5 else if is_clear() then 294 else if is_thbland() then 444 else if is_full_art() then 329 else 296) + shrink_type() }
+		top: { (if is_map() then 297.5 else if is_clear() then 294 else if is_thbland() then 444 else if is_full_art() then 329 else 296) + shrink_type() + type_font_vertical() }
 		width: { if is_map() then 205 else (if styling.color_indicator_dot then "290" else "310") - rare_width() - (if is_season() then 12 else 0) }
 		height: { (if is_map() then 18 else 20) - shrink_type() }
 		alignment: { if is_map() then "center top shrink-overflow" else "top shrink-overflow"}
 		z index: 5
 		padding top: 2
 		font:
-			name: Beleren Bold
-			size: { (if is_map() then 12 else 13) - shrink_type() }
-			color: { if is_full_art() or is_puma() or is_shifted() or is_fnm() or is_inverted() then "white" else "black"}
+			name: { type_font() }
+			italic name: { type_font_italic() }
+			size: { type_font_size() }
+			color: { type_font_color() }
 			shadow color: {if is_full_art() or is_puma() or is_shifted() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -657,34 +794,34 @@ card style:
 			basic land:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if alt_rarity() then alt_symbol()
+					else if use_alt_rarity() then alt_symbol()
 					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			common:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if alt_rarity() then alt_symbol()
+					else if use_alt_rarity() then alt_symbol()
 					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			uncommon:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
-					else if alt_rarity() then alt_symbol()
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "uncommon")
 			rare:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
-					else if alt_rarity() then alt_symbol()
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "rare")
 			mythic rare:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
-					else if alt_rarity() then alt_symbol()
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
 			special:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
-					else if alt_rarity() then alt_symbol()
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "special")
 			masterpiece:
 				script:
@@ -697,11 +834,11 @@ card style:
 		width: { if is_leveler() then 0 else (if(card.level_0 != "" or card.level_1 != "" or card.level_2 != "") then -46 else 0) + if is_map() then 287 else 314 }
 		bottom: { bottom_of_textbox() }
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else (if is_mutate() then 12 else 14)}
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: { if is_full_art() or is_fnm() or is_inverted() then "white" else "black"}
+			color: { body_font_color() }
 			shadow color: {if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -734,11 +871,12 @@ card style:
 		right: { if is_leveler() then (if lone_pt() or card.pt == "" then 342 else 277) else if is_mutate() then 342 else if is_map() then 40 else 29}
 		bottom: { if is_mutate() then 392 else if is_leveler() then (327+lv_1_height()) else bottom_of_textbox() }
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+		font:
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: { if is_full_art() or is_fnm() or is_inverted() then "white" else "black"}
+			color: { body_font_color() }
 			shadow color: {if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -769,11 +907,11 @@ card style:
 		right: { if is_leveler() then (if card.pt_2 != "" then 277 else 342) else 0 }
 		bottom: { if is_leveler() then (329 + lv_2_coordinate()) + lv_2_height()-2 else 0 }
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: { if is_full_art() or is_fnm() or is_inverted() then "white" else "black"}
+			color: { body_font_color() }
 			shadow color: {if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -804,11 +942,11 @@ card style:
 		right: {if card.pt_3 != "" then 277 else 342}
 		height: {if not is_leveler()then 0 else lv_3_height()-2}
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: { if is_full_art() or is_fnm() or is_inverted() then "white" else "black"}
+			color: { body_font_color() }
 			shadow color: {if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -839,11 +977,11 @@ card style:
 		right: {if card.pt_7 != "" then 277 else 342}
 		height: {if not is_leveler() then 0 else lv_4_height()-2}
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: { if is_full_art() or is_fnm() then "white" else "black"}
+			color: { body_font_color() }
 			shadow color: {if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
@@ -951,14 +1089,15 @@ card style:
 	pt:
 		z index: 4
 		left: {if is_leveler() and not lone_pt() then 291 else 286}
-		top: { if is_leveler() and not lone_pt() then (l1_center() - 14) else if is_map() then 467 else 469}
+		top: { (if is_leveler() and not lone_pt() then (l1_center() - 14) else if is_map() then 467 else 469)+(pt_font_vertical())}
 		width: {if starting_loyalty() and not is_leveler() then 0 else 60}
 		height:	28
 		alignment: center middle shrink-overflow
 		font:
-			name: Beleren Bold
-			size: {if is_map() then 14 else 16}
-			color: {if is_shifted() or is_fnm() or is_inverted() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"}
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {pt_font_size()}
+			color: {pt_font_color()}
 			separator color: red
 			shadow color: {if is_shifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -967,14 +1106,15 @@ card style:
 	pt 2:
 		z index: 4
 		left: 291
-		top: {(l2_center() - 12)}
+		top: {(l2_center() - 12)+(pt_font_vertical())}
 		width: {if is_leveler() and not lone_pt() or card.pt_2 != "" then 60 else 0}
 		height: 28
 		alignment: center middle shrink-overflow
 		font:
-			name: Beleren Bold
-			size: {if is_map() then 14 else 16}
-			color: {if is_shifted() or is_fnm() or is_inverted() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"}
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {pt_font_size()}
+			color: {pt_font_color()}
 			separator color: red
 			shadow color: {if is_shifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -982,14 +1122,15 @@ card style:
 	pt 3:
 		z index: 4
 		left: 291
-		top: {(l3_center() - 12)}
+		top: {(l3_center() - 12)+(pt_font_vertical())}
 		width: {if is_leveler() and not lone_pt() or card.pt_3 != "" then 60 else 0}
 		height: 28
 		alignment: center middle shrink-overflow
 		font:
-			name: Beleren Bold
-			size: {if is_map() then 14 else 16}
-			color: {if is_shifted() or is_fnm() or is_inverted() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"}
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {pt_font_size()}
+			color: {pt_font_color()}
 			separator color: red
 			shadow color: {if is_shifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -997,14 +1138,15 @@ card style:
 	pt 7:
 		z index: 4
 		left: 291
-		top: {(l4_center() - 12)}
+		top: {(l4_center() - 12)+(pt_font_vertical())}
 		width: {if is_leveler() and not lone_pt() or card.pt_7 != "" then 60 else 0}
 		height: {if card_style.level_4_text.height < 10 and card.pt_7 == "" then 0 else 28}
 		alignment: center middle shrink-overflow
 		font:
-			name: Beleren Bold
-			size: {if is_map() then 14 else 16}
-			color: {if is_shifted() or is_fnm() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"}
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {pt_font_size()}
+			color: {pt_font_color()}
 			separator color: red
 			shadow color: {if is_shifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -1012,14 +1154,15 @@ card style:
 	loyalty:
 		z index: 7
 		left: 326
-		top: 468
+		top: {468+(pt_font_vertical())}
 		width: {if starting_loyalty() then 13.16 else 0}
 		height:	34.63
 		alignment: center middle
 		font:
-			name: Beleren Bold
-			size: 14
-			color: white
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {loyalty_font_size()}
+			color: {loyalty_font_color()}
 	############################# Card sorting / numbering
 	set code:
 		left: 24
