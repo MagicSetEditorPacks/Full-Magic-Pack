@@ -1942,6 +1942,116 @@ phy_reminder := {
 	reminder_text
 }
 
+###### Print Fix
+rare_width := {
+	cw := card_style.rarity.content_width
+	cw := if cw > 44 then (if set.print_fix != "" then set.print_fix else 22) else if cw < 22 then 22 else cw
+	if card_style.rarity.width == 0 then 0 else cw
+}
+
+### Customize fonts
+swap_font := {false} ##{styling.apply_custom_fonts}
+split_font := split_text@(match:";")
+pop_font_name := {split_font(input).0 or else ""}
+pop_font_size := {split_font(input).1 or else ""}
+pop_font_color := {split_font(input).2 or else ""}
+pop_font_vertical := {split_font(input).3 or else ""}
+pop_font_italic := {split_font(input).4 or else ""}
+
+swap_font_name := {
+	if swap_font() then (
+		test := pop_font_name(src)
+		if test != "" then font_name := test
+	)
+	
+	font_name
+}@(font_name:"", src:"")
+swap_font_size := {
+	if swap_font() then (
+		test := pop_font_size(src)
+		if test != "" then font_size := test
+	)
+	
+	font_size - shrink_name()
+}@(font_size:16, src:"")
+swap_font_color := {
+	if swap_font() then (
+		test := pop_font_color(src)
+		nums := split_text(test, match:",")
+		test_color := nil
+		
+		if length(nums) >= 4 then test_color := rgba(nums.0, nums.1, nums.2, nums.3) or else nil
+		if test_color == nil and length(nums) >= 3 then test_color := rgb(nums.0, nums.1, nums.2) or else nil
+		if test_color == nil and test != "" then test_color := to_color(test) or else nil
+		if test_color != nil then font_color := test_color
+	) else ""
+	
+	font_color
+}@(font_color:"", src:"")
+swap_font_vertical := {
+	if swap_font() then (
+		test := pop_font_vertical(src)
+		if test != "" then vertical := to_number(test)
+	)
+	
+	vertical
+}@(vertical:0, src:"")
+swap_font_italic := {
+	font_name := "MPlantin-Italic"
+	if swap_font() then (
+		test := pop_font_italic(styling.custom_body_font)
+		test2 := pop_font_name(styling.custom_body_font)
+		if test != "" then font_name := test
+		else if test2 != "" then font_name := ""
+	)
+	
+	font_name
+}@(font_name:"", src:"")
+
+#### Customize rarity symbol
+alt_rarity := {""} ##{styling.alt_rarity_color}
+use_alt_rarity := {alt_rarity() != ""}
+alt_rarity_color := {
+	string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+	src := alt_rarity()
+	if match(src, match:":$") then string := src
+	colons := length(filter_text(string, match:":"))
+	output := split_text(string, match:",|:")
+	splits := split_text(string, match:":")
+	final_num := to_real(splits[length(splits)-2]) or else 0
+	final_border := final_num > 0 and final_num < 1
+	final_num := if not final_border then "0.07" else to_string(final_num);
+	if final_border then (
+		colons := colons - 1;
+		string := replace(string, match:"{final_num}:", replace:"")
+	)
+	if colons == 4
+		then output := split_text(string+final_num+":", match:",|:")
+	if colons == 3
+		then output := split_text(string+splits[2]+":"+final_num+":", match:",|:")
+	else if colons == 2
+		then output := split_text(string+"0,0,0:0,0,0:"+final_num+":", match:",|:")
+	else if colons == 1
+		then output := split_text(string+splits[0]+":0,0,0:0,0,0:"+final_num+":", match:",|:")
+	
+	output
+}
+alt_symbol := {
+	alt_array := alt_rarity_color()
+	symbol_variation(
+		symbol:set.symbol,
+		border_radius: alt_array.12,
+		fill_type: "linear gradient",
+		fill_color_1: rgb(alt_array.0, alt_array.1, alt_array.2),
+		fill_color_2: rgb(alt_array.3, alt_array.4, alt_array.5),
+		border_color_1: rgb(alt_array.6, alt_array.7, alt_array.8),
+		border_color_2: rgb(alt_array.9, alt_array.10, alt_array.11),
+		center_x:0.5, center_y:0.5, end_x:1, end_y:1
+	)
+}
+
+
+
 # rough type_of script
 # fine for nil, boolean, color, date, string, number, and array
 # map and image are trickier
