@@ -1,0 +1,760 @@
+﻿mse version: 2.0.0
+game: magic
+short name: M15 style
+full name: Youtube
+icon: card-sample.png
+installer group: magic/m15 style/normal cards
+position hint: 008
+
+version: 2021-07-01
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small-grey.mse-symbol-font
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { false }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_prefix := [card: "" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" pt: "pt.png" stamp: "stamp.jpg" identity: "identity.png"]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	mana_sort := {
+		if styling.unsorted_casting_cost then
+			input
+		else
+			sort_text@(order: "XYZI[0123456789]HSCA(WUBRG)")()
+	}
+	ancestral_mana := { styling.ancestral_mana_symbols }
+	has_identity := { styling.color_indicator_dot }
+	is_unsorted := {styling.remove_from_autocount}
+	shrink_type := {if styling.shrink_typeline_text != "" then to_number(styling.shrink_typeline_text) else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1 else 0 }
+	chop_top := {if styling.text_chops == "" then 0 else if comma_count(styling.text_chops) == "," or comma_count(styling.text_chops) == ",," then split_text(match:",", styling.text_chops).0 else styling.text_chops}
+	chop_bot := {if comma_count(styling.text_chops) == ",," then split_text(match:",", styling.text_chops).1 else 0}
+	chop_top_2 := {if styling.adventure_text_chops == "" then 0 else if comma_count(styling.adventure_text_chops) == "," or comma_count(styling.adventure_text_chops) == ",," then split_text(match:",", styling.adventure_text_chops).0 else styling.adventure_text_chops}
+	chop_bot_2 := {if comma_count(styling.adventure_text_chops) == ",," then split_text(match:",", styling.adventure_text_chops).1 else 0}
+	min_maxer := {if input < mini then mini else if input > maxi then maxi else input}
+	loaded_percentage := {(if styling.loaded_percentage == "" then 75 else min_maxer(to_number(styling.loaded_percentage), mini:0, maxi:100))/100}
+	ten_filter := replace@(match:"([0-9]+)([0-9])", replace:"\\1.\\2")
+	one_filter := replace@(match:"([0-9])([0-9]+)", replace:"\\1.\\2")
+	sub_formatter := {
+		if styling.subscriber_style == "hundreds"
+			then input
+		else if styling.subscriber_style == "tens"
+			then ten_filter(input)
+		else one_filter(input)
+	}
+	likes_width := {
+		power := if card.power == "" then "nope" else to_number(card.power) or else 1
+		toughness := if card.toughness == "" then "nope" else to_number(card.toughness) or else 1
+		if power == "nope" or toughness == "nope"
+			then 0
+		else if power+toughness == 0
+			then 77*0.5
+		else 77*power/(power+toughness)
+	}
+	card_shape := {if contains(card.type, match:"Token") then "token" else "normal"}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: text
+	name: text chops
+	description: X,Y, Shrinks the textbox X pixels from the top and Y pixels from the bottom.
+styling field:
+	type: text
+	name: shrink typeline text
+	description: Reduces the typeline text N points.
+styling field:
+	type: boolean
+	name: adventure
+	initial: no
+	description: Is this card an adventure?
+styling field:
+	type: text
+	name: adventure text chops
+	description: X,Y, Shrinks the textbox X pixels from the top and Y pixels from the bottom.
+styling field:
+	type: choice
+	name: subscriber style
+	choice: hundreds
+	choice: tens
+	choice: ones
+	description: List the custom number as 123, 12.3, or 1.23
+styling field:
+	type: text
+	name: subscriber magnitude
+	description: Text after subscriber number for K, M, B, T?
+styling field:
+	type: text
+	name: loaded percentage
+	description: What percentage of the video is loaded? (has the colored section). Default is 75.
+styling field:
+	type: boolean
+	name: color indicator dot
+	description: Use the color indicator dot
+	initial: no
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: boolean
+	name: unsorted casting cost
+	description: Disables automatic mana symbol sorting.
+	initial: no
+styling field:
+	type: boolean
+	name: ancestral mana symbols
+	description: Enables ancestral's modified generic mana.
+	initial: no
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: masterpiece
+	description: Is this card a Masterpiece?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		radius: 18
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 4
+		mask: border_mask.png
+	card color:
+		left: 29
+		top: 308
+		width: {loaded_percentage()*316}
+		height: 3
+		z index: 4
+		render style: image
+		image: {card_background()}
+	############################# Name line
+	name:
+		left: { if card.card_symbol=="none" then 50 else 68 }
+		top: 22
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Arial
+			size: 14
+			color: white
+	name 2:
+		left: 28
+		top: 347
+		right: { 178 - card_style.casting_cost_2.content_width }
+		height: { if styling.adventure then 20 else 0}
+		alignment: bottom shrink-overflow
+		z index: 2
+		font:
+			name: Arial Bold
+			size: 11
+			color: white
+
+	casting cost:
+		right: 355
+		top: 23
+		width: {max(58, card_style.casting_cost.content_width+10)}
+		height: 23
+		alignment: middle center
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-small-grey
+			size: 15
+			alignment: middle center
+		always symbol: true
+		z index: 2
+		padding top: 0
+	casting cost 2:
+		right: 180
+		top: 347
+		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
+		height: { if styling.adventure then 23 else 0}
+		alignment: middle right
+		symbol font:
+			name: magic-mana-small-grey
+			size: 12
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+
+	############################# Image
+	image:
+		left: 29
+		top: 80
+		width: 316
+		height:	231
+		z index: 1
+		default: {default_image(card.card_color)}
+	############################# Card type
+	indicator:
+		right: {340 - card_style.type.content_width}
+		top: 316
+		width: 17
+		height: 17
+		z index: 1
+		render style: image
+		visible: { has_identity() }
+		image: { card_identity() }
+	type:
+		right: 345
+		top: 313
+		width: 240
+		height: 20
+		alignment: top right shrink-overflow
+		z index: 2
+		padding top: 2
+		font:
+			name: Arial
+			size: {13 - shrink_type()}
+			color: white
+			separator color: red
+	type 2:
+		left: 28
+		top: 367
+		width: 155
+		height: { if styling.adventure then 20 else 0}
+		alignment: top shrink-overflow
+		z index: 4
+		padding top: 2
+		font:
+			name: Arial
+			size: 10
+			color: white
+			separator color: red
+	image 2:
+		left: 16
+		top: 315
+		width: 30
+		height: 30
+		z index: 3
+		mask: circle.jpg
+	rarity:
+		right: 348
+		top: 55
+		width: 44
+		height: 22
+		z index: 2
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+	############################# Text box
+	text:
+		left: {if styling.adventure then 200 else 29}
+		top: {347-(-chop_top())}
+		width: {if styling.adventure then 158 else 314}
+		bottom: {497-chop_bot()}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: rgb(170,170,170)
+		symbol font:
+			name: magic-mana-small-grey
+			size: 14
+			scale down to: 6
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   6
+		padding right:  4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	text 2:
+		left: 22
+		top: {380-(-chop_top_2())}
+		width: {if styling.adventure then 173 else 0}
+		bottom: {497-chop_bot_2()}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 14
+			scale down to: 6
+			color: rgb(170,170,170)
+		symbol font:
+			name: magic-mana-small-grey
+			size: 14
+			scale down to: 6
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   6
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# PT
+	power:
+		z index: 2
+		left: 290
+		top: 470
+		width: 16
+		height:	23
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: {if length(card.power) > 2 then 10 else if length(card.power) > 1 then 12 else 16}
+			color: white
+			separator color: red
+	toughness:
+		z index: 2
+		left: 328
+		top: 470
+		width: 16
+		height:	23
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: {if length(card.toughness) > 2 then 10 else if length(card.toughness) > 1 then 12 else 16}
+			color: white
+			separator color: red
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 1
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+	############################# Copyright stuff
+	illustrator:
+		left: { 44 + card_style.set_code.content_width }
+		top: 497.5
+		width: 200
+		height: 10
+		z index: 1
+		font:
+			name: Beleren Small Caps Bold
+			size: 7.25
+			color: white
+	copyright:
+		right: 350
+		top: 498.5
+		width: 140
+		height: 10
+		z index: 2
+		visible: {not set.automatic_copyright}
+		alignment: middle right
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	custom card number:
+		top: 333
+		left: 50
+		width: 100
+		height: 10
+		alignment: left middle
+		z index: 3
+		font:
+			name: Arial
+			size: 7
+			color: rgba(0,0,0,0)
+
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: title
+	editable: true
+	save value: true
+	description: The video title
+extra card field:
+	type: text
+	name: designer
+	editable: true
+	save value: true
+	description: The designer or channel name
+extra card field:
+	type: text
+	name: subs
+	script: sub_formatter(card.custom_card_number) + styling.subscriber_magnitude + " subscribers"
+	editable: false
+	save value: false
+	description: The card number or subscriber count
+extra card field:
+	type: color
+	name: likes
+	editable: false
+	save value: false
+	script: rgb(255,255,255)
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil stamp
+	choice: stamp
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: multiple choice
+	name: stamp
+	empty choice: colorless
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice:
+		name: green
+		line below: true
+	choice: artifact
+	choice: land
+	choice: multicolor
+	choice:
+		name: hybrid
+		line below: true
+	choice:
+		name: horizontal
+		type: radio
+	choice:
+		name: vertical
+		type: radio
+	choice:
+		name: radial
+		type: radio
+	choice:
+		name: diagonal
+		type: radio
+	choice:
+		name: overlay
+		type: radio
+	choice:
+		name: reversed
+	script: card_color_filter(value)
+	default: card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name)
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: loading bar
+	choice: bar
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: frame
+	editable: false
+	save value: false
+	choice: frame
+extra card field:
+	type: choice
+	name: triangle
+	editable: true
+	save value: true
+	choice: none
+	choice: triangle
+	description: Enable comments dropdown on the Adventure
+extra card field:
+	type: color
+	name: search button
+	editable: false
+	save value: false
+	script: rgb(51, 53, 52)
+extra card field:
+	type: text
+	name: replies
+	editable: true
+	description: Number of replies to the Adventure
+	save value: true
+extra card style:
+	title:
+		left: 28
+		top: 53
+		width: 295
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Arial
+			size: 12
+			color: white
+	designer:
+		top: 319
+		left: 50
+		width: 100
+		height: 10
+		alignment: left middle
+		z index: 3
+		font:
+			name: Arial Bold
+			size: 8
+			color: white
+	subs:
+		top: 333
+		left: 50
+		width: 100
+		height: 10
+		alignment: left middle
+		z index: 3
+		font:
+			name: Arial
+			size: 7
+			color: rgb(170,170,170)
+	likes:
+		top: 496
+		left: 267
+		height: 2
+		width: {likes_width()}
+		z index: 4
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 1
+		render style: image
+		image: artist_arrow.png
+	pt box:
+		left: 257
+		top: 470
+		width: 93
+		height:	28
+		z index: 1
+		visible: { card.pt != "" }
+		render style: image
+		image: thumbs.png
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 3
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
+	auto copyright:
+		right: 350
+		top: 498.5
+		width: 140
+		height: 10
+		z index: 2
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	loading bar:
+		left: 29
+		top: 308
+		width: 316
+		height: 3
+		render style: image
+		image: loading.png
+		z index: 3
+	search button:
+		right: 355
+		top: 17
+		width: {max(card_style.casting_cost.content_width+10, 58)}
+		height: 34
+		z index: 0
+	frame:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: card.jpg
+	replies:
+		left: 40
+		top: 484
+		height: { if styling.adventure then 9 else 0}
+		width: 100
+		z index: 5
+		font:
+			name: Arial Bold
+			size: 8
+			color: rgb(45,150,255)
+	triangle:
+		left: 24
+		top: 485
+		height: { if styling.adventure then 9 else 0}
+		width: 14
+		z index: 4
+		render style: image
+		choice images:
+			triangle: triangle.jpg

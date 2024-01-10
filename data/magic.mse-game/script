@@ -498,6 +498,143 @@ protection_code := {
 	output
 }
 self_pro_check := match@(match:"You ha(ve|s) <kw-A><nospellcheck>protection")
+craft_code := {
+	[
+		"en": {
+			## beginning
+			rem := param2.value + ", Exile this artifact, Exile ";
+			
+			## check if a number is given
+			count := filter_text(param1.value, match:"^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|[0-9]+)(-(one|two|three|four|five|six|seven|eight|nine))? (or more)?");
+
+			## replace trailing space
+			count := trim(count)
+
+			## check how many commas are given
+			commas := filter_text(param1.value, match:",");
+
+			## check if this starts with a vowel
+			vowel := match(param1.value, match:"^[aeiouAEIOU]");
+
+			## if we have a comma separated list, use the number of elements as the count
+			## this doesn't support like, Craft with two Islands and two Mountains
+			## you've done that to yourself
+			if commas != "" then count := english_number(length(commas)+1);
+			
+			## unused style (craft with three)
+			#### param1 == "three" count == "three"
+			## counting style (craft with one or more); (craft with six artifacts)
+			#### param1 == "one or more" count == "one"; param1 == "six artifacts" count == "six"
+			## singular style (craft with creature)
+			#### param1 == "creature" count == ""
+			if count == param1.value then
+			(
+				## Exile three other...
+				rem := 	rem
+						+ param1.value
+						+ " other permanents you control and/or cards from your graveyard: "
+			)
+			else if count != "" then
+			(
+				## Exile one or more from among...
+				## Exile the six from among...
+				rem := 	rem
+						+ (if count == "one or more" then param1.value else "the " + count)
+						+ " from among other permanents you control and/or cards in your graveyard: "
+			)
+			else
+			(
+				## Exile another creature you control or...
+				rem := 	rem
+						+ "another " + param1.value + " you control or "
+						+ (if vowel then "an " else "a ") + param1.value + " card from your graveyard: "
+			)
+			
+			## ending and return
+			rem := rem + "Return this card transformed under its owner's control. Craft only as a sorcery."
+			rem
+		},
+		"de": {
+			## beginning
+			rem := param2.value + ", schnicke dieses Artefakt ins Exil, schicke ";
+			
+			## check if a number is given
+			count := filter_text(param1.value, match:"^(zwanzig|dreiβig|vierzig|fünfzig|sechzig|siebzig|achtzig|neunzig|eine[mr]|eins?|zwei|drei|vier|fünf|sechs?|sieben|sieb|acht|neun|zehn|elf|zwölf|[0-9]+)(und)?(zehn|zwanzig|dreiβig|vierzig|fünfzig|sechzig|siebzig|achtzig|neunzig)?( oder mehr(eren)?)? ?");
+
+			## save the thing we're exiling
+			target := trim(replace(param1.value, match:count, replace:""))
+			alt_target := if length(target) > 15 then "Permanente" else target
+
+			## format count
+			count := replace(count, match:"eine[mr]", replace:"eins")
+			count := trim(count)
+
+			## check how many commas are given
+			commas := filter_text(param1.value, match:",");
+
+			## check if this starts with a vowel
+			vowel := match(target, match:"^[aäeiouüAÄEIOUÜ]");
+
+			## if we have a comma separated list, use the number of elements as the count
+			## this doesn't support eg Craft with two Islands and two Mountains
+			## you've done that to yourself
+			if commas != "" then (
+				count := german_number(length(commas)+2);
+				alt_target := "Permanente"
+			)
+
+			## unused style (craft with three)
+			#### param1 == "three" count == "three"
+			## counting style (craft with one or more); (craft with six artifacts)
+			#### param1 == "one or more" count == "one"; param1 == "six artifacts" count == "six"
+			## singular style (craft with creature)
+			#### param1 == "creature" count == ""
+
+			if count == param1.value then
+			(
+				## Exile three other...
+				rem := 	rem
+						+ param1.value
+						+ " weiteren Permanente, die du kontrollierst und/oder Karten aus deinem Friedhof ins Exil: "
+			)
+			else if count != "eins" then
+			(
+				## with one or more...
+				## with four or more
+				## with two+...
+				rem := 	rem
+						+ (
+							if count == "eins oder mehreren" then "ein oder mehrere weitere "
+							else if contains(count, match:"oder") then "die " + count + " weireren "
+							else "die " + count + " oder mehr weiteren "
+							## todo this should list the denumbered param1.value instead
+						)
+						+ alt_target
+						+ (if vowel then ", das du" else ", die du")
+						+ " kontrollierst und/oder Karten aus deinem Friedhof ins Exil: "
+			)
+			else
+			( 
+				## with einem Artefakt
+				## with einem Kreatur
+				rem := 	rem
+						+ (if target == "Artefakt" then "ein weiteres " else "ein ")
+						+ target
+						+ ", "
+						+ (if vowel then "das du" else "die du")
+						+ " kontrollierst, oder "
+						+ (if vowel then "eines " else "eine ") + target
+						+ (if target == "Kreatur" then "en-karte" else "-karte")
+						+" aus deinem Friedhof ins Exile: "
+			)
+			
+			## ending and return
+			rem := rem + "Bringe diese Karte transformiert unter der Kontrolle ihres Besitzers ins Spiel zurück. Spiele Anfertigung wie eine Herexi."
+			rem
+		}
+	][lang_setting("code") or else "en"]()
+}
+
 long_dash := replace@(match:"-", replace:"—")
 
 # Utilities for keywords
@@ -709,8 +846,26 @@ auto_correct :=
 		replace: { _1 + _2 + to_lower(_3)})
 auto_errata :=
 	replace@(match:"converted mana cost", replace:"mana value")
+	+replace@(match:"(?i)(Totem armor|Totembeistand|Armadura tótem|totémique|Armatura totem|Armadura de totem|族霊鎧|替身甲)", replace:{errata_map[_1]})
 	+replace@(match:"hen shuffle your library", replace:"hen shuffle")
 	+replace@(match:"this (?:ability )?(?:only )?(?:any ?time you could cast|as) a", in_context: "(Activate|Play) <match>n? (instant|sorcery)", replace:"only as a")
+	
+errata_map := [
+	"Totem armor": "Umbra armor",
+	"totem armor": "umbra armor",
+	"Totembeistand": "Schattenbeistand",
+	"totembeistand": "schattenbeistand",
+	"Armadura tótem": "Armadura umbra",
+	"armadura tótem": "armadura umbra",
+	"Armure totémique": "Armure d’ombre",
+	"armure totémique": "armure d’ombre",
+	"Armatura totem": "Armatura essenza",
+	"armatura totem": "armatura essenza",
+	"族霊鎧": "陰影鎧",
+	"替身甲": "本影甲",
+	"Armadura de totem": "Armadura de sombra",
+	"armadura de totem": "armadura de sombra"
+]
 ex_test := {
 	expand_keywords(
 		input,
@@ -907,7 +1062,9 @@ text_filter :=
 		if set.auto_errata then
 			auto_errata(input)
 		else input } +
-	{ if set.mark_errors then
+	{ 
+		if language().code == "ja" or language().code == "zht" or language().code == "zhs" then input
+		else if set.mark_errors then
 		check_spelling(
 			language: language().spellcheck_code,
 			extra_dictionary: "/magic.mse-game/dictionary/magic-words",
@@ -941,32 +1098,32 @@ flavor_text_filter :=
 # Move the cursor past the separator in the p/t and type boxes
 type_over_pt   := replace@(match:"/$", replace:"")
 type_over_type := replace@(match:" ?[-:]$", replace:"")
-
 super_type_filter := {
 	input := remove_tag(tag: "<word-list-")
 	input := type_over_type()
-	tag := "word-list-type" # TODO: localize
+	tag := "word-list-type-" + lang_setting("code")
 	"<{tag}>{input}</{tag}>"
 }
 
 break_subtypes := split_text@(match: " +|<atom-sep>[^<]*</atom-sep>", include_empty:false)
+break_supertypes := split_text@(match: "<atom-sep>[^<]*</atom-sep>", include_empty:false)
 sub_type_filter := {
 	input := remove_tag(tag: "<word-list-")
 	input := remove_tag(tag: "<soft")
 	# What word list to use?
-	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class"
+	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class-"+lang_setting("code")
 	                  else if lang_setting("is_land")(type)        										then "land"
 	                  else if lang_setting("is_artifact")(type)    										then "artifact"
 	                  else if lang_setting("is_enchantment")(type) 										then "enchantment"
 	                  else if lang_setting("is_spell")(type)       										then "spell"
 	                  else if lang_setting("is_planeswalker")(type) or lang_setting("is_emblem")(type)	then "planeswalker"
-	                  else if lang_setting("is_plane")(type)											then "plane"
+	                  else if lang_setting("is_plane")(type)											then "plane-"+lang_setting("code")
 	                  else if lang_setting("is_battle")(type)											then "battle"
 	                  else if lang_setting("is_dungeon")(type)											then "dungeon"
 					  else nil
 	if list_type_rest != nil then (
 		if lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) then (
-			list_type_first := "race"
+			list_type_first := "race-"+lang_setting("code")
 		) else (
 			list_type_first := list_type_rest
 		);
@@ -993,17 +1150,17 @@ only_first     := replace@(match:" .*", replace:"")
 only_next      := replace@(match:"^[^ ]* ?", replace:"")
 all_sub_types := {
 	for each card in set do
-		if contains(card.super_type) then "," + space_to_comma(to_text(card.sub_type)) else ""
+		if lang_setting(setting)(card.super_type) then "," + space_to_comma(to_text(card.sub_type)) else ""
 }
 all_races := {
 	for each card in set do
-		if is_creature(card.super_type) or is_tribal(card.super_type) then
+		if lang_setting("is_creature")(card.super_type) or lang_setting("is_kindred")(card.super_type) then
 			"," + only_first(to_text(card.sub_type))
 		else ""
 }
 all_classes := {
 	for each card in set do
-		if contains(card.super_type, match:"Creature") then
+		if lang_setting("is_creature")(card.super_type) then
 			"," + space_to_comma(only_next(to_text(card.sub_type)))
 		else ""
 }
@@ -1256,9 +1413,8 @@ contains_element := {
 }
 ar_position := {
 	pos := -1
-	dummy := for x from 0 to length(in)-1 do (
-		if in[x] == of then pos := x
-		"filler"
+	for x from 0 to length(in)-1 do (
+		if in[x] == of then pos := x;
 	)
 	pos
 }
@@ -1863,7 +2019,6 @@ saga_ch_placement := {
 }
 
 card_face := {
-	trace(margin_code)
 	front := card[input]
 	back := if card[input+"_2"] or else "" != "" then card[input+"_2"] else card[input]
 	if match(margin_code, match:"(text[2456]|lv[5678])") then back else front
@@ -1942,6 +2097,116 @@ phy_reminder := {
 		reminder_text := ""
 	reminder_text
 }
+
+###### Print Fix
+rare_width := {
+	cw := card_style.rarity.content_width
+	cw := if cw > 44 then (if set.print_fix != "" then set.print_fix else 22) else if cw < 22 then 22 else cw
+	if card_style.rarity.width == 0 then 0 else cw
+}
+
+### Customize fonts
+swap_font := {false} ##{styling.apply_custom_fonts}
+split_font := split_text@(match:";")
+pop_font_name := {split_font(input).0 or else ""}
+pop_font_size := {split_font(input).1 or else ""}
+pop_font_color := {split_font(input).2 or else ""}
+pop_font_vertical := {split_font(input).3 or else ""}
+pop_font_italic := {split_font(input).4 or else ""}
+
+swap_font_name := {
+	if swap_font() then (
+		test := pop_font_name(src)
+		if test != "" then font_name := test
+	)
+	
+	font_name
+}@(font_name:"", src:"")
+swap_font_size := {
+	if swap_font() then (
+		test := pop_font_size(src)
+		if test != "" then font_size := test
+	)
+	
+	font_size
+}@(font_size:16, src:"")
+swap_font_color := {
+	if swap_font() then (
+		test := pop_font_color(src)
+		nums := split_text(test, match:",")
+		test_color := nil
+		
+		if length(nums) >= 4 then test_color := rgba(nums.0, nums.1, nums.2, nums.3) or else nil
+		if test_color == nil and length(nums) >= 3 then test_color := rgb(nums.0, nums.1, nums.2) or else nil
+		if test_color == nil and test != "" then test_color := to_color(test) or else nil
+		if test_color != nil then font_color := test_color
+	) else ""
+	
+	font_color
+}@(font_color:"", src:"")
+swap_font_vertical := {
+	if swap_font() then (
+		test := pop_font_vertical(src)
+		if test != "" then vertical := to_number(test)
+	)
+	
+	vertical
+}@(vertical:0, src:"")
+swap_font_italic := {
+	font_name := "MPlantin-Italic"
+	if swap_font() then (
+		test := pop_font_italic(styling.custom_body_font)
+		test2 := pop_font_name(styling.custom_body_font)
+		if test != "" then font_name := test
+		else if test2 != "" then font_name := ""
+	)
+	
+	font_name
+}@(font_name:"", src:"")
+
+#### Customize rarity symbol
+alt_rarity := {""} ##{styling.alt_rarity_color}
+use_alt_rarity := {alt_rarity() != ""}
+alt_rarity_color := {
+	string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+	src := alt_rarity()
+	if match(src, match:":$") then string := src
+	colons := length(filter_text(string, match:":"))
+	output := split_text(string, match:",|:")
+	splits := split_text(string, match:":")
+	final_num := to_real(splits[length(splits)-2]) or else 0
+	final_border := final_num > 0 and final_num < 1
+	final_num := if not final_border then "0.07" else to_string(final_num);
+	if final_border then (
+		colons := colons - 1;
+		string := replace(string, match:"{final_num}:", replace:"")
+	)
+	if colons == 4
+		then output := split_text(string+final_num+":", match:",|:")
+	if colons == 3
+		then output := split_text(string+splits[2]+":"+final_num+":", match:",|:")
+	else if colons == 2
+		then output := split_text(string+"0,0,0:0,0,0:"+final_num+":", match:",|:")
+	else if colons == 1
+		then output := split_text(string+splits[0]+":0,0,0:0,0,0:"+final_num+":", match:",|:")
+	
+	output
+}
+alt_symbol := {
+	alt_array := alt_rarity_color()
+	symbol_variation(
+		symbol:set.symbol,
+		border_radius: alt_array.12,
+		fill_type: "linear gradient",
+		fill_color_1: rgb(alt_array.0, alt_array.1, alt_array.2),
+		fill_color_2: rgb(alt_array.3, alt_array.4, alt_array.5),
+		border_color_1: rgb(alt_array.6, alt_array.7, alt_array.8),
+		border_color_2: rgb(alt_array.9, alt_array.10, alt_array.11),
+		center_x:0.5, center_y:0.5, end_x:1, end_y:1
+	)
+}
+
+
 
 # rough type_of script
 # fine for nil, boolean, color, date, string, number, and array
