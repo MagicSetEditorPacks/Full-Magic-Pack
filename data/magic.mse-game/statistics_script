@@ -155,35 +155,33 @@ color_identity_statistic :=
 	if total_colors == "" then "C" else total_colors
 }
 
-# TODO localize
 cda_to_color_statistic :=
 {
 	if input == "" then "" else (
 	
 	text := to_text(input)
 	
-	if contains(text, match: "This card has no color.") then "C" else (
-	if devoid_match_statistic(text) then "C" else (
+	if lang_setting("is_devoid")(input: text) then "C" else (
 	
 	card_name := card["name" + suffix]
-	trigger := color_cda_filter_statistic(text, in_context: "(" + regex_escape(card_name) + "|" + regex_escape(legend_filter(card_name)) + ") <match>\\.")
-	if trigger == "" then "" else (
+	context := "(" + regex_escape(card_name) + "|" + regex_escape(legend_filter(card_name)) + ") ?<match>(\\.|。)"
 	
-	if contains(trigger, match: "all colors") then "WUBRG" else (
+	if lang_setting("is_cda_colorless")(text, in_context: context) then "C" else (
+	if lang_setting("is_cda_all_colors")(text, in_context: context) then "WUBRG" else (
 	
-	distil_color_words_statistic(trigger))))))
+	cda_colors := lang_setting("cda_colors")(text, in_context: context)
+	if cda_colors == "" then "" else (
+	distil_color_words_statistic(cda_colors))))))
 }
-devoid_match_statistic := match@(match: "(\n|^|,| )[Dd]evoid(\n|$|,| |\\()")
-color_cda_filter_statistic := filter_text@(match: "is (colorless|all colors|((blue|white|green|red|black)((,|,? and) (blue|white|green|red|black))*))")
 distil_color_words_statistic :=
 {
 	colors := ""
-	if contains(match: "colorless")	then colors := colors + "C"
-	if contains(match: "white") 	then colors := colors + "W"
-	if contains(match: "blue")  	then colors := colors + "U"
-	if contains(match: "black") 	then colors := colors + "B"
-	if contains(match: "red")   	then colors := colors + "R"
-	if contains(match: "green") 	then colors := colors + "G"
+	if lang_setting("is_colorless")()	then colors := colors + "C"
+	if lang_setting("is_white")() 		then colors := colors + "W"
+	if lang_setting("is_blue")()	  	then colors := colors + "U"
+	if lang_setting("is_black")()	 	then colors := colors + "B"
+	if lang_setting("is_red")()	   		then colors := colors + "R"
+	if lang_setting("is_green")()	 	then colors := colors + "G"
 	
 	if length(colors) > 1 and colors.0 == "C" then substring(colors, begin: 1) else colors
 }
@@ -210,14 +208,53 @@ color_identity_count_statistic :=
 	if colors == "C" then 0 else length(colors)
 }
 
+# Color Category
+color_category_statistic :=
+{
+	result_1 := face_color_category_statistic(input: card.card_color)
+	result_2 := if check_2_statistic() then face_color_category_statistic(input: card.card_color_2) else ""
+	result_1 + (if result_1 != "" and result_2 != "" then "," else "") + result_2
+}
+face_color_category_statistic :=
+{
+	artifact := chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
+	land     := chosen(choice:"land")
+	multi    := chosen(choice:"multicolor")
+	hybrid   := chosen(choice:"hybrid")
+	white    := chosen(choice:"white")
+	blue     := chosen(choice:"blue")
+	black    := chosen(choice:"black")
+	red      := chosen(choice:"red")
+	green    := chosen(choice:"green")
+	multi_color := count_chosen(choices:"white, blue, black, red, green")
+	if      land						then	all_en_space_statistic(lang_setting("land"))
+	else if multi						then	all_en_space_statistic(lang_setting("multicolor"))
+	else if multi_color == 2
+		and chosen(choice:"artifact")	then	all_en_space_statistic(lang_setting("hybrid"))		##hybrid artifacts would show as their first color
+	else if hybrid						then	all_en_space_statistic(lang_setting("hybrid"))
+	else if artifact					then	all_en_space_statistic(lang_setting("artifact"))
+	else if white						then	all_en_space_statistic(lang_setting("white"))
+	else if blue						then	all_en_space_statistic(lang_setting("blue"))
+	else if black						then	all_en_space_statistic(lang_setting("black"))
+	else if red							then	all_en_space_statistic(lang_setting("red"))
+	else if green						then	all_en_space_statistic(lang_setting("green"))
+	else										input
+}
+
 # Omniverse colors
 omniverse_color_statistic :=
 {
-	if		chosen(choice: "land")											then	"land"
-	else if chosen(choice: "multicolor")									then	"multicolor"
+	result_1 := face_omniverse_color_statistic(input: card.card_color)
+	result_2 := if check_2_statistic() then face_omniverse_color_statistic(input: card.card_color_2) else ""
+	result_1 + (if result_1 != "" and result_2 != "" then "," else "") + result_2
+}
+face_omniverse_color_statistic :=
+{
+	if		chosen(choice: "land")											then	all_en_space_statistic(lang_setting("land"))
+	else if chosen(choice: "multicolor")									then	all_en_space_statistic(lang_setting("multicolor"))
 	else if count_chosen(choices: "white, blue, black, red, green, pink, purple, yellow, orange, brown") == 2
-		and	chosen(choice: "artifact") 										then	"hybrid"		##hybrid artifacts would show as their first color
-	else if chosen(choice: "hybrid")										then	"hybrid"
+		and	chosen(choice: "artifact") 										then	all_en_space_statistic(lang_setting("hybrid"))		##hybrid artifacts would show as their first color
+	else if chosen(choice: "hybrid")										then	all_en_space_statistic(lang_setting("hybrid"))
 	else if (chosen(choice: "artifact")
 		and not (		chosen(choice: "white")
 					or	chosen(choice: "blue")
@@ -228,17 +265,17 @@ omniverse_color_statistic :=
 					or	chosen(choice: "purple")
 					or	chosen(choice: "yellow")
 					or	chosen(choice: "orange")
-					or	chosen(choice: "brown"))) 							then	"artifact"
-	else if chosen(choice: "white")											then	"white"
-	else if chosen(choice: "blue")											then	"blue"
-	else if chosen(choice: "black")											then	"black"
-	else if chosen(choice: "red")											then	"red"
-	else if chosen(choice: "green")											then	"green"
-	else if chosen(choice: "pink")											then	"pink"
-	else if chosen(choice: "purple")										then	"purple"
-	else if chosen(choice: "yellow")										then	"yellow"
-	else if chosen(choice: "orange")										then	"orange"
-	else if chosen(choice: "brown")											then	"brown"
+					or	chosen(choice: "brown"))) 							then	all_en_space_statistic(lang_setting("artifact"))
+	else if chosen(choice: "white")											then	all_en_space_statistic(lang_setting("white"))
+	else if chosen(choice: "blue")											then	all_en_space_statistic(lang_setting("blue"))
+	else if chosen(choice: "black")											then	all_en_space_statistic(lang_setting("black"))
+	else if chosen(choice: "red")											then	all_en_space_statistic(lang_setting("red"))
+	else if chosen(choice: "green")											then	all_en_space_statistic(lang_setting("green"))
+	else if chosen(choice: "pink")											then	all_en_space_statistic(lang_setting("pink"))
+	else if chosen(choice: "purple")										then	all_en_space_statistic(lang_setting("purple"))
+	else if chosen(choice: "yellow")										then	all_en_space_statistic(lang_setting("yellow"))
+	else if chosen(choice: "orange")										then	all_en_space_statistic(lang_setting("orange"))
+	else if chosen(choice: "brown")											then	all_en_space_statistic(lang_setting("brown"))
 	else																			input
 }
 
@@ -334,7 +371,7 @@ activated_cost_filter_statistic :=
 	break_text@(match: "(\n|^)[^(\n|^)]+?:")													#Keep only activated ability costs
 triggered_cost_filter_statistic :=
 	replace@(match: "<[^>]*\\.[^>]*>", replace: "") +											#Remove tags with . inside them
-	break_text@(match:" pay .+?(\\.|,| )", in_context: "(When|At).+?may<match> ?(If|if|to) ")	#Keep only triggered ability costs # TODO localize
+	{ lang_setting("triggered_cost_filter")(input) }											#Keep only triggered ability costs
 keyword_cost_filter_statistic :=
 	break_text@(match: "<param[^>]*>.+?</param[^>]*>")											#Keep only keyword parameters
 
@@ -424,14 +461,14 @@ face_mana_production_list_statistic :=
 	# the mana symbols we can produce
 	produced_symbols := wubrgc_break_statistic(lang_setting("mana_symbol_production")(combined_text))
 	
-	(if lang_setting("is_plains")(sub) 		or contains_element(produced_symbols, element:"W") then ",W" else "") +
-	(if lang_setting("is_island")(sub) 		or contains_element(produced_symbols, element:"U") then ",U" else "") +
-	(if lang_setting("is_swamp")(sub) 		or contains_element(produced_symbols, element:"B") then ",B" else "") +
-	(if lang_setting("is_mountain")(sub) 	or contains_element(produced_symbols, element:"R") then ",R" else "") +
-	(if lang_setting("is_forest")(sub) 		or contains_element(produced_symbols, element:"G") then ",G" else "") +
-	(if lang_setting("is_wastes")(name) 	or contains_element(produced_symbols, element:"C") then ",C" else "") +
-	(if can_Any																				 then ",Any" else "") +
-	(if can_Chosen																		  then ",Chosen" else "")
+	(if lang_setting("is_plains")(sub) 		or contains_element(produced_symbols, element:"W")	then ",W" else "") +
+	(if lang_setting("is_island")(sub) 		or contains_element(produced_symbols, element:"U")	then ",U" else "") +
+	(if lang_setting("is_swamp")(sub) 		or contains_element(produced_symbols, element:"B")	then ",B" else "") +
+	(if lang_setting("is_mountain")(sub) 	or contains_element(produced_symbols, element:"R")	then ",R" else "") +
+	(if lang_setting("is_forest")(sub) 		or contains_element(produced_symbols, element:"G")	then ",G" else "") +
+	(if lang_setting("is_wastes")(name) 	or contains_element(produced_symbols, element:"C")	then ",C" else "") +
+	(if can_Any																					then ","+all_en_space_statistic(lang_setting("mana_any")) else "") +
+	(if can_Chosen																		 		then ","+all_en_space_statistic(lang_setting("mana_chosen")) else "")
 }
 
 # Word counting
@@ -474,7 +511,7 @@ illustrator_statistic :=
 	artist_1 := trim(replace_full_width_commas_statistic(card.illustrator))
 	artist_2 := trim(replace_full_width_commas_statistic(card.illustrator_2))
 	result := artist_1 + (if check_2_statistic() and artist_2 != "" and artist_2 != artist_1 then "," + artist_2 else "")
-	if result == "" then " No Artist" else if result.0 == "," then substring(result, begin: 1) else result
+	if result == "" then " " + all_en_space_statistic(lang_setting("no_artist")) else if result.0 == "," then substring(result, begin: 1) else result
 }
 
 # Card notes
@@ -498,23 +535,25 @@ land_drop_hit_percentage_statistic :=
 	set_count := length(set.cards)-1
 	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
 	card_count := length(cards)
-	if card_count <= start then "Not enough non-commander non-promo cards to draw an opening hand. Add normal cards." else (
+	if card_count <= start then lang_setting("message_drops_no_cards") else (
 	
 	land_count := for each c in cards do
 	(
 		if lang_setting("is_land")(c.super_type) or	(check_2_statistic(card: c) and lang_setting("is_land")(c.super_type_2)) then 1
 		else 0
 	)
-	if land_count == 0 then "No lands found. 0% chance to hit land drops." else (
+	if land_count == 0 then lang_setting("message_drops_no_lands") else (
 	
 	max_turns := min(10, card_count-start)
 	probability_per_turn := for t from 1 to max_turns do [100*hypergeometric_sum_statistic(population: card_count, successes_in_population: land_count, sample: start+t, turn: t)]
 	probability_string_per_turn := for t from 1 to max_turns do
 	(
-		split := split_text(match: "\\.", to_string(probability_per_turn[t-1]))
+		string := to_string(probability_per_turn[t-1])
+		if contains(string, match: "e-") then [lang_setting("turn") + " " + t + " — 0.0%"] else (		# Very small numbers are written in scientific notation
+		split := split_text(match: "\\.", string)
 		number := split[0]
 		digit := if (split[1] or else "") == "" then "0" else split[1].0
-		["Turn " + t + " — " + number + "." + digit + "%"]
+		[lang_setting("turn") + " " + t + " — " + number + "." + digit + "%"])
 	)
 	result := for t from 1 to max_turns do
 	(
@@ -563,7 +602,7 @@ global_variable_average_opening_hand_statistic :=
 	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
 	card_count := length(cards)-1
 	card_count_real := to_number(card_count+1)
-	if card_count < 6 then "Not enough non-commander non-promo cards to draw an opening hand. Add normal cards." else (
+	if card_count < 6 then lang_setting("message_drops_no_cards") else (
 	
 	lands := 0
 	manaartifacts := 0
@@ -597,16 +636,15 @@ global_variable_average_opening_hand_statistic :=
 	creatures_average := format_average_statistic(7.0 * to_number(creatures) / card_count_real)
 	sorceries_average := format_average_statistic(7.0 * to_number(sorceries) / card_count_real)
 	instants_average := format_average_statistic(7.0 * to_number(instants) / card_count_real)
-	
-	",​Lands — " + lands_average +
-	";,​​Mana Artifacts — " + manaartifacts_average +
-	";,​​​Non-Mana Artifacts — " + nonmanaartifacts_average +
-	";,​​​​Enchantments — " + enchantments_average +
-	";,​​​​​Planeswalkers — " + planeswalkers_average +
-	";,​​​​​Battles — " + battles_average +
-	";,​​​​​​Creatures — " + creatures_average +
-	";,​​​​​​​Sorceries — " + sorceries_average +
-	";,​​​​​​​​Instants — " + instants_average))
+	",​" + lang_setting("land")				+ " — " + lands_average +					# There are zero width spaces in the "," and ",;" to impose ordering
+	";,​​" + lang_setting("mana_artifact")	+ " — " + manaartifacts_average +
+	";,​​​" + lang_setting("nonmana_artifact")	+ " — " + nonmanaartifacts_average +
+	";,​​​​" + lang_setting("enchantment")		+ " — " + enchantments_average +
+	";,​​​​​" + lang_setting("planeswalker")		+ " — " + planeswalkers_average +
+	";,​​​​​​" + lang_setting("battle")			+ " — " + battles_average +
+	";,​​​​​​​" + lang_setting("creature")			+ " — " + creatures_average +
+	";,​​​​​​​​" + lang_setting("sorcery")			+ " — " + sorceries_average +
+	";,​​​​​​​​​" + lang_setting("instant")			+ " — " + instants_average))
 }
 format_average_statistic :=
 {
@@ -621,11 +659,9 @@ format_average_statistic :=
 # Rarities.
 rarity_statistic :=
 {
-	if		card.shape == "Token" or card.shape == "token" or lang_setting("is_token")(card.super_type) then "token"
-	else if	lang_setting("is_land")(card.super_type) and lang_setting("is_basic")(card.super_type) 		then "basic land"	#There is an EN space in this string
-	else if	card.rarity == "basic land" 																then "basic land"	#There is an EN space in this string
-	else if	card.rarity == "mythic rare" 																then "mythic rare"		#There is an EN space in this string
-	else card.rarity
+	if		card.shape == "Token" or card.shape == "token" or lang_setting("is_token")(card.super_type) then all_en_space_statistic(lang_setting("token"))
+	else if	lang_setting("is_land")(card.super_type) and lang_setting("is_basic")(card.super_type) 		then all_en_space_statistic(lang_setting("basic_land"))
+	else all_en_space_statistic(lang_setting(replace_space_statistic(card.rarity)))
 }
 
 # Watermarks
@@ -657,19 +693,23 @@ permanent_statistic :=
 face_permanent_statistic :=
 {
 	if		input == ""									then	""
-	else if	lang_setting("is_creature")(input)			then	",​Creature"
+	else if	lang_setting("is_creature")(input)			then	",​" + all_en_space_statistic(lang_setting("creature"))		# There are zero width spaces in the "," to impose ordering
 	else if	lang_setting("is_artifact")(input)
 	or		lang_setting("is_enchantment")(input)
 	or		lang_setting("is_land")(input)
 	or		lang_setting("is_hero")(input)
 	or		lang_setting("is_planeswalker")(input)
-	or		lang_setting("is_battle")(input)			then	",​​Permanent"
-	else if	lang_setting("is_spell")(input)				then	",​​​Non Permanent"
-	else if	lang_setting("is_nonstandard")(input)		then	",​​​​Command Zone"
-	else														",​​​​​Unknown"
+	or		lang_setting("is_battle")(input)			then	",​​" + all_en_space_statistic(lang_setting("permanent"))
+	else if	lang_setting("is_spell")(input)				then	",​​​" + all_en_space_statistic(lang_setting("nonpermanent"))
+	else if	lang_setting("is_nonstandard")(input)		then	",​​​​" + all_en_space_statistic(lang_setting("command_zone"))
+	else														",​​​​​" + all_en_space_statistic(lang_setting("unknown"))
 }
 
 # Types.
+canon_supertypes_statistic := ["basic", "snow", "world", "legendary", "token", "ongoing", "elite", "host"]
+canon_supertypes_count_statistic := length(canon_supertypes_statistic)-1
+canon_types_statistic := ["land", "creature", "kindred", "artifact", "enchantment", "emblem", "planeswalker", "battle", "sorcery", "instant", "conspiracy", "dungeon", "hero", "phenomenon", "plane", "scheme", "vanguard"]
+canon_types_count_statistic := length(canon_types_statistic)-1
 supertype_statistic :=
 {
 	result := face_supertype_statistic(card.super_type) + (if check_2_statistic() then face_supertype_statistic(card.super_type_2) else "")
@@ -677,23 +717,21 @@ supertype_statistic :=
 }
 face_supertype_statistic :=
 {
-	supertypes := split_space_statistic(to_text(input))
-	count := length(supertypes) - 1
-	custom_supertypes := custom_supertype_statistic()
-	for x from 0 to count do
+	supertypes := to_text(input)
+	result := ""
+	zwsp := ""
+	for x from 0 to canon_supertypes_count_statistic do
 	(
-		type := supertypes[x]
-		if		lang_setting("is_basic")(type)							then	",​Basic"			# There is a zero width space after the comma in ",Basic" so that it always appears first.
-		else if	lang_setting("is_snow")(type)							then	",​​Snow"				# There are two zero width spaces after the comma in ",Snow" so that it always appears second.
-		else if	lang_setting("is_world")(type)							then	",​​​World"			# Etc...
-		else if	lang_setting("is_legendary")(type)						then	",​​​​Legendary"
-		else if	lang_setting("is_token")(type)							then	",​​​​​Token"
-		else if	lang_setting("is_ongoing")(type)						then	",​​​​​​Ongoing"
-		else if	lang_setting("is_elite")(type)							then	",​​​​​​​Elite"
-		else if	lang_setting("is_host")(type)							then	",​​​​​​​​Host"
-		else if contains_element(custom_supertypes, element: type)	then	("," + type)
-		else																			""
+		zwsp := zwsp + "​"
+		canon_supertype := canon_supertypes_statistic[x]
+		if lang_setting("is_" + canon_supertype)(supertypes)
+		then result := result + "," + zwsp + all_en_space_statistic(lang_setting(canon_supertype))
+		""
 	)
+	custom_supertypes := custom_supertype_statistic()
+	count := length(custom_supertypes)-1
+	for x from 0 to count do (if contains(supertypes, match: custom_supertypes[x]) then result := result + ("," + custom_supertypes[x]))
+	result
 }
 
 combined_type_statistic :=
@@ -706,39 +744,32 @@ combined_type_statistic :=
 type_extended_statistic :=
 {
 	result := face_type_extended_statistic(card.super_type) + (if check_2_statistic() then face_type_extended_statistic(card.super_type_2) else "")
-	substring(result, begin: 1)
+	if result == "" then " " + all_en_space_statistic(lang_setting("no_type")) else substring(result, begin: 1)
 }
 face_type_extended_statistic :=
 {
-	old_types := split_space_statistic(to_text(input))
-	count := length(old_types)-1
+	types := lang_setting("remove_supertypes")(to_text(input))
 	custom_supertypes := custom_supertype_statistic()
-	new_types := for x from 0 to count do
+	count := length(custom_supertypes)-1
+	for x from 0 to count do (types := replace(types, match: "(?i)"+custom_supertypes[x], replace: ""))
+	types := trim(types)
+	result := ""
+	zwsp := ""
+	for x from 0 to canon_types_count_statistic do
 	(
-		type := old_types[x]
-		if		type == ""														then	""
-		else if	contains_element(custom_supertypes, element: type)	then	""
-		else if	lang_setting("get_supertypes")(type) != ""						then	""
-		else if	lang_setting("is_land")(type)						then	",​Land"				# There is a zero width space after the comma in ",Land" so that it always appears after custom types.
-		else if	lang_setting("is_creature")(type)					then	",​​Creature"			# There are two zero width spaces after the comma in ",Creature" so that it always appears after lands.
-		else if	lang_setting("is_kindred")(type)					then	",​​​Kindred"			# There are three zero width spaces after the comma in ",Kindred", etc...
-		else if	lang_setting("is_artifact")(type)					then	",​​​​Artifact"
-		else if	lang_setting("is_enchantment")(type)				then	",​​​​​Enchantment"
-		else if	lang_setting("is_emblem")(type)						then	",​​​​​​Emblem"
-		else if	lang_setting("is_planeswalker")(type)				then	",​​​​​​​Planeswalker"
-		else if	lang_setting("is_battle")(type)						then	",​​​​​​​​Battle"
-		else if	lang_setting("is_sorcery")(type)					then	",​​​​​​​​​Sorcery"
-		else if	lang_setting("is_instant")(type)					then	",​​​​​​​​​​Instant"
-		else if	lang_setting("is_conspiracy")(type)					then	",​​​​​​​​​​​Conspiracy"
-		else if	lang_setting("is_dungeon")(type)					then	",​​​​​​​​​​​​Dungeon"
-		else if	lang_setting("is_hero")(type)						then	",​​​​​​​​​​​​​Hero"
-		else if	lang_setting("is_phenomenon")(type)					then	",​​​​​​​​​​​​​​Phenomenon"
-		else if	lang_setting("is_plane")(type)						then	",​​​​​​​​​​​​​​​Plane"
-		else if	lang_setting("is_scheme")(type)						then	",​​​​​​​​​​​​​​​​Scheme"
-		else if	lang_setting("is_vanguard")(type)					then	",​​​​​​​​​​​​​​​​​Vanguard"
-		else																("," + type)
+		zwsp := zwsp + "​"
+		canon_type := canon_types_statistic[x]
+		if lang_setting("is_" + canon_type)(types) then
+		(
+			result := result + "," + zwsp + all_en_space_statistic(lang_setting(canon_type))
+			types := replace(types, match: "(?i)"+lang_setting(canon_type), replace: "")
+		)
+		""
 	)
-	if new_types == nil then "" else new_types
+	split := split_space_statistic(trim(types))
+	count := length(split)-1
+	for x from 0 to count do (ifresult := result + "," + split[x])
+	result
 }
 
 custom_supertype_statistic := split_text@(input: set.custom_super_types, match: " ?, ?", include_empty: false)
@@ -751,10 +782,11 @@ has_type_statistic :=
 
 combined_subtype_statistic :=
 {
-	type_1 := trim(to_text(card.sub_type))
-	type_2 := if check_2_statistic() then trim(to_text(card.sub_type_2)) else ""
+	type_1 := clean_combined_subtype_statistic(card.sub_type)
+	type_2 := if check_2_statistic() then clean_combined_subtype_statistic(card.sub_type_2) else ""
 	type_1 + (if type_1 != "" and type_2 != "" then "," else "") + type_2
 }
+clean_combined_subtype_statistic :=	tag_contents@(tag: "<soft>", contents: {""}) + to_text + trim + replace_full_width_commas_statistic
 
 # Scans all cards for unknown subtypes and tries to determine if they're creature types
 detect_custom_creature_subtypes_statistic :=
@@ -932,16 +964,16 @@ keep_only_supertypes_statistic :=
 	result := for x from 0 to count do
 	(
 		type := supertypes[x]
-		if		lang_setting("is_basic")(type)							then	"Basic "
-		else if	lang_setting("is_snow")(type)							then	"Snow "
-		else if	lang_setting("is_world")(type)							then	"World "
-		else if	lang_setting("is_legendary")(type)						then	"Legendary "
-		else if	lang_setting("is_token")(type)							then	"Token "
-		else if	lang_setting("is_ongoing")(type)						then	"Ongoing "
-		else if	lang_setting("is_elite")(type)							then	"Elite "
-		else if	lang_setting("is_host")(type)							then	"Host "
-		else if contains_element(custom_supertypes, element: type)	then	(type + " ")
-		else																			""
+		if		lang_setting("is_basic")(type)							then	all_en_space_statistic(lang_setting("basic")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_snow")(type)							then	all_en_space_statistic(lang_setting("snow")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_world")(type)							then	all_en_space_statistic(lang_setting("world")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_legendary")(type)						then	all_en_space_statistic(lang_setting("legendary")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_token")(type)							then	all_en_space_statistic(lang_setting("token")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_ongoing")(type)						then	all_en_space_statistic(lang_setting("ongoing")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_elite")(type)							then	all_en_space_statistic(lang_setting("elite")) + lang_setting("supertype_separator")
+		else if	lang_setting("is_host")(type)							then	all_en_space_statistic(lang_setting("host")) + lang_setting("supertype_separator")
+		else if contains_element(custom_supertypes, element: type)		then	type + lang_setting("supertype_separator")
+		else																	""
 	)
 	trim(result)
 }
@@ -976,9 +1008,10 @@ creature_class_statistic :=
 
 face_creature_subtype_statistic :=
 {
-	old_subtypes := to_text(clean_subtypes_statistic(sub))
-	if old_subtypes == "" then "" else (
+	old_subtypes := clean_subtypes_statistic(sub)
+	if to_text(old_subtypes) == "" then "" else (
 	
+	old_subtypes := to_text(replace_atom_sep_statistic(old_subtypes))
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	new_subtypes := for x from 0 to count do
@@ -1001,9 +1034,10 @@ noncreature_subtype_statistic :=
 }
 face_noncreature_subtype_statistic :=
 {
-	old_subtypes := to_text(clean_subtypes_statistic(sub))
-	if old_subtypes == "" then "" else (
+	old_subtypes := clean_subtypes_statistic(sub)
+	if to_text(old_subtypes) == "" then "" else (
 	
+	old_subtypes := to_text(replace_atom_sep_statistic(old_subtypes))
 	split := split_space_statistic(old_subtypes)
 	count := length(split)-1
 	custom_creature_subtypes := replace_commas_statistic(set.custom_creature_races) + ";" + replace_commas_statistic(set.custom_creature_classes) + ";"
@@ -1036,10 +1070,12 @@ face_noncreature_subtype_statistic :=
 }
 replace_commas_statistic := replace@(match: " ?, ?", replace: ";")
 split_space_statistic := split_text@(match: " ", include_empty:false)
+replace_atom_sep_statistic := replace@(match: "<atom-sep>[^<]*</atom-sep>", replace: " ")
 replace_space_statistic := replace@(match: " ", replace: "_")
 replace_squote_statistic := replace@(match: "'", replace: "’")
 # replace normal space with EN space to workaround stat space bug
 en_space_statistic := replace@(match: " ", replace: " ", in_context:"[^>]<match>[^<]")
+all_en_space_statistic := replace@(match: " ", replace: " ")
 clean_subtypes_statistic :=	replace_squote_statistic +
 							en_space_statistic
 							
@@ -1092,7 +1128,7 @@ format_number_statistic :=
 {
 	if input == "x" or input == "y" or input == "X" or input == "Y" then input := "X"
 	else if (to_number(input) or else 0) > 10 then input := "11+"
-	else if (to_number(input) or else 0) < 0 then input := "negative"
+	else if (to_number(input) or else 0) < 0 then input := all_en_space_statistic(lang_setting("negative"))
 	if input == "" then "" else "," + input
 }
 power_statistic :=
@@ -1389,7 +1425,7 @@ filter_key_to_field_statistic :=
 }
 filter_from_statistic :=
 {
-	if filter_string == "" then "Kept" else (
+	if filter_string == "" then lang_setting("message_filter_kept") else (
 	initial := escape_quotes_filter_statistics(replace_squote_statistic(filter_string))
 	# We always AND all the filters together, but we can do OR as well with the following identity:   x OR y = NOT ( (NOT x) AND (NOT y) )
 	prefix := substring(initial, begin:0, end:4)
@@ -1398,7 +1434,7 @@ filter_from_statistic :=
 	initial_keys := get_filter_keys_statistic(initial)
 	initial_modes := get_filter_modes_statistic(initial)	
 	count := length(initial_filters)-1
-	if count != length(initial_keys)-1 or count != length(initial_modes)-1 then "!! Failed to parse filters !!" else (
+	if count != length(initial_keys)-1 or count != length(initial_modes)-1 then lang_setting("message_filter_failed_to_parse") else (
 	fields := []
 	filters := []
 	keys := []
@@ -1422,15 +1458,15 @@ filter_from_statistic :=
 		keys := keys + [key]
 		modes := modes + [mode]
 	)
-	message := "Kept"
+	message := lang_setting("message_filter_kept")
 	for x from 0 to count do
 	(
-		if message == "Kept" or message == "Filtered" then
+		if message == lang_setting("message_filter_kept") or message == lang_setting("message_filter_filtered") then
 		(
 			if fields[x] == nil then
 				(
-					if keys[x] == "[or]_type" then message := "!! [OR] applies to all filters and must be at the start !!"
-					else message := "!! Could not find card field named [ " + keys[x] + " ] !!"
+					if keys[x] == "[or]_type" then message := lang_setting("message_filter_misused_or")
+					else message := lang_setting("message_filter_cant_find_key")(key: keys[x])
 				)
 			else
 			(
@@ -1442,7 +1478,7 @@ filter_from_statistic :=
 				or (mode == "!=" and field == filter)
 				or (mode == "=:" and not contains(to_lower(field), match: to_lower(filter)))
 				or (mode == "!:" and contains(to_lower(field), match: to_lower(filter)))
-					then message := "Filtered"
+					then message := lang_setting("message_filter_filtered")
 				else if	mode == "\<="
 					or	mode == ">="
 					or	mode == "\<"
@@ -1454,23 +1490,23 @@ filter_from_statistic :=
 						if field_number == nil and filter_number_variable_statistic[key] or else false
 							then field_number := to_number(filter_numbers_statistic(field))
 						if field == ""
-							then (if not negate then message := "Filtered")
+							then (if not negate then message := lang_setting("message_filter_filtered"))
 						else if field_number == nil
-							then message := "!! Could not convert the value of card field [ " + key + " ] to a number !!"
+							then message := lang_setting("message_filter_cant_to_int_field")(key: key)
 						else if	filter_number == nil
-							then message := "!! Could not convert the value of filter [ " + key + mode + "\"" + unescape_quotes_filter_statistics(filter) + "\" ] to a number !!"
+							then message := lang_setting("message_filter_cant_to_int_filter")(key: key, mode: mode, filter: filter)
 						else if	(mode == "\<=" and field_number > filter_number)
 						or	(mode == ">=" and field_number < filter_number)
 						or	(mode == "\<" and field_number >= filter_number)
 						or	(mode == ">" and field_number <= filter_number)
-							then message := "Filtered"
+							then message := lang_setting("message_filter_filtered")
 					)
 			)
 		)
 	)
-	if		message == "Filtered" and negate then	"Kept"
-	else if	message == "Kept" and negate then		"Filtered"
-	else											message))
+	if		message == lang_setting("message_filter_filtered") and negate then	lang_setting("message_filter_kept")
+	else if	message == lang_setting("message_filter_kept") and negate then		lang_setting("message_filter_filtered")
+	else																		message))
 }@(filter_string: set.filter_statistics)
 unescape_quotes_filter_statistics := replace@(match: "\\[\\[quoteescape\\]\\]", replace: "\\\\\"")
 escape_quotes_filter_statistics := replace@(match: "(\\\\\")|“|”", replace: "[[quoteescape]]")
@@ -1517,10 +1553,10 @@ trim_from_draw_statistic :=
 		or	card.shape == "token"
 		or	card.shape == "emblem"
 		or	lang_setting("is_nonstandard")(card.type)
-		or	filter_from_statistic(card: card) == "Filtered"
+		or	filter_from_statistic(card: card) == lang_setting("message_filter_filtered")
 }
 
-statistics_info :=
+statistics_info_en :=
 {
 	trace("
 	
@@ -1603,7 +1639,7 @@ statistics_info :=
 	
 	[Custom creature races/classes]
 	If your set uses custom creature sub types, write them all in these fields, separated by commas. Otherwise, they will be counted as non-creature sub types.
-	Setting this equal to "detect" will have MSE check all your cards and write out any custom creature types it detects.
+	Setting this equal to \"detect\" will have MSE check all your cards and write out any custom creature types it detects.
 	This might find false positives, for example, it will detect a custom artifact type that's only on artifact creatures as a creature type.
 	Some ambiguous canon sub types like Zombie are counted as both a race and a class. If you want them to only count in one category, add them to the corresponding field.
 	
@@ -1705,6 +1741,205 @@ statistics_info :=
 	")
 	""
 }
+statistics_info_fr :=
+{
+	trace("
+	
+	[[[AIDE DES STATISTIQUES]]]
+
+	Si certaines cartes sont mal comptées, recharger le programme peux corriger certaines erreurs.
+	Si le programme semble compter certaines choses non présentes sur une carte, ce peut être des vestiges
+	d'une version précédente de la carte. Basculez temporairement la carte sur un cadre à double-face,
+	ou un cadre de Planeswalker, effacez toutes les données non nécessaires pour la version actuelle de la carte,
+	puis retourner sur le bon cadre.
+
+
+	[[[ONGLET INFOS DU SET]]]
+
+	[Trim statistics]
+	Cette option exclu les cartes suivante du décompte des statistiques:
+	- les cartes avec la rareté spéciale
+	- les cartes avec la rareté chef-d’œuvre
+	- les jetons
+	- les emblèmes
+	- les donjons
+	- les conspirations
+	- les héros
+	- les avant-gardes
+	- les schèmes
+	- les plans
+	- les phénomènes
+
+	[Filter statistics]
+	Cette option permet de filtrer plus précisément les cartes du décompte des statistiques.
+	La syntaxe est la suivante:
+
+	nom_du_champ==\"valeur\"
+
+	Donc si vous écrivez:
+
+	notes==\"Pioche\"
+
+	la page des stats ne comptera que les cartes pour lesquelles les notes sont exactement: 'Pioche'
+	Utilisez != pour l'inégalité. Donc si vous écrivez:
+
+	notes!=\"Pioche\"
+
+	la page des stats ne comptera que les cartes pour lesquelles les notes ne sont pas: 'Pioche'
+	Utilisez =: pour compter les cartes dont le champ contient la valeur. Par exemple, si vous écrivez:
+
+	sub_type=:\"goblin\"
+
+	la page des stats ne comptera que les cartes qui contiennent 'goblin' parmi leurs sous-types.
+	Utilisez !: pour exclure, donc écrivez:
+
+	sub_type!:\"goblin\"
+
+	et la page des stats ne comptera que les cartes qui ne contiennent pas 'goblin' parmi leurs sous-types.
+	Utilisez >= et <= pour les quantités numériques, donc:
+
+	mana_value>=\"6\"
+
+	toughness<=\"3\"
+
+	Vous pouvez écrire plusieurs critères en les séparant d'une virgule, donc:
+
+	rule_text=:\"lien de vie\", sub_type=:\"ange\"
+
+	ne comptera que les cartes qui ont 'lien de vie' dans leur texte de règle ET qui sont des anges.
+	Si vous voulez les cartes qui ont 'lien de vie' OU qui sont des anges, ajoutez [OR] au début du filtre:
+
+	[OR] rule_text=:\"lien de vie\", sub_type=:\"ange\"
+
+	Si vous cherchez des guillemets \" , vous devez les échapper avec \\. Par exemple:
+
+	rule_text=:\"Les créatures que vous contrôlez gagnent \\\"T: Add G.\\\" jusqu'à la fin du tour.\"
+
+	Pour voir une liste (non exhaustive) des noms de champs possibles, entrez \"filter_keys_info()\" dans la console.
+	
+	[Count secondary faces]
+	Cette option permet de compter les faces secondaire sur les cartes à deux faces, les aventures, les cartes avec Répercussion, etc...
+	Certaines choses comme la couleur exacte d'une carte ne prennent jamais en compte les faces secondaires.
+	Certaines choses comme l'identité couleur d'une carte prennent systématiquement en compte toutes les faces secondaires.
+
+	[Custom super types]
+	Si votre Set contient des supertypes personnalisés, écrivez-les tous ici, séparés par des virgules.
+	Sinon, ils seront comptés comme des types.
+
+	[Custom creature races/classes]
+	Si votre Set contient des races ou classes de créatures personnalisées, écrivez-les toutes ici, séparées par des virgules.
+	Sinon, elles seront comptées comme des sous-types de noncréature.
+	Si vous écrivez 'detect', MSE essaiera de détecter automatiquement tous vos sous-types personnalisés, mais risque d'avoir de faux-positifs.
+	Certains sous-types du canon tel que Zombie sont comptés à la fois comme race et comme classe. Si vous souhaitez qu'ils ne comptent
+	que dans une catégorie, ajoutez-les ici.
+
+
+	[[[ONGLET STATISTIQUES]]]
+
+	[Couleur (Catégorie)]
+	La couleur du cadre de la carte.
+
+	[Couleur (Exacte)]
+	La couleur définie par les règles complètes. Ne prends jamais en compte les faces secondaires (comme sur les aventures par exemple),
+	sauf pour les cartes doubles et les cartes avec Répercussion.
+
+	[Couleur (Identité)]
+	L'identité couleur comme définie par les règles de Commander. Prends toujours en compte toutes les faces secondaires.
+
+	[Coût de Lancement, Valeur de Mana]
+	Coût de mana (coût de lancement), et valeur de mana (coût de mana converti). Compte chaque face séparément, si l'option est cochée dans l'onglet Infos du Set.
+
+	[Permanent/Non]
+	Compte le nombre de créatures, de permanents noncréatures, et de nonpermanents. Compte chaque face séparément.
+
+	[Filtre (voir Info du Set)]
+	Affiche les cartes filtrées par le champ 'filter statistics' de l'onglet Infos du Set.
+
+	[Production de Mana (Tout)]
+	Compte combien de cartes peuvent produire du mana blanc, bleu, etc. Compte aussi les cartes pouvant produire du mana de n'importe quelle couleur,
+	ainsi que les cartes pouvant produire du mana d'une couleur qui est choisie une fois pour toutes, généralement lorsque la carte entre sur le champ de bataille.
+
+	[Prod. de Mana (Terrain]
+	Comme ci-dessus, mais ne compte que les cartes de terrain.
+
+	[Prod. de Mana (Nonterrain]
+	Comme ci-dessus, mais ne compte que les cartes nonterrain.
+
+	[# de Pépins (Lancement)]
+	Compte le nombre de coûts de lancement qui contiennent un symbole de mana coloré. Puis deux, puis trois, etc.
+
+	[# de Pépins (Capacité)]
+	Comme ci-dessus mais pour les coûts de capacités activées et déclenchées, ainsi que les coût de mots-clefs.
+
+	[# de Pépins (Tout)]
+	Somme des deux statistiques précédentes.
+
+	[Pépins (Lancement)]
+	Compte le nombre de coûts de lancement qui contiennent un symbole de mana blanc. Puis deux, puis trois, puis quatre ou plus.
+	Puis répète le compte pour les autres couleurs.
+
+	[Pépins (Capacité)]
+	Comme ci-dessus mais pour les coûts de capacités activées et déclenchées, ainsi que les coût de mots-clefs.
+
+	[Pépins (Tout)]
+	Somme des deux statistiques précédentes.
+
+	[Pépins Totaux (Lancement)]
+	Compte le nombre total de symboles de mana blanc dans tous les coûts de lancement. Puis répète le compte pour les autres couleurs.
+
+	[Pépins Totaux (Capacité)]
+	Comme ci-dessus mais pour les coûts de capacités activées et déclenchées, ainsi que les coût de mots-clefs.
+
+	[Pépins Totaux (Tout)]
+	Somme des deux statistiques précédentes.
+
+	[Mots des Notes]
+	Compte chaque mot apparaissant dans les notes des cartes.
+
+	[Clauses des Notes]
+	Découpe les notes des cartes selon l'expression régulière écrite dans le champ 'Card notes clauses split' de l'onglet Infos du Set.
+	Par défaut, cela découpe les notes à chaque point, chaque virgule, chaque point-virgule, chaque point d'exclamation et chaque retour à la ligne.
+	Donc par exemple, si vous écrivez dans les notes: 'Pioche, Accélérateur de Mana; A réviser', la carte sera comptée dans la catégorie 'Pioche',
+	dans la catégorie 'Accélérateur de Mana' et dans la catégorie 'A réviser'.
+
+	[Main Moyenne]
+	Si le Set est en réalité un deck, compte le nombre moyen de chaque type de carte que contiendra une main de sept cartes.
+	!! Cette statistique ne se met à jour que si le programme est rechargé, ou si une carte est enlevée ou ajoutée au Set !!
+
+	[% d'Avoir un Terrain (1er)]
+	Si le Set est en réalité un deck, affiche le pourcentage de chance de pouvoir jouer un terrain à tous les tours, jusqu'au tour donné.
+	Le compte est fait pour le premier joueur (donc pas de pioche au tour 1).
+
+	[% d'Avoir un Terrain (2ème)]
+	Si le Set est en réalité un deck, affiche le pourcentage de chance de pouvoir jouer un terrain chaque tour, jusqu'au tour donné.
+	Le compte est fait pour le second joueur (donc pioche au tour 1).
+
+	[# de Couleurs]
+	Combien de cartes ont une couleur, deux, trois, etc.
+
+	[# de Couleurs (Identité)]
+	Combien de cartes ont une couleur dans leur identité couleur, deux, trois, etc.
+
+	[Couleur (Seconde Face)]
+	Couleur de la face secondaire.
+
+	[Couleur (Toutes les Faces)]
+	Couleur combinée de toutes les faces.
+
+	[Couleur (Promos)]
+	Couleur des cartes avec la rareté 'spéciale' ou 'chef-d’œuvre'.
+
+	[Couleur (Omnivers)]
+	Comme la catégorie de couleur, mais compte les couleur étendues (Violet, Rose, Jaune, Orange et Brun)
+
+	(Cliquez sur moi ou faites défiler vers le haut pour voir le début.)
+	")
+	""
+}
+statistics_info :=
+{
+	if language().code == "fr" then statistics_info_fr() else statistics_info_en()
+}
 statistics_help :=
 {
 	statistics_info()
@@ -1716,4 +1951,93 @@ stats_info :=
 stats_help :=
 {
 	statistics_info()
+}
+
+filter_keys_info :=
+{
+	if language().code == "fr" then filter_keys_info_fr() else filter_keys_info_en()
+}
+filter_keys_info_en :=
+{
+	trace("
+
+	FIELD NAME :   HOW TO WRITE IT
+	
+	Color Category :   color_category
+	Exact Color :   color
+	Color Identity :   color_identity
+	Color Count :   color_count
+
+	Casting Cost :   casting_cost
+	Mana Value :   mana_value
+
+	All Mana Production :   mana_production
+
+	Name :   name
+
+	Supertype :   supertype
+	Card Type :   type
+	Subtype :   subtype
+
+	Rarity :   rarity
+
+	Rule Text :   rule_text
+	Flavor Text :   flavor_text
+
+	Power :   power
+	Toughness :   toughness
+	Loyalty :   loyalty
+	Defense :   defense
+
+	Template :   template
+	Artist :   artist
+
+	Word Count :   word_count
+	Paragraph Count :   paragraph_count
+
+	Notes :   card_notes
+	")
+	""
+}
+filter_keys_info_fr :=
+{
+	trace("
+
+	NOM DU CHAMP :   NOM A ÉCRIRE DANS LE FILTRE
+	
+	Couleur (Catégorie) :   color_category
+	Couleur (Exacte) :    color
+	Couleur (Identité) :   color_identity
+	# De Couleurs :   color_count
+
+	Coût de Lancement :   casting_cost
+	Valeur de Mana :   mana_value
+
+	Production de Mana :   mana_production
+
+	Nom :   name
+
+	Supertype :   supertype
+	Type :   type
+	Sous-Type :   subtype
+
+	Rareté :   rarity
+
+	Texte de Règles :   rule_text
+	Texte d'Ambiance :   flavor_text
+
+	Force :   power
+	Endurance :   toughness
+	Loyauté :   loyalty
+	Défense :   defense
+
+	Cadre :   template
+	Illustrateur :   artist
+
+	# De Mots :   word_count
+	# De Paragraphes :   paragraph_count
+
+	Notes :   card_notes
+	")
+	""
 }

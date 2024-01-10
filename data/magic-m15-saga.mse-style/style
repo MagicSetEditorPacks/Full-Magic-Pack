@@ -6,7 +6,7 @@ installer group: magic/m15 style/sagas
 icon: card-sample.png
 position hint: 010
 
-version: 2020-05-10
+version: 2024-01-04
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -193,12 +193,17 @@ init script:
 	un_png := replace@(match:".png", replace: "")
 	a_saga := {true}
 	saga_reminder := { if styling.alternate_reminder != "" then styling.alternate_reminder else if is_class() then "Gain the next level as a sorcery to add its ability." else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
-	is_nyx := {contains(styling.other_options, match:"nyx")}
-	is_snow := {contains(styling.other_options, match:"snow")}
-	is_vehicle := {contains(styling.other_options, match:"vehicle")}
-	is_class := {contains(styling.other_options, match:"class") or contains(card.sub_type, match:"Class")}
+	is_class := {contains(styling.other_options, match:"class") or lang_setting("is_class")(card.sub_type)}
 	un_marked := {is_class() or contains(styling.other_options, match:"remove bookmark")}
-	is_legend := {set.auto_legends and contains(card.super_type, match:"Legendary") }
+	is_legend :=	{ auto_legend() }
+	is_vehicle :=	{ auto_vehicle()	or contains(styling.other_options, match:"vehicle") }
+	is_nyx :=		{ auto_nyx()		or contains(styling.other_options, match:"nyx") }
+	is_snow :=		{ auto_snow()		or contains(styling.other_options, match:"snow") }
+	auto_legend :=	{ set.auto_legends									and lang_setting("is_legendary")(card.super_type) }
+	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
+	auto_nyx :=		{ contains(styling.auto_frames, match:"nyx")		and lang_setting("is_nyx")(card.super_type) }
+	auto_snow :=	{ contains(styling.auto_frames, match:"snow")		and lang_setting("is_snow")(card.super_type) }
+	
 	nyx_background := { color_background(type:"nyx",     base_hybrid:card_hybrid) }
 	snow_background := { color_background(type:"snowtexture",     base_hybrid:card_hybrid) }
 	bookmark_background := { color_background(type:"mark",     base_hybrid:card_hybrid) }
@@ -228,6 +233,10 @@ init script:
 	}
 	###add blank spaces to inner levels so they still are clickable while "empty"
 	add_spacers := { if input == "" and (margin_code == "lv1" or margin_code == "lv2" or margin_code == "lv3") then "​" else input}
+
+	# alternate rarity color
+	alt_rarity := {styling.alt_rarity_color}
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -275,6 +284,14 @@ styling field:
 	type: text
 	name: custom chapter name
 	description: Set how this symbol will be called in text exports (ie I, II...). Default is C.
+styling field:
+	type: multiple choice
+	name: auto frames
+	description: Automatically applies frames for multi-typed enchantments, snow, or Vehicles.
+	choice: nyx
+	choice: vehicle
+	choice: snow
+	initial: nyx, vehicle, snow
 styling field:
 	type: multiple choice
 	name: other options
@@ -330,6 +347,10 @@ styling field:
 	name: color indicator dot
 	description: Use the color indicator dot
 	initial: no
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:...:X:" 1 and 2 are fill color, 3 and 4 border color, X is border thickness. For example, rare is 214,196,94:95,84,40:0,0,0:0,0,0:0.07
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -406,6 +427,9 @@ styling style:
 		choice images:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+	auto frames:
+		render style: checklist
+		direction: vertical
 	other options:
 		render style: checklist
 		direction: vertical
@@ -573,7 +597,7 @@ card style:
 	type:
 		left: { if has_identity() then "53" else "33" }
 		top: { 444 + shrink_type() }
-		width: { 309 - max(22,card_style.rarity.content_width) }
+		width: { 309 - rare_width() }
 		height: { 20 - shrink_type() }
 		alignment: top shrink-overflow
 		z index: 2
@@ -596,28 +620,34 @@ card style:
 			basic land:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if use_alt_rarity() then alt_symbol()
 					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			common:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if use_alt_rarity() then alt_symbol()
 					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			uncommon:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "uncommon")
 			rare:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "rare")
 			mythic rare:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
 			special:
 				script:
 					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if use_alt_rarity() then alt_symbol()
 					else symbol_variation(symbol: set.symbol, variation: "special")
 			masterpiece:
 				script:
