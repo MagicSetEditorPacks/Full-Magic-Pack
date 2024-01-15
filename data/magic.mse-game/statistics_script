@@ -238,7 +238,7 @@ face_color_category_statistic :=
 	else if black						then	all_en_space_statistic(lang_setting("black"))
 	else if red							then	all_en_space_statistic(lang_setting("red"))
 	else if green						then	all_en_space_statistic(lang_setting("green"))
-	else										input
+	else										all_en_space_statistic(lang_setting("colorless"))
 }
 
 # Omniverse colors
@@ -597,13 +597,9 @@ average_opening_hand_statistic :=
 }
 global_variable_average_opening_hand_statistic :=
 {
-	set_count := length(set.cards)-1
-	if set_count < 0 then "" else (
-	cards := for x from 0 to set_count do (if trim_from_draw_statistic(card: set.cards[x]) then [] else [set.cards[x]])
-	card_count := length(cards)-1
-	card_count_real := to_number(card_count+1)
-	if card_count < 6 then lang_setting("message_drops_no_cards") else (
+	if length(set.cards) < 1 then "" else (
 	
+	card_count := 0
 	lands := 0
 	manaartifacts := 0
 	nonmanaartifacts := 0
@@ -614,19 +610,36 @@ global_variable_average_opening_hand_statistic :=
 	sorceries := 0
 	instants := 0
 	
-	for x from 0 to card_count do
+	is_land :=			lang_setting("is_land")
+	is_artifact :=		lang_setting("is_artifact")
+	is_enchantment :=	lang_setting("is_enchantment")
+	is_planeswalker :=	lang_setting("is_planeswalker")
+	is_battle :=		lang_setting("is_battle")
+	is_creature :=		lang_setting("is_creature")
+	is_sorcery :=		lang_setting("is_sorcery")
+	is_instant :=		lang_setting("is_instant")
+	
+	for each c in set.cards do
 	(
-		c := cards[x]
-		if has_type_statistic(card:c, "land") then lands := lands + 1
-		if has_type_statistic(card:c, "artifact") then (if mana_production_list_statistic(card: c, check_type: "nonland") == "" then (nonmanaartifacts := nonmanaartifacts + 1) else (manaartifacts := manaartifacts + 1))
-		if has_type_statistic(card:c, "enchantment") then enchantments := enchantments + 1
-		if has_type_statistic(card:c, "planeswalker") then planeswalkers := planeswalkers + 1
-		if has_type_statistic(card:c, "battle") then battles := battles + 1
-		if has_type_statistic(card:c, "creature") then creatures := creatures + 1
-		if has_type_statistic(card:c, "sorcery") then sorceries := sorceries + 1
-		if has_type_statistic(card:c, "instant") then instants := instants + 1
+		if not trim_from_draw_statistic(card:c) then
+		(
+			type := c.type + (if check_2_statistic(card:c) then " " + c.type_2 else "")
+			card_count := card_count + 1
+			if is_land(type)			then lands := lands + 1
+			if is_artifact(type)		then (if mana_production_list_statistic(card: c, check_type: "nonland") == "" then (nonmanaartifacts := nonmanaartifacts + 1) else (manaartifacts := manaartifacts + 1))
+			if is_enchantment(type)		then enchantments := enchantments + 1
+			if is_planeswalker(type)	then planeswalkers := planeswalkers + 1
+			if is_battle(type)			then battles := battles + 1
+			if is_creature(type)		then creatures := creatures + 1
+			if is_sorcery(type)			then sorceries := sorceries + 1
+			if is_instant(type)			then instants := instants + 1
+		)
+		""
 	)
 	
+	if card_count < 6 then lang_setting("message_drops_no_cards") else (
+	
+	card_count_real := to_number(card_count)
 	lands_average := format_average_statistic(7.0 * to_number(lands) / card_count_real)
 	manaartifacts_average := format_average_statistic(7.0 * to_number(manaartifacts) / card_count_real)
 	nonmanaartifacts_average := format_average_statistic(7.0 * to_number(nonmanaartifacts) / card_count_real)
@@ -659,9 +672,19 @@ format_average_statistic :=
 # Rarities.
 rarity_statistic :=
 {
-	if		card.shape == "Token" or card.shape == "token" or lang_setting("is_token")(card.super_type) then all_en_space_statistic(lang_setting("token"))
+	if		is_tokenish_statistics(card.shape) or lang_setting("is_token")(card.super_type)				then all_en_space_statistic(lang_setting("token"))
 	else if	lang_setting("is_land")(card.super_type) and lang_setting("is_basic")(card.super_type) 		then all_en_space_statistic(lang_setting("basic_land"))
 	else all_en_space_statistic(lang_setting(replace_space_statistic(card.rarity)))
+}
+is_tokenish_statistics :=
+{
+	input := to_lower(input)
+		contains(input, match: "token")
+	or	contains(input, match: "emblem")
+	or	contains(input, match: "designation")
+	or	contains(input, match: "rulestip")
+	or	contains(input, match: "counter")
+	or	contains(input, match: "checklist")
 }
 
 # Watermarks
@@ -1078,7 +1101,7 @@ en_space_statistic := replace@(match: " ", replace: " ", in_context:"[^>]<matc
 all_en_space_statistic := replace@(match: " ", replace: " ")
 clean_subtypes_statistic :=	replace_squote_statistic +
 							en_space_statistic
-							
+
 # semicolor separated lists of all localized canon subtypes
 land_subtypes_statistic := {
 	basics := lang_setting("word_lists_basic")
@@ -1536,22 +1559,19 @@ trim_from_statistic :=
 {
 	if set.trim_statistics then
 	(
-			card.shape == "token"
-		or	card.shape == "emblem"
+			is_tokenish_statistics(card.shape)
 		or	card.rarity == "special"
 		or	card.rarity == "masterpiece"
 		or  lang_setting("is_nonstandard")(card.type)
 	)
 	else false
 }
-
 trim_from_draw_statistic :=
 {
 			contains(card.notes, match: "commander")
 		or	contains(card.notes, match: "Commander")
 		or	(set.trim_statistics and (card.rarity == "special" or card.rarity == "masterpiece"))
-		or	card.shape == "token"
-		or	card.shape == "emblem"
+		or	is_tokenish_statistics(card.shape)
 		or	lang_setting("is_nonstandard")(card.type)
 		or	filter_from_statistic(card: card) == lang_setting("message_filter_filtered")
 }
