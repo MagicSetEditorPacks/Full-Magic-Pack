@@ -11,12 +11,12 @@ version_date := {"2023-02-21"}
 ############################################################## Sorting mana symbols
 
 # correctly sort a mana symbol (no guild mana)
-mana_sort       := sort_text@(order: "\\?XYZI[0123456789]VLHSFCAIE[TK](WUBRG)") 
+mana_sort       := sort_text@(order: "\\?XYZI[0123456789]VLHSFCAIE(WUBRG)") 
 # correctly sort wedge mana
-mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VLHSFCAIE[TK](WBGUR)")
-mana_unsort := sort_text@(order:"[/\\?XYZI0123456789VLHSCAIETKWUBRG]")
+mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VLHSFCAIE(WBGUR)")
+mana_unsort := sort_text@(order:"[/\\?XYZI0123456789VLHSCAIEWUBRG]")
 # correctly sort guild mana
-mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VLHSFCAIETKWUBRG/|]") +
+mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VLHSFCAIEWUBRG/|]") +
 		replace@(
 			# No lookbehind :(
 			#match: "(?<!/)(./.|././.|./././.|.[|])(?!/)",
@@ -55,10 +55,12 @@ mana_filter := to_upper + {
 }
 # Like mana filter, only also allow tap symbols:
 tap_reduction :=
-	replace@(match:"(TK)+", replace:"")+
 	replace@(match:"T+", replace:"T")+
 	replace@(match:"Q+", replace:"Q")
-tap_filter := filter_text@(match: "[TKQ]")
+ticket_filter := 
+ticket_isolate := filter_text@(match:"(TK)+")
+tap_filter := replace@(match:"(TK)+", replace:"")+
+	sort_text@(order: "<TQ>")
 mana_filter_t := replace@(               # Remove [] used for forcing mana symbols
 			match: "[\\[\\]]",
 			replace: ""
@@ -770,30 +772,32 @@ inserts_values := {
 # Filters for the text box
 # context in which mana symbols are found
 mana_context :=
-	"(?ix)				# case insensitive, ignore whitespace
-	 (^|[[:space:]\"(“'])		# start of a word
-		 (
-			<match>:			# G: something
-		 |  <match>,			# G, tap: something
-		 |  or[ ]<match>		# Add X, Y, or Z.
-		 |  <match>[ ]to[ ]your		# Add X, Y, or Z to your mana pool.
-		 |  <match>[ ]was[ ]spent		# if G was spent to cast
-		 |  <match>[ ]can[ ]be[ ]paid
-		 |  (pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using))	# pay X. creatures cost 1 less. pay an additional G.
-			([ ]either)?			 # pay either X or Y
-			([ ](<sym[^>]*>)?[-+=]?[VLHSCETKQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)* # pay X, Y or Z
-			([ ](<sym[^>]*>)?[-+=]?[VLHSCETKQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
-			[ ]<match>
-			([,.)\"”]|$				# (end of word)
-			|[ ][^ .,]*$			# still typing...
-			|[ ]( or | and | in | less | more | to ) # or next word is ...
-		 )
-	 )
-	 |  <param-mana><match></param-mana>		# keyword argument that is declared as mana
-	 |  <param-cost>[ ]*<match></param-cost>	# keyword argument that is declared as cost
-	 |  <param-cost><match>,			# keyword argument that is declared as cost
-	 ";
-mana_un_context := "(converted mana costs? <match>|<match> life)"
+	"(?ix)                                                      # case insensitive, ignore whitespace
+	 (^|[[:space:]\"(“'])                                       # start of a word
+		(
+				<match>:                                        # G: something
+			|	<match>,                                        # G, tap: something
+			|	or[ ]<match>                                    # Add X, Y, or Z.
+			|	<match>[ ]to[ ]your                             # Add X, Y, or Z to your mana pool.
+			|	you[ ]get[ ]<match>                             # You get E, you get TK
+			|	<match>[ ]was[ ]spent                           # if G was spent to cast
+			|	<match>[ ]can[ ]be[ ]paid
+			|	(pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using)) # pay X. creatures cost 1 less. pay an additional G.
+				([ ]either)?                                                                            # pay either X or Y
+				([ ](<sym[^>]*>)?[-+=]?[VLHSCETKQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)*                  # pay X, Y or Z
+				([ ](<sym[^>]*>)?[-+=]?[VLHSCETKQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
+				[ ]<match>
+				(
+						[,.)\"”]|$                              # (end of word)
+					|	[ ][^ .,]*$                             # still typing...
+					|	[ ]( or | and | in | less | more | to ) # or next word is ...
+				)
+		)
+	 |  <param-mana><match></param-mana>                        # keyword argument that is declared as mana
+	 |  <param-cost>[ ]*<match></param-cost>                    # keyword argument that is declared as cost
+	 |  <param-cost><match>,                                    # keyword argument that is declared as cost
+	";
+mana_un_context := "(mana values? <match>|converted mana costs? <match>|<match> life)"
 
 # truncates the name of legends
 legend_filter := replace@(match:"(, | of | the | \"| “).*", replace: "" )
@@ -1011,7 +1015,7 @@ text_filter :=
 	} +
 	# step 4 : explict non mana symbols
 	replace@(
-		match: "\\][-+=]?[VLHSCETKQ\\?XYZIWUBRG0-9/|]+\\[",
+		match: "\\][-+=]?[VLHSCETQ\\?XYZIWUBRG0-9/|]+\\[",
 		replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
 	# step 5 : add mana & tap symbols
 	replace@(
@@ -1019,17 +1023,21 @@ text_filter :=
 		in_context: mana_context,
 		replace: {"<sym-auto>" + _1 + "</sym-auto>"} ) +
 	replace@(
-		match: "\\b[VLHSCETKQ\\?XYZIWUBRG0-9/|]+\\b",
+		match: "\\b((TK)+)(T)?\\b",
+		in_context: mana_context,
+		replace: {"<sym-auto>" + _1 + "</sym-auto>" + _3}) +
+	replace@(
+		match: "\\b[VLHSCETQ\\?XYZIWUBRG0-9/|]+\\b",
 		in_context: mana_context,
 		replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
 	# step 5b : remove false positive mana & tap symbols
 	replace@(
-		match: "<sym-auto>([VLHSCETKQ\\?XYZIWUBRG0-9/|]+)</sym-auto>",
+		match: "<sym-auto>([VLHSCETQ\\?XYZIWUBRG0-9/|]+)</sym-auto>",
 		in_context: mana_un_context,
 		replace: "\\1" ) +
 	# step 5c : add explicit mana symbols
 	replace@(
-		match: "\\[[-+=]?[VLHSCETKQE\\?XYZIWUBRG0-9/|]+\\]",
+		match: "\\[[-+=]?[VLHSCETQE\\?XYZIWUBRG0-9/|]+\\]",
 		replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
 	# step 6 : curly quotes
 	{if set.curly_quotes then curly_quotes(input) else input} +
