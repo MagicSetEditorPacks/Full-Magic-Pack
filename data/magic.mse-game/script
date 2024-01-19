@@ -57,7 +57,10 @@ mana_filter := to_upper + {
 tap_reduction :=
 	replace@(match:"T+", replace:"T")+
 	replace@(match:"Q+", replace:"Q")
-tap_filter := sort_text@(order: "<TQ>")
+ticket_filter := 
+ticket_isolate := filter_text@(match:"(TK)+")
+tap_filter := replace@(match:"(TK)+", replace:"")+
+	sort_text@(order: "<TQ>")
 mana_filter_t := replace@(               # Remove [] used for forcing mana symbols
 			match: "[\\[\\]]",
 			replace: ""
@@ -432,16 +435,16 @@ trim_reminder_x := replace@(match: ". X can’t be 0.", replace: "")
 for_mana_costs := {
 	if input.separator_before == "—" and contains(input.param, match: " ") then (										##multi word
 		if comma_count(input.param) == "," then (																			##two part
-			if match(match: "^[VLHSCAIETQ\\?XYZIWUBRG0-9/|]+,", input.param) then													##starts with mana
+			if match(match: "^[VLHSCAIETKQ\\?XYZIWUBRG0-9/|]+,", input.param) then													##starts with mana
 				"{add}<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>"					##"add" mana 
 			else "<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"					## else cost "non"
 		) else if contains(input.param, match: ",") then (																	##three+ parts
-			if match(match: "^[VLHSCAIETQ\\?XYZIWUBRG0-9/|]+,", input.param) then													##starts with mana
+			if match(match: "^[VLHSCAIETKQ\\?XYZIWUBRG0-9/|]+,", input.param) then													##starts with mana
 				"{add}<param-cost>{alternative_cost(input.param, trim:long_cost, s:action)}</param-cost>"						##"add" mana with long formatting
 			else "<param-cost>{alternative_cost(input.param, trim:long_nomana_cost, s:action)}</param-cost>{non}"				## else cost "non" with long formatting
 		) else
 			"<param-cost>{alternative_cost(input.param, s:action, trim:lower_first)}{non}</param-cost>"						##one, nonmana, part
-	) else if match(match: "^[VLHSCAIETQ\\?XYZIWUBRG0-9/|]+$", input.param) then											##one word
+	) else if match(match: "^[VLHSCAIETKQ\\?XYZIWUBRG0-9/|]+$", input.param) then											##one word
 		"{add}<param-mana>{input.param}</param-mana>"																		##mana
 	else
 		"<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"						##nonmana
@@ -454,7 +457,7 @@ long_nomana_cost := replace@(match:"[A-Z]", replace: { to_lower() })
 lower_first := replace@(match:"^[A-Z]", replace: { to_lower() })
 combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
 	replace@(match:",", replace:" and")+
-	replace@(match:"^[VLHSCETQ\\?XYZIWUBRG0-9/|]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
+	replace@(match:"^[VLHSCETKQ\\?XYZIWUBRG0-9/|]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
 	replace@(match:"^[A-Z]", replace: { to_lower() })
 alternative_cost := {
 	input := trim(input)
@@ -769,30 +772,32 @@ inserts_values := {
 # Filters for the text box
 # context in which mana symbols are found
 mana_context :=
-	"(?ix)				# case insensitive, ignore whitespace
-	 (^|[[:space:]\"(“'])		# start of a word
-		 (
-			<match>:			# G: something
-		 |  <match>,			# G, tap: something
-		 |  or[ ]<match>		# Add X, Y, or Z.
-		 |  <match>[ ]to[ ]your		# Add X, Y, or Z to your mana pool.
-		 |  <match>[ ]was[ ]spent		# if G was spent to cast
-		 |  <match>[ ]can[ ]be[ ]paid
-		 |  (pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using))	# pay X. creatures cost 1 less. pay an additional G.
-			([ ]either)?			 # pay either X or Y
-			([ ](<sym[^>]*>)?[-+=]?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)* # pay X, Y or Z
-			([ ](<sym[^>]*>)?[-+=]?[VLHSCETQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
-			[ ]<match>
-			([,.)\"”]|$				# (end of word)
-			|[ ][^ .,]*$			# still typing...
-			|[ ]( or | and | in | less | more | to ) # or next word is ...
-		 )
-	 )
-	 |  <param-mana><match></param-mana>		# keyword argument that is declared as mana
-	 |  <param-cost>[ ]*<match></param-cost>	# keyword argument that is declared as cost
-	 |  <param-cost><match>,			# keyword argument that is declared as cost
-	 ";
-mana_un_context := "(converted mana costs? <match>|<match> life)"
+	"(?ix)                                                      # case insensitive, ignore whitespace
+	 (^|[[:space:]\"(“'])                                       # start of a word
+		(
+				<match>:                                        # G: something
+			|	<match>,                                        # G, tap: something
+			|	or[ ]<match>                                    # Add X, Y, or Z.
+			|	<match>[ ]to[ ]your                             # Add X, Y, or Z to your mana pool.
+			|	you[ ]get[ ]<match>                             # You get E, you get TK
+			|	<match>[ ]was[ ]spent                           # if G was spent to cast
+			|	<match>[ ]can[ ]be[ ]paid
+			|	(pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using)) # pay X. creatures cost 1 less. pay an additional G.
+				([ ]either)?                                                                            # pay either X or Y
+				([ ](<sym[^>]*>)?[-+=]?[VLHSCETKQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)*                  # pay X, Y or Z
+				([ ](<sym[^>]*>)?[-+=]?[VLHSCETKQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
+				[ ]<match>
+				(
+						[,.)\"”]|$                              # (end of word)
+					|	[ ][^ .,]*$                             # still typing...
+					|	[ ]( or | and | in | less | more | to ) # or next word is ...
+				)
+		)
+	 |  <param-mana><match></param-mana>                        # keyword argument that is declared as mana
+	 |  <param-cost>[ ]*<match></param-cost>                    # keyword argument that is declared as cost
+	 |  <param-cost><match>,                                    # keyword argument that is declared as cost
+	";
+mana_un_context := "(mana values? <match>|converted mana costs? <match>|<match> life)"
 
 # truncates the name of legends
 legend_filter := replace@(match:"(, | of | the | \"| “).*", replace: "" )
@@ -846,12 +851,13 @@ auto_correct :=
 		replace: { _1 + _2 + to_lower(_3)})
 auto_errata :=
 	replace@(match:"converted mana cost", replace:"mana value")
-	+replace@(match:"(?i)(Totem armor|Totembeistand|Armadura tótem|totémique|Armatura totem|Armadura de totem|族霊鎧|替身甲)", replace:{errata_map[_1]})
+	+replace@(match:"(?i)(Totem armor|Totembeistand|Armadura tótem|totémique|Armatura totem|Armadura de totem|族霊鎧|替身甲)", replace:{errata_map[_1] or else _1})
 	+replace@(match:"hen shuffle your library", replace:"hen shuffle")
 	+replace@(match:"this (?:ability )?(?:only )?(?:any ?time you could cast|as) a", in_context: "(Activate|Play) <match>n? (instant|sorcery)", replace:"only as a")
 	
 errata_map := [
 	"Totem armor": "Umbra armor",
+	"Totem Armor": "Umbra armor",
 	"totem armor": "umbra armor",
 	"Totembeistand": "Schattenbeistand",
 	"totembeistand": "schattenbeistand",
@@ -1017,6 +1023,10 @@ text_filter :=
 		in_context: mana_context,
 		replace: {"<sym-auto>" + _1 + "</sym-auto>"} ) +
 	replace@(
+		match: "\\b((TK)+)(T)?\\b",
+		in_context: mana_context,
+		replace: {"<sym-auto>" + _1 + "</sym-auto>" + _3}) +
+	replace@(
 		match: "\\b[VLHSCETQ\\?XYZIWUBRG0-9/|]+\\b",
 		in_context: mana_context,
 		replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
@@ -1105,10 +1115,9 @@ super_type_filter := {
 	"<{tag}>{input}</{tag}>"
 }
 
-break_subtypes := split_text@(match: " +|<atom-sep>[^<]*</atom-sep>", include_empty:false)
+break_subtypes := split_text@(match: "<atom-sep>[^<]*</atom-sep>|</?word-list-[^>]*>", include_empty:false)		# splitting at word-list tags is for backwards compatibility, when atom-sep was not yet inserted everywhere.
 break_supertypes := split_text@(match: "<atom-sep>[^<]*</atom-sep>", include_empty:false)
 sub_type_filter := {
-	input := remove_tag(tag: "<word-list-")
 	input := remove_tag(tag: "<soft")
 	# What word list to use?
 	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class-"+lang_setting("code")
@@ -1129,9 +1138,11 @@ sub_type_filter := {
 		);
 		# wrap wordlist tag around each part
 		parts := break_subtypes()
-		(for each i:part in parts do
-			if i == 0 then
-				"<word-list-{list_type_first}>{part}</word-list-{list_type_first}>"
+		checked_first := false
+		(for each part in parts do
+			if trim(part) == "" then ""
+			else if not checked_first then
+				(checked_first := true; "<word-list-{list_type_first}>{part}</word-list-{list_type_first}>")
 			else
 				languages[lang_name()].subtype_separator + "<word-list-{list_type_rest}>{part}</word-list-{list_type_rest}>"
 		) +
@@ -1229,7 +1240,7 @@ is_half_mana    := match@(match: "1/2|[|][WUBRGS]")
 is_half_generic    := match@(match: "1/2")
 is_colored_mana := match@(match: "[WUBRG]")
 only_numbers    := filter_text@(match: "^[0123456789]+")
-cmc_split := break_text@(match: "(?ix) 1/2 | [|][WUBRGC] | [0-9](/[WUBRGCVLHSCETQ2]) | [0-9]+(?!/[WUBRGCVLHSCETQ2]) | [WUBRGCVLHS0-9](/[WUBRGCVLHS])\{0,4} ")
+cmc_split := break_text@(match: "(?ix) 1/2 | [|][WUBRGC] | TK | [0-9](/[WUBRGCVLHSCETQ2]) | [0-9]+(?!/[WUBRGCVLHSCETQ2]) | [WUBRGCVLHS0-9](/[WUBRGCVLHS])\{0,4} ")
 cmc := {to_number(
 	for each sym in cmc_split(to_text()) do (
 		numbers := only_numbers(sym)
