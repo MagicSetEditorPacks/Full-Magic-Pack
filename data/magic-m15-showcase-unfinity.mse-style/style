@@ -51,6 +51,14 @@ init script:
 	card_crown			:= { color_background(type: "crown",	base_hybrid: card_hybrid)		}@(offset:0 )
 	card_ptbox			:= { color_background(type: "pt",		base_hybrid: card_hybrid)		}@(offset:0 )
 	card_stamp			:= { color_background(input: card.card_color, type: "stamp",	base_hybrid: card_hybrid)		}@(offset:0 )
+	card_stampholofoil :=
+	{
+		if not is_stamped() then "" else
+		"holofoil/" +
+		card.card_stamp +
+		(if is_foil_stamped() then "" else "_void") +
+		".png"
+	}
 	
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -68,11 +76,11 @@ init script:
 	
 	has_identity := { styling.color_indicator_dot }
 	
-	shrink_name :=	{ if styling.shrink_name_text == "-"		then 0 else if styling.shrink_name_text != ""		then clamp(to_number(styling.shrink_name_text), minimum: -40, maximum: 13) else 0 }
-	shrink_type :=	{ if styling.shrink_typeline_text == "-"	then 0 else if styling.shrink_typeline_text != ""	then clamp(to_number(styling.shrink_typeline_text), minimum: -40, maximum: 11) else 0 }
+	shrink_name :=	{ if styling.shrink_name_text == "-"		then 0 else if styling.shrink_name_text != ""		then clamp(styling.shrink_name_text, minimum: -40, maximum: 13) else 0 }
+	shrink_type :=	{ if styling.shrink_typeline_text == "-"	then 0 else if styling.shrink_typeline_text != ""	then clamp(styling.shrink_typeline_text, minimum: -40, maximum: 11) else 0 }
 	
-	chop_top := { split := split_comma(styling.chop_rule_textbox); if length(split) > 0 and split.0 != "" then max(min(split.0,1500),-1500) else 0 }
-	chop_bot := { split := split_comma(styling.chop_rule_textbox); if length(split) > 1 and split.1 != "" then max(min(split.1,1500),-1500) else 0 }
+	chop_top := { split := split_comma(styling.chop_rule_textbox); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -1500) else 0 }
+	chop_bot := { split := split_comma(styling.chop_rule_textbox); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: -1500) else 0 }
 	
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	alt_rarity := { styling.alt_rarity_color != "" }
@@ -111,15 +119,15 @@ init script:
 		)
 	}
 	
-	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then max(min(split.0,1000),0) else 344 }
-	rarity_top		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 1 and split.1 != "" then max(min(split.1,1500),0) else 296 }
-	rarity_size		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 2 and split.2 != "" then max(min(split.2,1500),0) else 26 }
+	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1000, minimum: 0) else 344 }
+	rarity_top		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: 0) else 296 }
+	rarity_size		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 2 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 26 }
 	rarity_left		:= { rarity_right() - rarity_size() }
 	
-	popout_left		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then max(min(split.0,1500),-500) else 0 }
-	popout_top		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then max(min(split.1,2000),-500) else 0 }
-	popout_width	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then max(min(split.2,1500),0) else 0 }
-	popout_height	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then max(min(split.3,2000),0) else 0 }
+	popout_left		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -500) else 0 }
+	popout_top		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, maximum: 2000, minimum: -500) else 0 }
+	popout_width	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
+	popout_height	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
 	
 	split_comma := split_text@(match: " *, *")
 	
@@ -127,9 +135,10 @@ init script:
 	
 	clamp :=
 	{
-		if input < minimum then minimum
-		else if input > maximum then maximum
-		else input
+		number := to_number(input)
+		if number < minimum then minimum
+		else if number > maximum then maximum
+		else number
 	}
 
 
@@ -645,13 +654,13 @@ extra card style:
 		image:				{ recolor_image("artist_arrow.png", color: styling.copyright_text_color) }
 	flavor bar:
 		left:				0
-		top:				{ bar_equation() }
+		top:				{ bar_equation() - 1 }
 		width:				375
-		height:				1
-		z index:			100
+		height:				4
+		z index:			610
+		visible:			{ styling.flavor_bar and card.rule_text != "" and remove_tags(card.flavor_text) != "" }
 		render style:		image
-		image:				bar.png
-		visible:			{ card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
+		image:				flavor_bar.png
 	pt box:
 		left:				0
 		top:				0
@@ -693,9 +702,8 @@ extra card style:
 		width:				375
 		height:				523
 		z index:			3
-		visible:			{ is_stamped() }
 		render style:		image
-		image:				{ if card.card_stamp == "acorn" then "stamp_acorn_foil.png" else "stamp_normal_foil.png" }
+		image:				{ card_stampholofoil() }
 	corners:
 		left:				0
 		top :				0

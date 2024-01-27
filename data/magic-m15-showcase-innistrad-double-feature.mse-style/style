@@ -71,9 +71,11 @@ init script:
 	card_nonstamprim :=	{ color_background(input: card.card_color, type: "nonstamprim",	base_hybrid: card_hybrid)		}@(offset:0 )
 	card_stampholofoil :=
 	{
-		if card.card_stamp == "none" then ""
-		else if card.card_stamp == "universes beyond" then "holofoil/standard.png"
-		else "holofoil/" + card.card_stamp + ".png"
+		if not is_stamped() then "" else
+		"holofoil/" +
+		card.card_stamp +
+		(if is_foil_stamped() then "" else "_void") +
+		".png"
 	}
 	
 	pure_colors :=
@@ -111,8 +113,8 @@ init script:
 	chop_bottom :=		{ clamp((to_int(pull_comma_array(styling.chop_textbox, cell:1, end:0, default:0)) or else 0), minimum: -300, maximum: 300) }
 	chop_right :=		{ clamp((to_int(pull_comma_array(styling.chop_textbox, cell:2, end:0, default:0)) or else 0), minimum: -300, maximum: 300) }
 	
-	shrink_name :=	{ if styling.shrink_name_text == "-" then 0 else if styling.shrink_name_text != "" then clamp(to_number(styling.shrink_name_text), minimum: -20, maximum: 12) else 0 }
-	shrink_type :=	{ if styling.shrink_type_text == "-" then 0 else if styling.shrink_type_text != "" then clamp(to_number(styling.shrink_type_text), minimum: -20, maximum: 10) else 0 }
+	shrink_name :=	{ if styling.shrink_name_text == "-" then 0 else if styling.shrink_name_text != "" then clamp(styling.shrink_name_text, minimum: -20, maximum: 12) else 0 }
+	shrink_type :=	{ if styling.shrink_type_text == "-" then 0 else if styling.shrink_type_text != "" then clamp(styling.shrink_type_text, minimum: -20, maximum: 10) else 0 }
 	
 	use_main_rarity	:= { contains(set.mainframe_rarity_name, match: ".png") }
 	
@@ -168,9 +170,10 @@ init script:
 	
 	clamp :=
 	{
-		if input < minimum then minimum
-		else if input > maximum then maximum
-		else input
+		number := to_number(input)
+		if number < minimum then minimum
+		else if number > maximum then maximum
+		else number
 	}
 
 
@@ -256,7 +259,8 @@ styling field:
 	type:			choice
 	name:			holofoil stamps
 	description:	Use the security holofoil stamps?
-	choice:			yes
+	choice:			yes, all foil
+	choice:			yes, un/commons not foil
 	choice:			only rares and mythics
 	choice:			no
 	initial:		only rares and mythics
@@ -562,7 +566,7 @@ card style:
 		z index:			620
 		render style:		image
 		popup style:		in place
-		image:				{ if is_stamped() then card_stampholofoil() else "" }
+		image:				{ card_stampholofoil() }
 		mask:				mask_stamp_holofoil.png
 	set code:
 		left:				24
@@ -731,13 +735,13 @@ extra card style:
 		image:				{ recolor_image("artist_arrow.png", color: styling.copyright_text_color) }
 	flavor bar:
 		left:				0
-		top:				{ bar_equation() }
+		top:				{ bar_equation() - 1 }
 		width:				375
-		height:				1
+		height:				4
 		z index:			610
+		visible:			{ styling.flavor_bar and card.rule_text != "" and remove_tags(card.flavor_text) != "" }
 		render style:		image
 		image:				flavor_bar.png
-		visible:			{ card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
 	crown:
 		left:				0
 		top:				0
