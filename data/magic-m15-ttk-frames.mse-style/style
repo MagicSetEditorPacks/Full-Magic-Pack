@@ -1,12 +1,12 @@
 ﻿mse version: 2.0.0
 game: magic
-short name: M15 TTK Style
-full name: M15 Take the Crown Style
+short name: CN2 Styles
+full name: CN2 Draft/Conspiracy
 icon: card-sample.png
 installer group: magic/m15 conspiracy style/normal cards
 position hint: 013
 
-version: 2018-02-09
+version: 2024-01-28
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -61,6 +61,21 @@ init script:
 	is_promo := { styling.promo }
 	has_identity := { styling.color_indicator_dot }
 	is_unsorted := {styling.remove_from_autocount}
+	
+	is_cons := {
+		if styling.use_conspiracy_frame == "Never"
+			then false
+		else if styling.use_conspiracy_frame == "Always"
+			then true
+		else
+			contains(card.type, match:"Conspiracy")
+	}
+	
+	# alternate rarity color
+	alt_rarity := {styling.alt_rarity_color}
+	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
+	un_png := replace@(match:".png", replace: "")
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -80,9 +95,19 @@ styling field:
 	name: chop bottom
 	description: Shrinks the textbox from the bottom.
 styling field:
+	type: choice
+	name: use conspiracy frame
+	choice: On cards typed Conspiracy
+	choice: Always
+	choice: Never
+styling field:
 	type: boolean
 	name: use holofoil stamps
 	description: Change to no to disable rare holofoil stamps
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:...:X:" 1 and 2 are fill color, 3 and 4 border color, X is border thickness. For example, rare is 214,196,94:95,84,40:0,0,0:0,0,0:0.07
 styling field:
 	type: boolean
 	name: color indicator dot
@@ -258,7 +283,7 @@ card style:
 			color: black
 			separator color: red
 	rarity:
-		right: 344
+		right: {if is_cons() then 334 else 344}
 		top: 297
 		width: 44
 		height: 22
@@ -269,17 +294,40 @@ card style:
 			# Images based on the set symbol
 			basic land:
 				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if use_alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			common:
 				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if use_alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+			uncommon:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	text:
 		left: 29
@@ -418,6 +466,12 @@ extra card field:
 	save value: false
 	editable: false
 	show statistics: false
+extra card field:
+	type: choice
+	name: scrolls
+	choice: scrolls
+	save value: false
+	editable: false
 extra card style:
 	card code:
 		left: 24
@@ -487,3 +541,12 @@ extra card style:
 			size: 7
 			color: white
 			weight: bold
+	scrolls:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 0
+		render style: image
+		image: consscrolls.png
+		visible: {is_cons()}
