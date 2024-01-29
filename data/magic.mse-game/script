@@ -1019,7 +1019,7 @@ text_filter :=
 		replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
 	# step 5 : add mana & tap symbols
 	replace@(
-		match: "([+=-][XYZ0-9/|]+)",
+		match: "(?<!\\/)([+=-][XYZ0-9|]+)(?!\\/)",
 		in_context: mana_context,
 		replace: {"<sym-auto>" + _1 + "</sym-auto>"} ) +
 	replace@(
@@ -1115,44 +1115,71 @@ super_type_filter := {
 	"<{tag}>{input}</{tag}>"
 }
 
-break_subtypes := split_text@(match: "<atom-sep>[^<]*</atom-sep>|</?word-list-[^>]*>", include_empty:false)		# splitting at word-list tags is for backwards compatibility, when atom-sep was not yet inserted everywhere.
-break_supertypes := split_text@(match: "<atom-sep>[^<]*</atom-sep>", include_empty:false)
-sub_type_filter := {
-	input := remove_tag(tag: "<soft")
-	# What word list to use?
-	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class-"+lang_setting("code")
+split_at_spaces := split_text@(match: " +")
+remove_leading_spaces := replace@(match: "^ +", replace: "")
+sub_type_filter :=
+{
+	subtype_separator := lang_setting("subtype_separator")
+	code := lang_setting("code")
+	input := replace(input, match: "<soft>" + subtype_separator + "</soft>", replace: "")
+	input := remove_tag(input, tag: "<soft")
+	input := remove_tag(input, tag: "<word-list")
+	### What word list to use?
+	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class-"+code
 	                  else if lang_setting("is_land")(type)        										then "land"
 	                  else if lang_setting("is_artifact")(type)    										then "artifact"
 	                  else if lang_setting("is_enchantment")(type) 										then "enchantment"
 	                  else if lang_setting("is_spell")(type)       										then "spell"
 	                  else if lang_setting("is_planeswalker")(type) or lang_setting("is_emblem")(type)	then "planeswalker"
-	                  else if lang_setting("is_plane")(type)											then "plane-"+lang_setting("code")
+	                  else if lang_setting("is_plane")(type)											then "plane-"+code
 	                  else if lang_setting("is_battle")(type)											then "battle"
 	                  else if lang_setting("is_dungeon")(type)											then "dungeon"
 					  else nil
-	if list_type_rest != nil then (
-		if lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) then (
-			list_type_first := "race-"+lang_setting("code")
-		) else (
-			list_type_first := list_type_rest
-		);
-		# wrap wordlist tag around each part
-		parts := break_subtypes()
-		checked_first := false
-		(for each part in parts do
-			if trim(part) == "" then ""
-			else if not checked_first then
-				(checked_first := true; "<word-list-{list_type_first}>{part}</word-list-{list_type_first}>")
-			else
-				languages[lang_name()].subtype_separator + "<word-list-{list_type_rest}>{part}</word-list-{list_type_rest}>"
-		) +
-		(if length(parts) > 0 then
-			# Add a new box at the end
-			"<soft>{languages[lang_name()].subtype_separator}</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
-		 else
-			"<word-list-{list_type_first}></word-list-{list_type_first}>"
+	if list_type_rest != nil then
+	(
+		### Transform subtype_separators into spaces, we'll transform them back later
+		input := replace(input, match: subtype_separator, replace: " ")
+		input := replace(input, match: remove_tag(subtype_separator, tag: "<atom-sep"), replace: " ")
+		input := remove_leading_spaces(input)
+		### Use race list for first sub type of creatures
+		list_type_first :=	if lang_setting("is_creature")(type) or lang_setting("is_kindred")(type)
+							then "race-"+code
+							else list_type_rest
+		### Wrap wordlist tag around each part
+		replace_spaced_sub_type := replace_spaced_sub_type_map[code]
+		max_count := 2*length(split_at_spaces(input))-1		### We iterate on the words and the spaces
+		sub_types := for i from 0 to max_count do
+		(
+			if input == "" then "" else (
+			### Check for leading spaces
+			new_input := remove_leading_spaces(input)
+			if new_input != input then
+			(
+				spaces := replace(input, match: regex_escape(new_input) + "$", replace: "")
+				input := new_input
+				spaces
+			) else (
+			### Check for space separated sub types
+			new_input := replace_spaced_sub_type(input)
+			if new_input != input then
+			(
+				sub_type := replace(input, match: regex_escape(new_input) + "$", replace: "")
+				input := new_input
+				if i == 0 then "<word-list-{list_type_first}>" + sub_type + "</word-list-{list_type_first}>"
+				else "<word-list-{list_type_rest}>" + sub_type + "</word-list-{list_type_rest}>"
+			) else (
+			### Check for single word sub types
+			split := split_at_spaces(input)
+			input := if length(split) > 1 then replace(input, match: "^" + regex_escape(split.0), replace: "") else ""
+			if i == 0 then "<word-list-{list_type_first}>" + split.0 + "</word-list-{list_type_first}>"
+			else "<word-list-{list_type_rest}>" + split.0 + "</word-list-{list_type_rest}>")))
 		)
-	) else input # do nothing
+		### Add separators between types, keep additional spaces if there are more than one
+		sub_types := replace(sub_types, match: "(</word-list[^>]*>)( *)(<word-list)" replace: { substring(_2, begin: 1) + _1 + subtype_separator + _3})
+		### Add a new wordlist box at the end
+		if sub_types == "" then "<word-list-{list_type_first}></word-list-{list_type_first}>"
+		else sub_types + "<soft>" + subtype_separator + "</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
+	) else input	### Do nothing if we don't know the type
 }
 
 # all sub types, for word list
