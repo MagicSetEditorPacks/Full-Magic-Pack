@@ -1,12 +1,12 @@
 ﻿mse version: 2.0.0
 game: magic
 short name: M15 Leveler
-full name: Levelers After M15
+full name: Mana Cost Support
 icon: card-sample.png
 installer group: magic/m15 style/leveler cards
 position hint: 030
 
-version: 2018-02-09
+version: 2024-01-28
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -70,6 +70,11 @@ init script:
 			replace: "<atom-cardname><nospellcheck>" + (if card.name=="" then "CARDNAME" else card.name) + "</nospellcheck></atom-cardname>")
 	has_identity := { styling.color_indicator_dot }
 	is_unsorted := {styling.remove_from_autocount}
+	# alternate rarity color
+	alt_rarity := {styling.alt_rarity_color}
+	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
+	un_png := replace@(match:".png", replace: "")
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -88,6 +93,10 @@ styling field:
 	type: boolean
 	name: use holofoil stamps
 	description: Change to no to disable rare holofoil stamps
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:...:X:" 1 and 2 are fill color, 3 and 4 border color, X is border thickness. For example, rare is 214,196,94:95,84,40:0,0,0:0,0,0:0.07
 styling field:
 	type: boolean
 	name: color indicator dot
@@ -124,6 +133,11 @@ styling field:
 	name: text box mana symbols
 	match: magic-mana-*.mse-symbol-font
 	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: package choice
+	name: level mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-large.mse-symbol-font
 styling field:
 	type: choice
 	name: center text
@@ -234,7 +248,7 @@ card style:
 	############################# Image
 	image:
 		left: 29
-		top: 60
+		top: 59
 		width: 316
 		height:	231
 		z index: 1
@@ -245,7 +259,7 @@ card style:
 		top: 300
 		width: 17
 		height: 17
-		z index: 1
+		z index: 2
 		render style: image
 		visible: { has_identity() }
 		image: { card_identity() }
@@ -274,20 +288,43 @@ card style:
 			# Images based on the set symbol
 			basic land:
 				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if use_alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
 			common:
 				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
+					else if use_alt_rarity() then alt_symbol()
+					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
 					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+			uncommon:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
+					else if use_alt_rarity() then alt_symbol()
+					else symbol_variation(symbol: set.symbol, variation: "special")
+			masterpiece:
+				script:
+					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
+					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	rule text:
-		left: 29
+		left: { if card.level_0 != "" then 103 else 29 }
 		top: 327
 		right: {if card.pt != "" then 277 else 342}
 		height: 52
@@ -390,6 +427,23 @@ card style:
 		alignment: middle center
 		include file: /magic-watermarks.mse-include/watermarks
 	############################# Levels
+	level 0:
+		z index: 3
+		left: 38
+		top: 349
+		width: 34
+		height:	22
+		alignment: center middle shrink-overflow
+		font:
+			name: ModMatrix
+			size: 17
+			weight: bold
+			color: black
+			shadow color: white
+			shadow blur: 2
+		symbol font:
+			name: { styling.level_mana_symbols }
+			size: 14
 	level 1:
 		z index: 3
 		left: 38
@@ -404,6 +458,9 @@ card style:
 			color: black
 			shadow color: white
 			shadow blur: 2
+		symbol font:
+			name: { styling.level_mana_symbols }
+			size: 14
 	level 2:
 		z index: 3
 		left: 38
@@ -418,6 +475,9 @@ card style:
 			color: black
 			shadow color: white
 			shadow blur: 2
+		symbol font:
+			name: { styling.level_mana_symbols }
+			size: 14
 	############################# PT
 	pt:
 		z index: 3
@@ -546,6 +606,13 @@ extra card field:
 # Add the bevel and shadows for the levelup arrow.
 extra card field:
 	type: choice
+	name: lvlup texture 0
+	choice: image
+	save value: false
+	editable: false
+# Add the bevel and shadows for the levelup arrow.
+extra card field:
+	type: choice
 	name: lvlup texture 1
 	choice: image
 	save value: false
@@ -554,6 +621,13 @@ extra card field:
 extra card field:
 	type: choice
 	name: lvlup texture 2
+	choice: image
+	save value: false
+	editable: false
+# This field gets set to combine mode multiply, to slightly darken first arrow.
+extra card field:
+	type: choice
+	name: lvlup multiply 0
 	choice: image
 	save value: false
 	editable: false
@@ -571,6 +645,20 @@ extra card field:
 	choice: image
 	save value: false
 	editable: false
+# Add the word "LEVEL" to the top arrow.
+extra card field:
+	type: text
+	name: lvl label 0
+	editable: false
+	save value: false
+	script: if styling.level_label == "" then "LEVEL" else styling.level_label
+# Repeat the word "LEVEL" with more shadow to give illusion of outline.
+extra card field:
+	type: text
+	name: lvl label 0 copy 1
+	editable: false
+	save value: false
+	script: if styling.level_label == "" then "LEVEL" else styling.level_label
 # Add the word "LEVEL" to the first arrow.
 extra card field:
 	type: text
@@ -599,6 +687,13 @@ extra card field:
 	editable: false
 	save value: false
 	script: if styling.level_label == "" then "LEVEL" else styling.level_label
+# Repeat the first level with more shadow to give illusion of outline.
+extra card field:
+	type: text
+	name: level 0 copy 1
+	editable: false
+	save value: false
+	script: card.level_0
 # Repeat the first level with more shadow to give illusion of outline.
 extra card field:
 	type: text
@@ -694,6 +789,15 @@ extra card style:
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
+	lvlup texture 0:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 2
+		render style: image
+		image: lvlup_texture_0.png
+		visible: {card.level_0 != ""}
 	lvlup texture 1:
 		left: 0
 		top: 0
@@ -712,6 +816,15 @@ extra card style:
 		render style: image
 		image: lvlup_texture_2.png
 		visible: {card.level_2 != ""}
+	lvlup multiply 0:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		render style: image
+		image: {set_combine(input: "lvlup_multiply_0.png", combine: "multiply")}
+		visible: {card.level_0 != ""}
 	lvlup multiply 1:
 		left: 0
 		top: 0
@@ -721,7 +834,7 @@ extra card style:
 		render style: image
 		image: {set_combine(input: "lvlup_multiply_1.png", combine: "multiply")}
 		visible: {card.level_1 != ""}
-	lvlup multiply 1:
+	lvlup multiply 2:
 		left: 0
 		top: 0
 		width: 375
@@ -730,6 +843,34 @@ extra card style:
 		render style: image
 		image: {set_combine(input: "lvlup_multiply_2.png", combine: "multiply")}
 		visible: {card.level_2 != ""}
+	lvl label 0:
+		left: 50
+		top: 340
+		width: 10
+		height: 10
+		z index: 3
+		alignment: middle center
+		font:
+			name: MPlantin
+			size: 5.5
+			color: black
+			shadow color: white
+			shadow blur: 2
+		visible: {card.level_0 != ""}
+	lvl label 0 copy 1:
+		left: 50
+		top: 340
+		width: 10
+		height: 10
+		z index: 3
+		alignment: middle center
+		font:
+			name: MPlantin
+			size: 5.5
+			color: black
+			shadow color: white
+			shadow blur: 2
+		visible: {card.level_0 != ""}
 	lvl label 1:
 		left: 50
 		top: 391
@@ -786,6 +927,23 @@ extra card style:
 			shadow color: white
 			shadow blur: 2
 		visible: {card.level_2 != ""}
+	level 0 copy 1:
+		z index: 3
+		left: 38
+		top: 349
+		width: 34
+		height:	22
+		alignment: center middle shrink-overflow
+		font:
+			name: ModMatrix
+			size: 17
+			weight: bold
+			color: black
+			shadow color: white
+			shadow blur: 2
+		symbol font:
+			name: { styling.level_mana_symbols }
+			size: 14
 	level 1 copy 1:
 		z index: 3
 		left: 38
@@ -800,6 +958,9 @@ extra card style:
 			color: black
 			shadow color: white
 			shadow blur: 2
+		symbol font:
+			name: { styling.level_mana_symbols }
+			size: 14
 	level 2 copy 1:
 		z index: 3
 		left: 38
@@ -814,6 +975,9 @@ extra card style:
 			color: black
 			shadow color: white
 			shadow blur: 2
+		symbol font:
+			name: { styling.level_mana_symbols }
+			size: 14
 	auto copyright:
 		right: 350
 		top: { if card.pt != "" then 500 else 488 }
