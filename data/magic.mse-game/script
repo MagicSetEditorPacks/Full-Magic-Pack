@@ -424,6 +424,7 @@ is_nightbreak := { card.shape == "nightbreak" }
 ############################################################## Utilities for keywords
 
 comma_count := filter_text@(match:",")
+split_comma := split_text@(match:",")
 # Replace spaces by a spacer
 separate_words := remove_tags + trim + replace@(match:" ", replace: {spacer})
 
@@ -1288,6 +1289,64 @@ is_rare := { card.rarity == "rare" or card.rarity == "mythic rare" or card.rarit
 
 # Shape of cards, can be changed in style files
 card_shape := { "normal" }
+
+# Dimensions of card faces, can be changed in style files
+faces_coordinates := { "0,0,375,523" }
+face_coordinates_array :=
+{
+	split := split_font(faces_coordinates())
+	coordinates := split[input-1] or else ""
+	if coordinates == "" then [0,0,0,0] else (
+	split := split_comma(coordinates)
+	[
+		to_int(split.0 or else 0) or else 0,
+		to_int(split.1 or else 0) or else 0,
+		to_int(split.2 or else 0) or else 0,
+		to_int(split.3 or else 0) or else 0
+	])
+}
+
+border_color_default := { set.border_color }
+
+corners_default := { set.corner_shape }
+corner_field := { if input <= 1 then card.corners else card["corners_" + input] }
+corner_image :=
+{
+	shape := corner_field(face)
+	color := if shape == "none" then card.border_color else rgb(255,255,255)
+	recolor_image("/magic-corners.mse-include/color.png", color: color)
+}
+corner_mask :=
+{
+	coordinates_array := face_coordinates_array(face)
+	if coordinates_array[2] == 0 or coordinates_array[3] == 0 then "" else (
+	dimensions := coordinates_array[2] + "x" + coordinates_array[3]
+	dimensions := corner_mask_possible_dimensions[dimensions] or else (if coordinates_array[3] > coordinates_array[2] then "1046x750" else "750x1046")
+	shape := corner_field(face)
+	shape := if shape == "none" then "rounded" else shape
+	"/magic-corners.mse-include/" + dimensions + " " + shape + ".png")
+}
+corner_mask_possible_dimensions :=
+[
+	"375x523":	"375x523"
+	"523x375":	"523x375"
+	"646x902":	"646x902"
+	"902x646":	"902x646"
+	"744x1039":	"744x1039"
+	"1039x744":	"1039x744"
+	"750x1046":	"750x1046"
+	"1046x750":	"1046x750"
+]
+
+illustrator_brush_field := { if input <= 1 then card.illustrator_brush else card["illustrator_brush_" + input] }
+illustrator_brush_image :=
+{
+	shape := illustrator_brush_field(face)
+	wide := 
+	image := "/magic-credit-icons.mse-include/" + shape + (if wide and shape != "art old" then " wide" else "") + ".png"
+	color := styling.copyright_text_color or else set.copyright_text_color
+	recolor_image(image, color: color)
+}
 
 transform_symbol_default :=
 {
