@@ -423,8 +423,9 @@ is_nightbreak := { card.shape == "nightbreak" }
 
 ############################################################## Utilities for keywords
 
-comma_count := filter_text@(match:",")
-split_comma	:= split_text@(match: " *, *")
+comma_count		:= filter_text@(match:",")
+split_comma		:= split_text@(match: " *, *")
+remove_comma	:= replace@(match: ",", replace: "")
 # Replace spaces by a spacer
 separate_words := remove_tags + trim + replace@(match:" ", replace: {spacer})
 
@@ -1509,6 +1510,108 @@ transform_symbol_offset_top_3 := { 0 }
 transform_symbol_offset_left_3 := { 0 }
 transform_symbol_offset_width_3 := { 0 }
 transform_symbol_offset_height_3 := { 0 }
+
+loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
+loyalty_cost_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	card["loyalty_cost_" + input]
+}
+loyalty_cost_box_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	card["loyalty_cost_box_" + input]
+}
+loyalty_cost_box_default :=
+{
+	cost := loyalty_cost_field(margin_code)
+	if cost == "" then "none"
+	else if	contains(cost, match: "+") then	"+, shadow"
+	else if	contains(cost, match: "-") then	"-, shadow"
+	else									"0, shadow"
+}
+loyalty_cost_box_image :=
+{
+	shape := remove_comma(loyalty_cost_box_field(input))
+	if contains(shape, match: "none") then ""
+	else "/magic-loyalty.mse-include/loyalty cost " + shape + ".png"
+}
+
+loyalty_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	if input <= 1 then card.loyalty else card["loyalty_" + input]
+}
+loyalty_box_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	if input <= 1 then card.loyalty_box else card["loyalty_box_" + input]
+}
+loyalty_box_default :=
+{
+	margin_code := loyalty_clean_margin_code(margin_code)
+	loyalty := loyalty_field(margin_code)
+	if loyalty == "" then "none" else (
+	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
+	if lang_setting("is_planeswalker")(type) then "loyalty"
+	else "defense")
+}
+loyalty_box_image :=
+{
+	shape := remove_comma(loyalty_box_field(input))
+	if contains(shape, match: "none") then ""
+	else "/magic-loyalty.mse-include/" + shape + ".png"
+}
+
+loyalty_face := { 1 }
+loyalty_text_field := { 1 }
+
+loyalty_offset_top := { 0 }
+loyalty_offset_left := { 0 }
+loyalty_offset_width := { 0 }
+loyalty_offset_height := { 0 }
+
+loyalty_cost_offset_top := { 0 }
+loyalty_cost_offset_left := { 0 }
+loyalty_cost_offset_width := { 0 }
+loyalty_cost_offset_height := { 0 }
+
+loyalty_cost_offset_text_margin := { 0 }
+
+loyalty_textbox_background_mask :=
+{
+	if is_stamped()
+	then "/magic-loyalty.mse-include/default_textbox_stamp_mask.png"
+	else "/magic-loyalty.mse-include/default_textbox_mask.png"
+}
+
+get_alpha_percentage :=
+{
+	alpha_value :=	if input == "" then default
+					else to_number(input) or else default
+	if alpha_value < 0 then 0.0
+	else if alpha_value <= 100 then alpha_value/100.0
+	else 1.0
+}
+un_png := replace@(match:".png", replace: "")
+clamp :=
+{
+	number := to_number(input)
+	if number < minimum then minimum
+	else if number > maximum then maximum
+	else number
+}
+crop_safe :=
+{
+	if		offset_x < 0
+		or	offset_y < 0
+		or	width < 1
+		or	height < 1
+		or	offset_x + width > max_x
+		or	offset_y + height > max_y
+	then ""
+	else crop(input, offset_x: offset_x, offset_y: offset_y, width: width, height: height)
+}
 
 #Script to make magic-mana-future compatible w/ other templates
 colorless_color := {
