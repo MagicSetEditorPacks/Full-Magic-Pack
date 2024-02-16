@@ -1500,10 +1500,9 @@ transform_symbol_default :=
 	else										"eldrazi"
 }
 transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
-transform_symbol_flipped :=
+transform_symbol_is_mirrored :=
 {
-	mirrored := if input <= 1 then transform_symbol_mirrored() else if input == 2 then transform_symbol_mirrored_2() else transform_symbol_mirrored_3()
-	if mirrored then "flipped" else ""
+	if input <= 1 then transform_symbol_mirrored() else if input == 2 then transform_symbol_mirrored_2() else transform_symbol_mirrored_3()
 }
 transform_symbol_image :=
 {
@@ -1516,7 +1515,7 @@ transform_symbol_image :=
 	else if	shape == "custom symbol three" then custom_symbol_3()
 	else if	shape == "custom symbol four" then custom_symbol_4() else (
 	shape := clean_transform_symbol_shape(shape)
-	if transform_symbol_flipped(field) then shape := flip_transform_symbol_shape(shape)
+	if transform_symbol_is_mirrored(field) then shape := flip_transform_symbol_shape(shape)
 	"/magic-symbols.mse-include/" + shape + ".png"))
 }
 clean_transform_symbol_shape :=
@@ -1631,11 +1630,13 @@ flavor_bar_top :=
 	rule := if input <= 1 then card.rule_text else card["rule_text_" + input]
 	flavor := if input <= 1 then card.flavor_text else card["flavor_text_" + input]
 	disabled := if input <= 1 then flavor_bar_disabled() else if input == 2 then flavor_bar_disabled_2() else flavor_bar_disabled_3()
+	uninitialized := (style.layout.blocks[1].bottom or else 0) <= 0
 	if		disabled
 		or	rule == ""
 		or	remove_tags(flavor) == ""
-		or	(style.layout.blocks[1].bottom or else 0) <= 0
 	then stylesheet.card_height + 1
+	else if uninitialized
+	then (if input <= 1 then old_bar_equation() else if input == 2 then old_bar_equation2() else old_bar_equation3()) - flavor_bar_height(input)/2
 	else style.top + (style.layout.blocks[0].bottom + style.layout.blocks[1].top)/2 - flavor_bar_height(input)/2
 }
 flavor_bar_width := { face_coordinates_array(input)[2] }
@@ -1981,6 +1982,10 @@ chop_top2 := {0}
 chop_bot2 := {0}
 bar_offset2 := {0}
 offset_lines2 := {0}
+chop_top3 := {0}
+chop_bot3 := {0}
+bar_offset3 := {0}
+offset_lines3 := {0}
 
 ##### Set chop_top(), chop_bot(), bar_offset(), and offset_lines to 0 to reduce replacements in chopping frames
 ##### Full equations to use in chopping templates below
@@ -1993,6 +1998,8 @@ top_of_textbox := {card_style.text.top }
 bottom_of_textbox := {card_style.text.bottom }
 top_of_textbox2 := {card_style.text_2.top }
 bottom_of_textbox2 := {card_style.text_2.bottom }
+top_of_textbox3 := {card_style.text_3.top }
+bottom_of_textbox3 := {card_style.text_3.bottom }
 offset_counter := {length(filter_text(input, match:"u")) - length(filter_text(input, match:"d"))}
 paragraph_count := filter_text@(match:"\n")
 hard_paragraph_count := 
@@ -2055,9 +2062,26 @@ uneven_correction2 := { if lines_of_flavor2() == 1 then max(4, (card_style.text_
 old_bar_equation2 := { top_of_textbox2() + padding_height2() + card_style.text_2.content_height - line_height2()*(lines_of_flavor2() + offset_lines2()) + linebreak_height2() - uneven_correction2() + back_corr() + bar_offset2() + hard_flavor_break2() +1 }
 bar_equation2 := {if card_style.text_2.layout.blocks[0].bottom or else 0 > 0 then card_style.text_2.top + 0.5*(card_style.text_2.layout.blocks[0].bottom+card_style.text_2.layout.blocks[1].top) else old_bar_equation2()}
 
+flavor_text3 := {split_text(match:"\n", remove_tags(card.flavor_text_3+"\n"))}						#remove tags, add \n so .1 doesn't explode
+hard_flavor_break3 := { if not contains(card.flavor_text_3, match:"\n") then 0 else if contains(card.flavor_text_3, match:"<soft-line>\n") then 0 else if lines_of_rules3() >= 3 then -3 else -2}
+font_size3 := {min(14,round_near(card_style.text_3.content_height / card_style.text_3.content_lines) - 8)}	#approximate font size
+adj_char_width3 := {7.35 * min(14, font_size3()+0.95) / 14}										#average char width, adjusted for font size
+char_per_line3 := {min(52,round_up(card_style.text_3.content_width / adj_char_width3())+1.5)}		#approximate character limit. very rarely over 52 but standard eq can reach 60+
+lines_of_flavor3 := {lines_of_text(flavor_text3(), char:char_per_line3())}												
+lines_of_rules3 := { card_style.text_3.content_lines - lines_of_flavor3() }							#rules of lines for ratio weirdness
+line_height3 := {(card_style.text_3.content_height / card_style.text_3.content_lines)}
+padding_height3 := { 0.5*(bottom_of_textbox3() - top_of_textbox3() - card_style.text_3.content_height) }	#space between top of textbox and text
+linebreak_height3 := { 2*length(hard_paragraph_count(card.rule_text_3)) }
+###correction for ratio of rules/flavor causing weirdness
+uneven_correction3 := { if lines_of_flavor3() == 1 then max(4, (card_style.text_3.content_lines - (2*lines_of_flavor3()))) else (card_style.text_3.content_lines - (2*lines_of_flavor3())) }
+###add it all up
+old_bar_equation3 := { top_of_textbox3() + padding_height3() + card_style.text_3.content_height - line_height3()*(lines_of_flavor3() + offset_lines3()) + linebreak_height3() - uneven_correction3() + third_corr() + bar_offset3() + hard_flavor_break3() +1 }
+bar_equation3 := {if card_style.text_3.layout.blocks[0].bottom or else 0 > 0 then card_style.text_3.top + 0.5*(card_style.text_3.layout.blocks[0].bottom+card_style.text_3.layout.blocks[1].top) else old_bar_equation3()}
+
 ##### long correction coefficient based off several sets of data
 front_corr := {correction_coeff(lof:lines_of_flavor(), lor:lines_of_rules(), lbh:linebreak_height())}
 back_corr := {correction_coeff(lof:lines_of_flavor2(), lor:lines_of_rules2(), lbh:linebreak_height2())}
+third_corr := {correction_coeff(lof:lines_of_flavor3(), lor:lines_of_rules3(), lbh:linebreak_height3())}
 correction_coeff := {
 	(if lor == 1 then
 		(if lof == 1 then 3
