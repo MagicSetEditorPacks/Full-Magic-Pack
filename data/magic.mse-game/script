@@ -1117,16 +1117,14 @@ super_type_filter := {
 
 split_at_spaces := split_text@(match: " +")
 remove_leading_spaces := replace@(match: "^ +", replace: "")
-ends_with_space := match@(match: " $")
-replace_end_space := replace@(match: "( +)$")
-replace_end_separator := replace@(match: "<soft> +<soft>")
 sub_type_filter :=
 {
 	subtype_separator := lang_setting("subtype_separator")
 	code := lang_setting("code")
+	input := remove_tag(input, tag: "<word-list")
+	input := replace(input, match: "<soft>" + subtype_separator + "</soft>$", replace: "")
 	input := replace(input, match: "<soft>" + subtype_separator + "</soft>", replace: " ")
 	input := remove_tag(input, tag: "<soft")
-	input := remove_tag(input, tag: "<word-list")
 	### What word list to use?
 	list_type_rest := if      lang_setting("is_creature")(type) or lang_setting("is_kindred")(type) 	then "class-"+code
 	                  else if lang_setting("is_land")(type)        										then "land"
@@ -1181,13 +1179,7 @@ sub_type_filter :=
 		sub_types := replace(sub_types, match: "(</word-list[^>]*>)( *)(<word-list)" replace: { substring(_2, begin: 1) + _1 + subtype_separator + _3})
 		### Add a new wordlist box at the end
 		if sub_types == "" then "<word-list-{list_type_first}></word-list-{list_type_first}>"
-		else if ends_with_space(sub_types) then
-		(
-			### Doing things in two steps to keep the cursor in the correct spot
-			sub_types := replace_end_space(sub_types, replace: "<soft>\\1</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>")
-			replace_end_separator(sub_types, replace: "<soft>{subtype_separator}</soft>")
-		)
-		else sub_types + "<soft>{subtype_separator}</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
+		else sub_types + "<soft>" + subtype_separator + "</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
 	) else input	### Do nothing if we don't know the type
 }
 
