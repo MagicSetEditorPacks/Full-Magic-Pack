@@ -849,6 +849,11 @@ auto_correct :=
 		     + "(<kw-[^<]><nospellcheck>)" # inside a kw
 			 + "([A-Z])" # match this
 		replace: { _1 + _2 + to_lower(_3)})
+	+replace@(
+		match: "([ ]*: |—| — )" # preceded by this
+		     + "([[:lower:]])" # match this
+		     + "(?![)])",      # not followed by this
+		replace: { _1 + to_upper(_2) })
 auto_errata :=
 	replace@(match:"converted mana cost", replace:"mana value")
 	+replace@(match:"(?i)(Totem armor|Totembeistand|Armadura tótem|totémique|Armatura totem|Armadura de totem|族霊鎧|替身甲)", replace:{errata_map[_1] or else _1})
@@ -1058,20 +1063,17 @@ text_filter :=
 		else input
 	 }+
 	# step 8 : automatic capitalization, but not after "("
-	replace@(
-		match: "([ ]*: |—| — )" # preceded by this
-		     + "([[:lower:]])" # match this
-		     + "(?![)])",      # not followed by this
-		replace: { _1 + to_upper(_2) }) +
 	# step 9 : spellcheck
 	{
 		if set.auto_correct then
 			auto_correct(input)
-		else input } +
+		else input
+	} +
 	{
 		if set.auto_errata then
 			auto_errata(input)
-		else input } +
+		else input
+	} +
 	{ 
 		if language().code == "ja" or language().code == "zht" or language().code == "zhs" then input
 		else if set.mark_errors then
