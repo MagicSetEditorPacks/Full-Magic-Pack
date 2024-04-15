@@ -48,10 +48,18 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [card: "" card2: "" card3: "reverse/" card4: "reverse/" crown: "legend/" nyx: "nyx/" spotpt: "spotlight/" spot: "spotlight/" page: "spotlight/" pt: "" stamp: "" snowtexture:"snow/" alias:"alias/" identity: "/magic-identity-new.mse-include/" identity2: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.jpg" card2: "card2.png" card3: "card.jpg" card4: "card2.png" crown: "crown.png" nyx: "nyx.png" spotpt: "pt.png" spot: "card.png" page: "card2.png" pt: "pt.png", stamp: "stamp.jpg" alias:"alias.png" snowtexture:"snow.png" identity: "identity.png" identity2: "identity.png"]
-	template      := { template_prefix[type] + input + template_suffix[type] }
-	land_template := { template_prefix[type] + input + (if input == "a" or type == "nyx" then "" else "l") + template_suffix[type] }
+	template_prefix := [card: "" card2: "" card3: "reverse/" card4: "reverse/" crown: "legend/" nyx: "nyx/" spotpt: "spotlight/" spot: "spotlight/" flat:"flat/" page: "spotlight/" pt: "" stamp: "" snowtexture:"snow/" alias:"alias/" identity: "/magic-identity-new.mse-include/" identity2: "/magic-identity-new.mse-include/"]
+	template_suffix := [card: "card.jpg" card2: "card2.png" card3: "card.jpg" card4: "card2.png" crown: "crown.png" nyx: "nyx.png" spotpt: "pt.png" flat:"card.png" spot: "card.png" page: "card2.png" pt: "pt.png", stamp: "stamp.jpg" alias:"alias.png" snowtexture:"snow.png" identity: "identity.png" identity2: "identity.png"]
+	template      := { 
+		if type == "decoration" 
+			then page_decoration_template(input, land:false)
+		else template_prefix[type] + input + template_suffix[type]
+	}
+	land_template := {
+		if type == "decoration" 
+			then page_decoration_template(input, land:true)
+		else template_prefix[type] + input + (if input == "a" or type == "nyx" then "" else "l") + template_suffix[type]
+	}
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 	card_background2 := { color_background(type:"card2", base_hybrid:card_hybrid) }
@@ -59,6 +67,8 @@ init script:
 	card_background4 := { color_background(type:"card4", base_hybrid:card_hybrid) }
 	spot_background := { color_background(type:"spot", base_hybrid:card_hybrid) }
 	page_background := { color_background(type:"page", base_hybrid:card_hybrid) }
+	flat_page_background := { color_background(type:"flat", base_hybrid:card_hybrid) }
+	decoration_background := { color_background(type:"decoration", base_hybrid:card_hybrid) }
 	alias_bar := { color_background(type:"alias",     base_hybrid:card_hybrid) }
 	spot_pt := { color_background(type:"spotpt", base_hybrid:card_hybrid) }
 	crown_background := { color_background(type:"crown", base_hybrid: card_hybrid)}
@@ -295,6 +305,26 @@ init script:
 			src: styling.custom_pt_font
 		)
 	}
+	
+	page_decoration_template := {
+		src := "magic-mainframe-extras.mse-include/"
+		c := ""
+		pt := ""
+		l := ""
+		
+		if contains(styling.page_decoration, match:";color") then c := input
+			
+		if contains(styling.page_decoration, match:";pt")
+		and (is_reversed() and card.pt != "") then pt := "_pt";
+		
+		if land and contains(styling.page_decoration, match:";land") then l := "l"
+		
+		replace(
+			styling.page_decoration,
+			match:"([^;]*/)([^/;]+)([.]png)",
+			replace:{src + _1 + c + l + _2 + pt + _3}
+		)
+	}
 
 ############################################################## Set info fields
 set info style:
@@ -346,6 +376,16 @@ styling field:
 	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: prerelease stamp
+styling field:
+	type: choice
+	name: page type
+	description: Choose the type of the page section.
+	choice: Page
+	choice: Flat
+styling field:
+	type: text
+	name: page decoration
+	description: Image link from magic-mainframe-extras to layer over the adventure. Add ";color" for color dependent or ";pt" for pt dependent.
 styling field:
 	type: boolean
 	name: remove from autocount
