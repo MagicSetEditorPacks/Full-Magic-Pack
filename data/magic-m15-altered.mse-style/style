@@ -57,8 +57,9 @@ init script:
 	shifted_template_prefix := [card: "shifted/" alias: "shifted/" snow:"snow/" snowtexture:"snow/" devoid:"devoid/" nyx: "nyx/" miracle: "shifted/"  node:"shifted/" promo: "promo/" crown: "shifted/" cons:"conspiracy/" curtain: "curtains/" fnm:"fnm/", fnmpt: "paradox/", inverted: "inverted/", invertedpt: "inverted/", map: "maps/" energy: "energies/", mappt: "maps/" pt: "shifted/", slide: "shifted/", slide2: "shifted/", slide3: "shifted/", arrow: "arrows/", arrow2: "arrows/", arrow3: "arrows/", season: "season/" stamp: "shifted/" identity: "/magic-identity-new.mse-include/", puma: "puma/shifted/"]
 	template_prefix := { if type == "miracle" and pure_snow() then [miracle:"snow/"] else if is_shifted() then shifted_template_prefix else base_template_prefix }
 	template_suffix := [card: "card.jpg"  node:"node.png" alias:"alias.png" devoid:"card.png" snow:"card.jpg" snowtexture:"snow.png" nyx: "nyx.png" miracle: "miracle.png" promo: "card.jpg" crown: "crown.png" cons:"cons.png" curtain: "card.png" fnm:"card.png", fnmpt: "pt.png", inverted: "card.png", invertedpt: "pt.png", map: "card.png", energy: "card.png", mappt: "pt.png" pt: "pt.png", slide: "slide.png", slide2: "slide2.png", slide3: "slide3.png", stamp: "stamp.jpg", arrow: "arrow.png", arrow2: "arrow2.png", arrow3: "arrow3.png", season: "flag.png" identity: "identity.png", puma: "puma.png"]
-	template      := { crown_lead(type) + template_prefix()[type] + input + crown_follow(type) + template_suffix[type] }
-	land_template := { crown_lead(type) + template_prefix()[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + crown_follow(type) + template_suffix[type] }
+	
+	template      := { if type_name(harder_script[type] or else nil) == "function" then harder_script[type](input, land:false) else crown_lead(type) + template_prefix()[type] + input + crown_follow(type) + template_suffix[type] }
+	land_template := { if type_name(harder_script[type] or else nil) == "function" then harder_script[type](input, land:true) else crown_lead(type) + template_prefix()[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + crown_follow(type) + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 
@@ -107,6 +108,7 @@ init script:
 	background_slide_2 := { color_background(type:"slide2", base_hybrid: card_hybrid)}
 	background_slide_3 := { color_background(type:"slide3", base_hybrid: card_hybrid)}
 	season_background := { color_background(type:"season",     base_hybrid:card_hybrid) }
+	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -397,6 +399,20 @@ init script:
 	}
 
 	use_flash_dot := {false}
+	custom_border_image := {
+		src := styling.custom_border_source
+		ps := split_text(src, match:"-color-")
+		if length(ps) > 1 then
+			"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
+		else
+			"/magic-mainframe-extras.mse-include/" + src
+	}
+	is_custom := {contains(styling.frames, match:"custom border") and contains(styling.custom_border_source, match:".png")}
+
+	harder_script := [
+		custom_border: custom_border_image
+	]
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -456,6 +472,11 @@ styling field:
 	choice: nyx
 	choice: leveler
 	choice: snow
+	choice: custom border
+styling field:
+	type: text
+	name: custom border source
+	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
 styling field:
 	type: text
 	name: popout image style
@@ -1299,6 +1320,12 @@ extra card field:
 	editable: false
 extra card field:
 	type: choice
+	name: custom overlay
+	choice: car door
+	save value: false
+	editable: false
+extra card field:
+	type: choice
 	name: snow overlay
 	choice: snow
 	save value: false
@@ -1768,6 +1795,16 @@ extra card style:
 		image: {"voverlay" + (if is_full_art() then "_full" else "") + ".png" }
 		z index: 0
 		visible: {is_vehicle()}
+	custom overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: { custom_border_blend() }
+		z index: 0
+		visible: {is_custom()}
+		mask: {"nyx/" + (if is_vehicle() then "v_" else "") + (if is_full_art() then "full" else "") + "mask.png"}
 	clear frame:
 		left: 0
 		top: 0
