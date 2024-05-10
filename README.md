@@ -28,3 +28,6 @@ Pack containing nearly all public Magic templates for MSE, except outdated ones.
 Some template images are provided by [CardConjurer](https://cardconjurer.com/):
 
 Praetor Showcase, JP Mystical Archive, PT Box for Mystical Archives
+
+# Keyrune
+Set watermark images are provided by [Keyrune](https://github.com/andrewgioia/keyrune)
