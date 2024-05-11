@@ -57,8 +57,9 @@ init script:
 	shifted_template_prefix := [card: "shifted/" alias: "shifted/" snow:"snow/" snowtexture:"snow/" devoid:"devoid/" nyx: "nyx/" miracle: "shifted/"  node:"shifted/" promo: "promo/" crown: "shifted/" cons:"conspiracy/" curtain: "curtains/" fnm:"fnm/", fnmpt: "paradox/", inverted: "inverted/", invertedpt: "inverted/", map: "maps/" energy: "energies/", mappt: "maps/" pt: "shifted/", slide: "shifted/", slide2: "shifted/", slide3: "shifted/", arrow: "arrows/", arrow2: "arrows/", arrow3: "arrows/", season: "season/" stamp: "shifted/" identity: "/magic-identity-new.mse-include/", puma: "puma/shifted/"]
 	template_prefix := { if type == "miracle" and pure_snow() then [miracle:"snow/"] else if is_shifted() then shifted_template_prefix else base_template_prefix }
 	template_suffix := [card: "card.jpg"  node:"node.png" alias:"alias.png" devoid:"card.png" snow:"card.jpg" snowtexture:"snow.png" nyx: "nyx.png" miracle: "miracle.png" promo: "card.jpg" crown: "crown.png" cons:"cons.png" curtain: "card.png" fnm:"card.png", fnmpt: "pt.png", inverted: "card.png", invertedpt: "pt.png", map: "card.png", energy: "card.png", mappt: "pt.png" pt: "pt.png", slide: "slide.png", slide2: "slide2.png", slide3: "slide3.png", stamp: "stamp.jpg", arrow: "arrow.png", arrow2: "arrow2.png", arrow3: "arrow3.png", season: "flag.png" identity: "identity.png", puma: "puma.png"]
-	template      := { crown_lead(type) + template_prefix()[type] + input + crown_follow(type) + template_suffix[type] }
-	land_template := { crown_lead(type) + template_prefix()[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + crown_follow(type) + template_suffix[type] }
+	
+	template      := { if type_name(harder_script[type] or else nil) == "function" then harder_script[type](input, land:false) else crown_lead(type) + template_prefix()[type] + input + crown_follow(type) + template_suffix[type] }
+	land_template := { if type_name(harder_script[type] or else nil) == "function" then harder_script[type](input, land:true) else crown_lead(type) + template_prefix()[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + crown_follow(type) + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 
@@ -107,6 +108,7 @@ init script:
 	background_slide_2 := { color_background(type:"slide2", base_hybrid: card_hybrid)}
 	background_slide_3 := { color_background(type:"slide3", base_hybrid: card_hybrid)}
 	season_background := { color_background(type:"season",     base_hybrid:card_hybrid) }
+	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -197,8 +199,6 @@ init script:
 
 	center_map := {is_map() and (card.casting_cost == "" or chosen(styling.other_options, choice:"always center map names"))}
 	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar")}
-	# alternate rarity color
-	alt_rarity := {styling.alt_rarity_color}
 
 	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
 	use_vorthos := {((not is_leveler() or lone_pt()) and card.pt != "") or chosen(styling.other_options, choice:"vorthos box")}
@@ -266,101 +266,39 @@ init script:
 	}
 	
 	### Customize fonts
-	swap_font := {styling.apply_custom_fonts}
-	name_font := {
-		swap_font_name(
-			src:styling.custom_name_font, 
-			font_name: if is_map() then "Beleren Small Caps" else "Beleren Bold"
-		)
-	}
-	name_font_size := {
-		swap_font_size(
-			src:styling.custom_name_font, 
-			font_size: if is_map() then 14.8 else 16
-		) - shrink_name()
-	}
-	name_font_color := {
-		swap_font_color(
-			src: styling.custom_name_font,
-			font_color: if is_shifted() or is_fnm() or is_inverted() then "white" else "black"
-		)
-	}
-	name_font_vertical := {
-		swap_font_vertical(
-			src: styling.custom_name_font
-		)
-	}
-	name_font_italic := {
-		swap_font_italic(
-			src: styling.custom_name_font
-		)
-	}
-	
-	type_font := {
-		swap_font_name(
-			src:styling.custom_type_font, 
-			font_name: "Beleren Bold"
-		)
-	}
-	type_font_size := {
-		swap_font_size(
-			src:styling.custom_type_font, 
-			font_size: if is_map() then 12 else 13
-		) - shrink_type()
-	}
-	type_font_color := {
-		swap_font_color(
-			src: styling.custom_type_font,
-			font_color: if is_full_art() or is_puma() or is_shifted() or is_fnm() or is_inverted() then "white" else "black"
-		)
-	}
-	type_font_vertical := {
-		swap_font_vertical(
-			src: styling.custom_type_font
-		)
-	}
-	type_font_italic := {
-		swap_font_italic(
-			src: styling.custom_type_font
-		)
-	}
-	
-	body_font := {
-		swap_font_name(
-			src:styling.custom_body_font, 
-			font_name: "MPlantin"
-		)
-	}
-	body_font_size := {
-		swap_font_size(
-			src:styling.custom_body_font, 
-			font_size: if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14
-		)
-	}
-	body_font_color := {
-		swap_font_color(
-			src: styling.custom_body_font,
-			font_color: if is_full_art() or is_fnm() or is_inverted() then "white" else "black"
-		)
-	}
-	body_font_vertical := {
-		swap_font_vertical(
-			src: styling.custom_body_font
-		)
-	}
-	body_font_italic := {
-		swap_font_italic(
-			src: styling.custom_body_font,
-			font_name: "MPlantin-Italic"
-		)
-	}
-
-	pt_font := {
-		swap_font_name(
-			src:styling.custom_pt_font, 
-			font_name: "Beleren Bold"
-		)
-	}
+	## redefine these since Maps make them annoying
+	swap_fonts_name_default := [
+		name: {if is_map() then "Beleren Small Caps" else "Beleren Bold"},
+		size: {if is_map() then 14.8 else 16},
+		color: {if is_shifted() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {if is_map() then 12 else 13},
+		color: {if is_full_art() or is_puma() or is_shifted() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14},
+		color: {if is_full_art() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_pt_default := [
+		name: {"Beleren Bold"},
+		size: {if is_map() then 14 else 16},
+		color: {
+			if is_shifted() or is_fnm() or is_inverted() then "white"
+			else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white"
+			else "black"
+		},
+		vertical: {0},
+		italic: {""}
+	]
 	loyalty_font_size := {
 		swap_font_size(
 			src:styling.custom_pt_font, 
@@ -373,30 +311,23 @@ init script:
 			font_color: "white"
 		)
 	}
-	pt_font_size := {
-		swap_font_size(
-			src:styling.custom_pt_font, 
-			font_size: if is_map() then 14 else 16
-		)
-	}
-	pt_font_color := {
-		swap_font_color(
-			src: styling.custom_pt_font,
-			font_color: if is_shifted() or is_fnm() or is_inverted() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"
-		)
-	}
-	pt_font_vertical := {
-		swap_font_vertical(
-			src: styling.custom_pt_font
-		)
-	}
-	pt_font_italic := {
-		swap_font_italic(
-			src: styling.custom_pt_font
-		)
-	}
 
 	use_flash_dot := {false}
+	custom_border_image := {
+		src := styling.custom_border_source
+		ps := split_text(src, match:"-color-")
+		if length(ps) > 1 then
+			"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
+		else
+			"/magic-mainframe-extras.mse-include/" + src
+	}
+	is_custom := {contains(styling.frames, match:"custom border") and contains(styling.custom_border_source, match:".png")}
+
+	# this goes at the very end
+	harder_script := [
+		custom_border: custom_border_image
+	]
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -456,6 +387,11 @@ styling field:
 	choice: nyx
 	choice: leveler
 	choice: snow
+	choice: custom border
+styling field:
+	type: text
+	name: custom border source
+	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
 styling field:
 	type: text
 	name: popout image style
@@ -1207,17 +1143,20 @@ card style:
 			color: white
 			weight: bold
 			
+	partition select:
+		left: 24
+		top: 488
+		width: {if not use_auto_numbers() then 0 else if contains(set.card_number_style, match:"/0") then 50 else 35}
+		height: 10
+		z index: 3
+		render style: hidden
 
 ############################################################## Extra card fields
 extra card field:
 	type: text
 	name: card code
 	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+	script: card_number_script_core()
 extra card field:
 	type: choice
 	name: artist arrow
@@ -1294,6 +1233,12 @@ extra card field:
 extra card field:
 	type: choice
 	name: vehicle overlay
+	choice: car door
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: custom overlay
 	choice: car door
 	save value: false
 	editable: false
@@ -1592,7 +1537,7 @@ extra card style:
 		top: 488
 		width: 120
 		height: 10
-		z index: 3
+		z index: 2
 		font:
 			name: Relay-Medium
 			size: 7
@@ -1768,6 +1713,16 @@ extra card style:
 		image: {"voverlay" + (if is_full_art() then "_full" else "") + ".png" }
 		z index: 0
 		visible: {is_vehicle()}
+	custom overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: { custom_border_blend() }
+		z index: 0
+		visible: {is_custom()}
+		mask: {"nyx/" + (if is_vehicle() then "v_" else "") + (if is_full_art() then "full" else "") + "mask.png"}
 	clear frame:
 		left: 0
 		top: 0
@@ -2086,4 +2041,4 @@ extra card style:
 		render style: image
 		choice images:
 			the list: /magic-mainframe-extras.mse-include/mfsfiles/list.png
-		z index: 4
+		z index: 1

@@ -7,7 +7,8 @@ include file: /magic-blends.mse-include/new-blends
 include file: statistics_script
 
 ############################################################## version check
-version_date := {"2023-02-21"}
+version_date := {"2024-05-10 Mainframe 1.3.a Showcase Catchup: Adventures"}
+version := version_date
 ############################################################## Sorting mana symbols
 
 # correctly sort a mana symbol (no guild mana)
@@ -338,27 +339,61 @@ color_of_card := {
 	)
 }
 
+token_shape := {
+	case input of
+		"token": true,
+		"emblem": true,
+		"counter": true,
+		"rulestip": true,
+		"checklist": true,
+		else: false;
+}
 rarity_sort := {
-	if card.shape == "token" then "T1"
+	if is_unsorted() then "R0"
+	else if card.shape == "token" then "T1"
 	else if card.shape == "emblem" then "T2"
 	else if card.shape == "rulestip" then "T3"
 	else if card.shape == "counter" then "T4"
 	else if card.shape == "checklist" then "T5"
 	else if is_masterpiece() then "T6"
-	else if set.sort_special_rarity == "with the rest" or card.rarity != "special" then " "
-	else "S"
+	else if set.sort_special_rarity == "separate numbering" and card.rarity == "special" then "S1"
+	else if set.sort_special_rarity == "with the rest" or card.rarity != "special" then "R1"
+	else "R2"
 }
-card_partition := {"A"}
+rarity_partition_sort := {
+	main := rarity_sort()
+	main.0 + partition_index() + main.1
+}
+card_partition := {
+	if styling.card_number_partition or else "" != ""
+		then styling.card_number_partition
+	else "A"
+}
+## MSE doesn't do "A" > "B" like some languages do
+## Originally this put partition_index() and mn_pos in an array and sorted that
+## but that crashed mse on startup once it was added to sort the card number column
+## but you also couldn't use position() because it inherits order_by and filter from card_number()
+## and MSE yells at you if you do that and you're not sorting a set
+## and replacing them with nil doesn't work, it still complains if they're nil???
+## so instead hard-coded map of indices
+## you'll never catch me i'm behind seven workarounds
+partition_scores := [
+	0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9,
+	A:10, B:11, C:12, D:13, E:14, F:15, G:16, H:17, I:18,
+	J:19, K:20, L:21, M:22, N:23, O:24, P:25, Q:26, R:27,
+	S:28, T:29, U:30, V:31, W:32, X:33, Y:34, Z:35
+]
 over_partition := {
-	my_pos := number_partition()
 	mn_pos := if set.last_main_partition == "" then "M" else to_upper(substring(set.last_main_partition, end:1))
-	posis := [my_pos, mn_pos]
-	higher := sort_list(posis).0
-	my_pos != higher
+	partition_scores[partition_index()] > partition_scores[mn_pos]
 }
-number_partition := { to_upper(substring(card_partition(), end:1)) }
+partition_filter := replace@(match:"(before normal|after normal, main set|after main set|secret|help.*) ?", replace:"")
+partition_index := { 
+	ind := partition_filter(card.partition_select)
+	if ind == "" then ind := "A"
+	ind
+}
 set_filter := {
-	# TODO: what about rulestips?
 	if is_unsorted() then 
 		{ is_unsorted() }
 	else if card.shape == "token" or card.shape == "emblem" then
@@ -369,14 +404,37 @@ set_filter := {
 		{ card.shape == "counter" }
 	else if card.shape == "checklist" then
 		{ card.shape == "checklist" }
-	else if is_masterpiece() and card.shape != "token" and card.shape != "emblem" then
-		{ is_masterpiece() and card.shape != "token" and card.shape != "emblem" }
+	else if is_masterpiece() and not token_shape(card.shape) then
+		{ is_masterpiece() and not token_shape(card.shape) }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not over_partition() and not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist"}
+		{ not is_unsorted() and not token_shape(card.shape) }
 	else if card.rarity == "special" then
-		{ not over_partition() and not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity == "special" }
+		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" }
 	else
-		{ not over_partition() and not is_unsorted() and card.shape != "token" and not is_masterpiece() and card.shape != "emblem" and card.shape != "rulestip" and card.shape != "counter" and card.shape != "checklist" and card.rarity != "special" }
+		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" }
+}
+## over-partition cards need to be counted during the card number count
+## but need to be skipped during the card count count
+## so this is a copy of set_filter but it skips over-partition cards
+set_filter_under_partition := {
+	if is_unsorted() then 
+		{ is_unsorted() }
+	else if card.shape == "token" or card.shape == "emblem" then
+		{ card.shape == "token" or card.shape == "emblem" and not over_partition() }
+	else if card.shape == "rulestip" then
+		{ card.shape == "rulestip" and not over_partition() }
+	else if card.shape == "counter" then
+		{ card.shape == "counter" and not over_partition() }
+	else if card.shape == "checklist" then
+		{ card.shape == "checklist" and not over_partition() }
+	else if is_masterpiece() and not token_shape(card.shape) then
+		{ is_masterpiece() and not token_shape(card.shape) and not over_partition() }
+	else if set.sort_special_rarity != "separate numbering" then
+		{ not is_unsorted() and not token_shape(card.shape) and not over_partition() }
+	else if card.rarity == "special" then
+		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() }
+	else
+		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not over_partition() }
 }
 card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:false, default:0)}
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
@@ -384,12 +442,12 @@ card_number := {
 	position (
 		of: card
 		in: set
-		order_by: { number_partition() + rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
+		order_by: { partition_index() + rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
 		filter:   set_filter()
 	) + 1 + to_number(card_number_offset())
 }
 card_count := {
-	number_of_items(in: set, filter: set_filter()) + to_number(set_number_offset())
+	number_of_items(in: set, filter: set_filter_under_partition()) + to_number(set_number_offset())
 }
 
 #Starting with M15, zero digits in card numbers should be shown up to three.
@@ -397,18 +455,23 @@ card_number_m15 := { (if card_number() < 100 then "0" else "") + (if card_number
 card_count_m15 := { (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
 #Starting with MOM, zero digits in card numbers should be shown up to four
 card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
+card_count_mom := { (if card_count() < 1000 then "0" else "") + (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
 
+use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
+# Use this in templates so we don't have to update 700 templates the next time they change the ordering
 card_number_script_core := {
-	if is_unsorted() or not set.automatic_card_numbers then
+	if not use_auto_numbers() then
 		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+	else if set.card_number_style == "0001/0099" then
+		forward_editor(prefix: rarity_code() + " " + card_number_mom() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom()) + " ", field: card.card_code_text)
 	else if set.card_number_style == "0001" then
 		forward_editor(prefix: rarity_code() + " " + card_number_mom() + " ", field: card.card_code_text)
 	else if set.card_number_style == "001/099" then
-		forward_editor(prefix: card_number_m15() + (if over_partition() then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card.card_code_text)
+		forward_editor(prefix: card_number_m15() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card.card_code_text)
 	else if set.card_number_style == "001" then
 		forward_editor(prefix: card_number_m15() + " " + rarity_code() + " ", field: card.card_code_text)
 	else if set.card_number_style == "1/99" then
-		forward_editor(prefix: card_number() + (if over_partition() then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card.card_code_text)
+		forward_editor(prefix: card_number() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card.card_code_text)
 	else
 		forward_editor(prefix: card_number() + " " + rarity_code() + " ", field: card.card_code_text)
 }
@@ -417,7 +480,6 @@ card_number_script_core := {
 is_token_card   := { card.shape == "token" or card.shape == "rulestip" or card.shape == "counter" or card.shape == "checklist" or card.shape == "emblem"}
 is_shifted_card := { contains(card.shape, match:"shifted") }
 is_masterpiece := { card.rarity == "masterpiece" }
-is_nightbreak := { card.shape == "nightbreak" }
 
 
 ############################################################## Utilities for keywords
@@ -777,6 +839,7 @@ mana_context :=
 		(
 				<match>:                                        # G: something
 			|	<match>,                                        # G, tap: something
+			|   [+][ ]?<match>[ ]?—								# Spree
 			|	or[ ]<match>                                    # Add X, Y, or Z.
 			|	<match>[ ]to[ ]your                             # Add X, Y, or Z to your mana pool.
 			|	you[ ]get[ ]<match>                             # You get E, you get TK
@@ -849,6 +912,11 @@ auto_correct :=
 		     + "(<kw-[^<]><nospellcheck>)" # inside a kw
 			 + "([A-Z])" # match this
 		replace: { _1 + _2 + to_lower(_3)})
+	+replace@(
+		match: "([ ]*: |—| — )" # preceded by this
+		     + "([[:lower:]])" # match this
+		     + "(?![)])",      # not followed by this
+		replace: { _1 + to_upper(_2) })
 auto_errata :=
 	replace@(match:"converted mana cost", replace:"mana value")
 	+replace@(match:"(?i)(Totem armor|Totembeistand|Armadura tótem|totémique|Armatura totem|Armadura de totem|族霊鎧|替身甲)", replace:{errata_map[_1] or else _1})
@@ -1048,7 +1116,7 @@ text_filter :=
 	 	replace: "<i-auto>&</i-auto>") +
 	# step 7b : indent bullets
 	 replace@(
-	 	match: "^(• )([^•]+)",
+	 	match: "^(• |[+] ?)([^\n]+\n?)",
 	 	replace: {"<li><bullet>" + _1 + "</bullet>" + _2 + "</li>"}
 	 )+
 	# step 7c : clean up modals
@@ -1058,20 +1126,17 @@ text_filter :=
 		else input
 	 }+
 	# step 8 : automatic capitalization, but not after "("
-	replace@(
-		match: "([ ]*: |—| — )" # preceded by this
-		     + "([[:lower:]])" # match this
-		     + "(?![)])",      # not followed by this
-		replace: { _1 + to_upper(_2) }) +
 	# step 9 : spellcheck
 	{
 		if set.auto_correct then
 			auto_correct(input)
-		else input } +
+		else input
+	} +
 	{
 		if set.auto_errata then
 			auto_errata(input)
-		else input } +
+		else input
+	} +
 	{ 
 		if language().code == "ja" or language().code == "zht" or language().code == "zhs" then input
 		else if set.mark_errors then
@@ -2146,14 +2211,14 @@ rare_width := {
 }
 
 ### Customize fonts
-swap_font := {false} ##{styling.apply_custom_fonts}
+swap_font := {styling.apply_custom_fonts or else false}
 split_font := split_text@(match:";")
 pop_font_name := {split_font(input).0 or else ""}
 pop_font_size := {split_font(input).1 or else ""}
 pop_font_color := {split_font(input).2 or else ""}
 pop_font_vertical := {split_font(input).3 or else ""}
 pop_font_italic := {split_font(input).4 or else ""}
-
+## General swap functions
 swap_font_name := {
 	if swap_font() then (
 		test := pop_font_name(src)
@@ -2161,7 +2226,7 @@ swap_font_name := {
 	)
 	
 	font_name
-}@(font_name:"", src:"")
+}
 swap_font_size := {
 	if swap_font() then (
 		test := pop_font_size(src)
@@ -2169,7 +2234,7 @@ swap_font_size := {
 	)
 	
 	font_size
-}@(font_size:16, src:"")
+}
 swap_font_color := {
 	if swap_font() then (
 		test := pop_font_color(src)
@@ -2183,7 +2248,7 @@ swap_font_color := {
 	) else ""
 	
 	font_color
-}@(font_color:"", src:"")
+}
 swap_font_vertical := {
 	if swap_font() then (
 		test := pop_font_vertical(src)
@@ -2191,7 +2256,7 @@ swap_font_vertical := {
 	)
 	
 	vertical
-}@(vertical:0, src:"")
+}
 swap_font_italic := {
 	if swap_font() then (
 		test := pop_font_italic(src)
@@ -2201,10 +2266,249 @@ swap_font_italic := {
 	)
 	
 	font_name
-}@(font_name:"", src:"")
+}
+## defaults, can be changed in style
+swap_fonts_name_default := [
+	name: {"Beleren Bold"},
+	size: {16},
+	color: {"black"},
+	vertical: {0},
+	italic: {""}
+]
+swap_fonts_name2_default := [
+	name: {"Beleren Bold"},
+	size: {16},
+	color: {"black"},
+	vertical: {0},
+	italic: {""}
+]
+swap_fonts_type_default := [
+	name: {"Beleren Bold"},
+	size: {13},
+	color: {"black"},
+	vertical: {0},
+	italic: {""}
+]
+swap_fonts_type2_default := [
+	name: {"Beleren Bold"},
+	size: {13},
+	color: {"white"},
+	vertical: {0},
+	italic: {""}
+]
+swap_fonts_body_default := [
+	name: {"MPlantin"},
+	size: {13},
+	color: {"black"},
+	vertical: {0},
+	italic: {"MPlantin-Italic"}
+]
+swap_fonts_pt_default := [
+	name: {"Beleren Bold"},
+	size: {16},
+	color: {"black"},
+	vertical: {0},
+	italic: {""}
+]
+swap_fonts_name_src := {styling.custom_name_font or else ""}
+swap_fonts_name_src := {styling.custom_name_font or else ""}
+swap_fonts_name2_src := {styling.custom_name_2_font or else ""}
+swap_fonts_type_src := {styling.custom_type_font or else ""}
+swap_fonts_type2_src := {styling.custom_type_2_font or else ""}
+swap_fonts_body_src := {styling.custom_body_font or else ""}
+swap_fonts_pt_src := {styling.custom_pt_font or else ""}
+## specific swap functions
+name_font := {
+	swap_font_name(
+		src: swap_fonts_name_src(), 
+		font_name: swap_fonts_name_default.name()
+	)
+}
+name_font_size := {
+	swap_font_size(
+		src: swap_fonts_name_src(), 
+		font_size: swap_fonts_name_default.size()
+	) - shrink_name()
+}
+name_font_color := {
+	swap_font_color(
+		src: swap_fonts_name_src(),
+		font_color: swap_fonts_name_default.color()
+	)
+}
+name_font_vertical := {
+	swap_font_vertical(
+		src: swap_fonts_name_src(),
+		vertical: swap_fonts_name_default.vertical()
+	)
+}
+name_font_italic := {
+	swap_font_italic(
+		src: swap_fonts_name_src(),
+		font_name: swap_fonts_name_default.italic()
+	)
+}
 
+name2_font := {
+	swap_font_name(
+		src: swap_fonts_name2_src(), 
+		font_name: swap_fonts_name2_default.name()
+	)
+}
+name2_font_size := {
+	swap_font_size(
+		src: swap_fonts_name2_src(), 
+		font_size: swap_fonts_name2_default.size()
+	) - shrink_name2()
+}
+name2_font_color := {
+	swap_font_color(
+		src: swap_fonts_name2_src(),
+		font_color: swap_fonts_name2_default.color()
+	)
+}
+name2_font_vertical := {
+	swap_font_vertical(
+		src: swap_fonts_name2_src(),
+		vertical: swap_fonts_name2_default.vertical()
+	)
+}
+name2_font_italic := {
+	swap_font_italic(
+		src: swap_fonts_name2_src(),
+		font_name: swap_fonts_name2_default.italic()
+	)
+}
+
+type_font := {
+	swap_font_name(
+		src: swap_fonts_type_src(), 
+		font_name: swap_fonts_type_default.name()
+	)
+}
+type_font_size := {
+	swap_font_size(
+		src: swap_fonts_type_src(), 
+		font_size: swap_fonts_type_default.size()
+	) - shrink_type()
+}
+type_font_color := {
+	swap_font_color(
+		src: swap_fonts_type_src(),
+		font_color: swap_fonts_type_default.color()
+	)
+}
+type_font_vertical := {
+	swap_font_vertical(
+		src: swap_fonts_type_src(),
+		vertical: swap_fonts_type_default.vertical()
+	)
+}
+type_font_italic := {
+	swap_font_italic(
+		src: swap_fonts_type_src(),
+		font_name: swap_fonts_type_default.italic()
+	)
+}
+
+type2_font := {
+	swap_font_name(
+		src: swap_fonts_type2_src(), 
+		font_name: swap_fonts_type2_default.name()
+	)
+}
+type2_font_size := {
+	swap_font_size(
+		src: swap_fonts_type2_src(), 
+		font_size: swap_fonts_type2_default.size()
+	) - shrink_type2()
+}
+type2_font_color := {
+	swap_font_color(
+		src: swap_fonts_type2_src(),
+		font_color: swap_fonts_type2_default.color()
+	)
+}
+type2_font_vertical := {
+	swap_font_vertical(
+		src: swap_fonts_type2_src(),
+		vertical: swap_fonts_type2_default.vertical()
+	)
+}
+type2_font_italic := {
+	swap_font_italic(
+		src: swap_fonts_type2_src(),
+		font_name: swap_fonts_type2_default.italic()
+	)
+}
+
+body_font := {
+	swap_font_name(
+		src: swap_fonts_body_src(), 
+		font_name: swap_fonts_body_default.name()
+	)
+}
+body_font_size := {
+	swap_font_size(
+		src: swap_fonts_body_src(), 
+		font_size: swap_fonts_body_default.size()
+	)
+}
+body_font_color := {
+	swap_font_color(
+		src: swap_fonts_body_src(),
+		font_color: swap_fonts_body_default.color()
+	)
+}
+body_font_vertical := {
+	swap_font_vertical(
+		src: swap_fonts_body_src(),
+		vertical: swap_fonts_body_default.vertical()
+	)
+}
+body_font_italic := {
+	swap_font_italic(
+		src: swap_fonts_body_src(),
+		font_name: swap_fonts_body_default.italic()
+	)
+}
+
+pt_font := {
+	swap_font_name(
+		src: swap_fonts_pt_src(), 
+		font_name: swap_fonts_pt_default.name()
+	)
+}
+pt_font_size := {
+	swap_font_size(
+		src: swap_fonts_pt_src(), 
+		font_size: swap_fonts_pt_default.size()
+	)
+}
+pt_font_color := {
+	swap_font_color(
+		src: swap_fonts_pt_src(),
+		font_color: swap_fonts_pt_default.color()
+	)
+}
+pt_font_vertical := {
+	swap_font_vertical(
+		src: swap_fonts_pt_src(),
+		vertical: swap_fonts_pt_default.vertical()
+	)
+}
+pt_font_italic := {
+	swap_font_italic(
+		src: swap_fonts_pt_src(),
+		font_name: swap_fonts_pt_default.italic()
+	)
+}
+shrink_name  := {0}
+shrink_type  := {0}
+shrink_name2 := {0}
+shrink_type2 := {0}
 #### Customize rarity symbol
-alt_rarity := {""} ##{styling.alt_rarity_color}
+alt_rarity := {styling.alt_rarity_color or else ""}
 use_alt_rarity := {alt_rarity() != ""}
 alt_rarity_color := {
 	string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
