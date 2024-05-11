@@ -339,6 +339,15 @@ color_of_card := {
 	)
 }
 
+token_shape := {
+	case input of
+		"token": true,
+		"emblem": true,
+		"counter": true,
+		"rulestip": true,
+		"checklist": true,
+		else: false;
+}
 rarity_sort := {
 	if is_unsorted() then "R0"
 	else if card.shape == "token" then "T1"
@@ -360,6 +369,13 @@ card_partition := {
 		then styling.card_number_partition
 	else "A"
 }
+## MSE doesn't do "A" > "B" like some languages do
+## Originally this put partition_index() and mn_pos in an array and sorted that
+## but that crashed mse on startup once it was added to sort the card number column
+## but you also couldn't use position() because it inherits order_by and filter from card_number()
+## and MSE yells at you if you do that and you're not sorting a set
+## and replacing them with nil doesn't work, it still complains if they're nil???
+## so instead hard-coded map of indices
 ## you'll never catch me i'm behind seven workarounds
 partition_scores := [
 	0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9,
@@ -372,15 +388,6 @@ over_partition := {
 	partition_scores[partition_index()] > partition_scores[mn_pos]
 }
 partition_index := { to_upper(substring(card_partition(), end:1)) }
-token_shape := {
-	case input of
-		"token": true,
-		"emblem": true,
-		"counter": true,
-		"rulestip": true,
-		"checklist": true,
-		else: false;
-}
 set_filter := {
 	if is_unsorted() then 
 		{ is_unsorted() }
@@ -401,6 +408,9 @@ set_filter := {
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" }
 }
+## over-partition cards need to be counted during the card number count
+## but need to be skipped during the card count count
+## so this is a copy of set_filter but it skips over-partition cards
 set_filter_under_partition := {
 	if is_unsorted() then 
 		{ is_unsorted() }
@@ -442,6 +452,7 @@ card_count_m15 := { (if card_count() < 100 then "0" else "") + (if card_count() 
 card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
 card_count_mom := { (if card_count() < 1000 then "0" else "") + (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
 
+# Use this in templates so we don't have to update 700 templates the next time they change the ordering
 card_number_script_core := {
 	if is_unsorted() or not set.automatic_card_numbers then
 		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
@@ -463,7 +474,6 @@ card_number_script_core := {
 is_token_card   := { card.shape == "token" or card.shape == "rulestip" or card.shape == "counter" or card.shape == "checklist" or card.shape == "emblem"}
 is_shifted_card := { contains(card.shape, match:"shifted") }
 is_masterpiece := { card.rarity == "masterpiece" }
-is_nightbreak := { card.shape == "nightbreak" }
 
 
 ############################################################## Utilities for keywords
@@ -2492,7 +2502,7 @@ shrink_type  := {0}
 shrink_name2 := {0}
 shrink_type2 := {0}
 #### Customize rarity symbol
-alt_rarity := {""} ##{styling.alt_rarity_color}
+alt_rarity := {styling.alt_rarity_color or else ""}
 use_alt_rarity := {alt_rarity() != ""}
 alt_rarity_color := {
 	string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
