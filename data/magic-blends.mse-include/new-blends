@@ -1043,7 +1043,10 @@ set_watermark_blend := {
 	)
 }
 spotlight_watermark_blend := {
-	if face == false then face := card.card_color
+	if face == 2 then face := card.card_color_2
+	else if face == 3 then face := card.card_color_3
+	else face := card.card_color
+	
 	wmc := watermark_colors(face:face)
 	c1 := "/magic-watermarks.mse-include/spotlight/" + wmc.0 + (if contains(face, match:"land") then "l") + "spotlight.png"
 	c2 := "/magic-watermarks.mse-include/spotlight/" + wmc.1 + (if contains(face, match:"land") then "l") + "spotlight.png"
@@ -1078,12 +1081,23 @@ spotlight_watermark_blend := {
 				x2: 0.6,  y2: 0
 			)
 	)
-}@(h:500,l:500,face:false,invert_mask:false,alpha:0.2)
-watermark_blend := {
-	if set.blend_with_colors then spotlight_watermark_blend(h:h, l:l, face:face, invert_mask:invert_mask, alpha: spotlight_alpha, input)
-	else set_combine(combine:"shadow", set_alpha(alpha: alpha, input))
-}@(h:500,l:500,face:false,invert_mask:false,alpha:0.2,spotlight_alpha:0.75)
-contrast_watermark_blend := {
-	if set.blend_with_colors then spotlight_watermark_blend(alpha: spotlight_alpha, input)
-	else set_combine(combine:"shadow", set_alpha(alpha: alpha, input))
-}@(alpha:0.75,spotlight_alpha:0.75)
+}@(h:500,l:500,face:1,invert_mask:false,alpha:0.2)
+
+watermark_blend :=
+{
+	dark_textbox :=		(face == 1 and invert_watermark())
+					or	(face == 2 and invert_watermark2())
+					or	(face == 3 and invert_watermark3())
+	invert_base_image := invert_mask
+	if dark_textbox then
+	(
+		alpha := dark_alpha
+		spotlight_alpha := dark_spotlight_alpha
+		invert_base_image := not invert_mask
+	)
+	
+	if colored then set_alpha(alpha: alpha, input)
+	else if set.blend_with_colors then spotlight_watermark_blend(h:h, l:l, face:face, invert_mask:invert_mask, alpha: spotlight_alpha, input)
+	else if invert_base_image then set_alpha(alpha: alpha, invert_image(input))
+	else set_alpha(alpha: alpha, input)
+}@(h:500,l:500,colored:false,face:1,invert_mask:false,alpha:0.25,spotlight_alpha:0.5,dark_alpha:0.25,dark_spotlight_alpha:0.35)
