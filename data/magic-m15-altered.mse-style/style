@@ -269,48 +269,38 @@ init script:
 	
 	### Customize fonts
 	## redefine these since Maps make them annoying
-	name_font := {
-		swap_font_name(
-			src:styling.custom_name_font, 
-			font_name: if is_map() then "Beleren Small Caps" else "Beleren Bold"
-		)
-	}
-	name_font_size := {
-		swap_font_size(
-			src:styling.custom_name_font, 
-			font_size: if is_map() then 14.8 else 16
-		) - shrink_name()
-	}
-	name_font_color := {
-		swap_font_color(
-			src: styling.custom_name_font,
-			font_color: if is_shifted() or is_fnm() or is_inverted() then "white" else "black"
-		)
-	}
-	type_font_size := {
-		swap_font_size(
-			src:styling.custom_type_font, 
-			font_size: if is_map() then 12 else 13
-		) - shrink_type()
-	}
-	type_font_color := {
-		swap_font_color(
-			src: styling.custom_type_font,
-			font_color: if is_full_art() or is_puma() or is_shifted() or is_fnm() or is_inverted() then "white" else "black"
-		)
-	}
-	body_font_size := {
-		swap_font_size(
-			src:styling.custom_body_font, 
-			font_size: if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14
-		)
-	}
-	body_font_color := {
-		swap_font_color(
-			src: styling.custom_body_font,
-			font_color: if is_full_art() or is_fnm() or is_inverted() then "white" else "black"
-		)
-	}
+	swap_fonts_name_default := [
+		name: {if is_map() then "Beleren Small Caps" else "Beleren Bold"},
+		size: {if is_map() then 14.8 else 16},
+		color: {if is_shifted() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {if is_map() then 12 else 13},
+		color: {if is_full_art() or is_puma() or is_shifted() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14},
+		color: {if is_full_art() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_pt_default := [
+		name: {"Beleren Bold"},
+		size: {if is_map() then 14 else 16},
+		color: {
+			if is_shifted() or is_fnm() or is_inverted() then "white"
+			else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white"
+			else "black"
+		},
+		vertical: {0},
+		italic: {""}
+	]
 	loyalty_font_size := {
 		swap_font_size(
 			src:styling.custom_pt_font, 
@@ -321,18 +311,6 @@ init script:
 		swap_font_color(
 			src: styling.custom_pt_font,
 			font_color: "white"
-		)
-	}
-	pt_font_size := {
-		swap_font_size(
-			src:styling.custom_pt_font, 
-			font_size: if is_map() then 14 else 16
-		)
-	}
-	pt_font_color := {
-		swap_font_color(
-			src: styling.custom_pt_font,
-			font_color: if is_shifted() or is_fnm() or is_inverted() then "white" else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white" else "black"
 		)
 	}
 
@@ -535,6 +513,10 @@ styling field:
 	choice: gold
 	choice: hybrid
 	description: Use a grey background for the name and type line on hybrid cards like real cards, or gold or hybrid instead.
+styling field:
+	type: text
+	name: card number partition
+	description: For split numbering, like Conspiracy and Showcases. Accepts 0-9 or A-Z. 0-9 cards are grouped before the default count, B-Z are grouped after it.
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -1173,11 +1155,7 @@ extra card field:
 	type: text
 	name: card code
 	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+	script: card_number_script_core()
 extra card field:
 	type: choice
 	name: artist arrow
