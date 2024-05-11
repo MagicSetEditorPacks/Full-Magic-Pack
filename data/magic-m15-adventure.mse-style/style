@@ -55,6 +55,7 @@ init script:
 		null_page: "null_page/",
 		binding: "binding/",
 		double_flat: "double_flat/",
+		single_flat: "single_flat/",
 		pt: "pts/",
 		stamp: "stamps/",
 		spot: "spotlight/",
@@ -74,6 +75,7 @@ init script:
 		null_page: "page.png",
 		binding: "block.jpg",
 		double_flat: "page.png",
+		single_flat: "page.png",
 		pt: "pt.png",
 		stamp: "stamp.jpg",
 		spot: "card.png",
@@ -106,6 +108,7 @@ init script:
 		double_page: true,
 		null_page: true,
 		nyx: true,
+		single_flat: true,
 		single_page: true,
 		spot: true,
 		spotpage: true,
@@ -125,8 +128,9 @@ init script:
 	double_page_blend := { color_background(type:"double_page", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	binding_background := { color_background(type:"binding", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	double_flat_page_blend := { color_background(type:"double_flat", base_hybrid:card_hybrid, folder:"blend_masks/") }
+	single_flat_page_blend := { color_background(type:"single_flat", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	page_spread_blend := { color_background(type:"pages", base_hybrid:card_hybrid, folder:"blend_masks/") }
-	decoration_background := { color_background(type:"decoration", base_hybrid:card_hybrid, folder:"blend_masks/") }
+	decoration_background := { color_background(type:"decoration", base_hybrid:card_hybrid, folder:"blend_masks/")}
 
 	spot_background := { color_background(type:"spot", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	spot_page_background := { color_background(type:"spotpage", base_hybrid:card_hybrid, folder:"blend_masks/") }
@@ -208,14 +212,22 @@ init script:
 		vertical: 0,
 		italic: ""
 	]
+	pt_font_color := {
+		swap_font_color(
+			src: styling.custom_pt_font,
+			font_color: if is_vehicle() then "white" else "black"
+		)
+	}
+
 	
 	page_decoration_template := {
 		src := "/magic-mainframe-extras.mse-include/"
 		str := styling.page_decoration
-		if not contains(str, match:".png") and page_2_flat() then (
-			src := "flat_deco/"
-			str := "line.png;color"
+		if not contains(str, match:".png") then (
+			src := ""
+			str := ""
 		)
+
 		c := ""
 		pt := ""
 		l := ""
@@ -223,7 +235,7 @@ init script:
 		if contains(str, match:";color") then c := input
 			
 		if contains(str, match:";pt")
-		and (is_reversed() and card.pt != "") then pt := "_pt";
+		and (right_name() and card.pt != "") then pt := "_pt";
 		
 		if land and contains(str, match:";land") then l := "l"
 		
@@ -249,13 +261,22 @@ init script:
 			"name and type page": double_page_blend(adj_color),
 			"name page": single_page_blend(adj_color),
 			"blank page": null_page_blend(adj_color),
-			"name and type flat": double_flat_page_blend(adj_color),
-			"name flat": set_mask(image:double_flat_page_blend(adj_color), mask:"single_mask.png")
+			"name and type flat": mask_dblflat(double_flat_page_blend(adj_color)),
+			"name flat": mask_sngflat(single_flat_page_blend(adj_color)),
 			else: "";
-		
+
 		if flip then flip_horizontal(img) else img
 	}
-	
+	mask_dblflat := {
+		if no_divider() then
+			set_mask(image: input, mask:"double_mask.png")
+		else input
+	}
+	mask_sngflat := {
+		if no_divider() then
+			set_mask(image:input, mask:"single_mask.png")
+		else input
+	}
 	named_page := contains@(match:"name")
 	left_name := {
 		style_check := if is_spot() then "name and type page" else if is_reversed() then styling.right_style else styling.left_style
@@ -383,6 +404,8 @@ init script:
 		]
 	]
 	
+	no_divider := {chosen(styling.other_options, choice:"no flat page divider")}
+	
 	custom_border_image := {
 		src := styling.custom_border_source
 		ps := split_text(src, match:"-color-")
@@ -454,6 +477,7 @@ styling field:
 	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: prerelease stamp
+	choice: no flat page divider
 styling field:
 	type: choice
 	name: left style
@@ -1051,8 +1075,14 @@ extra card field:
 	editable: false
 extra card field:
 	type: choice
-	name: primary decoration
+	name: left decoration
 	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: right decoration
+	script: if left_name() then card.card_color_3 else card.card_color_2
 	save value: false
 	editable: false
 extra card field:
@@ -1421,11 +1451,21 @@ extra card style:
 		choice images:
 			the list: /magic-mainframe-extras.mse-include/mfsfiles/list.png
 		z index: 4
-	primary decoration:
-		left: {page_coords[page_2_side()]["decoration"]}
+	left decoration:
+		left: {page_coords["left"]["decoration"]}
 		top: 293
 		width: 200
 		height: 230
 		z index: 4
 		render style: image
 		image: {decoration_background()}
+		visible: {left_name()}
+	right decoration:
+		left: {page_coords["right"]["decoration"]}
+		top: 293
+		width: 200
+		height: 230
+		z index: 4
+		render style: image
+		image: {decoration_background()}
+		visible: {right_name()}

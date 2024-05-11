@@ -3,11 +3,11 @@ previously impossible. Try to give your images unique or personalized names, or 
 avoid overwriting others' public images.
 
 To use these images, type name.png or folder/name.png into the custom masks or other fields of the style tab,
-and Mainframe will handle the directories.
+and Mainframe will handle the magic-mainframe-extras/ part.
 
 When you release your set, include any custom masks you have made so they can be added to others' folders.
 
-mfsfiles/ contains images that are shared across most Mainframe templates
+mfsfiles/ contains images that can be shared across most Mainframe templates
 
 Some example images are provided:
 Transform/Lesson Circles
@@ -22,3 +22,10 @@ Custom Legend Crowns
 	cajun/legend/ folder
 Mainframe Custom Mana
 	cajun/small, cajun/large, cajun/future folders
+Custom Border
+	colorless.png
+Adventure Decorations
+	decoration/ folder
+	these images can be used as the forms
+		decoration/clight.png
+		decoration/light.png;color
