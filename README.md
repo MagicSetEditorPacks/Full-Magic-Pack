@@ -30,5 +30,6 @@ Some template images are provided by [CardConjurer](https://cardconjurer.com/):
 Praetor Showcase, JP Mystical Archive, PT Box for Mystical Archives
 
 # Watermarks
-Some set watermark images are provided by [Keyrune](https://github.com/andrewgioia/keyrune)
-Some set watermark, mana symbol and Futursight type symbol images are provided by [BaconCatBug](https://www.slightlymagic.net/forum/viewtopic.php?f=15&t=11086)
+Some set watermark images are provided by [Keyrune](https://github.com/andrewgioia/keyrune).
+
+Some set watermark, mana symbol and Futursight type symbol images are provided by [BaconCatBug](https://www.slightlymagic.net/forum/viewtopic.php?f=15&t=11086).
