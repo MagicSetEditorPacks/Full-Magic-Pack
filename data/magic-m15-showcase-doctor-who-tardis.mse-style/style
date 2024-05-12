@@ -82,44 +82,6 @@ init script:
 	shrink_name :=	{ if styling.shrink_name_text == "-" then 0 else if styling.shrink_name_text != "" then clamp(styling.shrink_name_text, minimum: -40, maximum: 13) else 0 }
 	shrink_type :=	{ if styling.shrink_type_text == "-" then 0 else if styling.shrink_type_text != "" then clamp(styling.shrink_type_text, minimum: -40, maximum: 11) else 0 }
 	
-	use_main_rarity	:= { contains(set.mainframe_rarity_name, match: ".png") }
-	
-	alt_rarity := { styling.alt_rarity_color != "" }
-	alt_rarity_color :=
-	{
-		string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
-		if match(styling.alt_rarity_color, match:":$") then string := styling.alt_rarity_color
-		colons := length(filter_text(string, match:":"))
-		output := split_text(string, match:",|:")
-		splits := split_text(string, match:":")
-		if colons == 4
-			then output := split_text(string+"0.07:", match:",|:")
-		if colons == 3
-			then output := split_text(string+splits[2]+"0.07:", match:",|:")
-		else if colons == 2
-			then output := split_text(string+"0,0,0:0,0,0:0.07:", match:",|:")
-		else if colons == 1
-			then output := split_text(string+splits[0]+":0,0,0:0,0,0:0.07:", match:",|:")
-		output
-	}
-	alt_symbol :=
-	{
-		colors := alt_rarity_color()
-		symbol_variation(
-			symbol:			set.symbol,
-			border_radius:	colors.12,
-			fill_type:		"linear gradient",
-			fill_color_1:	rgb(colors.0, colors.1, colors.2),
-			fill_color_2:	rgb(colors.3, colors.4, colors.5),
-			border_color_1:	rgb(colors.6, colors.7, colors.8),
-			border_color_2:	rgb(colors.9, colors.10, colors.11),
-			center_x:		0.5,
-			center_y:		0.5,
-			end_x:			1,
-			end_y:			1
-		)
-	}
-	
 	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 500, minimum: 0) else 347 }
 	rarity_top		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 700, minimum: 0) else 296 }
 	rarity_size		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 2 and split.2 != "" then clamp(split.2, maximum: 700, minimum: 0) else 26 }
@@ -132,17 +94,39 @@ init script:
 	
 	split_comma	:= split_text@(match: " *, *")
 	
-	un_png		:= replace@(match:".png", replace: "")
+	swap_fonts_name_default := [
+		name: {"Chantilly-Medium-Regular-AllCaps"},
+		size: {16},
+		color: {"white"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type_default := [
+		name: {"Chantilly-Medium-Regular-AllCaps"},
+		size: {13},
+		color: {"white"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {13},
+		color: {"white"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_pt_default := [
+		name: {"Beleren Bold"},
+		size: {14.5},
+		color: {"white"},
+		vertical: {0},
+		italic: {""}
+	]
+
 	
-	clamp :=
-	{
-		number := to_number(input)
-		if number < minimum then minimum
-		else if number > maximum then maximum
-		else number
-	}
-
-
+	w_scale := stylesheet.card_width/375
+	h_scale := stylesheet.card_height/523
+	
 ############################################################## Set info fields
 
 set info style:
@@ -156,7 +140,10 @@ set info style:
 
 
 ############################################################## Extra style options
-
+styling field:
+	type:			text
+	name:			chop textbox
+	description:	Formatted as "X,Y". Shrinks textbox X pixels from the top and Y from the bottom.
 styling field:
 	type:			text
 	name:			popout image coordinates
@@ -175,10 +162,6 @@ styling field:
 	name:			shrink type text
 	description:	Shrinks type text X pixels.
 styling field:
-	type:			text
-	name:			rule text font size cap
-	description:	Caps the font size of the rules text and the flavor text. Default is 13.
-styling field:
 	type:			choice
 	name:			center rule text
 	description:	When to center text (short text means only on one-line cards with no flavor text)
@@ -187,10 +170,6 @@ styling field:
 	choice:			never
 	initial:		never
 styling field:
-	type:			text
-	name:			chop textbox
-	description:	Formatted as "X,Y". Shrinks textbox X pixels from the top and Y from the bottom.
-styling field:
 	type:			choice
 	name:			legend crown
 	description:	Use the legend crown?
@@ -198,11 +177,6 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
-styling field:
-	type:			boolean
-	name:			flavor bar
-	description:	Use the flavor bar to separate rule text from flavor text.
-	initial:		yes
 styling field:
 	type:			boolean
 	name:			color indicator dot
@@ -220,8 +194,16 @@ styling field:
 styling field:
 	type:			boolean
 	name:			colored border
-	description:	Tint the border with the card's color?
-	initial:		yes
+	description:	Tint the border?
+	initial:		no
+styling field:
+	type:			color
+	name:			copyright text color
+	description:	Color of the copyright, illustrator, and set code text.
+	choice:			white
+	choice:			black
+	initial:		white
+	allow custom:	true
 styling field:
 	type:			package choice
 	name:			overlay
@@ -265,14 +247,6 @@ styling field:
 	description:	Is this card a promo card, with the "P" rarity?
 	initial:		no
 styling field:
-	type:			color
-	name:			copyright text color
-	description:	Color of the copyright, illustrator, and set code text.
-	choice:			white
-	choice:			black
-	initial:		white
-	allow custom:	true
-styling field:
 	type:			boolean
 	name:			use ancestral mana symbols
 	description:	Enables ancestral's modified generic mana.
@@ -303,17 +277,26 @@ styling field:
 	match:			magic-mana-*.mse-symbol-font
 	initial:		magic-mana-small.mse-symbol-font
 styling field:
-	type:			text
-	name:			name font
-	description:	Font used for the name, type, and pt. Hover your mouse over the font file to see it's details, and write it's Title here.
+	type:			boolean
+	name:			apply custom fonts
+	description:	Enable to attempt to use custom fonts given below
+	initial:		no
 styling field:
 	type:			text
-	name:			text font
-	description:	Font used for the rule text. Hover your mouse over the font file to see it's details, and write it's Title here.
+	name:			custom name font
+	description:	Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
 styling field:
 	type:			text
-	name:			text italic font
-	description:	Font used for the flavor text and reminder texts. Hover your mouse over the font file to see it's details, and write it's Title here.
+	name:			custom type font
+	description:	Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
+styling field:
+	type:			text
+	name:			custom body font
+	description:	Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
+styling field:
+	type:			text
+	name:			custom pt font
+	description:	Formatted as "font name;font size;font color;vertical offset;italic font name" last 4 are optional. color can be a name or R,G,B,A numbers.
 styling style:
 	use guild mana symbols:
 		choice images:
@@ -361,15 +344,16 @@ card style:
 	############################# Name line
 	name:
 		left:				32
-		top:				{ 28 + shrink_name()/2 }
+		top:				{ 28 + shrink_name()/2 + name_font_vertical() }
 		right:				{ 339 - (if card_style.casting_cost.content_width == 0 then 0 else card_style.casting_cost.content_width + 4) }
 		height:				25
 		z index:			1000
 		alignment:			top left shrink-overflow
 		font:
-			name:				{ if styling.name_font == "" then "Chantilly-Medium-Regular-AllCaps" else styling.name_font }
-			size:				{ 16 - shrink_name() }
-			color:				white
+			name:				{ name_font() }
+			italic name:		{ name_font_italic() }
+			size:				{ name_font_size() }
+			color:				{ name_font_color() }
 	casting cost:
 		right:				348
 		top:				29
@@ -409,16 +393,17 @@ card style:
 		visible:			{ has_identity() }
 		image:				{ card_identity() }
 	type:
-		left:				{ if has_identity() then 51 else 31 }
+		left:				{ (if has_identity() then 51 else 31)+ type_font_vertical() }
 		top:				297
 		right:				{ if set.shorten_types_for_rarity then (if styling.circle_around_rarity then 313 else max(188,min(344, rarity_left()-4))) else 344 }
 		height:				27
 		z index:			1000
 		alignment:			middle left shrink-overflow
 		font:
-			name:				{ if styling.name_font == "" then "Chantilly-Medium-Regular-AllCaps" else styling.name_font }
-			size:				{ 13 - shrink_type() }
-			color:				white
+			name: 				{ type_font() }
+			italic name: 		{ type_font_italic() }
+			size: 				{ type_font_size() }
+			color: 				{ type_font_color() }
 			separator color:	red
 	rarity:
 		right:				{ rarity_right() }
@@ -469,7 +454,7 @@ card style:
 	############################# Text box
 	text:
 		left:				33
-		top:				{ 333 + chop_top() }
+		top:				{ 333 + chop_top() + body_font_vertical() }
 		right:				342
 		bottom:				{ 475 - chop_bot() }
 		z index:			1000
@@ -488,14 +473,14 @@ card style:
 				then "middle center"
 				else "middle left"
 		font:
-			name:				{ if styling.text_font == "" then "MPlantin" else styling.text_font }
-			italic name:		{ if styling.text_italic_font == "" then "MPlantin-Italic" else styling.text_italic_font }
-			size:				{ if styling.rule_text_font_size_cap != "" then to_number(styling.rule_text_font_size_cap) else 13 }
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				{ body_font_size() }
 			scale down to:		6
-			color:				white
+			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
-			size:				{ if styling.rule_text_font_size_cap != "" then to_number(styling.rule_text_font_size_cap) else 13 }
+			size:				{ body_font_size() }
 			scale down to:		6
 	watermark:
 		left:				10
@@ -510,15 +495,16 @@ card style:
 	############################# PT
 	pt:
 		left:				295
-		top:				466
+		top:				{ 466 + pt_font_vertical() }
 		width:				55
 		height:				28
 		z index:			1000
 		alignment:			center middle shrink-overflow
 		font:
-			name:				{ if styling.name_font == "" then "Beleren Bold" else styling.name_font }
-			size:				14.5
-			color:				white
+			name: 				{pt_font()}
+			italic name: 		{pt_font_italic()}
+			size: 				{pt_font_size()}
+			color:				{pt_font_color()}
 			separator color:	red
 	############################# Copyright stuff
 	card stamp:
@@ -566,6 +552,13 @@ card style:
 			size:				7
 			color:				{ styling.copyright_text_color }
 			weight:				bold
+	partition select:
+		left: 				24
+		top:				488
+		width:				{if not use_auto_numbers() then 0 else if contains(set.card_number_style, match:"/0") then 50 else 35}
+		height:				10
+		z index:			3
+		render style:		hidden
 
 ############################################################## Extra card fields
 
@@ -574,10 +567,7 @@ extra card field:
 	name:				card code
 	save value:			false
 	show statistics:	false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount
-		then forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else combined_editor(field1: card.custom_card_number, separator: (if card.custom_card_number != "" then " " else "") + rarity_code() + " ", field2: card.card_code_text)
+	script:				card_number_script_core()
 extra card field:
 	type:				text
 	name:				auto copyright
@@ -722,7 +712,7 @@ extra card style:
 		width:				375
 		height:				4
 		z index:			610
-		visible:			{ styling.flavor_bar and card.rule_text != "" and remove_tags(card.flavor_text) != "" }
+		visible:			{ set.use_flavor_bar and card.rule_text != "" and remove_tags(card.flavor_text) != "" }
 		render style:		image
 		image:				flavor_bar.png
 	rarity circle:
