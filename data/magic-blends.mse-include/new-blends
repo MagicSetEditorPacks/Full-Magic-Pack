@@ -1058,7 +1058,7 @@ spotlight_watermark_blend := {
 		c1 := crop(c1, height:h, width:l, offset_x:0, offset_y:0)
 		c2 := crop(c2, height:h, width:l, offset_x:0, offset_y:0)
 	)
-	mask := if invert_mask then invert_image(input) else input
+	mask := input
 	set_alpha(
 		alpha: alpha
 		input:
@@ -1079,23 +1079,42 @@ spotlight_watermark_blend := {
 				x2: 0.6,  y2: 0
 			)
 	)
-}@(h:500,l:500,face:1,invert_mask:false,alpha:0.2)
-
+}@(h:500,l:500,face:1,alpha:0.2)
+shadow_watermark_blend := {
+	set_combine(
+		combine:"shadow",
+		set_alpha(
+			alpha: 0.5,
+			drop_shadow(
+				offset_x: -0.01,
+				offset_y: 0.03,
+				blur_radius: 0.02,
+				alpha: 1,
+				color: rgb(0,0,0),
+				enlarge(
+					border_size: 0.03,
+					invert_image(input)
+				)
+			)
+		)
+	)
+}
 watermark_blend :=
 {
 	dark_textbox :=		(face == 1 and invert_watermark())
 					or	(face == 2 and invert_watermark2())
 					or	(face == 3 and invert_watermark3())
-	invert_base_image := invert_mask
+	invert_base_image := false
 	if dark_textbox then
 	(
 		alpha := dark_alpha
 		spotlight_alpha := dark_spotlight_alpha
-		invert_base_image := not invert_mask
+		invert_base_image := true
 	)
 	
 	if colored then set_alpha(alpha: alpha, input)
-	else if set.blend_with_colors then spotlight_watermark_blend(h:h, l:l, face:face, invert_mask:invert_mask, alpha: spotlight_alpha, input)
+	else if set.blend_with_colors == "yes" then spotlight_watermark_blend(h:h, l:l, face:face, alpha: spotlight_alpha, input)
+	else if set.blend_with_colors == "shadow" then shadow_watermark_blend(input)
 	else if invert_base_image then set_alpha(alpha: alpha, invert_image(input))
 	else set_alpha(alpha: alpha, input)
-}@(h:500,l:500,colored:false,face:1,invert_mask:false,alpha:0.25,spotlight_alpha:0.75,dark_alpha:0.25,dark_spotlight_alpha:0.35)
+}@(h:500,l:500,colored:false,face:1,alpha:0.25,spotlight_alpha:0.75,dark_alpha:0.25,dark_spotlight_alpha:0.35)
