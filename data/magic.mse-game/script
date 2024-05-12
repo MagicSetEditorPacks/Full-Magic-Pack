@@ -84,7 +84,7 @@ clamp := {
 	else if number > maximum then maximum
 	else number
 }
-round_up :=   {to_int(0.99999999999998+input)}
+round_up :=   {to_int(0.99999999999998+input)} #### 0.99999999999999 == 1, leave the 8
 round_near := {to_int(0.5+input)}
 #### reads from a comma separated list like an array
 pull_comma_array := {
@@ -105,7 +105,7 @@ pull_comma_array := {
 #### can also add default to return in case of errors
 
 #### a workaround for the crop offset function that doesn't appear to work
-#slice_crop(input:image, height:(final height), width:(final width), distance:(length from bottom to top of final image))
+#### slice_crop(input:image, height:(final height), width:(final width), distance:(length from bottom to top of final image))
 slice_crop := {
 	img := flip_vertical(input)
 	img := crop(img, height:distance, width:width, offset_x:0, offset_y:0)
@@ -151,36 +151,6 @@ join_list := {
 		string := string + (if x == length(input)-1 then closing else "") + input[x] + (if x == length(input)-1 then "" else spacer)
 	string
 }@(spacer:", ", closing:"and ")
-#### TODO, don't use this, use a+b array
-join_arrays := {
-	a1 + for x from 0 to length(a2)-1 do [a2[x]]
-}
-#### TODO, don't use this, we have type_name now
-type_of := {
-	test := to_string(input) or else nil
-	type := "idk"
-	if test == "" and input == nil then type := "nil"
-	else if test != nil and (input == true or input == false) then type := "boolean"
-	else if (test != nil and test + 0 == input + 0) then (
-		if to_color(test) or else nil == input
-			then type := "color"
-		else if to_date(test) or else nil == input
-			then type := "date"
-		else type := "string"
-	)
-	else if test != nil then type := "number"
-	else if input[0] or else nil != nil then type := "array"
-	else if key == "" then type := "map or image"
-	else if input[key] or else nil == nil then type := "image"
-	else type := "map"
-	type
-}@(key:"")
-is_string := {
-	test := to_string(input) or else nil
-	if test == "" and input == nil then false
-	else if test == nil then false
-	else test == input
-}
 
 #### workarounds cause position() is broken for text arrays
 #### where reasonable, you can use position(of:["str"], in:[["list"], ["of"], ["str"]]) instead
@@ -204,7 +174,7 @@ unique_elements := {
 #### This blends a map of images together
 #### i dont remember why
 #### i think i tested it for dungeons
-# mapping := ["up":"test/up.png" "down":"test/down.png" "left":"test/left.png" "right":"test/right.png"]
+#### example img_map := ["up":"test/up.png" "down":"test/down.png" "left":"test/left.png" "right":"test/right.png"]
 multi_choice_image := {
 	#### input   = option string
 	#### img_map = map of image links
@@ -253,7 +223,7 @@ strip_card_codes := {
 name_default := { "" }
 name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
 
-#### Print Fix
+#### Print fix
 rare_width := {
 	cw := card_style.rarity.content_width
 	cw := if cw > 44 then (if set.print_fix != "" then set.print_fix else 22) else if cw < 22 then 22 else cw
@@ -349,7 +319,6 @@ exporter_num_grabber := replace@(match:"!num ", replace:"")
 trim_zeroes := replace@(match: "^00?", replace: "")+
 	replace@(match: "a?/[0-9b]+", replace: "")
 corrected_card_number := { if exporter_num_grabber(exporter_num_filter(card.notes)) != "" then exporter_num_grabber(exporter_num_filter(card.notes)) else if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number() }
-
 
 ############################################################## Sorting mana symbols
 #### correctly sort a mana symbol (no guild mana)
@@ -600,7 +569,7 @@ card_color_to_letters := {
 #### The code consists of 4 parts:
 ####   partition, rarity tier, color, card name
 #### remove filler text from partition select
-partition_filter := replace@(match:"(before normal|after normal, main set|after main set|secret|help.*) ?", replace:"")
+partition_filter := replace@(match:"(before normal|after normal, main set|after main set|help.*) ?", replace:"")
 partition_index := { 
 	ind := partition_filter(card.partition_select)
 	if ind == "" then ind := "A"
@@ -862,7 +831,7 @@ cmc := {to_number(
 	))
 }
 mana_value := cmc
-####Remove supertypes or types to look at parts of the super_type field by themselves.
+#### Remove supertypes or types to look at parts of the super_type field by themselves.
 remove_supertype := replace@(match: "(Legendary|Basic|Snow|World|Tribal|Token)", replace: "")+
 	replace@(match: "[ ]+", in_context: "^<match>", replace: "")+
 	replace@(match: "[ ]+", in_context: "<match>$", replace: "")
@@ -917,31 +886,7 @@ primary_card_color := {
 	else if green                                          then "green"
 	else                                                        input
 }
-mainframe_stat_color := {
-	artifact := chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
-	land :=     chosen(choice:"land")
-	multi :=    chosen(choice:"multicolor")
-	hybrid :=   chosen(choice:"hybrid")
-	white :=    chosen(choice:"white")
-	blue :=     chosen(choice:"blue")
-	black :=    chosen(choice:"black")
-	red :=      chosen(choice:"red")
-	green :=    chosen(choice:"green")
-	pink :=     chosen(choice:"pink")
-	purple :=   chosen(choice:"purple")
-	if      land                                      then "land"
-	else if multi                                     then "multicolor"
-	else if hybrid                                    then "hybrid"
-	else if artifact                                  then "artifact"
-	else if white                                     then "white"
-	else if blue                                      then "blue"
-	else if black                                     then "black"
-	else if red                                       then "red"
-	else if green                                     then "green"
-	else if pink                                      then "pink"
-	else if purple                                    then "purple"
-	else                                                   input
-}
+
 ############################################################## Keyword utilities
 trim_reminder_x := replace@(match: ". X can’t be 0.", replace: "")
 has_cc :=          { card.casting_cost != "" }
@@ -1057,20 +1002,30 @@ actionize := replace@(match:"(activate|ante|cast|choose|create|destroy|discard|d
 
 #### determine if a reminder text should refer to this card or that card
 this_or_that := {
-	this := "this"
-	that := "that"
-	type := input
-	if input == "type" then type := to_lower(main_type(card.type))
-	else if is_creaturish(card.type) then type := "creature"
-	if type == "" then type := "permanent"
-	if upper then (
-		this := "This"
-		that := "That"
-	)
-	if(type == "land" and not is_land(card.type)) then type := "permanent"
-	this_that := this
-	if ((input == "creature" and not is_creaturish(card.type)) or is_spell(card.type))
-		then this_that := that
+	this :=  if upper then "This" else "this"
+	that := if upper then "That" else "that"
+	#### inherit type, creature override, or given type
+	type := if input == "type"
+				then to_lower(main_type(card.type))
+			else if input != "card" and is_creaturish(card.type)
+				then "creature"
+			else input;
+
+	this_that := if input == "creature" and not is_creaturish(card.type)
+					then that #### ex. "Equipped creature has wither."
+				else if is_spell(card.type) and not is_spell(type)
+					then that #### ex. "Target creature gains wither."
+				else this;
+
+	#### sanitize
+	type := if type == ""
+				then "permanent"
+			else if this_that == this and type == "artifact" and not is_artifact(card.type)
+				then "permanent" #### ex. an enchantment with crew
+			else if this_that == this and type == "land" and not is_land(card.type)
+				then "permanent" #### ex. an enchantment with hideaway before they changed it
+			else type;
+
 	this_that + " " + type
 }@(upper:false)
 
@@ -1551,12 +1506,6 @@ text_filter :=
 	  else input
 	}
 
-#### TODO i think these can be removed
-#modal_lines := replace@(match:"</?soft-line>", replace:"")
-#	+replace@(match:"(.+)", replace:"<soft-line>\\1</soft-line>")
-#
-#modal_text_filter := text_filter + modal_lines
-
 #### the flavor text filter
 ####  - makes all text italic
 flavor_text_filter_default := { "<i-flavor></i-flavor>" }
@@ -1953,16 +1902,16 @@ all_classes := {
 ############################################################## Modal DFC flag hints
 auto_flags := {true}
 front_modal_hint := {
-	if not auto_flags() then ["", "", 10.5]
-	else if remove_tags(card.sub_type_2) != "" then [card.sub_type_2, "<sym>"+card.casting_cost_2+"</sym>", 10.5]
-	else if card.casting_cost_2 != "" then [main_type(card.super_type_2), "<sym>"+card.casting_cost_2+"</sym>", 10.5]
-	else [main_type(card.super_type_2), mana_ability(card.rule_text_2), 10.5]
+	if not auto_flags() then ["", ""]
+	else if remove_tags(card.sub_type_2) != "" then [card.sub_type_2, "<sym>"+card.casting_cost_2+"</sym>"]
+	else if card.casting_cost_2 != "" then [main_type(card.super_type_2), "<sym>"+card.casting_cost_2+"</sym>"]
+	else [main_type(card.super_type_2), mana_ability(card.rule_text_2)]
 }
 back_modal_hint := {
-	if not auto_flags() then ["", "", 10.5]
-	else if remove_tags(card.sub_type) != "" then [card.sub_type, "<sym>"+card.casting_cost+"</sym>", 10.5]
-	else if card.casting_cost != "" then [main_type(card.super_type), "<sym>"+card.casting_cost+"</sym>", 10.5]
-	else [main_type(card.super_type), mana_ability(card.rule_text), 10.5]
+	if not auto_flags() then ["", ""]
+	else if remove_tags(card.sub_type) != "" then [card.sub_type, "<sym>"+card.casting_cost+"</sym>"]
+	else if card.casting_cost != "" then [main_type(card.super_type), "<sym>"+card.casting_cost+"</sym>"]
+	else [main_type(card.super_type), mana_ability(card.rule_text)]
 }
 mana_ability := {
 	abils := break_text(input, match:"(</?sym(-auto)?>)?T(</?sym(-auto)?>)?: Add (</?sym(-auto)?>)?(W|U|B|R|G|C)(</?sym(-auto)?>)?(, | or )?(</?sym(-auto)?>)?(W|U|B|R|G|C)?(</?sym(-auto)?>)?(, or )?(</?sym(-auto)?>)?(W|U|B|R|G|C)?(</?sym(-auto)?>)?.")
@@ -1981,6 +1930,7 @@ main_types := {
 	types := break_text(input, match:"(Land|Instant|Sorcery|Artifact|Enchantment|Creature|Planeswalker)")
 	types or else [""]
 }
+#### TODO we'll be able to remove this once transform corners are a card field
 node_script := { if card.shape == "double faced" then "transform day"  else "none" }
 ############################################################## Other scripted fields
 #### todo some of this can probably go in the include files themselves
@@ -2602,7 +2552,6 @@ custom_watermark_b := {"/magic-watermarks.mse-include/planeswalker.png"}
 invert_watermark := { false }
 invert_watermark2 := { false }
 invert_watermark3 := { false }
-#### todo why do we have both of these
 card_new_color := {
 	if card.card_color == "white" then "w"
 	else if card.card_color == "blue" then "u"
@@ -2612,15 +2561,6 @@ card_new_color := {
 	else if contains(card.card_color, match:"artifact") then "a"
 	else if contains(card.card_color, match:"multi") or contains(card.card_color, match:"hybrid") then "m"
 	else "c"
-}
-spark_color := {
-	if card.card_color == "white" then "w"
-	else if card.card_color == "blue" then "u"
-	else if card.card_color == "black" then "b"
-	else if card.card_color == "red" then "r"
-	else if card.card_color == "green" then "g"
-	else if contains(card.card_color, match:"multi") or contains(card.card_color, match:"hybrid") then "m"
-	else ""
 }
 ############################################################## Stamps
 ub_stamp := { card.card_stamp == "universes beyond" }
@@ -2758,13 +2698,13 @@ swap_fonts_pt_default := [
 	vertical: {0},
 	italic: {""}
 ]
-swap_fonts_name_src := {styling.custom_name_font or else ""}
-swap_fonts_name_src := {styling.custom_name_font or else ""}
-swap_fonts_name2_src := {styling.custom_name_2_font or else ""}
-swap_fonts_type_src := {styling.custom_type_font or else ""}
-swap_fonts_type2_src := {styling.custom_type_2_font or else ""}
-swap_fonts_body_src := {styling.custom_body_font or else ""}
-swap_fonts_pt_src := {styling.custom_pt_font or else ""}
+swap_fonts_name_src :=  { styling.custom_name_font   or else "" }
+swap_fonts_name_src :=  { styling.custom_name_font   or else "" }
+swap_fonts_name2_src := { styling.custom_name_2_font or else "" }
+swap_fonts_type_src :=  { styling.custom_type_font   or else "" }
+swap_fonts_type2_src := { styling.custom_type_2_font or else "" }
+swap_fonts_body_src :=  { styling.custom_body_font   or else "" }
+swap_fonts_pt_src :=    { styling.custom_pt_font     or else "" }
 #### specific swap functions
 name_font := {
 	swap_font_name(
@@ -2951,14 +2891,14 @@ pt_font_italic := {
 		font_name: swap_fonts_pt_default.italic()
 	)
 }
-shrink_name := {0}
-shrink_type := {0}
+shrink_name :=  {0}
+shrink_type :=  {0}
 shrink_name2 := {0}
 shrink_type2 := {0}
 ############################################################## Custom rarity symbol
 use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png") }
-alt_rarity := {styling.alt_rarity_color or else ""}
-use_alt_rarity := {alt_rarity() != ""}
+alt_rarity := { styling.alt_rarity_color or else "" }
+use_alt_rarity := { alt_rarity() != "" }
 alt_rarity_color := {
 	string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
 	src := alt_rarity()
@@ -3065,19 +3005,19 @@ rarity_sort_script :=
 	else									"6"
 }
 ############################################################## Custom index
-searchPull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
-searchSnip := replace@(match:"search(name|mana|type|rules|flavor|text|notes)_", replace:"")
+search_pull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
+search_snip := replace@(match:"search(name|mana|type|rules|flavor|text|notes)_", replace:"")
 
 custom_index := {
-	sortIndex := split_text(set.custom_index, match:",")
-	for each field in sortIndex do 
-			applyIndex(to_lower(field))
+	sorting_index := split_text(set.custom_index, match:",")
+	for each field in sorting_index do 
+			apply_index(to_lower(field))
 		or else (
-			searchIndex(to_lower(searchPull(field)), query:searchSnip(field))
+			search_index(to_lower(search_pull(field)), query:search_snip(field))
 		)
 		or else ""
 }
-applyIndex := {
+apply_index := {
 	[
 		name: {
 			fill_len(to_string(position (
@@ -3131,7 +3071,7 @@ applyIndex := {
 		hasflavor2: {if remove_tags(card.flavor_text_2) != "" then "A" else "B"},
 	][input]()
 }
-searchIndex := {
+search_index := {
 	[
 		searchname: { if contains(card.name, match:query) or contains(card.name_2, match:query) then "A" else "B"},
 		searchmana: { if contains(card.casting_cost, match:query) or contains(card.casting_cost_2, match:query) then "A" else "B"},
@@ -3186,10 +3126,10 @@ skeleton_blank_commons := 0
 skeleton_blank_uncommons := 5
 skeleton_blank_rares := 8
 skeleton_blank_mythics := 5
-#### generates a set of CC00 Skeleton cards for each color
+#### generates a set of CCXX Skeleton cards for each color
 #### by insertnamehere and cajun
 skeleton_runner := {
-	cards:=[]
+	cards := []
 	for x from 0 to length(letter_list)-1 do
 	(
 		for y from 1 to count do
