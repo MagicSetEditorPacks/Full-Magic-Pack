@@ -1,13 +1,19 @@
-#### To use this include in a template, add the following line, not indented, in the card style section:
-include file: /magic-copyright.mse-include/complete_copyright
+#### To use this mse-include in a template, add the following into your style file:
 
-#### Also add the following in the template headers:
+#### In the template headers:
 depends on:
 	package:			magic-copyright.mse-include
 	version:			2024-01-29
+#### In the init script: section:
+include file: /magic-copyright.mse-include/script
+#### Before the card fields: section:
+include file: /magic-copyright.mse-include/card_fields
+#### For DFC frames, instead add
+include file: /magic-copyright.mse-include/card_fields_dfc
 
-#### Optionally, you can adjust global alignment by defining the following functions in the init script,
-#### which must return an int corresponding to the number of pixels you want to shift things by:
+#### You can adjust global alignment by redefining the following functions after the scripts include statement
+#### which must return an int corresponding to the number of pixels you want to shift things by
+#### positive numbers move right and down, negative move left and up
 
 #### To shift everything up/down:
 copyright_offset_top := { 0 }

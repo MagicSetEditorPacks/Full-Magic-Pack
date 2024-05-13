@@ -1935,24 +1935,28 @@ node_script := { if card.shape == "double faced" then "transform day"  else "non
 ############################################################## Other scripted fields
 #### todo some of this can probably go in the include files themselves
 #### Dimensions of card faces, can be changed in style files
-faces_coordinates := { "0,0," + stylesheet.card_width + "," + stylesheet.card_height }
-face_coordinates_array :=
-{
-	split := split_font(faces_coordinates())
-	coordinates := split[input-1] or else ""
-	if coordinates == "" then [0,0,0,0] else (
-	split := split_comma(coordinates)
+faces_coordinates := {
 	[
-		to_int(split.0 or else 0) or else 0,
-		to_int(split.1 or else 0) or else 0,
-		to_int(split.2 or else 0) or else 0,
-		to_int(split.3 or else 0) or else 0
-	])
+		[
+			left: 0,
+			top: 0,
+			width: stylesheet.card_width,
+			height: stylesheet.card_height
+		]
+	]
+}
+face_coordinates_string := {
+	fc := faces_coordinates()
+	for x from 0 to length(fc) - 1 do fc[x].left + "," + fc[x].top + "," + fc[x].width + "," + fc[x].height + ";"
+}
+face_coordinates_map := {
+	fc := faces_coordinates()
+	fc[input-1] or else fc[0] or else [top: 0, left:0, width:stylesheet.card_width, height:stylesheet.card_height]
 }
 face_is_rotated :=
 {
-	array := face_coordinates_array(input)
-	array[2] > array[3]
+	array := face_coordinates_map(input)
+	array.width > array.height
 }
 
 set_code_script :=
@@ -2019,9 +2023,9 @@ additional_credit_brush_image :=
 #	primary_field := if input <= 1 then card_style[(if set.automatic_copyright then "auto_" else "") + "copyright"] else card_style[(if set.automatic_copyright then "auto_" else "") + "copyright_" + input]
 #	pt_offset := if input <= 1 then copyright_offset_pt_left() else if input == 2 then copyright_offset_pt_left_2() else copyright_offset_pt_left_3()
 #	offset := if input <= 1 then copyright_offset_right() else if input == 2 then copyright_offset_right_2() else copyright_offset_right_3()
-#	needed := (255 + pt_offset - if field_length > 9 then 45 else if field_length > 6 then 25 else if field_length > 4 then 10 else 0) * face_coordinates_array(input)[2]/375 + face_coordinates_array(input)[0]
-#	aligned := 351 * face_coordinates_array(input)[2]/375 + offset - primary_field.content_width + face_coordinates_array(3)[0]
-#	max(min(needed, aligned), 211 * face_coordinates_array(3)[2]/375)
+#	needed := (255 + pt_offset - if field_length > 9 then 45 else if field_length > 6 then 25 else if field_length > 4 then 10 else 0) * face_coordinates_map(input).width/375 + face_coordinates_map(input).left
+#	aligned := 351 * face_coordinates_map(input).width/375 + offset - primary_field.content_width + face_coordinates_map(3).left
+#	max(min(needed, aligned), 211 * face_coordinates_map(3).width/375)
 #}
 #copyright_b_right :=
 #{
@@ -2029,34 +2033,16 @@ additional_credit_brush_image :=
 #	loyalty := if input <= 1 then card.loyalty else card["loyalty_" + input]
 #	pt_offset := if input <= 1 then copyright_offset_pt_left() else if input == 2 then copyright_offset_pt_left_2() else copyright_offset_pt_left_3()
 #	offset := if input <= 1 then copyright_offset_right() else if input == 2 then copyright_offset_right_2() else copyright_offset_right_3()
-#	(if pt != "" then 279 + pt_offset else if loyalty != "" then 295 + pt_offset else 351) * face_coordinates_array(3)[2]/375 + face_coordinates_array(3)[0] + offset
+#	(if pt != "" then 279 + pt_offset else if loyalty != "" then 295 + pt_offset else 351) * face_coordinates_map(3).width/375 + face_coordinates_map(3).left + offset
 #}
 
-copyright_disabled := { false }
-copyright_offset_top := { 0 }
-copyright_offset_left := { 0 }
-copyright_offset_right := { 0 }
-copyright_offset_pt_top := { 0 }
-copyright_offset_pt_left := { 0 }
-copyright_disabled_2 := { false }
-copyright_offset_top_2 := { 0 }
-copyright_offset_left_2 := { 0 }
-copyright_offset_right_2 := { 0 }
-copyright_offset_pt_top_2 := { 0 }
-copyright_offset_pt_left_2 := { 0 }
-copyright_disabled_3 := { false }
-copyright_offset_top_3 := { 0 }
-copyright_offset_left_3 := { 0 }
-copyright_offset_right_3 := { 0 }
-copyright_offset_pt_top_3 := { 0 }
-copyright_offset_pt_left_3 := { 0 }
 
 the_list_icon_default := { "none" }
 the_list_icon_field := { if input <= 1 then card.the_list_icon else card["the_list_icon_" + input] }
 the_list_icon_image :=
 {
 	shape := the_list_icon_field(field)
-	suffix := if shape == "the list" and face_coordinates_array(face)[2] != 375 and face_coordinates_array(face)[2] != 523 then " 750" else ""
+	suffix := if shape == "the list" and face_coordinates_map(face).width != 375 and face_coordinates_map(face).width != 523 then " 750" else ""
 	image := "/magic-copyright.mse-include/" + shape + suffix + ".png"
 	color := styling.copyright_text_color or else set.copyright_text_color
 	recolor_image(image, color: color)
@@ -2099,10 +2085,10 @@ corners_image :=
 }
 corners_mask :=
 {
-	coordinates_array := face_coordinates_array(face)
-	if coordinates_array[2] == 0 or coordinates_array[3] == 0 then "" else (
-	dimensions := coordinates_array[2] + "x" + coordinates_array[3]
-	dimensions := corners_possible_dimensions[dimensions] or else (if coordinates_array[3] > coordinates_array[2] then "1046x750" else "750x1046")
+	coordinates_map := face_coordinates_map(face)
+	if coordinates_map.width == 0 or coordinates_map.height == 0 then "" else (
+	dimensions := coordinates_map.width + "x" + coordinates_map.height
+	dimensions := corners_possible_dimensions[dimensions] or else (if coordinates_map.height > coordinates_map.width then "1046x750" else "750x1046")
 	shape := corners_field(field)
 	shape := if shape == "none" then "rounded" else shape
 	"/magic-corners.mse-include/" + dimensions + " " + shape + ".png")
@@ -2152,10 +2138,10 @@ card_stamp_field := { if input <= 1 then card.card_stamp else card["card_stamp_"
 card_stamp_image :=
 {
 	if not is_stamped() then "" else (
-	coordinates_array := face_coordinates_array(face)
-	if coordinates_array[2] == 0 or coordinates_array[3] == 0 then "" else (
-	dimensions := coordinates_array[2] + "x" + coordinates_array[3]
-	dimensions := card_stamp_possible_dimensions[dimensions] or else (if coordinates_array[3] > coordinates_array[2] then "1039x744" else "744x1039")
+	coordinates_map := face_coordinates_map(face)
+	if coordinates_map.width == 0 or coordinates_map.height == 0 then "" else (
+	dimensions := coordinates_map.width + "x" + coordinates_map.height
+	dimensions := card_stamp_possible_dimensions[dimensions] or else (if coordinates_map.height > coordinates_map.width then "1039x744" else "744x1039")
 	shape := card_stamp_field(field)
 	if shape == "custom" then custom_stamp() else (
 	"/magic-stamps.mse-include/" + dimensions + " " + shape + (if is_foil_stamped() then ".png" else " void.png"))))
@@ -2220,8 +2206,8 @@ transform_symbol_is_mirrored :=
 }
 transform_symbol_image :=
 {
-	coordinates_array := face_coordinates_array(face)
-	if coordinates_array[2] == 0 or coordinates_array[3] == 0 then "" else (
+	coordinates_map := face_coordinates_map(face)
+	if coordinates_map.width == 0 or coordinates_map.height == 0 then "" else (
 	shape := transform_symbol_field(field)
 	if shape == "none" then ""
 	else if	shape == "custom symbol one" then custom_symbol_1()
@@ -2337,7 +2323,7 @@ loyalty_textbox_mask :=
 separator_enable_level := { false }
 separator_default := { if set.use_flavor_bar then "flavor bar" else "none" }
 
-flavor_bar_left := { face_coordinates_array(input)[0] }
+flavor_bar_left := { face_coordinates_map(input).left }
 flavor_bar_top :=
 {
 	style := if input <= 1 then card_style.text else card_style["text_" + input]
@@ -2353,8 +2339,8 @@ flavor_bar_top :=
 	then (if input <= 1 then old_bar_equation() else if input == 2 then old_bar_equation2() else old_bar_equation3()) - flavor_bar_height(input)/2
 	else style.top + (style.layout.blocks[0].bottom + style.layout.blocks[1].top)/2 - flavor_bar_height(input)/2
 }
-flavor_bar_width := { face_coordinates_array(input)[2] }
-flavor_bar_height := { 24 * face_coordinates_array(input)[3]/1039 }
+flavor_bar_width := { face_coordinates_map(input).width }
+flavor_bar_height := { 24 * face_coordinates_map(input).height/1039 }
 
 flavor_bar_disabled := { false }
 flavor_bar_offset_top := { 0 }
