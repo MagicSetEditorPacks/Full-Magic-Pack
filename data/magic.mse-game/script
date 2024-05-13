@@ -303,7 +303,12 @@ is_token_card :=   { token_shape(card.shape) }
 is_shifted_card := { contains(card.shape, match:"shifted") }
 is_masterpiece :=  { card.rarity == "masterpiece" }
 is_promo :=        { false }
-is_rare :=         { card.rarity == "rare" or card.rarity == "mythic rare" or card.rarity == "masterpiece" }
+rarity_field :=    { if input <= 1 then card.rarity else card["rarity_" + input] }
+is_rare :=
+{
+	rarity := rarity_field(field)
+	rarity == "rare" or rarity == "mythic rare" or rarity == "masterpiece"
+}@(field: 1)
 is_walker :=       { contains(card.super_type, match:"Planeswalker") }
 is_legend :=       { true } #### TODO ???
 ############################################################## Identity
@@ -2137,14 +2142,14 @@ card_stamp_default := { set.default_stamp }
 card_stamp_field := { if input <= 1 then card.card_stamp else card["card_stamp_" + input] }
 card_stamp_image :=
 {
-	if not is_stamped() then "" else (
+	if not is_stamped(field: field) then "" else (
 	coordinates_map := face_coordinates_map(face)
 	if coordinates_map.width == 0 or coordinates_map.height == 0 then "" else (
 	dimensions := coordinates_map.width + "x" + coordinates_map.height
 	dimensions := card_stamp_possible_dimensions[dimensions] or else (if coordinates_map.height > coordinates_map.width then "1039x744" else "744x1039")
 	shape := card_stamp_field(field)
 	if shape == "custom" then custom_stamp() else (
-	"/magic-stamps.mse-include/" + dimensions + " " + shape + (if is_foil_stamped() then ".png" else " void.png"))))
+	"/magic-stamps.mse-include/" + dimensions + " " + shape + (if is_foil_stamped(field: field) then ".png" else " void.png"))))
 }
 card_stamp_possible_dimensions :=
 [
@@ -2315,7 +2320,7 @@ loyalty_cost_offset_text_margin := { 0 }
 
 loyalty_textbox_mask :=
 {
-	if is_stamped()
+	if is_stamped(field: loyalty_text_field())
 	then "/magic-loyalty.mse-include/default_textbox_stamp_mask.png"
 	else "/magic-loyalty.mse-include/default_textbox_mask.png"
 }
@@ -2555,18 +2560,19 @@ custom_stamp := { if set.custom_stamp_name != "" then "/magic-stamps.mse-include
 is_stamped :=
 {
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
-	card.card_stamp != "none" and
+	shape := card_stamp_field(field)
+	shape != "none" and
 	(
 			stamp_behavior == "all foil"
 		or	stamp_behavior == "rare/mythic foil, un/common not foil"
-		or	(stamp_behavior == "rare/mythic foil, un/common not stamped" and is_rare())
+		or	(stamp_behavior == "rare/mythic foil, un/common not stamped" and is_rare(field: field))
 	)
-}
+}@(field: 1)
 is_foil_stamped :=
 {
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
-	stamp_behavior == "all foil" or	(contains(stamp_behavior, match: "rare/mythic foil") and is_rare())
-}
+	stamp_behavior == "all foil" or	(contains(stamp_behavior, match: "rare/mythic foil") and is_rare(field: field))
+}@(field: 1)
 
 #### pretty sure these next two methods are unused since they reference card.stamp which doesn't exist
 #c_stamp_name := {
