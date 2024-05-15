@@ -13,7 +13,7 @@ nameline_face := { 1 }
 #### You can also adjust global alignment by defining the following functions, again in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift the nameline by:
 
-#### To shift the entire nameline up/down (name + casting cost):
+#### To shift the entire nameline up/down (name + casting cost + transformation symbol):
 nameline_offset_top := { 0 }
 
 #### To shift the entire nameline left/right:
@@ -35,6 +35,17 @@ casting_cost_offset_top := { 0 }
 casting_cost_offset_left := { 0 }
 casting_cost_offset_width := { 0 }
 casting_cost_offset_height := { 0 }
+
+transform_symbol_disabled := { true }
+transform_symbol_mirrored := { true }
+transform_symbol_offset_top := { 0 }
+transform_symbol_offset_left := { 0 }
+transform_symbol_offset_width := { 0 }
+transform_symbol_offset_height := { 0 }
+
+#### You can increase/decrease the amount by which the name shifts left
+#### when a transformation symbol is present on the card:
+name_transform_symbol_offset_left := { 0 }
 
 #### For the other faces on DFCs or TFCs use:
 nameline_offset_top_2 := { 0 }
