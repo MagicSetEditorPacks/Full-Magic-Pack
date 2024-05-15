@@ -19,10 +19,10 @@ nameline_offset_top := { 0 }
 #### To shift the entire nameline left/right:
 nameline_offset_left := { 0 }
 
-#### To increase/decrease the width of the entire nameline:
+#### To increase/decrease the width of the entire nameline (this WILL NOT change the size of the transformation symbol):
 nameline_offset_width := { 0 }
 
-#### To increase/decrease the height of the entire nameline:
+#### To increase/decrease the height of the entire nameline (this WILL change the size of the transformation symbol):
 nameline_offset_height := { 0 }
 
 #### You can also adjust each of the components individually:
