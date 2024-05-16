@@ -24,6 +24,30 @@ depends on:
 depends on:
 	package:			magic-mainframe-extras.mse-include
 	version:			2007-09-23
+depends on:
+	package:			magic-namelines.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-symbols.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-typelines.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-separators.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-watermarks.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-stamps.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-corners.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-copyright.mse-include
+	version:			2024-01-29
 
 card width:			375
 card height:		523
@@ -37,6 +61,10 @@ card dpi:			150
 ############################################################## Extra scripts
 
 init script:
+	include file: /magic-copyright.mse-include/script
+	
+	
+	
 	template_prefix :=
 	[
 		card:			"card/",
@@ -70,7 +98,7 @@ init script:
 	is_promo		:= { styling.promo }
 	
 	is_unsorted		:= { styling.remove_from_autocount }
-
+	
 	is_stamped		:= { card.card_stamp != "none" and (contains(styling.holofoil_stamps, match: "yes") or (styling.holofoil_stamps == "only rares and mythics" and is_rare()))}
 	is_foil_stamped	:= { styling.holofoil_stamps == "yes, all foil" or is_rare() }
 	
@@ -79,20 +107,10 @@ init script:
 	chop_top		:= { split := split_comma(styling.chop_textbox); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 700, minimum: -700) else 0 }
 	chop_bot		:= { split := split_comma(styling.chop_textbox); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 700, minimum: -700) else 0 }
 	
-	shrink_name :=	{ if styling.shrink_name_text == "-" then 0 else if styling.shrink_name_text != "" then clamp(styling.shrink_name_text, minimum: -40, maximum: 13) else 0 }
-	shrink_type :=	{ if styling.shrink_type_text == "-" then 0 else if styling.shrink_type_text != "" then clamp(styling.shrink_type_text, minimum: -40, maximum: 11) else 0 }
-	
-	rarity_right	:= { split := split_comma(styling.rarity_coordinates); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 500, minimum: 0) else 347 }
-	rarity_top		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 700, minimum: 0) else 296 }
-	rarity_size		:= { split := split_comma(styling.rarity_coordinates); if length(split) > 2 and split.2 != "" then clamp(split.2, maximum: 700, minimum: 0) else 26 }
-	rarity_left		:= { rarity_right() - rarity_size() }
-	
 	popout_left		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, maximum: 800, minimum: -500) else 0 }
 	popout_top		:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, maximum: 1000, minimum: -500) else 0 }
 	popout_width	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 800, minimum: 0) else 0 }
 	popout_height	:= { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 1000, minimum: 0) else 0 }
-	
-	split_comma	:= split_text@(match: " *, *")
 	
 	swap_fonts_name_default := [
 		name: {"Chantilly-Medium-Regular-AllCaps"},
@@ -122,21 +140,25 @@ init script:
 		vertical: {0},
 		italic: {""}
 	]
-
 	
 	w_scale := stylesheet.card_width/375
 	h_scale := stylesheet.card_height/523
 	
-############################################################## Set info fields
-
-set info style:
-	symbol:
-		variation:
-			name:				invertedcommon
-			border radius:		0.10
-			fill type:			solid
-			fill color:			rgb(255,255,255)
-			border color:		rgb(0,0,0)
+	card_stamp_default := { "universes beyond" }
+	
+	transform_symbol_disabled := { true }
+	
+	nameline_offset_top := { 1 }
+	
+	typeline_offset_left := { 1 }
+	typeline_offset_top := { 1 }
+	typeline_offset_width := { 4 }
+	
+	rarity_offset_left := { -1 }
+	rarity_offset_top := { -1 }
+	rarity_offset_size := { 1 }
+	
+	type_offset_right := { if styling.circle_around_rarity then -31 * w_scale else 0 }
 
 
 ############################################################## Extra style options
@@ -144,6 +166,14 @@ styling field:
 	type:			text
 	name:			chop textbox
 	description:	Formatted as "X,Y". Shrinks textbox X pixels from the top and Y from the bottom.
+styling field:
+	type:			choice
+	name:			center rule text
+	description:	When to center text (short text means only on one-line cards with no flavor text)
+	choice:			always
+	choice:			short text only
+	choice:			never
+	initial:		never
 styling field:
 	type:			text
 	name:			popout image coordinates
@@ -153,22 +183,6 @@ styling field:
 	name:			stretch image to whole card
 	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
 	initial:		no
-styling field:
-	type:			text
-	name:			shrink name text
-	description:	Shrinks name text X pixels.
-styling field:
-	type:			text
-	name:			shrink type text
-	description:	Shrinks type text X pixels.
-styling field:
-	type:			choice
-	name:			center rule text
-	description:	When to center text (short text means only on one-line cards with no flavor text)
-	choice:			always
-	choice:			short text only
-	choice:			never
-	initial:		never
 styling field:
 	type:			choice
 	name:			legend crown
@@ -211,18 +225,14 @@ styling field:
 	match:			magic-overlay-*.mse-include
 	required:		false
 styling field:
+	type:			text
+	name:			rarity offsets
+	description:	Moves the set symbol. Formatted as "left,top,size".
+styling field:
 	type:			boolean
 	name:			inverted common symbol
 	description:	Should the common rarity symbol be inverted, like in Coldsnap?
 	initial:		no
-styling field:
-	type:			text
-	name:			alt rarity color
-	description:	Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:..." 1 and 2 are fill color, 3 and 4 border color
-styling field:
-	type:			text
-	name:			rarity coordinates
-	description:	The coordinates for the set symbol, formatted as "right,top,size". Default is 347,296,26.
 styling field:
 	type:			boolean
 	name:			circle around rarity
@@ -314,13 +324,20 @@ styling style:
 			always:				/magic.mse-game/icons/center-all-text.png
 			short text only:	/magic.mse-game/icons/center-short-text.png
 			never:				/magic.mse-game/icons/center-no-text.png
-	inverted common symbol:
-		choice images:
-			no:					{ symbol_variation(symbol: set.symbol, variation: "common") }
-			yes:				{ symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 
 
 ############################################################## Card fields
+
+
+### Includes
+include file: /magic-namelines.mse-include/complete_namelines
+include file: /magic-typelines.mse-include/complete_typelines
+include file: /magic-separators.mse-include/complete_flavor_bar
+include file: /magic-watermarks.mse-include/complete_watermarks
+include file: /magic-stamps.mse-include/complete_stamps
+include file: /magic-copyright.mse-include/card_fields
+include file: /magic-corners.mse-include/complete_corners
+
 
 card style:
 	############################# Background stuff
@@ -341,34 +358,6 @@ card style:
 		render style:		image
 		image:				{ card_background() }
 		mask:				card_mask.png
-	############################# Name line
-	name:
-		left:				32
-		top:				{ 28 + shrink_name()/2 + name_font_vertical() }
-		right:				{ 339 - (if card_style.casting_cost.content_width == 0 then 0 else card_style.casting_cost.content_width + 4) }
-		height:				25
-		z index:			1000
-		alignment:			top left shrink-overflow
-		font:
-			name:				{ name_font() }
-			italic name:		{ name_font_italic() }
-			size:				{ name_font_size() }
-			color:				{ name_font_color() }
-	casting cost:
-		right:				348
-		top:				29
-		width:				{ max(30, card_style.casting_cost.content_width) + 6 }
-		height:				24
-		z index:			1010
-		alignment:			middle right
-		always symbol:		true
-		font:
-			name:				MPlantin
-			size:				15
-			color:				white
-		symbol font:
-			name:				{ styling.casting_cost_mana_symbols }
-			size:				15
 	############################# Image
 	image:
 		left:				{ if styling.stretch_image_to_whole_card then 0							else 29 }
@@ -382,82 +371,13 @@ card style:
 		width:				{ popout_width() }
 		height:				{ popout_height() }
 		z index:			2000
-	############################# Card type
-	indicator:
-		left:				29
-		top:				301
-		width:				16
-		height:				16
-		z index:			1000
-		render style:		image
-		visible:			{ has_identity() }
-		image:				{ card_identity() }
-	type:
-		left:				{ (if has_identity() then 51 else 31)+ type_font_vertical() }
-		top:				297
-		right:				{ if set.shorten_types_for_rarity then (if styling.circle_around_rarity then 313 else max(188,min(344, rarity_left()-4))) else 344 }
-		height:				27
-		z index:			1000
-		alignment:			middle left shrink-overflow
-		font:
-			name: 				{ type_font() }
-			italic name: 		{ type_font_italic() }
-			size: 				{ type_font_size() }
-			color: 				{ type_font_color() }
-			separator color:	red
-	rarity:
-		right:				{ rarity_right() }
-		top:				{ rarity_top() }
-		width:				{ rarity_size() }
-		height:				{ rarity_size() }
-		z index:			1010
-		alignment:			middle right
-		render style:		image
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if alt_rarity() then alt_symbol()
-					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if alt_rarity() then alt_symbol()
-					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
-					else if alt_rarity() then alt_symbol()
-					else symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
-					else if alt_rarity() then alt_symbol()
-					else symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
-					else if alt_rarity() then alt_symbol()
-					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
-					else if alt_rarity() then alt_symbol()
-					else symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
-					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
 	############################# Text box
 	text:
 		left:				33
 		top:				{ 333 + chop_top() + body_font_vertical() }
 		right:				342
 		bottom:				{ 475 - chop_bot() }
-		z index:			1000
+		z index:			2000
 		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -465,11 +385,11 @@ card style:
 		line height line max:	1.6
 		alignment:
 			script:
-				if (styling.center_rule_text == "short text only" and
-				   not contains(match:"\n", card.rule_text) and
-				   card.flavor_text == "<i-flavor></i-flavor>" and
-				   card_style.text.content_lines <= 2) or
-				   styling.center_rule_text == "always"
+				if	(styling.center_rule_text == "short text only" and
+					not contains(match:"\n", card.rule_text) and
+					card.flavor_text == "<i-flavor></i-flavor>" and
+					card_style.text.content_lines <= 2) or
+					styling.center_rule_text == "always"
 				then "middle center"
 				else "middle left"
 		font:
@@ -482,78 +402,23 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			scale down to:		6
-	watermark:
-		left:				10
-		top:				331
-		right:				365
-		height:				148
-		z index:			600
-		render style:		image
-		popup style:		in place
-		alignment:			middle center
-		include file:		/magic-watermarks.mse-include/watermarks
 	############################# PT
 	pt:
 		left:				295
 		top:				{ 466 + pt_font_vertical() }
 		width:				55
 		height:				28
-		z index:			1000
+		z index:			3000
 		alignment:			center middle shrink-overflow
 		font:
-			name: 				{pt_font()}
-			italic name: 		{pt_font_italic()}
-			size: 				{pt_font_size()}
+			name:				{pt_font()}
+			italic name:		{pt_font_italic()}
+			size:				{pt_font_size()}
 			color:				{pt_font_color()}
 			separator color:	red
 	############################# Copyright stuff
-	card stamp:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			720
-		render style:		image
-		popup style:		in place
-		image:				{ if not is_stamped() then "" else if is_foil_stamped() then "holofoil/universes beyond.png" else "holofoil/universes beyond_void.png" }
-		mask:				mask_stamp_holofoil.png
-	set code:
-		left:				24
-		top:				499
-		width:				40
-		height:				10
-		z index:			1000
-		alignment:			middle left
-		font:
-			name:				Relay-Medium
-			size:				7
-			color:				{ styling.copyright_text_color }
-			weight:				bold
-	illustrator:
-		left:				{ if card.set_code == "" then 38 else 42 + card_style.set_code.content_width }
-		top:				498.5
-		width:				200
-		height:				10
-		z index:			1000
-		alignment:			middle left
-		font:
-			name:				Beleren Small Caps Bold
-			size:				7.25
-			color:				{ styling.copyright_text_color }
-	copyright:
-		right:				351
-		top:				{ if card.pt != "" then 499 else 494 }
-		width:				{ if set.automatic_copyright then 0 else 140 }
-		height:				10
-		z index:			1000
-		alignment:			middle right shrink-overflow
-		font:
-			name:				Matrix
-			size:				7
-			color:				{ styling.copyright_text_color }
-			weight:				bold
 	partition select:
-		left: 				24
+		left:				24
 		top:				488
 		width:				{if not use_auto_numbers() then 0 else if contains(set.card_number_style, match:"/0") then 50 else 35}
 		height:				10
@@ -562,33 +427,6 @@ card style:
 
 ############################################################## Extra card fields
 
-extra card field:
-	type:				text
-	name:				card code
-	save value:			false
-	show statistics:	false
-	script:				card_number_script_core()
-extra card field:
-	type:				text
-	name:				auto copyright
-	script:				set.copyright
-	editable:			false
-	save value:			false
-	show statistics:	false
-extra card field:
-	type:				choice
-	name:				flavor bar
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				flavor bar
-extra card field:
-	type:				choice
-	name:				artist arrow
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				artist arrow
 extra card field:
 	type:				choice
 	name:				rarity circle
@@ -666,55 +504,8 @@ extra card field:
 	save value:			false
 	show statistics:	false
 	choice:				foil layer
-extra card field:
-	type:				color
-	name:				corners
-	script:				rgb(255, 255, 255)
-	editable:			false
-	save value:			false
-	show statistics:	false
 
 extra card style:
-	card code:
-		left:				24
-		top:				489
-		width:				120
-		height:				10
-		z index:			1000
-		font:
-			name:				Relay-Medium
-			size:				7
-			color:				{ styling.copyright_text_color }
-			weight:				bold
-	auto copyright:
-		right:				351
-		top:				{ if card.pt != "" then 499 else 494 }
-		width:				{ if set.automatic_copyright then 140 else 0 }
-		height:				10
-		z index:			1000
-		alignment:			middle right shrink-overflow
-		font:
-			name:				Matrix
-			size:				7
-			color:				{ styling.copyright_text_color }
-			weight:				bold
-	artist arrow:
-		left:				{ if card.set_code == "" then 25 else 29 + card_style.set_code.content_width }
-		top:				501
-		width:				12
-		height:				7
-		z index:			1000
-		render style:		image
-		image:				{ recolor_image("artist_arrow.png", color: styling.copyright_text_color) }
-	flavor bar:
-		left:				0
-		top:				{ bar_equation() - 1 }
-		width:				375
-		height:				4
-		z index:			610
-		visible:			{ set.use_flavor_bar and card.rule_text != "" and remove_tags(card.flavor_text) != "" }
-		render style:		image
-		image:				flavor_bar.png
 	rarity circle:
 		left:				0
 		top:				0
@@ -810,11 +601,3 @@ extra card style:
 		render style:		image
 		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
 		mask:				{ "foil_mask" + (if is_stamped() then "_rare" else "") + (if card.pt != "" then "_pt" else "") + (if is_crowned() then "_crown" else "") + ".png" }
-	corners:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			4000
-		visible:			{ styling.corners != "none" }
-		mask:				{ if styling.corners == "rounded and antialiased" then "corners_rounded_antialiased_mask.png" else "corners_rounded_mask.png" }
