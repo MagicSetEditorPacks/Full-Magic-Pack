@@ -4,12 +4,16 @@
 depends on:
 	package:			magic-copyright.mse-include
 	version:			2024-01-29
+
 #### In the init script: section:
 include file: /magic-copyright.mse-include/script
+
 #### Before the card fields: section:
 include file: /magic-copyright.mse-include/card_fields
-#### For DFC frames, instead add
+
+#### For DFC or TFC templates, instead use:
 include file: /magic-copyright.mse-include/card_fields_dfc
+include file: /magic-copyright.mse-include/card_fields_tfc
 
 #### You can adjust global alignment by redefining the following functions after the scripts include statement
 #### which must return an int corresponding to the number of pixels you want to shift things by

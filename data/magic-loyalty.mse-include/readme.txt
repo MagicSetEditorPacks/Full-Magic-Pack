@@ -1,11 +1,11 @@
 #### To use this include in a template, add the following line, indented by one tab, in the init script section:
-	include file: /magic-loyalty.mse-include/face_loyalty_init_script
+	include file: /magic-loyalty.mse-include/init_script
 
 #### add the following line, not indented, in the styling field section:
-include file: /magic-loyalty.mse-include/face_loyalty_styling_field
+include file: /magic-loyalty.mse-include/styling_fields
 
 #### add the following line, not indented, in the card style section:
-include file: /magic-loyalty.mse-include/face_loyalty_card_style
+include file: /magic-loyalty.mse-include/card_fields
 
 #### Also add the following in the template headers:
 depends on:

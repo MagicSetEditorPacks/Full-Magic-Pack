@@ -1,5 +1,5 @@
 #### To use this include in a template, add the following line, not indented, in the card style section:
-include file: /magic-separators.mse-include/complete_flavor_bar
+include file: /magic-separators.mse-include/card_fields
 
 #### Also add the following in the template headers:
 depends on:
@@ -29,10 +29,6 @@ flavor_bar_offset_left_3 := { 0 }
 flavor_bar_offset_width_3 := { 0 }
 flavor_bar_offset_height_3 := { 0 }
 
-#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
-
-#### You can disable the flavor bar on some of the faces,
-#### by adding the following functions in the init script:
-flavor_bar_disabled := { true }
-flavor_bar_disabled_2 := { true }
-flavor_bar_disabled_3 := { true }
+#### For DFC or TFC templates, or just templates with multiple textboxes, instead use:
+include file: /magic-separators.mse-include/card_fields_dfc
+include file: /magic-separators.mse-include/card_fields_tfc

@@ -1,9 +1,18 @@
 #### To use this include in a template, add the following line, not indented, in the card style section:
-include file: /magic-namelines.mse-include/complete_namelines
+include file: /magic-namelines.mse-include/card_fields
 
 #### Also add the following in the template headers:
 depends on:
 	package:			magic-namelines.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-names.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-casting-costs.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-symbols.mse-include
 	version:			2024-01-29
 
 #### Optionally, you can define which face of the card the nameline should snap to,
@@ -47,7 +56,11 @@ transform_symbol_offset_height := { 0 }
 #### when a transformation symbol is present on the card:
 name_transform_symbol_offset_left := { 0 }
 
-#### For the other faces on DFCs or TFCs use:
+#### For DFC or TFC templates, instead use:
+include file: /magic-namelines.mse-include/card_fields_dfc
+include file: /magic-namelines.mse-include/card_fields_tfc
+
+#### And move the namelines with:
 nameline_offset_top_2 := { 0 }
 nameline_offset_left_2 := { 0 }
 nameline_offset_width_2 := { 0 }
@@ -59,9 +72,3 @@ nameline_offset_height_3 := { 0 }
 etc...
 
 #### For DFC or TFC templates, dont forget to override the faces_coordinates function.
-
-#### You can disable the namelines on some of the faces,
-#### by adding the following functions:
-nameline_disabled := { true }
-nameline_disabled_2 := { true }
-nameline_disabled_3 := { true }

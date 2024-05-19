@@ -1,9 +1,18 @@
 #### To use this include in a template, add the following line, not indented, in the card style section:
-include file: /magic-typelines.mse-include/complete_typelines
+include file: /magic-typelines.mse-include/card_fields
 
 #### Also add the following in the template headers:
 depends on:
 	package:			magic-typelines.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-types.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-rarities.mse-include
+	version:			2024-01-29
+depends on:
+	package:			magic-identity-new.mse-include
 	version:			2024-01-29
 
 #### Optionally, you can define which face of the card the typeline should snap to,
@@ -39,7 +48,11 @@ type_offset_left := { 0 }
 type_offset_right := { 0 }
 type_offset_height := { 0 }
 
-#### For the other faces on DFCs or TFCs use:
+#### For DFC or TFC templates, instead use:
+include file: /magic-typelines.mse-include/card_fields_dfc
+include file: /magic-typelines.mse-include/card_fields_tfc
+
+#### And move the typelines with:
 typeline_offset_top_2 := { 0 }
 typeline_offset_left_2 := { 0 }
 typeline_offset_width_2 := { 0 }
@@ -51,9 +64,3 @@ typeline_offset_height_3 := { 0 }
 etc...
 
 #### For DFC or TFC templates, dont forget to override the faces_coordinates function.
-
-#### You can disable the typelines on some of the faces,
-#### by adding the following functions:
-typeline_disabled := { true }
-typeline_disabled_2 := { true }
-typeline_disabled_3 := { true }
