@@ -46,6 +46,8 @@ line_count :=      split_text@(match:"\n+",include_empty:false) + length
 
 word_count :=      break_text@(match:"[^[:space:]]+") + length
 
+has_png :=         contains@(match:".png")
+
 remove_comma :=    replace@(match: ",", replace: "")
 long_dash :=       replace@(match:"-", replace:"—")
 softline_ripper := replace@(match:"</?soft-line>", replace:"")
@@ -2198,43 +2200,6 @@ counter_image :=
 		recolor_image("/magic-counters.mse-include/" + shape + ".png", color: color)
 	)
 }
-
-card_stamp_default := { set.default_stamp }
-card_stamp_field := { if input <= 1 then card.card_stamp else card["card_stamp_" + input] }
-card_stamp_image :=
-{
-	if not is_stamped(field: field) then "" else (
-	map := face_coordinates_map(face)
-	if map.width == 0 or map.height == 0 then "" else (
-	dimensions := map.width + "x" + map.height
-	dimensions := card_stamp_possible_dimensions[dimensions] or else (if map.height > map.width then "1039x744" else "744x1039")
-	shape := card_stamp_field(field)
-	if shape == "custom" then custom_stamp() else (
-	"/magic-stamps.mse-include/" + dimensions + " " + shape + (if is_foil_stamped(field: field) then ".png" else " void.png"))))
-}
-card_stamp_possible_dimensions :=
-[
-	"375x523":	"375x523"
-	"523x375":	"523x375"
-	"744x1039":	"744x1039"
-	"1039x744":	"1039x744"
-]
-card_stamp_disabled := { false }
-card_stamp_offset_top := { 0 }
-card_stamp_offset_left := { 0 }
-card_stamp_offset_width := { 0 }
-card_stamp_offset_height := { 0 }
-card_stamp_disabled_2 := { false }
-card_stamp_offset_top_2 := { 0 }
-card_stamp_offset_left_2 := { 0 }
-card_stamp_offset_width_2 := { 0 }
-card_stamp_offset_height_2 := { 0 }
-card_stamp_disabled_3 := { false }
-card_stamp_offset_top_3 := { 0 }
-card_stamp_offset_left_3 := { 0 }
-card_stamp_offset_width_3 := { 0 }
-card_stamp_offset_height_3 := { 0 }
-
 typesymbol_for :=
 	to_text +
 	{ lang_setting("remove_supertypes")(input) } +
@@ -3270,37 +3235,97 @@ card_new_color := {
 	else "c"
 }
 ############################################################## Stamps
-ub_stamp := { card.card_stamp == "universes beyond" }
-use_custom_stamp := { card.card_stamp == "custom" and contains(set.custom_stamp_name, match:".png") }
-custom_stamp := { if set.custom_stamp_name != "" then "/magic-stamps.mse-include/" + set.custom_stamp_name else "/magic-stamps.mse-include/375x523 heart.png" }
-is_stamped :=
-{
+### The stamp to use if the user hasn't overwritten it for this card
+card_stamp_default := {
+	shape := styling.default_stamp or else set.default_stamp
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
-	shape := card_stamp_field(field)
-	shape != "none" and
-	(
-			stamp_behavior == "all foil"
-		or	stamp_behavior == "rare/mythic foil, un/common not foil"
-		or	(stamp_behavior == "rare/mythic foil, un/common not stamped" and is_rare(field: field))
-	)
-}@(field: 1)
-is_foil_stamped :=
-{
-	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
-	stamp_behavior == "all foil" or	(contains(stamp_behavior, match: "rare/mythic foil") and is_rare(field: field))
-}@(field: 1)
+	if stamp_behavior == "default" then stamp_behavior := set.stamp_behavior
+	rare_face := is_rare(field:field)
+	
+	stamp_behavior_checks[stamp_behavior](rare_face:rare_face, shape:shape)
+}@(field:1)
+### Map for easier checks than if/else or case
+stamp_behavior_checks := [
+	"All unstamped": {"none"},
+	"All holostamped": {shape},
+	"All flatstamped": {"flatstamped " + shape},
+	"Standard, rares holostamped": {
+		if rare_face then shape else "none"
+	},
+	"UB, rares holostamped, others flatstamped": {
+		if rare_face then shape else "flatstamped " + shape
+	}
+]
+### The image to use for custom stamp
+custom_stamp := {
+	flat := not is_foil_stamped(field:field)
+	if set.custom_stamp_name != "" and has_png(set.custom_stamp_name)
+		then "/magic-mainframe-extras.mse-include/" + un_png(set.custom_stamp_name) + (if flat then " flat" else "") + ".png"
+	else "/magic-stamps.mse-include/375x523 " + (if flat then "flatstamped " else "") + "heart.png"
+}@(field:1)
 
-#### pretty sure these next two methods are unused since they reference card.stamp which doesn't exist
-#c_stamp_name := {
-#	if not use_custom_stamp() then ""
-#	else if card.stamp == "custom" then set.custom_stamp_name
-#	else if card.stamp == "custom color" then replace(set.custom_stamp_name, match:"(.+/|\\.png)", replace:"")
-#	else ""
-#}
-#c_stamp_loc := {
-#	if card.stamp != "custom color" or not use_custom_stamp() then ""
-#	else replace(set.custom_stamp_name, match:"{c_stamp_name()}\\.png", replace:"")
-#}
+### The shape of the background stamp for templates
+### This can be overwritten to give a template a special stamp for the heart stamp, for example
+stamp_shape := {
+	case card_stamp_field(field) of
+		"universes beyond": "triangle",
+		"flatstamped universes beyond": "triangle",
+		"none": "none",
+		"custom": set.custom_stamp_shape,
+		"flatstamped custom": set.custom_stamp_shape,
+		else: "round";
+}@(field:1)
+
+### The card_stamp_X field for this face
+card_stamp_field := { if input <= 1 then card.card_stamp else card["card_stamp_" + input] }
+### Does this face have any stamp?
+is_stamped := { card_stamp_field(field) != "none" }@(field: 1)
+### Does this face have a foil stamp?
+is_foil_stamped := { not contains(card_stamp_field(field), match:"flatstamped") }@(field:1)
+
+### Determine the image for the stamp
+card_stamp_image :=
+{
+	if not is_stamped(field: field)
+		then ""
+	else (
+		map := face_coordinates_map(face)
+		if map.width == 0 or map.height == 0
+			then ""
+		else (
+			dimensions := map.width + "x" + map.height
+			dimensions := card_stamp_possible_dimensions[dimensions] or else (if map.height > map.width then "1039x744" else "744x1039")
+			shape := card_stamp_field(field)
+			if shape == "custom" or shape == "flatstamped custom"
+				then custom_stamp(field: field)
+			else "/magic-stamps.mse-include/" + dimensions + " " + shape + ".png"
+		)
+	)
+}
+card_stamp_possible_dimensions :=
+[
+	"375x523":	"375x523"
+	"523x375":	"523x375"
+	"744x1039":	"744x1039"
+	"1039x744":	"1039x744"
+]
+### Offsets for the stamps module
+card_stamp_disabled := { false }
+card_stamp_offset_top := { 0 }
+card_stamp_offset_left := { 0 }
+card_stamp_offset_width := { 0 }
+card_stamp_offset_height := { 0 }
+card_stamp_disabled_2 := { false }
+card_stamp_offset_top_2 := { 0 }
+card_stamp_offset_left_2 := { 0 }
+card_stamp_offset_width_2 := { 0 }
+card_stamp_offset_height_2 := { 0 }
+card_stamp_disabled_3 := { false }
+card_stamp_offset_top_3 := { 0 }
+card_stamp_offset_left_3 := { 0 }
+card_stamp_offset_width_3 := { 0 }
+card_stamp_offset_height_3 := { 0 }
+
 ############################################################## Custom corner symbols
 custom_symbol_1 := { if set.custom_symbol_1 != "" then "/magic-symbols.mse-include/" + set.custom_symbol_1 else "/magic-symbols.mse-include/aetherprint.png" }
 custom_symbol_2 := { if set.custom_symbol_2 != "" then "/magic-symbols.mse-include/" + set.custom_symbol_2 else "/magic-symbols.mse-include/aetherprint.png" }
