@@ -586,6 +586,8 @@ card_color_to_letters := {
 	+(if contains(color_string, match:"red") then "R" else "")
 	+(if contains(color_string, match:"green") then "G" else "")
 }
+card_color_field := { if input <= 1 then card.card_color else card["card_color_" + input] }
+
 ############################################################## Card number
 #### The code consists of 4 parts:
 ####   partition, rarity tier, color, card name
@@ -906,6 +908,29 @@ primary_card_color := {
 	else if red                                            then "red"
 	else if green                                          then "green"
 	else                                                        input
+}
+sparker_card_color := {
+	artifact :=    chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
+	land :=        chosen(choice:"land")
+	multi :=       chosen(choice:"multicolor")
+	hybrid :=      chosen(choice:"hybrid")
+	white :=       chosen(choice:"white")
+	blue :=        chosen(choice:"blue")
+	black :=       chosen(choice:"black")
+	red :=         chosen(choice:"red")
+	green :=       chosen(choice:"green")
+	multi_color := count_chosen(choices:"white, blue, black, red, green")
+	if      land                                           then "colorless"
+	else if multi                                          then "multicolor"
+	else if multi_color >= 2                               then "multicolor"
+	else if hybrid                                         then "multicolor"
+	else if artifact                                       then "artifact"
+	else if white                                          then "white"
+	else if blue                                           then "blue"
+	else if black                                          then "black"
+	else if red                                            then "red"
+	else if green                                          then "green"
+	else                                                        "colorless"
 }
 
 ############################################################## Keyword utilities
@@ -2438,8 +2463,8 @@ typesymbol_type := { typesymbol_for(type) }
 ############################################################## Transform/Lesson symbols
 transform_symbol_default :=
 {
-	if		margin_code == "transform1" then	"day"
-	else if	margin_code == "transform2" then	"night"
+	if		margin_code == "transform1" then	"front triangle"
+	else if	margin_code == "transform2" then	"back triangle"
 	else										"eldrazi"
 }
 transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
@@ -2450,21 +2475,29 @@ transform_symbol_is_mirrored :=
 transform_symbol_image :=
 {
 	map := face_coordinates_map(face)
-	if map.width == 0 or map.height == 0 then "" else (
-	shape := transform_symbol_field(field)
-	if shape == "none" then ""
-	else if	shape == "custom symbol one" then custom_symbol_1()
-	else if	shape == "custom symbol two" then custom_symbol_2()
-	else if	shape == "custom symbol three" then custom_symbol_3()
-	else if	shape == "custom symbol four" then custom_symbol_4() else (
-	shape := clean_transform_symbol_shape(shape)
-	if transform_symbol_is_mirrored(field) then shape := flip_transform_symbol_shape(shape)
-	"/magic-modules.mse-include/symbols/" + shape + ".png"))
+	if map.width == 0 or map.height == 0
+		then ""
+	else (
+		shape := transform_symbol_field(field)
+		link := clean_transform_symbol_shape(shape)
+		if transform_symbol_is_mirrored(field) then link := flip_transform_symbol_shape(link)
+		if contains(link, match:"/default") then (
+			color := sparker_card_color(card_color_field(field))
+			link := replace(link, match:"/default", replace:"/"+color)
+		)
+		case shape of
+			"none": "",
+			"custom symbol one": custom_symbol_1(),
+			"custom symbol two": custom_symbol_2(),
+			"custom symbol three": custom_symbol_3(),
+			"custom symbol four": custom_symbol_4(),
+			else: "/magic-modules.mse-include/symbols/" + link + ".png";
+	)
 }
 clean_transform_symbol_shape :=
 	replace@(match: "modal front ", replace: "modalfront/") +
 	replace@(match: "modal back ", replace: "modalback/") +
-	replace@(match: "sparker (colored) ", replace: "sparker/") +
+	replace@(match: "sparker [(]colored[)] ", replace: "sparker/") +
 	replace@(match: "extra |non standard ", replace: "")
 flip_transform_symbol_shape :=
 	replace@(match: "modalfront/", replace: "modalfrontflipped/") +
