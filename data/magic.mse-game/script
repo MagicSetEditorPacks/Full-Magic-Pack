@@ -16,10 +16,9 @@
 #### Saga witchery
 #### Typelines
 #### Modal DFC flag hints
-#### Other scripted fields
 #### Flavor bar
 #### Watermarks
-#### Stamps
+#### Other scripted fields
 #### Custom corner symbols
 #### Custom fonts
 #### Custom rarity symbol
@@ -1964,1086 +1963,6 @@ main_types := {
 }
 #### TODO we'll be able to remove this once transform corners are a card field
 node_script := { if card.shape == "double faced" then "transform day"  else "none" }
-############################################################## Other scripted fields
-#### todo some of this can probably go in the include files themselves
-#### Dimensions of card faces, can be changed in style files
-faces_coordinates := {
-	[
-		[
-			left: 0,
-			top: 0,
-			width: stylesheet.card_width,
-			height: stylesheet.card_height
-		]
-	]
-}
-face_coordinates_string := {
-	fc := faces_coordinates()
-	for x from 0 to length(fc) - 1 do fc[x].left + "," + fc[x].top + "," + fc[x].width + "," + fc[x].height + ";"
-}
-face_coordinates_map := {
-	fc := faces_coordinates()
-	fc[input-1] or else [top: 0, left:0, width:0, height:0]
-}
-face_is_rotated :=
-{
-	map := face_coordinates_map(input)
-	map.width > map.height
-}
-
-set_code_script :=
-{
-	code := if is_masterpiece() then set.masterpiece_set_code else set.set_code
-	if code == "" then set.set_language else (
-	brush :=	if		margin_code == "setcode1" then	card.additional_credit_brush
-				else if	margin_code == "setcode2" then	card.additional_credit_brush_4
-				else if	margin_code == "setcode3" then	card.additional_credit_brush_5
-				else									"none"
-	if brush == "none" or (not set.adaptive_language_height)
-	then code + (if set.set_language != "" then " • " else "") + set.set_language
-	else code)
-}
-set_language_script :=
-{
-	set.set_language
-}
-card_code_script_core := {
-	if not use_auto_numbers() then
-		### CUSTOM R TEXT
-		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card_code_text)
-	else if set.card_number_style == "0001/0099" then
-		### R 1000/1000 TEXT
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom()) + " ", field: card_code_text)
-	else if set.card_number_style == "0001" then
-		### R 1000 TEXT
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + tag + " ", field: card_code_text)
-	else if set.card_number_style == "001/099" then
-		### 100/100 R TEXT
-		forward_editor(prefix: card_number_m15() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card_code_text)
-	else if set.card_number_style == "001" then
-		### 100 R TEXT
-		forward_editor(prefix: card_number_m15() + tag + " " + rarity_code() + " ", field: card_code_text)
-	else if set.card_number_style == "1/99" then
-		### 1/99 R TEXT
-		forward_editor(prefix: card_number() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card_code_text)
-	else
-		### 1 R TEXT
-		forward_editor(prefix: card_number() + tag + " " + rarity_code() + " ", field: card_code_text)
-}@(tag: "")
-card_number_tags := {
-	if contains(card.shape, match:"double")
-		then ["a", "b", "b"]
-	else ["", "", ""]
-}
-card_code_script :=
-{
-	card_code_script_core(card_code_text: card.card_code_text, tag:card_number_tags()[0])
-}
-card_code_script2 :=
-{
-	card_code_script_core(card_code_text: card.card_code_text_2, tag:card_number_tags()[1])
-}
-card_code_script3 :=
-{
-	card_code_script_core(card_code_text: card.card_code_text_3, tag:card_number_tags()[2])
-}
-
-copyright_default := { set.copyright }
-secondary_copyright_default := { set.secondary_copyright }
-illustrator_brush_default := { "art" }
-illustrator_brush_field := { if input <= 1 then card.illustrator_brush else card["illustrator_brush_" + input] }
-illustrator_brush_image :=
-{
-	shape := illustrator_brush_field(field)
-	image := "/magic-copyright.mse-include/" + shape + ".png"
-	color := styling.copyright_text_color or else set.copyright_text_color
-	recolor_image(image, color: color)
-}
-additional_credit_default := { "" }
-additional_credit_brush_default := { "none" }
-additional_credit_brush_field := { if input <= 1 then card.additional_credit_brush else card["additional_credit_brush_" + input] }
-additional_credit_brush_image :=
-{
-	shape := additional_credit_brush_field(field)
-	image := "/magic-copyright.mse-include/" + shape + ".png"
-	color := styling.copyright_text_color or else set.copyright_text_color
-	recolor_image(image, color: color)
-}
-#copyright_b_left :=
-#{
-#	field := if input <= 1 then card.secondary_copyright else card["secondary_copyright_" + input]
-#	field_length := length(field)
-#	auto := set.automatic_copyright
-#	primary_field := if input <= 1 then card_style[(if set.automatic_copyright then "auto_" else "") + "copyright"] else card_style[(if set.automatic_copyright then "auto_" else "") + "copyright_" + input]
-#	pt_offset := if input <= 1 then copyright_offset_pt_left() else if input == 2 then copyright_offset_pt_left_2() else copyright_offset_pt_left_3()
-#	offset := if input <= 1 then copyright_offset_right() else if input == 2 then copyright_offset_right_2() else copyright_offset_right_3()
-#	needed := (255 + pt_offset - if field_length > 9 then 45 else if field_length > 6 then 25 else if field_length > 4 then 10 else 0) * face_coordinates_map(input).width/375 + face_coordinates_map(input).left
-#	aligned := 351 * face_coordinates_map(input).width/375 + offset - primary_field.content_width + face_coordinates_map(3).left
-#	max(min(needed, aligned), 211 * face_coordinates_map(3).width/375)
-#}
-#copyright_b_right :=
-#{
-#	pt := if input <= 1 then card.pt else card["pt_" + input]
-#	loyalty := if input <= 1 then card.loyalty else card["loyalty_" + input]
-#	pt_offset := if input <= 1 then copyright_offset_pt_left() else if input == 2 then copyright_offset_pt_left_2() else copyright_offset_pt_left_3()
-#	offset := if input <= 1 then copyright_offset_right() else if input == 2 then copyright_offset_right_2() else copyright_offset_right_3()
-#	(if pt != "" then 279 + pt_offset else if loyalty != "" then 295 + pt_offset else 351) * face_coordinates_map(3).width/375 + face_coordinates_map(3).left + offset
-#}
-
-
-the_list_icon_default := { "none" }
-the_list_icon_field := { if input <= 1 then card.the_list_icon else card["the_list_icon_" + input] }
-the_list_icon_image :=
-{
-	shape := the_list_icon_field(field)
-	suffix := if shape == "the list" and face_coordinates_map(face).width != 375 and face_coordinates_map(face).width != 523 then " 750" else ""
-	image := "/magic-copyright.mse-include/" + shape + suffix + ".png"
-	color := styling.copyright_text_color or else set.copyright_text_color
-	recolor_image(image, color: color)
-}
-
-chapter_text_filter_default :=
-{
-	if		margin_code == "chapter_text" then (if not a_saga() then "" else if card.rule_text != "" then card.rule_text else "<i-auto>(" + saga_reminder() + ")</i-auto>")
-	else if	margin_code == "chapter_text2" then (if not b_saga() then "" else "<i-auto>(" + saga_reminderb() + ")</i-auto>")
-	else ""
-}
-### This can be overwritten for more complicated levelers
-### Dungeons for example will overwrite with just {if set.alias_as_cardname and card.alias != "" then card.alias else card.name}
-card_name_for_level := {
-	lvl :=	if input < 5
-				then ""
-			else if input < 9
-				then "_2"
-			else if input < 13
-				then "_3"
-			else if input < 17
-				then "_4"
-			else ""
-	if set.alias_as_cardname and card["alias"+lvl] != "" then card["alias"+lvl] else card["name"+lvl]
-}
-
-level_filter_default := { "" }
-level_filter := { input }
-
-text_filter_default :=
-{
-	if transfer_levels() then
-	(
-		if		margin_code == "lv1" then card.rule_text
-		else if	margin_code == "lv2" then card.rule_text_2
-		else if	margin_code == "lv3" then card.rule_text_3
-		else if	margin_code == "lv4" then card.rule_text_4
-		else if	margin_code == "lv5" then card.rule_text_5
-		else if	margin_code == "lv6" then card.rule_text_6
-		else ""
-	)
-	else ""
-}
-
-border_color_default := { set.border_color }
-
-corners_default := { set.corner_shape }
-corners_field := { if input <= 1 then card.corners else card["corners_" + input] }
-corners_image :=
-{
-	shape := corners_field(field)
-	color := if shape == "none" then card.border_color else rgb(255,255,255)
-	recolor_image("/magic-corners.mse-include/color.png", color: color)
-}
-corners_mask :=
-{
-	map := face_coordinates_map(face)
-	if map.width == 0 or map.height == 0 then "" else (
-	dimensions := map.width + "x" + map.height
-	dimensions := corners_possible_dimensions[dimensions] or else (if map.height > map.width then "1046x750" else "750x1046")
-	shape := corners_field(field)
-	shape := if shape == "none" then "rounded" else shape
-	"/magic-corners.mse-include/" + dimensions + " " + shape + ".png")
-}
-corners_possible_dimensions :=
-[
-	"375x523":	"375x523"
-	"523x375":	"523x375"
-	"646x902":	"646x902"
-	"902x646":	"902x646"
-	"744x1039":	"744x1039"
-	"1039x744":	"1039x744"
-	"750x1046":	"750x1046"
-	"1046x750":	"1046x750"
-]
-
-corners_disabled := { false }
-corners_disabled_2 := { false }
-corners_disabled_3 := { false }
-
-counter_default := { "+1/+1" }
-counter_field := { if input <= 1 then card.counter else card["counter_" + input] }
-counter_image :=
-{
-	shape := replace(counter_field(field), match: "/", replace: "")
-	if shape == "custom" then
-	(
-		path :=	styling["symbol_" + field + "_custom_image_location"]
-				or else styling["counter_symbol_" + field + "_custom_image_location"]
-				or else ""
-		if contains(path, match: ".png")
-		then "/magic-counters.mse-include/" + path
-		else "/magic-counters.mse-include/none.png"
-	)
-	else if shape == "none" then "/magic-counters.mse-include/none.png"
-	else
-	(
-		color :=	styling.symbol_color
-					or else styling.counter_symbol_color
-					or else rgb(255,255,255)
-		recolor_image("/magic-counters.mse-include/" + shape + ".png", color: color)
-	)
-}
-typesymbol_for :=
-	to_text +
-	{ lang_setting("remove_supertypes")(input) } +
-	{ replace(match: lang_setting("supertype_separator"), replace: "") } +
-	{
-		if      input == lang_setting("creature")		then	"creature"
-		else if input == lang_setting("sorcery")		then	"sorcery"
-		else if input == lang_setting("instant")		then	"instant"
-		else if input == lang_setting("artifact")		then	"artifact"
-		else if input == lang_setting("enchantment")	then	"enchantment"
-		else if input == lang_setting("land")			then	"land"
-		else if input == lang_setting("planeswalker")	then	"planeswalker"
-		else if input == lang_setting("battle")			then	"battle"
-		else if input == lang_setting("emblem")			then	"non standard emblem"
-		else if input == lang_setting("conspiracy")		then	"non standard conspiracy"
-		else if input == lang_setting("dungeon")		then	"non standard dungeon"
-		else if input == lang_setting("hero")			then	"non standard hero"
-		else if input == lang_setting("phenomenon")		then	"non standard phenomenon"
-		else if input == lang_setting("plane")			then	"non standard plane"
-		else if input == lang_setting("scheme")			then	"non standard scheme"
-		else if input == lang_setting("vanguard")		then	"non standard vanguard"
-		else													"multitype"
-	}
-typesymbol_type := { typesymbol_for(type) }
-transform_symbol_default :=
-{
-	if		margin_code == "transform1" then	"day"
-	else if	margin_code == "transform2" then	"night"
-	else										"eldrazi"
-}
-transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
-transform_symbol_is_mirrored :=
-{
-	if input <= 1 then transform_symbol_mirrored() else if input == 2 then transform_symbol_mirrored_2() else transform_symbol_mirrored_3()
-}
-transform_symbol_image :=
-{
-	map := face_coordinates_map(face)
-	if map.width == 0 or map.height == 0 then "" else (
-	shape := transform_symbol_field(field)
-	if shape == "none" then ""
-	else if	shape == "custom symbol one" then custom_symbol_1()
-	else if	shape == "custom symbol two" then custom_symbol_2()
-	else if	shape == "custom symbol three" then custom_symbol_3()
-	else if	shape == "custom symbol four" then custom_symbol_4() else (
-	shape := clean_transform_symbol_shape(shape)
-	if transform_symbol_is_mirrored(field) then shape := flip_transform_symbol_shape(shape)
-	"/magic-symbols.mse-include/" + shape + ".png"))
-}
-clean_transform_symbol_shape :=
-	replace@(match: "modal front ", replace: "modalfront/") +
-	replace@(match: "modal back ", replace: "modalback/") +
-	replace@(match: "sparker (colored) ", replace: "sparker/") +
-	replace@(match: "extra |non standard ", replace: "")
-flip_transform_symbol_shape :=
-	replace@(match: "modalfront/", replace: "modalfrontflipped/") +
-	replace@(match: "modalback/", replace: "modalbackflipped/")
-
-transform_symbol_face := { 1 }
-
-transform_symbol_disabled := { false }
-transform_symbol_mirrored := { false }
-transform_symbol_offset_top := { 0 }
-transform_symbol_offset_left := { 0 }
-transform_symbol_offset_width := { 0 }
-transform_symbol_offset_height := { 0 }
-
-transform_symbol_left :=
-{
-	map := face_coordinates_map(transform_symbol_face())
-	width := map.width
-	height := map.height
-	mirrored := transform_symbol_is_mirrored(1)
-	if width > height then
-	(
-		if mirrored then	map.left + 455 * width/523 + transform_symbol_offset_left()
-		else				map.left + 52 * width/523 + transform_symbol_offset_left()
-	)
-	else
-	(
-		if mirrored then	map.left + 319 * width/375 + transform_symbol_offset_left()
-		else				map.left + 13 * width/375 + transform_symbol_offset_left()
-	)
-}
-transform_symbol_top :=
-{
-	map := face_coordinates_map(transform_symbol_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 11 * height/375 + transform_symbol_offset_top()
-	else					map.top + 19 * height/523 + transform_symbol_offset_top()
-}
-transform_symbol_width :=
-{
-	map := face_coordinates_map(transform_symbol_face())
-	width := map.width
-	height := map.height
-	if width > height then	43 * width/523 + transform_symbol_offset_width()
-	else					43 * width/375 + transform_symbol_offset_width()
-}
-transform_symbol_height :=
-{
-	map := face_coordinates_map(transform_symbol_face())
-	width := map.width
-	height := map.height
-	if width > height then	43 * height/375 + transform_symbol_offset_height()
-	else					43 * height/523 + transform_symbol_offset_height()
-}
-
-transform_symbol_face_2 := { 2 }
-
-transform_symbol_disabled_2 := { false }
-transform_symbol_mirrored_2 := { false }
-transform_symbol_offset_top_2 := { 0 }
-transform_symbol_offset_left_2 := { 0 }
-transform_symbol_offset_width_2 := { 0 }
-transform_symbol_offset_height_2 := { 0 }
-
-transform_symbol_left_2 :=
-{
-	map := face_coordinates_map(transform_symbol_face_2())
-	width := map.width
-	height := map.height
-	mirrored := transform_symbol_is_mirrored(2)
-	if width > height then
-	(
-		if mirrored then	map.left + 455 * width/523 + transform_symbol_offset_left_2()
-		else				map.left + 52 * width/523 + transform_symbol_offset_left_2()
-	)
-	else
-	(
-		if mirrored then	map.left + 319 * width/375 + transform_symbol_offset_left_2()
-		else				map.left + 13 * width/375 + transform_symbol_offset_left_2()
-	)
-}
-transform_symbol_top_2 :=
-{
-	map := face_coordinates_map(transform_symbol_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 11 * height/375 + transform_symbol_offset_top_2()
-	else					map.top + 19 * height/523 + transform_symbol_offset_top_2()
-}
-transform_symbol_width_2 :=
-{
-	map := face_coordinates_map(transform_symbol_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	43 * width/523 + transform_symbol_offset_width_2()
-	else					43 * width/375 + transform_symbol_offset_width_2()
-}
-transform_symbol_height_2 :=
-{
-	map := face_coordinates_map(transform_symbol_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	43 * height/375 + transform_symbol_offset_height_2()
-	else					43 * height/523 + transform_symbol_offset_height_2()
-}
-
-transform_symbol_face_3 := { 3 }
-
-transform_symbol_disabled_3 := { false }
-transform_symbol_mirrored_3 := { false }
-transform_symbol_offset_top_3 := { 0 }
-transform_symbol_offset_left_3 := { 0 }
-transform_symbol_offset_width_3 := { 0 }
-transform_symbol_offset_height_3 := { 0 }
-
-transform_symbol_left_3 :=
-{
-	map := face_coordinates_map(transform_symbol_face_3())
-	width := map.width
-	height := map.height
-	mirrored := transform_symbol_is_mirrored(3)
-	if width > height then
-	(
-		if mirrored then	map.left + 455 * width/523 + transform_symbol_offset_left_3()
-		else				map.left + 52 * width/523 + transform_symbol_offset_left_3()
-	)
-	else
-	(
-		if mirrored then	map.left + 319 * width/375 + transform_symbol_offset_left_3()
-		else				map.left + 13 * width/375 + transform_symbol_offset_left_3()
-	)
-}
-transform_symbol_top_3 :=
-{
-	map := face_coordinates_map(transform_symbol_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 11 * height/375 + transform_symbol_offset_top_3()
-	else					map.top + 19 * height/523 + transform_symbol_offset_top_3()
-}
-transform_symbol_width_3 :=
-{
-	map := face_coordinates_map(transform_symbol_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	43 * width/523 + transform_symbol_offset_width_3()
-	else					43 * width/375 + transform_symbol_offset_width_3()
-}
-transform_symbol_height_3 :=
-{
-	map := face_coordinates_map(transform_symbol_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	43 * height/375 + transform_symbol_offset_height_3()
-	else					43 * height/523 + transform_symbol_offset_height_3()
-}
-
-loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
-loyalty_cost_field :=
-{
-	input := loyalty_clean_margin_code(input)
-	card["loyalty_cost_" + input]
-}
-loyalty_cost_box_field :=
-{
-	input := loyalty_clean_margin_code(input)
-	card["loyalty_cost_box_" + input]
-}
-loyalty_cost_box_default :=
-{
-	cost := loyalty_cost_field(margin_code)
-	if cost == "" then "none"
-	else if	contains(cost, match: "+") then	"+, shadow"
-	else if	contains(cost, match: "-") then	"-, shadow"
-	else									"0, shadow"
-}
-loyalty_cost_box_image :=
-{
-	shape := remove_comma(loyalty_cost_box_field(input))
-	if contains(shape, match: "none") then ""
-	else "/magic-loyalty.mse-include/loyalty cost " + shape + ".png"
-}
-
-loyalty_field :=
-{
-	input := loyalty_clean_margin_code(input)
-	if input <= 1 then card.loyalty else card["loyalty_" + input]
-}
-loyalty_box_field :=
-{
-	input := loyalty_clean_margin_code(input)
-	if input <= 1 then card.loyalty_box else card["loyalty_box_" + input]
-}
-loyalty_box_default :=
-{
-	margin_code := loyalty_clean_margin_code(margin_code)
-	loyalty := loyalty_field(margin_code)
-	if loyalty == "" then "none" else (
-	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
-	if lang_setting("is_battle")(type) or contains(card_shape(), match: "battle") then "defense"
-	else "loyalty")
-}
-loyalty_box_image :=
-{
-	shape := remove_comma(loyalty_box_field(input))
-	if contains(shape, match: "none") then ""
-	else "/magic-loyalty.mse-include/" + shape + ".png"
-}
-
-loyalty_face := { 1 }
-loyalty_text_field := { 1 }
-
-loyalty_offset_top := { 0 }
-loyalty_offset_left := { 0 }
-loyalty_offset_width := { 0 }
-loyalty_offset_height := { 0 }
-
-loyalty_cost_offset_top := { 0 }
-loyalty_cost_offset_left := { 0 }
-loyalty_cost_offset_width := { 0 }
-loyalty_cost_offset_height := { 0 }
-
-loyalty_cost_offset_text_margin := { 0 }
-
-loyalty_textbox_mask :=
-{
-	if is_stamped(field: loyalty_text_field())
-	then "/magic-loyalty.mse-include/default_textbox_stamp_mask.png"
-	else "/magic-loyalty.mse-include/default_textbox_mask.png"
-}
-
-separator_enable_level := { false }
-separator_default := { if set.use_flavor_bar then "flavor bar" else "none" }
-
-flavor_bar_left := { face_coordinates_map(input).left }
-flavor_bar_top :=
-{
-	style := if input <= 1 then card_style.text else card_style["text_" + input]
-	rule := if input <= 1 then card.rule_text else card["rule_text_" + input]
-	flavor := if input <= 1 then card.flavor_text else card["flavor_text_" + input]
-	disabled := if input <= 1 then flavor_bar_disabled() else if input == 2 then flavor_bar_disabled_2() else flavor_bar_disabled_3()
-	uninitialized := (style.layout.blocks[1].bottom or else 0) <= 0
-	if		disabled
-		or	rule == ""
-		or	remove_tags(flavor) == ""
-	then stylesheet.card_height + 1
-	else if uninitialized
-	then (if input <= 1 then old_bar_equation() else if input == 2 then old_bar_equation2() else old_bar_equation3()) - flavor_bar_height(input)/2
-	else style.top + (style.layout.blocks[0].bottom + style.layout.blocks[1].top)/2 - flavor_bar_height(input)/2
-}
-flavor_bar_width := { face_coordinates_map(input).width }
-flavor_bar_height := { 24 * face_coordinates_map(input).height/1039 }
-
-flavor_bar_disabled := { false }
-flavor_bar_offset_top := { 0 }
-flavor_bar_offset_left := { 0 }
-flavor_bar_offset_width := { 0 }
-flavor_bar_offset_height := { 0 }
-flavor_bar_disabled_2 := { false }
-flavor_bar_offset_top_2 := { 0 }
-flavor_bar_offset_left_2 := { 0 }
-flavor_bar_offset_width_2 := { 0 }
-flavor_bar_offset_height_2 := { 0 }
-flavor_bar_disabled_3 := { false }
-flavor_bar_offset_top_3 := { 0 }
-flavor_bar_offset_left_3 := { 0 }
-flavor_bar_offset_width_3 := { 0 }
-flavor_bar_offset_height_3 := { 0 }
-
-watermark_face := { 1 }
-watermark_text_field := { 1 }
-watermark_stamp_field := { 1 }
-
-watermark_disabled := { false }
-watermark_offset_top := { 0 }
-watermark_offset_left := { 0 }
-watermark_offset_width := { 0 }
-watermark_offset_height := { 0 }
-watermark_offset_stamp := { 0 }
-
-watermark_face_2 := { 2 }
-watermark_text_field_2 := { 2 }
-watermark_stamp_field_2 := { 2 }
-
-watermark_disabled_2 := { false }
-watermark_offset_top_2 := { 0 }
-watermark_offset_left_2 := { 0 }
-watermark_offset_width_2 := { 0 }
-watermark_offset_height_2 := { 0 }
-watermark_offset_stamp_2 := { 0 }
-
-watermark_face_3 := { 3 }
-watermark_text_field_3 := { 3 }
-watermark_stamp_field_3 := { 3 }
-
-watermark_disabled_3 := { false }
-watermark_offset_top_3 := { 0 }
-watermark_offset_left_3 := { 0 }
-watermark_offset_width_3 := { 0 }
-watermark_offset_height_3 := { 0 }
-watermark_offset_stamp_3 := { 0 }
-
-text_style_field := { if input <= 1 then card_style.text else card_style["text_" + input] }
-
-indicator_disabled := { false }
-indicator_offset_top := { 0 }
-indicator_offset_left := { 0 }
-indicator_offset_size := { 0 }
-
-indicator_left :=
-{
-	map := face_coordinates_map(typeline_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 65 * width/523 + indicator_offset_left()
-	else					map.left + 31 * width/375 + indicator_offset_left()
-}
-indicator_top :=
-{
-	map := face_coordinates_map(typeline_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 223 * height/375 + indicator_offset_top()
-	else					map.top + 301 * height/523 + indicator_offset_top()
-}
-indicator_size :=
-{
-	map := face_coordinates_map(typeline_face())
-	17 * min(map.width, map.height)/375 + indicator_offset_size()
-}
-
-indicator_disabled_2 := { false }
-indicator_offset_top_2 := { 0 }
-indicator_offset_left_2 := { 0 }
-indicator_offset_size_2 := { 0 }
-
-indicator_left_2 :=
-{
-	map := face_coordinates_map(typeline_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 65 * width/523 + indicator_offset_left_2()
-	else					map.left + 31 * width/375 + indicator_offset_left_2()
-}
-indicator_top_2 :=
-{
-	map := face_coordinates_map(typeline_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 223 * height/375 + indicator_offset_top_2()
-	else					map.top + 301 * height/523 + indicator_offset_top_2()
-}
-indicator_size_2 :=
-{
-	map := face_coordinates_map(typeline_face_2())
-	17 * min(map.width, map.height)/375 + indicator_offset_size_2()
-}
-
-indicator_disabled_3 := { false }
-indicator_offset_top_3 := { 0 }
-indicator_offset_left_3 := { 0 }
-indicator_offset_size_3 := { 0 }
-
-indicator_left_3 :=
-{
-	map := face_coordinates_map(typeline_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 65 * width/523 + indicator_offset_left_3()
-	else					map.left + 31 * width/375 + indicator_offset_left_3()
-}
-indicator_top_3 :=
-{
-	map := face_coordinates_map(typeline_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 223 * height/375 + indicator_offset_top_3()
-	else					map.top + 301 * height/523 + indicator_offset_top_3()
-}
-indicator_size_3 :=
-{
-	map := face_coordinates_map(typeline_face_3())
-	17 * min(map.width, map.height)/375 + indicator_offset_size_3()
-}
-
-rarity_disabled := { false }
-rarity_offset_top := { 0 }
-rarity_offset_left := { 0 }
-rarity_offset_size := { 0 }
-
-rarity_left :=
-{
-	map := face_coordinates_map(typeline_face())
-	user_offsets := styling.rarity_offsets or else ""
-	if map.width > map.height then	map.left + 455 * map.width/523 + rarity_offset_left() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
-	else							map.left + 317 * map.width/375 + rarity_offset_left() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
-}
-rarity_top :=
-{
-	map := face_coordinates_map(typeline_face())
-	user_offsets := styling.rarity_offsets or else ""
-	if map.width > map.height then	map.top + 219 * map.height/375 + rarity_offset_top() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
-	else							map.top + 297 * map.height/523 + rarity_offset_top() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
-}
-rarity_size :=
-{
-	map := face_coordinates_map(typeline_face())
-	user_offsets := styling.rarity_offsets or else ""
-	24 * min(map.width, map.height)/375 + rarity_offset_size() + 2*rarity_user_offset_size(user_offsets)
-}
-
-rarity_disabled_2 := { false }
-rarity_offset_top_2 := { 0 }
-rarity_offset_left_2 := { 0 }
-rarity_offset_size_2 := { 0 }
-
-rarity_left_2 :=
-{
-	map := face_coordinates_map(typeline_face_2())
-	user_offsets := styling.rarity_offsets_2 or else ""
-	if map.width > map.height then	map.left + 455 * map.width/523 + rarity_offset_left_2() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
-	else							map.left + 317 * map.width/375 + rarity_offset_left_2() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
-}
-rarity_top_2 :=
-{
-	map := face_coordinates_map(typeline_face_2())
-	user_offsets := styling.rarity_offsets_2 or else ""
-	if map.width > map.height then	map.top + 219 * map.height/375 + rarity_offset_top_2() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
-	else							map.top + 297 * map.height/523 + rarity_offset_top_2() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
-}
-rarity_size_2 :=
-{
-	map := face_coordinates_map(typeline_face_2())
-	user_offsets := styling.rarity_offsets_2 or else ""
-	24 * min(map.width, map.height)/375 + rarity_offset_size_2() + 2*rarity_user_offset_size(user_offsets)
-}
-
-rarity_disabled_3 := { false }
-rarity_offset_top_3 := { 0 }
-rarity_offset_left_3 := { 0 }
-rarity_offset_size_3 := { 0 }
-
-rarity_left_3 :=
-{
-	map := face_coordinates_map(typeline_face_3())
-	user_offsets := styling.rarity_offsets_3 or else ""
-	if map.width > map.height then	map.left + 455 * map.width/523 + rarity_offset_left_3() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
-	else							map.left + 317 * map.width/375 + rarity_offset_left_3() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
-}
-rarity_top_3 :=
-{
-	map := face_coordinates_map(typeline_face_3())
-	user_offsets := styling.rarity_offsets_3 or else ""
-	if map.width > map.height then	map.top + 219 * map.height/375 + rarity_offset_top_3() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
-	else							map.top + 297 * map.height/523 + rarity_offset_top_3() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
-}
-rarity_size_3 :=
-{
-	map := face_coordinates_map(typeline_face_3())
-	user_offsets := styling.rarity_offsets_3 or else ""
-	24 * min(map.width, map.height)/375 + rarity_offset_size_3() + 2*rarity_user_offset_size(user_offsets)
-}
-
-rarity_user_offset_left :=	{ split := split_comma(input); if length(split) > 0 and split.0 != "" and split.0 != "-" then clamp(split.0, maximum:500, minimum:-500) else 0 }
-rarity_user_offset_top :=	{ split := split_comma(input); if length(split) > 1 and split.1 != "" and split.1 != "-" then clamp(split.1, maximum:500, minimum:-500) else 0 }
-rarity_user_offset_size :=	{ split := split_comma(input); if length(split) > 2 and split.2 != "" and split.2 != "-" then clamp(split.2, maximum:500, minimum:-500) else 0 }
-
-type_disabled := { false }
-type_offset_top := { 0 }
-type_offset_left := { 0 }
-type_offset_right := { 0 }
-type_offset_height := { 0 }
-
-type_max_width := { 500 }
-
-type_disabled_2 := { false }
-type_offset_top_2 := { 0 }
-type_offset_left_2 := { 0 }
-type_offset_right_2 := { 0 }
-type_offset_height_2 := { 0 }
-
-type_disabled_3 := { false }
-type_offset_top_3 := { 0 }
-type_offset_left_3 := { 0 }
-type_offset_right_3 := { 0 }
-type_offset_height_3 := { 0 }
-
-typeline_face := { 1 }
-
-typeline_disabled := { false }
-typeline_offset_top := { 0 }
-typeline_offset_left := { 0 }
-typeline_offset_width := { 0 }
-typeline_offset_height := { 0 }
-
-typeline_face_2 := { 2 }
-
-typeline_disabled_2 := { false }
-typeline_offset_top_2 := { 0 }
-typeline_offset_left_2 := { 0 }
-typeline_offset_width_2 := { 0 }
-typeline_offset_height_2 := { 0 }
-
-typeline_face_3 := { 3 }
-
-typeline_disabled_3 := { false }
-typeline_offset_top_3 := { 0 }
-typeline_offset_left_3 := { 0 }
-typeline_offset_width_3 := { 0 }
-typeline_offset_height_3 := { 0 }
-
-casting_cost_disabled := { false }
-casting_cost_offset_top := { 0 }
-casting_cost_offset_left := { 0 }
-casting_cost_offset_width := { 0 }
-casting_cost_offset_height := { 0 }
-
-casting_cost_right :=
-{
-	map := face_coordinates_map(nameline_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 485 * width/523 + casting_cost_offset_left()
-	else					map.left + 346 * width/375 + casting_cost_offset_left()
-}
-casting_cost_top :=
-{
-	map := face_coordinates_map(nameline_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 19 * height/375 + casting_cost_offset_top()
-	else					map.top + 27 * height/523 + casting_cost_offset_top()
-}
-casting_cost_width :=
-{
-	map := face_coordinates_map(nameline_face())
-	width := map.width
-	height := map.height
-	scale := min(width, height)/375
-	minimum := 30 * scale
-	buffer := 5 * scale
-	max(minimum, card_style.casting_cost.content_width) + buffer + casting_cost_offset_width()
-}
-casting_cost_height :=
-{
-	map := face_coordinates_map(nameline_face())
-	26 * min(map.width, map.height)/375 + casting_cost_offset_height()
-}
-
-casting_cost_disabled_2 := { false }
-casting_cost_offset_top_2 := { 0 }
-casting_cost_offset_left_2 := { 0 }
-casting_cost_offset_width_2 := { 0 }
-casting_cost_offset_height_2 := { 0 }
-
-casting_cost_right_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 485 * width/523 + casting_cost_offset_left_2()
-	else					map.left + 346 * width/375 + casting_cost_offset_left_2()
-}
-casting_cost_top_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 19 * height/375 + casting_cost_offset_top_2()
-	else					map.top + 27 * height/523 + casting_cost_offset_top_2()
-}
-casting_cost_width_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	width := map.width
-	height := map.height
-	scale := min(width, height)/375
-	minimum := 30 * scale
-	buffer := 5 * scale
-	max(minimum, card_style.casting_cost_2.content_width) + buffer + casting_cost_offset_width_2()
-}
-casting_cost_height_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	26 * min(map.width, map.height)/375 + casting_cost_offset_height_2()
-}
-
-casting_cost_disabled_3 := { false }
-casting_cost_offset_top_3 := { 0 }
-casting_cost_offset_left_3 := { 0 }
-casting_cost_offset_width_3 := { 0 }
-casting_cost_offset_height_3 := { 0 }
-
-casting_cost_right_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 485 * width/523 + casting_cost_offset_left_3()
-	else					map.left + 346 * width/375 + casting_cost_offset_left_3()
-}
-casting_cost_top_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 19 * height/375 + casting_cost_offset_top_3()
-	else					map.top + 27 * height/523 + casting_cost_offset_top_3()
-}
-casting_cost_width_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	width := map.width
-	height := map.height
-	scale := min(width, height)/375
-	minimum := 30 * scale
-	buffer := 5 * scale
-	max(minimum, card_style.casting_cost_3.content_width) + buffer + casting_cost_offset_width_3()
-}
-casting_cost_height_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	26 * min(map.width, map.height)/375 + casting_cost_offset_height_3()
-}
-
-name_disabled := { false }
-name_offset_top := { 0 }
-name_offset_left := { 0 }
-name_offset_right := { 0 }
-name_offset_height := { 0 }
-name_transform_symbol_offset_left := { 0 }
-
-name_max_width := { card_style.name.width }
-
-name_left :=
-{
-	map := face_coordinates_map(nameline_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 67 * width/523 + name_offset_left()
-	else					map.left + 32 * width/375 + name_offset_left()
-}
-name_top :=
-{
-	map := face_coordinates_map(nameline_face())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 19 * height/375 + name_offset_top()
-	else					map.top + 27 * height/523 + name_offset_top()
-}
-name_right :=
-{
-	map := face_coordinates_map(nameline_face())
-	width := map.width
-	height := map.height
-	casting_cost_width := if card_style.casting_cost.content_width == 0 then 0 else card_style.casting_cost.content_width + 3 * min(width, height)/375
-	if width > height then	map.left + 482 * width/523 - casting_cost_width + name_offset_right()
-	else					map.left + 341 * width/375 - casting_cost_width + name_offset_right()
-}
-name_height :=
-{
-	map := face_coordinates_map(nameline_face())
-	26 * min(map.width, map.height)/375 + name_offset_height()
-}
-
-name_transform_symbol_shift :=
-{
-	if card.transformation == "none" or transform_symbol_disabled() then 0 else (
-	map := face_coordinates_map(nameline_face())
-	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left()
-}
-
-name_disabled_2 := { false }
-name_offset_top_2 := { 0 }
-name_offset_left_2 := { 0 }
-name_offset_right_2 := { 0 }
-name_offset_height_2 := { 0 }
-name_transform_symbol_offset_left_2 := { 0 }
-
-name_max_width_2 := { card_style.name_2.width }
-
-name_left_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 67 * width/523 + name_offset_left_2()
-	else					map.left + 32 * width/375 + name_offset_left_2()
-}
-name_top_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 19 * height/375 + name_offset_top_2()
-	else					map.top + 27 * height/523 + name_offset_top_2()
-}
-name_right_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	width := map.width
-	height := map.height
-	casting_cost_width := if card_style.casting_cost_2.content_width == 0 then 0 else card_style.casting_cost_2.content_width + 3 * min(width, height)/375
-	if width > height then	map.left + 482 * width/523 - casting_cost_width + name_offset_right_2()
-	else					map.left + 341 * width/375 - casting_cost_width + name_offset_right_2()
-}
-name_height_2 :=
-{
-	map := face_coordinates_map(nameline_face_2())
-	26 * min(map.width, map.height)/375 + name_offset_height_2()
-}
-
-name_transform_symbol_shift_2 :=
-{
-	if card.transformation_2 == "none" or transform_symbol_disabled_2() then 0 else (
-	map := face_coordinates_map(nameline_face_2())
-	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left_2()
-}
-
-name_disabled_3 := { false }
-name_offset_top_3 := { 0 }
-name_offset_left_3 := { 0 }
-name_offset_right_3 := { 0 }
-name_offset_height_3 := { 0 }
-name_transform_symbol_offset_left_3 := { 0 }
-
-name_max_width_3 := { card_style.name_3.width }
-
-name_left_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.left + 67 * width/523 + name_offset_left_3()
-	else					map.left + 32 * width/375 + name_offset_left_3()
-}
-name_top_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	width := map.width
-	height := map.height
-	if width > height then	map.top + 19 * height/375 + name_offset_top_3()
-	else					map.top + 27 * height/523 + name_offset_top_3()
-}
-name_right_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	width := map.width
-	height := map.height
-	casting_cost_width := if card_style.casting_cost_3.content_width == 0 then 0 else card_style.casting_cost_3.content_width + 3 * min(width, height)/375
-	if width > height then	map.left + 482 * width/523 - casting_cost_width + name_offset_right_3()
-	else					map.left + 341 * width/375 - casting_cost_width + name_offset_right_3()
-}
-name_height_3 :=
-{
-	map := face_coordinates_map(nameline_face_3())
-	26 * min(map.width, map.height)/375 + name_offset_height_3()
-}
-
-name_transform_symbol_shift_3 :=
-{
-	if card.transformation_3 == "none" or transform_symbol_disabled_3() then 0 else (
-	map := face_coordinates_map(nameline_face_3())
-	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left_3()
-}
-
-nameline_face := { 1 }
-
-nameline_disabled := { false }
-nameline_offset_top := { 0 }
-nameline_offset_left := { 0 }
-nameline_offset_width := { 0 }
-nameline_offset_height := { 0 }
-
-nameline_face_2 := { 2 }
-
-nameline_disabled_2 := { false }
-nameline_offset_top_2 := { 0 }
-nameline_offset_left_2 := { 0 }
-nameline_offset_width_2 := { 0 }
-nameline_offset_height_2 := { 0 }
-
-nameline_face_3 := { 3 }
-
-nameline_disabled_3 := { false }
-nameline_offset_top_3 := { 0 }
-nameline_offset_left_3 := { 0 }
-nameline_offset_width_3 := { 0 }
-nameline_offset_height_3 := { 0 }
-
 ############################################################## Flavor bar
 bar_equation := {if card_style.text.layout.blocks[1].bottom or else 0 > 0 then card_style.text.top + 0.5*(card_style.text.layout.blocks[0].bottom+card_style.text.layout.blocks[1].top) else old_bar_equation()}
 bar_equation2 := {if card_style.text_2.layout.blocks[0].bottom or else 0 > 0 then card_style.text_2.top + 0.5*(card_style.text_2.layout.blocks[0].bottom+card_style.text_2.layout.blocks[1].top) else old_bar_equation2()}
@@ -3234,6 +2153,1115 @@ card_new_color := {
 	else if contains(card.card_color, match:"multi") or contains(card.card_color, match:"hybrid") then "m"
 	else "c"
 }
+############################################################## Other scripted fields
+#### Dimensions of card faces, can be changed in style files
+faces_coordinates := {
+	[
+		[
+			left: 0,
+			top: 0,
+			width: stylesheet.card_width,
+			height: stylesheet.card_height
+		]
+	]
+}
+face_coordinates_string := {
+	fc := faces_coordinates()
+	for x from 0 to length(fc) - 1 do fc[x].left + "," + fc[x].top + "," + fc[x].width + "," + fc[x].height + ";"
+}
+face_coordinates_map := {
+	fc := faces_coordinates()
+	fc[input-1] or else [top: 0, left:0, width:0, height:0]
+}
+face_is_rotated :=
+{
+	map := face_coordinates_map(input)
+	map.width > map.height
+}
+############################################################## Information below the textbox
+############################################################## Global offsets
+#### To shift everything up/down:
+copyright_offset_top := { 0 }
+#### To shift the card number, set code and artist credit left/right:
+copyright_offset_left := { 0 }
+#### To shift the actual copyright lines left/right:
+copyright_offset_right := { 0 }
+#### To shift the copyright up/down on creatures/walkers, if the pt/loyalty box is very short/tall:
+copyright_offset_pt_top := { 0 }
+#### To shift the secondary copyright left/right on creatures/walkers, if the pt/loyalty box is very narrow/wide:
+copyright_offset_pt_left := { 0 }
+#### For the other faces on DFCs use:
+copyright_offset_top_2 := { 0 }
+copyright_offset_left_2 := { 0 }
+copyright_offset_right_2 := { 0 }
+copyright_offset_pt_top_2 := { 0 }
+copyright_offset_pt_left_2 := { 0 }
+copyright_offset_top_3 := { 0 }
+copyright_offset_left_3 := { 0 }
+copyright_offset_right_3 := { 0 }
+copyright_offset_pt_top_3 := { 0 }
+copyright_offset_pt_left_3 := { 0 }
+#### These work the same on 90° rotated cards, but you need to imagine the card is upright
+#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
+#### You can disable the copyright on some of the faces,
+#### by adding the following functions in the init script:
+copyright_disabled := { false }
+copyright_disabled_2 := { false }
+copyright_disabled_3 := { false }
+
+############################################################## Card code fields
+set_code_script :=
+{
+	code := if is_masterpiece() then set.masterpiece_set_code else set.set_code
+	if code == "" then set.set_language else (
+	brush :=	if		margin_code == "setcode1" then	card.additional_credit_brush
+				else if	margin_code == "setcode2" then	card.additional_credit_brush_4
+				else if	margin_code == "setcode3" then	card.additional_credit_brush_5
+				else									"none"
+	if brush == "none" or (not set.adaptive_language_height)
+	then code + (if set.set_language != "" then " • " else "") + set.set_language
+	else code)
+}
+set_language_script :=
+{
+	set.set_language
+}
+#### a/b add-ons for DFCs
+card_number_tags := {
+	if contains(card.shape, match:"double")
+		then ["a", "b", "b"]
+	else ["", "", ""]
+}
+#### General card code handler
+card_code_script_core := {
+	if not use_auto_numbers() then
+		### CUSTOM R TEXT
+		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card_code_text)
+	else if set.card_number_style == "0001/0099" then
+		### R 1000/1000 TEXT
+		forward_editor(prefix: rarity_code() + " " + card_number_mom() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom()) + " ", field: card_code_text)
+	else if set.card_number_style == "0001" then
+		### R 1000 TEXT
+		forward_editor(prefix: rarity_code() + " " + card_number_mom() + tag + " ", field: card_code_text)
+	else if set.card_number_style == "001/099" then
+		### 100/100 R TEXT
+		forward_editor(prefix: card_number_m15() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card_code_text)
+	else if set.card_number_style == "001" then
+		### 100 R TEXT
+		forward_editor(prefix: card_number_m15() + tag + " " + rarity_code() + " ", field: card_code_text)
+	else if set.card_number_style == "1/99" then
+		### 1/99 R TEXT
+		forward_editor(prefix: card_number() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card_code_text)
+	else
+		### 1 R TEXT
+		forward_editor(prefix: card_number() + tag + " " + rarity_code() + " ", field: card_code_text)
+}@(tag: "")
+#### Card code script for individual faces
+card_code_script :=
+{
+	card_code_script_core(card_code_text: card.card_code_text, tag:card_number_tags()[0])
+}
+card_code_script2 :=
+{
+	card_code_script_core(card_code_text: card.card_code_text_2, tag:card_number_tags()[1])
+}
+card_code_script3 :=
+{
+	card_code_script_core(card_code_text: card.card_code_text_3, tag:card_number_tags()[2])
+}
+############################################################## Copyright fields
+copyright_default := { set.copyright }
+secondary_copyright_default := { set.secondary_copyright }
+############################################################## Additional credit fields
+illustrator_brush_default := { "art" }
+illustrator_brush_field := { if input <= 1 then card.illustrator_brush else card["illustrator_brush_" + input] }
+illustrator_brush_image :=
+{
+	shape := illustrator_brush_field(field)
+	image := "/magic-copyright.mse-include/" + shape + ".png"
+	color := styling.copyright_text_color or else set.copyright_text_color
+	recolor_image(image, color: color)
+}
+additional_credit_default := { "" }
+additional_credit_brush_default := { "none" }
+additional_credit_brush_field := { if input <= 1 then card.additional_credit_brush else card["additional_credit_brush_" + input] }
+additional_credit_brush_image :=
+{
+	shape := additional_credit_brush_field(field)
+	image := "/magic-copyright.mse-include/" + shape + ".png"
+	color := styling.copyright_text_color or else set.copyright_text_color
+	recolor_image(image, color: color)
+}
+############################################################## The List
+the_list_icon_default := { "none" }
+the_list_icon_field := { if input <= 1 then card.the_list_icon else card["the_list_icon_" + input] }
+the_list_icon_image :=
+{
+	shape := the_list_icon_field(field)
+	suffix := if shape == "the list" and face_coordinates_map(face).width != 375 and face_coordinates_map(face).width != 523 then " 750" else ""
+	image := "/magic-copyright.mse-include/" + shape + suffix + ".png"
+	color := styling.copyright_text_color or else set.copyright_text_color
+	recolor_image(image, color: color)
+}
+
+############################################################## Additional textboxes
+text_filter_default :=
+{
+	if transfer_levels() then
+	(
+		if		margin_code == "lv1" then card.rule_text
+		else if	margin_code == "lv2" then card.rule_text_2
+		else if	margin_code == "lv3" then card.rule_text_3
+		else if	margin_code == "lv4" then card.rule_text_4
+		else if	margin_code == "lv5" then card.rule_text_5
+		else if	margin_code == "lv6" then card.rule_text_6
+		else ""
+	)
+	else ""
+}
+text_style_field := { if input <= 1 then card_style.text else card_style["text_" + input] }
+
+############################################################## Saga/Class reminder
+chapter_text_filter_default :=
+{
+	if		margin_code == "chapter_text" then (if not a_saga() then "" else if card.rule_text != "" then card.rule_text else "<i-auto>(" + saga_reminder() + ")</i-auto>")
+	else if	margin_code == "chapter_text2" then (if not b_saga() then "" else "<i-auto>(" + saga_reminderb() + ")</i-auto>")
+	else ""
+}
+############################################################## Leveler textboxes
+level_filter_default := { "" }
+level_filter := { input }
+
+#### Correct the CARDNAME atom for levelers
+#### This can be overwritten for more complicated levelers
+#### Dungeons for example will overwrite with just {if set.alias_as_cardname and card.alias != "" then card.alias else card.name}
+card_name_for_level := {
+	lvl :=	if input < 5
+				then ""
+			else if input < 9
+				then "_2"
+			else if input < 13
+				then "_3"
+			else if input < 17
+				then "_4"
+			else ""
+	if set.alias_as_cardname and card["alias"+lvl] != "" then card["alias"+lvl] else card["name"+lvl]
+}
+
+############################################################## Border
+border_color_default := { set.border_color }
+
+corners_default := { set.corner_shape }
+corners_field := { if input <= 1 then card.corners else card["corners_" + input] }
+corners_image :=
+{
+	shape := corners_field(field)
+	color := if shape == "none" then card.border_color else rgb(255,255,255)
+	recolor_image("/magic-corners.mse-include/color.png", color: color)
+}
+corners_mask :=
+{
+	map := face_coordinates_map(face)
+	if map.width == 0 or map.height == 0 then "" else (
+	dimensions := map.width + "x" + map.height
+	dimensions := corners_possible_dimensions[dimensions] or else (if map.height > map.width then "1046x750" else "750x1046")
+	shape := corners_field(field)
+	shape := if shape == "none" then "rounded" else shape
+	"/magic-corners.mse-include/" + dimensions + " " + shape + ".png")
+}
+corners_possible_dimensions :=
+[
+	"375x523":	"375x523"
+	"523x375":	"523x375"
+	"646x902":	"646x902"
+	"902x646":	"902x646"
+	"744x1039":	"744x1039"
+	"1039x744":	"1039x744"
+	"750x1046":	"750x1046"
+	"1046x750":	"1046x750"
+]
+
+corners_disabled := { false }
+corners_disabled_2 := { false }
+corners_disabled_3 := { false }
+
+############################################################## Punchout counters
+counter_default := { "+1/+1" }
+counter_field := { if input <= 1 then card.counter else card["counter_" + input] }
+counter_image :=
+{
+	shape := replace(counter_field(field), match: "/", replace: "")
+	if shape == "custom" then
+	(
+		path :=	styling["symbol_" + field + "_custom_image_location"]
+				or else styling["counter_symbol_" + field + "_custom_image_location"]
+				or else ""
+		if contains(path, match: ".png")
+		then "/magic-counters.mse-include/" + path
+		else "/magic-counters.mse-include/none.png"
+	)
+	else if shape == "none" then "/magic-counters.mse-include/none.png"
+	else
+	(
+		color :=	styling.symbol_color
+					or else styling.counter_symbol_color
+					or else rgb(255,255,255)
+		recolor_image("/magic-counters.mse-include/" + shape + ".png", color: color)
+	)
+}
+
+############################################################## Future Sight typesymbols
+typesymbol_for :=
+	to_text +
+	{ lang_setting("remove_supertypes")(input) } +
+	{ replace(match: lang_setting("supertype_separator"), replace: "") } +
+	{
+		if      input == lang_setting("creature")		then	"creature"
+		else if input == lang_setting("sorcery")		then	"sorcery"
+		else if input == lang_setting("instant")		then	"instant"
+		else if input == lang_setting("artifact")		then	"artifact"
+		else if input == lang_setting("enchantment")	then	"enchantment"
+		else if input == lang_setting("land")			then	"land"
+		else if input == lang_setting("planeswalker")	then	"planeswalker"
+		else if input == lang_setting("battle")			then	"battle"
+		else if input == lang_setting("emblem")			then	"non standard emblem"
+		else if input == lang_setting("conspiracy")		then	"non standard conspiracy"
+		else if input == lang_setting("dungeon")		then	"non standard dungeon"
+		else if input == lang_setting("hero")			then	"non standard hero"
+		else if input == lang_setting("phenomenon")		then	"non standard phenomenon"
+		else if input == lang_setting("plane")			then	"non standard plane"
+		else if input == lang_setting("scheme")			then	"non standard scheme"
+		else if input == lang_setting("vanguard")		then	"non standard vanguard"
+		else													"multitype"
+	}
+typesymbol_type := { typesymbol_for(type) }
+transform_symbol_default :=
+{
+	if		margin_code == "transform1" then	"day"
+	else if	margin_code == "transform2" then	"night"
+	else										"eldrazi"
+}
+############################################################## Transform/Lesson symbols
+transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
+transform_symbol_is_mirrored :=
+{
+	if input <= 1 then transform_symbol_mirrored() else if input == 2 then transform_symbol_mirrored_2() else transform_symbol_mirrored_3()
+}
+transform_symbol_image :=
+{
+	map := face_coordinates_map(face)
+	if map.width == 0 or map.height == 0 then "" else (
+	shape := transform_symbol_field(field)
+	if shape == "none" then ""
+	else if	shape == "custom symbol one" then custom_symbol_1()
+	else if	shape == "custom symbol two" then custom_symbol_2()
+	else if	shape == "custom symbol three" then custom_symbol_3()
+	else if	shape == "custom symbol four" then custom_symbol_4() else (
+	shape := clean_transform_symbol_shape(shape)
+	if transform_symbol_is_mirrored(field) then shape := flip_transform_symbol_shape(shape)
+	"/magic-symbols.mse-include/" + shape + ".png"))
+}
+clean_transform_symbol_shape :=
+	replace@(match: "modal front ", replace: "modalfront/") +
+	replace@(match: "modal back ", replace: "modalback/") +
+	replace@(match: "sparker (colored) ", replace: "sparker/") +
+	replace@(match: "extra |non standard ", replace: "")
+flip_transform_symbol_shape :=
+	replace@(match: "modalfront/", replace: "modalfrontflipped/") +
+	replace@(match: "modalback/", replace: "modalbackflipped/")
+
+transform_symbol_face := { 1 }
+
+transform_symbol_disabled := { false }
+transform_symbol_mirrored := { false }
+transform_symbol_offset_top := { 0 }
+transform_symbol_offset_left := { 0 }
+transform_symbol_offset_width := { 0 }
+transform_symbol_offset_height := { 0 }
+
+transform_symbol_left :=
+{
+	map := face_coordinates_map(transform_symbol_face())
+	width := map.width
+	height := map.height
+	mirrored := transform_symbol_is_mirrored(1)
+	if width > height then
+	(
+		if mirrored then	map.left + 455 * width/523 + transform_symbol_offset_left()
+		else				map.left + 52 * width/523 + transform_symbol_offset_left()
+	)
+	else
+	(
+		if mirrored then	map.left + 319 * width/375 + transform_symbol_offset_left()
+		else				map.left + 13 * width/375 + transform_symbol_offset_left()
+	)
+}
+transform_symbol_top :=
+{
+	map := face_coordinates_map(transform_symbol_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 11 * height/375 + transform_symbol_offset_top()
+	else					map.top + 19 * height/523 + transform_symbol_offset_top()
+}
+transform_symbol_width :=
+{
+	map := face_coordinates_map(transform_symbol_face())
+	width := map.width
+	height := map.height
+	if width > height then	43 * width/523 + transform_symbol_offset_width()
+	else					43 * width/375 + transform_symbol_offset_width()
+}
+transform_symbol_height :=
+{
+	map := face_coordinates_map(transform_symbol_face())
+	width := map.width
+	height := map.height
+	if width > height then	43 * height/375 + transform_symbol_offset_height()
+	else					43 * height/523 + transform_symbol_offset_height()
+}
+
+transform_symbol_face_2 := { 2 }
+
+transform_symbol_disabled_2 := { false }
+transform_symbol_mirrored_2 := { false }
+transform_symbol_offset_top_2 := { 0 }
+transform_symbol_offset_left_2 := { 0 }
+transform_symbol_offset_width_2 := { 0 }
+transform_symbol_offset_height_2 := { 0 }
+
+transform_symbol_left_2 :=
+{
+	map := face_coordinates_map(transform_symbol_face_2())
+	width := map.width
+	height := map.height
+	mirrored := transform_symbol_is_mirrored(2)
+	if width > height then
+	(
+		if mirrored then	map.left + 455 * width/523 + transform_symbol_offset_left_2()
+		else				map.left + 52 * width/523 + transform_symbol_offset_left_2()
+	)
+	else
+	(
+		if mirrored then	map.left + 319 * width/375 + transform_symbol_offset_left_2()
+		else				map.left + 13 * width/375 + transform_symbol_offset_left_2()
+	)
+}
+transform_symbol_top_2 :=
+{
+	map := face_coordinates_map(transform_symbol_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 11 * height/375 + transform_symbol_offset_top_2()
+	else					map.top + 19 * height/523 + transform_symbol_offset_top_2()
+}
+transform_symbol_width_2 :=
+{
+	map := face_coordinates_map(transform_symbol_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	43 * width/523 + transform_symbol_offset_width_2()
+	else					43 * width/375 + transform_symbol_offset_width_2()
+}
+transform_symbol_height_2 :=
+{
+	map := face_coordinates_map(transform_symbol_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	43 * height/375 + transform_symbol_offset_height_2()
+	else					43 * height/523 + transform_symbol_offset_height_2()
+}
+
+transform_symbol_face_3 := { 3 }
+
+transform_symbol_disabled_3 := { false }
+transform_symbol_mirrored_3 := { false }
+transform_symbol_offset_top_3 := { 0 }
+transform_symbol_offset_left_3 := { 0 }
+transform_symbol_offset_width_3 := { 0 }
+transform_symbol_offset_height_3 := { 0 }
+
+transform_symbol_left_3 :=
+{
+	map := face_coordinates_map(transform_symbol_face_3())
+	width := map.width
+	height := map.height
+	mirrored := transform_symbol_is_mirrored(3)
+	if width > height then
+	(
+		if mirrored then	map.left + 455 * width/523 + transform_symbol_offset_left_3()
+		else				map.left + 52 * width/523 + transform_symbol_offset_left_3()
+	)
+	else
+	(
+		if mirrored then	map.left + 319 * width/375 + transform_symbol_offset_left_3()
+		else				map.left + 13 * width/375 + transform_symbol_offset_left_3()
+	)
+}
+transform_symbol_top_3 :=
+{
+	map := face_coordinates_map(transform_symbol_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 11 * height/375 + transform_symbol_offset_top_3()
+	else					map.top + 19 * height/523 + transform_symbol_offset_top_3()
+}
+transform_symbol_width_3 :=
+{
+	map := face_coordinates_map(transform_symbol_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	43 * width/523 + transform_symbol_offset_width_3()
+	else					43 * width/375 + transform_symbol_offset_width_3()
+}
+transform_symbol_height_3 :=
+{
+	map := face_coordinates_map(transform_symbol_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	43 * height/375 + transform_symbol_offset_height_3()
+	else					43 * height/523 + transform_symbol_offset_height_3()
+}
+############################################################## Loyalty costs
+loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
+loyalty_cost_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	card["loyalty_cost_" + input]
+}
+loyalty_cost_box_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	card["loyalty_cost_box_" + input]
+}
+loyalty_cost_box_default :=
+{
+	cost := loyalty_cost_field(margin_code)
+	if cost == "" then "none"
+	else if	contains(cost, match: "+") then	"+, shadow"
+	else if	contains(cost, match: "-") then	"-, shadow"
+	else									"0, shadow"
+}
+loyalty_cost_box_image :=
+{
+	shape := remove_comma(loyalty_cost_box_field(input))
+	if contains(shape, match: "none") then ""
+	else "/magic-loyalty.mse-include/loyalty cost " + shape + ".png"
+}
+
+loyalty_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	if input <= 1 then card.loyalty else card["loyalty_" + input]
+}
+loyalty_box_field :=
+{
+	input := loyalty_clean_margin_code(input)
+	if input <= 1 then card.loyalty_box else card["loyalty_box_" + input]
+}
+loyalty_box_default :=
+{
+	margin_code := loyalty_clean_margin_code(margin_code)
+	loyalty := loyalty_field(margin_code)
+	if loyalty == "" then "none" else (
+	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
+	if lang_setting("is_battle")(type) or contains(card_shape(), match: "battle") then "defense"
+	else "loyalty")
+}
+loyalty_box_image :=
+{
+	shape := remove_comma(loyalty_box_field(input))
+	if contains(shape, match: "none") then ""
+	else "/magic-loyalty.mse-include/" + shape + ".png"
+}
+
+loyalty_face := { 1 }
+loyalty_text_field := { 1 }
+
+loyalty_offset_top := { 0 }
+loyalty_offset_left := { 0 }
+loyalty_offset_width := { 0 }
+loyalty_offset_height := { 0 }
+
+loyalty_cost_offset_top := { 0 }
+loyalty_cost_offset_left := { 0 }
+loyalty_cost_offset_width := { 0 }
+loyalty_cost_offset_height := { 0 }
+
+loyalty_cost_offset_text_margin := { 0 }
+
+loyalty_textbox_mask :=
+{
+	if is_stamped(field: loyalty_text_field())
+	then "/magic-loyalty.mse-include/default_textbox_stamp_mask.png"
+	else "/magic-loyalty.mse-include/default_textbox_mask.png"
+}
+
+############################################################## Separators
+separator_enable_level := { false }
+separator_default := { if set.use_flavor_bar then "flavor bar" else "none" }
+
+flavor_bar_left := { face_coordinates_map(input).left }
+flavor_bar_top :=
+{
+	style := if input <= 1 then card_style.text else card_style["text_" + input]
+	rule := if input <= 1 then card.rule_text else card["rule_text_" + input]
+	flavor := if input <= 1 then card.flavor_text else card["flavor_text_" + input]
+	disabled := if input <= 1 then flavor_bar_disabled() else if input == 2 then flavor_bar_disabled_2() else flavor_bar_disabled_3()
+	uninitialized := (style.layout.blocks[1].bottom or else 0) <= 0
+	if		disabled
+		or	rule == ""
+		or	remove_tags(flavor) == ""
+	then stylesheet.card_height + 1
+	else if uninitialized
+	then (if input <= 1 then old_bar_equation() else if input == 2 then old_bar_equation2() else old_bar_equation3()) - flavor_bar_height(input)/2
+	else style.top + (style.layout.blocks[0].bottom + style.layout.blocks[1].top)/2 - flavor_bar_height(input)/2
+}
+flavor_bar_width := { face_coordinates_map(input).width }
+flavor_bar_height := { 24 * face_coordinates_map(input).height/1039 }
+
+flavor_bar_disabled := { false }
+flavor_bar_offset_top := { 0 }
+flavor_bar_offset_left := { 0 }
+flavor_bar_offset_width := { 0 }
+flavor_bar_offset_height := { 0 }
+flavor_bar_disabled_2 := { false }
+flavor_bar_offset_top_2 := { 0 }
+flavor_bar_offset_left_2 := { 0 }
+flavor_bar_offset_width_2 := { 0 }
+flavor_bar_offset_height_2 := { 0 }
+flavor_bar_disabled_3 := { false }
+flavor_bar_offset_top_3 := { 0 }
+flavor_bar_offset_left_3 := { 0 }
+flavor_bar_offset_width_3 := { 0 }
+flavor_bar_offset_height_3 := { 0 }
+
+############################################################## Watermark offsets
+watermark_face := { 1 }
+watermark_text_field := { 1 }
+watermark_stamp_field := { 1 }
+
+watermark_disabled := { false }
+watermark_offset_top := { 0 }
+watermark_offset_left := { 0 }
+watermark_offset_width := { 0 }
+watermark_offset_height := { 0 }
+watermark_offset_stamp := { 0 }
+
+watermark_face_2 := { 2 }
+watermark_text_field_2 := { 2 }
+watermark_stamp_field_2 := { 2 }
+
+watermark_disabled_2 := { false }
+watermark_offset_top_2 := { 0 }
+watermark_offset_left_2 := { 0 }
+watermark_offset_width_2 := { 0 }
+watermark_offset_height_2 := { 0 }
+watermark_offset_stamp_2 := { 0 }
+
+watermark_face_3 := { 3 }
+watermark_text_field_3 := { 3 }
+watermark_stamp_field_3 := { 3 }
+
+watermark_disabled_3 := { false }
+watermark_offset_top_3 := { 0 }
+watermark_offset_left_3 := { 0 }
+watermark_offset_width_3 := { 0 }
+watermark_offset_height_3 := { 0 }
+watermark_offset_stamp_3 := { 0 }
+
+############################################################## Color indicator offsets
+indicator_disabled := { false }
+indicator_offset_top := { 0 }
+indicator_offset_left := { 0 }
+indicator_offset_size := { 0 }
+
+indicator_left :=
+{
+	map := face_coordinates_map(typeline_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 65 * width/523 + indicator_offset_left()
+	else					map.left + 31 * width/375 + indicator_offset_left()
+}
+indicator_top :=
+{
+	map := face_coordinates_map(typeline_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 223 * height/375 + indicator_offset_top()
+	else					map.top + 301 * height/523 + indicator_offset_top()
+}
+indicator_size :=
+{
+	map := face_coordinates_map(typeline_face())
+	17 * min(map.width, map.height)/375 + indicator_offset_size()
+}
+
+indicator_disabled_2 := { false }
+indicator_offset_top_2 := { 0 }
+indicator_offset_left_2 := { 0 }
+indicator_offset_size_2 := { 0 }
+
+indicator_left_2 :=
+{
+	map := face_coordinates_map(typeline_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 65 * width/523 + indicator_offset_left_2()
+	else					map.left + 31 * width/375 + indicator_offset_left_2()
+}
+indicator_top_2 :=
+{
+	map := face_coordinates_map(typeline_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 223 * height/375 + indicator_offset_top_2()
+	else					map.top + 301 * height/523 + indicator_offset_top_2()
+}
+indicator_size_2 :=
+{
+	map := face_coordinates_map(typeline_face_2())
+	17 * min(map.width, map.height)/375 + indicator_offset_size_2()
+}
+
+indicator_disabled_3 := { false }
+indicator_offset_top_3 := { 0 }
+indicator_offset_left_3 := { 0 }
+indicator_offset_size_3 := { 0 }
+
+indicator_left_3 :=
+{
+	map := face_coordinates_map(typeline_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 65 * width/523 + indicator_offset_left_3()
+	else					map.left + 31 * width/375 + indicator_offset_left_3()
+}
+indicator_top_3 :=
+{
+	map := face_coordinates_map(typeline_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 223 * height/375 + indicator_offset_top_3()
+	else					map.top + 301 * height/523 + indicator_offset_top_3()
+}
+indicator_size_3 :=
+{
+	map := face_coordinates_map(typeline_face_3())
+	17 * min(map.width, map.height)/375 + indicator_offset_size_3()
+}
+
+############################################################## Rarity offsets
+rarity_disabled := { false }
+rarity_offset_top := { 0 }
+rarity_offset_left := { 0 }
+rarity_offset_size := { 0 }
+
+rarity_left :=
+{
+	map := face_coordinates_map(typeline_face())
+	user_offsets := styling.rarity_offsets or else ""
+	if map.width > map.height then	map.left + 455 * map.width/523 + rarity_offset_left() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
+	else							map.left + 317 * map.width/375 + rarity_offset_left() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
+}
+rarity_top :=
+{
+	map := face_coordinates_map(typeline_face())
+	user_offsets := styling.rarity_offsets or else ""
+	if map.width > map.height then	map.top + 219 * map.height/375 + rarity_offset_top() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
+	else							map.top + 297 * map.height/523 + rarity_offset_top() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
+}
+rarity_size :=
+{
+	map := face_coordinates_map(typeline_face())
+	user_offsets := styling.rarity_offsets or else ""
+	24 * min(map.width, map.height)/375 + rarity_offset_size() + 2*rarity_user_offset_size(user_offsets)
+}
+
+rarity_disabled_2 := { false }
+rarity_offset_top_2 := { 0 }
+rarity_offset_left_2 := { 0 }
+rarity_offset_size_2 := { 0 }
+
+rarity_left_2 :=
+{
+	map := face_coordinates_map(typeline_face_2())
+	user_offsets := styling.rarity_offsets_2 or else ""
+	if map.width > map.height then	map.left + 455 * map.width/523 + rarity_offset_left_2() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
+	else							map.left + 317 * map.width/375 + rarity_offset_left_2() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
+}
+rarity_top_2 :=
+{
+	map := face_coordinates_map(typeline_face_2())
+	user_offsets := styling.rarity_offsets_2 or else ""
+	if map.width > map.height then	map.top + 219 * map.height/375 + rarity_offset_top_2() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
+	else							map.top + 297 * map.height/523 + rarity_offset_top_2() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
+}
+rarity_size_2 :=
+{
+	map := face_coordinates_map(typeline_face_2())
+	user_offsets := styling.rarity_offsets_2 or else ""
+	24 * min(map.width, map.height)/375 + rarity_offset_size_2() + 2*rarity_user_offset_size(user_offsets)
+}
+
+rarity_disabled_3 := { false }
+rarity_offset_top_3 := { 0 }
+rarity_offset_left_3 := { 0 }
+rarity_offset_size_3 := { 0 }
+
+rarity_left_3 :=
+{
+	map := face_coordinates_map(typeline_face_3())
+	user_offsets := styling.rarity_offsets_3 or else ""
+	if map.width > map.height then	map.left + 455 * map.width/523 + rarity_offset_left_3() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
+	else							map.left + 317 * map.width/375 + rarity_offset_left_3() + rarity_user_offset_left(user_offsets) - rarity_user_offset_size(user_offsets)
+}
+rarity_top_3 :=
+{
+	map := face_coordinates_map(typeline_face_3())
+	user_offsets := styling.rarity_offsets_3 or else ""
+	if map.width > map.height then	map.top + 219 * map.height/375 + rarity_offset_top_3() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
+	else							map.top + 297 * map.height/523 + rarity_offset_top_3() + rarity_user_offset_top(user_offsets) - rarity_user_offset_size(user_offsets)
+}
+rarity_size_3 :=
+{
+	map := face_coordinates_map(typeline_face_3())
+	user_offsets := styling.rarity_offsets_3 or else ""
+	24 * min(map.width, map.height)/375 + rarity_offset_size_3() + 2*rarity_user_offset_size(user_offsets)
+}
+
+rarity_user_offset_left :=	{ split := split_comma(input); if length(split) > 0 and split.0 != "" and split.0 != "-" then clamp(split.0, maximum:500, minimum:-500) else 0 }
+rarity_user_offset_top :=	{ split := split_comma(input); if length(split) > 1 and split.1 != "" and split.1 != "-" then clamp(split.1, maximum:500, minimum:-500) else 0 }
+rarity_user_offset_size :=	{ split := split_comma(input); if length(split) > 2 and split.2 != "" and split.2 != "-" then clamp(split.2, maximum:500, minimum:-500) else 0 }
+
+############################################################## Type offsets
+type_disabled := { false }
+type_offset_top := { 0 }
+type_offset_left := { 0 }
+type_offset_right := { 0 }
+type_offset_height := { 0 }
+
+type_max_width := { 500 }
+
+type_disabled_2 := { false }
+type_offset_top_2 := { 0 }
+type_offset_left_2 := { 0 }
+type_offset_right_2 := { 0 }
+type_offset_height_2 := { 0 }
+
+type_disabled_3 := { false }
+type_offset_top_3 := { 0 }
+type_offset_left_3 := { 0 }
+type_offset_right_3 := { 0 }
+type_offset_height_3 := { 0 }
+
+typeline_face := { 1 }
+
+typeline_disabled := { false }
+typeline_offset_top := { 0 }
+typeline_offset_left := { 0 }
+typeline_offset_width := { 0 }
+typeline_offset_height := { 0 }
+
+typeline_face_2 := { 2 }
+
+typeline_disabled_2 := { false }
+typeline_offset_top_2 := { 0 }
+typeline_offset_left_2 := { 0 }
+typeline_offset_width_2 := { 0 }
+typeline_offset_height_2 := { 0 }
+
+typeline_face_3 := { 3 }
+
+typeline_disabled_3 := { false }
+typeline_offset_top_3 := { 0 }
+typeline_offset_left_3 := { 0 }
+typeline_offset_width_3 := { 0 }
+typeline_offset_height_3 := { 0 }
+
+############################################################## Casting cost offsets
+casting_cost_disabled := { false }
+casting_cost_offset_top := { 0 }
+casting_cost_offset_left := { 0 }
+casting_cost_offset_width := { 0 }
+casting_cost_offset_height := { 0 }
+
+casting_cost_right :=
+{
+	map := face_coordinates_map(nameline_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 485 * width/523 + casting_cost_offset_left()
+	else					map.left + 346 * width/375 + casting_cost_offset_left()
+}
+casting_cost_top :=
+{
+	map := face_coordinates_map(nameline_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 19 * height/375 + casting_cost_offset_top()
+	else					map.top + 27 * height/523 + casting_cost_offset_top()
+}
+casting_cost_width :=
+{
+	map := face_coordinates_map(nameline_face())
+	width := map.width
+	height := map.height
+	scale := min(width, height)/375
+	minimum := 30 * scale
+	buffer := 5 * scale
+	max(minimum, card_style.casting_cost.content_width) + buffer + casting_cost_offset_width()
+}
+casting_cost_height :=
+{
+	map := face_coordinates_map(nameline_face())
+	26 * min(map.width, map.height)/375 + casting_cost_offset_height()
+}
+
+casting_cost_disabled_2 := { false }
+casting_cost_offset_top_2 := { 0 }
+casting_cost_offset_left_2 := { 0 }
+casting_cost_offset_width_2 := { 0 }
+casting_cost_offset_height_2 := { 0 }
+
+casting_cost_right_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 485 * width/523 + casting_cost_offset_left_2()
+	else					map.left + 346 * width/375 + casting_cost_offset_left_2()
+}
+casting_cost_top_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 19 * height/375 + casting_cost_offset_top_2()
+	else					map.top + 27 * height/523 + casting_cost_offset_top_2()
+}
+casting_cost_width_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	width := map.width
+	height := map.height
+	scale := min(width, height)/375
+	minimum := 30 * scale
+	buffer := 5 * scale
+	max(minimum, card_style.casting_cost_2.content_width) + buffer + casting_cost_offset_width_2()
+}
+casting_cost_height_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	26 * min(map.width, map.height)/375 + casting_cost_offset_height_2()
+}
+
+casting_cost_disabled_3 := { false }
+casting_cost_offset_top_3 := { 0 }
+casting_cost_offset_left_3 := { 0 }
+casting_cost_offset_width_3 := { 0 }
+casting_cost_offset_height_3 := { 0 }
+
+casting_cost_right_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 485 * width/523 + casting_cost_offset_left_3()
+	else					map.left + 346 * width/375 + casting_cost_offset_left_3()
+}
+casting_cost_top_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 19 * height/375 + casting_cost_offset_top_3()
+	else					map.top + 27 * height/523 + casting_cost_offset_top_3()
+}
+casting_cost_width_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	width := map.width
+	height := map.height
+	scale := min(width, height)/375
+	minimum := 30 * scale
+	buffer := 5 * scale
+	max(minimum, card_style.casting_cost_3.content_width) + buffer + casting_cost_offset_width_3()
+}
+casting_cost_height_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	26 * min(map.width, map.height)/375 + casting_cost_offset_height_3()
+}
+
+############################################################## Name offsets
+name_disabled := { false }
+name_offset_top := { 0 }
+name_offset_left := { 0 }
+name_offset_right := { 0 }
+name_offset_height := { 0 }
+name_transform_symbol_offset_left := { 0 }
+
+name_max_width := { card_style.name.width }
+
+name_left :=
+{
+	map := face_coordinates_map(nameline_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 67 * width/523 + name_offset_left()
+	else					map.left + 32 * width/375 + name_offset_left()
+}
+name_top :=
+{
+	map := face_coordinates_map(nameline_face())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 19 * height/375 + name_offset_top()
+	else					map.top + 27 * height/523 + name_offset_top()
+}
+name_right :=
+{
+	map := face_coordinates_map(nameline_face())
+	width := map.width
+	height := map.height
+	casting_cost_width := if card_style.casting_cost.content_width == 0 then 0 else card_style.casting_cost.content_width + 3 * min(width, height)/375
+	if width > height then	map.left + 482 * width/523 - casting_cost_width + name_offset_right()
+	else					map.left + 341 * width/375 - casting_cost_width + name_offset_right()
+}
+name_height :=
+{
+	map := face_coordinates_map(nameline_face())
+	26 * min(map.width, map.height)/375 + name_offset_height()
+}
+
+name_transform_symbol_shift :=
+{
+	if card.transformation == "none" or transform_symbol_disabled() then 0 else (
+	map := face_coordinates_map(nameline_face())
+	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left()
+}
+
+name_disabled_2 := { false }
+name_offset_top_2 := { 0 }
+name_offset_left_2 := { 0 }
+name_offset_right_2 := { 0 }
+name_offset_height_2 := { 0 }
+name_transform_symbol_offset_left_2 := { 0 }
+
+name_max_width_2 := { card_style.name_2.width }
+
+name_left_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 67 * width/523 + name_offset_left_2()
+	else					map.left + 32 * width/375 + name_offset_left_2()
+}
+name_top_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 19 * height/375 + name_offset_top_2()
+	else					map.top + 27 * height/523 + name_offset_top_2()
+}
+name_right_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	width := map.width
+	height := map.height
+	casting_cost_width := if card_style.casting_cost_2.content_width == 0 then 0 else card_style.casting_cost_2.content_width + 3 * min(width, height)/375
+	if width > height then	map.left + 482 * width/523 - casting_cost_width + name_offset_right_2()
+	else					map.left + 341 * width/375 - casting_cost_width + name_offset_right_2()
+}
+name_height_2 :=
+{
+	map := face_coordinates_map(nameline_face_2())
+	26 * min(map.width, map.height)/375 + name_offset_height_2()
+}
+
+name_transform_symbol_shift_2 :=
+{
+	if card.transformation_2 == "none" or transform_symbol_disabled_2() then 0 else (
+	map := face_coordinates_map(nameline_face_2())
+	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left_2()
+}
+
+name_disabled_3 := { false }
+name_offset_top_3 := { 0 }
+name_offset_left_3 := { 0 }
+name_offset_right_3 := { 0 }
+name_offset_height_3 := { 0 }
+name_transform_symbol_offset_left_3 := { 0 }
+
+name_max_width_3 := { card_style.name_3.width }
+
+name_left_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.left + 67 * width/523 + name_offset_left_3()
+	else					map.left + 32 * width/375 + name_offset_left_3()
+}
+name_top_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	width := map.width
+	height := map.height
+	if width > height then	map.top + 19 * height/375 + name_offset_top_3()
+	else					map.top + 27 * height/523 + name_offset_top_3()
+}
+name_right_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	width := map.width
+	height := map.height
+	casting_cost_width := if card_style.casting_cost_3.content_width == 0 then 0 else card_style.casting_cost_3.content_width + 3 * min(width, height)/375
+	if width > height then	map.left + 482 * width/523 - casting_cost_width + name_offset_right_3()
+	else					map.left + 341 * width/375 - casting_cost_width + name_offset_right_3()
+}
+name_height_3 :=
+{
+	map := face_coordinates_map(nameline_face_3())
+	26 * min(map.width, map.height)/375 + name_offset_height_3()
+}
+
+name_transform_symbol_shift_3 :=
+{
+	if card.transformation_3 == "none" or transform_symbol_disabled_3() then 0 else (
+	map := face_coordinates_map(nameline_face_3())
+	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left_3()
+}
+
+############################################################## Nameline offsets
+nameline_face := { 1 }
+
+nameline_disabled := { false }
+nameline_offset_top := { 0 }
+nameline_offset_left := { 0 }
+nameline_offset_width := { 0 }
+nameline_offset_height := { 0 }
+
+nameline_face_2 := { 2 }
+
+nameline_disabled_2 := { false }
+nameline_offset_top_2 := { 0 }
+nameline_offset_left_2 := { 0 }
+nameline_offset_width_2 := { 0 }
+nameline_offset_height_2 := { 0 }
+
+nameline_face_3 := { 3 }
+
+nameline_disabled_3 := { false }
+nameline_offset_top_3 := { 0 }
+nameline_offset_left_3 := { 0 }
+nameline_offset_width_3 := { 0 }
+nameline_offset_height_3 := { 0 }
+
 ############################################################## Stamps
 ### The stamp to use if the user hasn't overwritten it for this card
 card_stamp_default := {
