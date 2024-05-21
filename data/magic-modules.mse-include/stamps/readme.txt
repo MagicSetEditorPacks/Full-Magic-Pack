@@ -1,14 +1,16 @@
-#### To use it in a template, add the following line, not indented, in the card style section:
+#### To use this include in a template, add the following in the template headers:
+depends on:
+	package:			magic-modules.mse-include
+	version:			2024-05-20
+#### Use the highest date version needed among modules
+
+#### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/stamps/card_fields
-#### For double-faced/triple faced cards, use these instead:
+#### For DFC or TFC templates, instead use:
 include file: /magic-modules.mse-include/stamps/card_fields_dfc
 include file: /magic-modules.mse-include/stamps/card_fields_tfc
 
-### Also add the following in the template headers:
-depends on:
-	package:			magic-modules.mse-include/stamps
-	version:			2024-01-29
-
+#### Customization
 ### Optionally, you can adjust global alignment by defining the following functions in the init script,
 ### which must return an int corresponding to the number of pixels you want to shift the stamp by:
 

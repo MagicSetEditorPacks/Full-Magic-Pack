@@ -36,4 +36,4 @@ indicator_offset_size_3 := { 0 }
 
 #### For DFC or TFC templates, dont forget to override the faces_coordinates function.
 
-#### (Consider using the /magic-typelines.mse-include/ instead of this one.)
+#### (Consider using the /magic-modules.mse-include/typelines/ instead of this one.)
