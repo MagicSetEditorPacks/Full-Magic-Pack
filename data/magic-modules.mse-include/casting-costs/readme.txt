@@ -4,13 +4,17 @@
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/casting-costs/card_fields
 #### For DFC or TFC templates, instead use:
 include file: /magic-modules.mse-include/casting-costs/card_fields_dfc
 include file: /magic-modules.mse-include/casting-costs/card_fields_tfc
+
+#### Also add this among the styling field section,
+#### (styling fields will appear in the order you place them).
+#### This adds a package option to select an alternate mana font for the casting cost.
+include file: /magic-modules.mse-include/casting-costs/styling_fields
 
 #### Customization
 #### Optionally, you can define which face of the card the casting cost should snap to,

@@ -2,23 +2,13 @@
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
-#### For each styling option you want to use, put its include file line in the styling fields section unindented
-#### It will appear in the order you place it with the others
+#### Also add this among the styling field section
+#### (styling fields will appear in the order you place them).
+#### This will add a boolean to enable custom fonts, and four text
+#### options for customizing nameline, typeline, textbox, and pt fonts.
+include file: /magic-modules.mse-include/fonts/styling_fields
 
-#### alt-rarity
-#### Adds a text option for customizing the colors used by the rarity symbol
-include file: /magic-modules.mse-include/styling-options/alt-rarity
-
-#### casting-cost-mana-symbols
-#### Adds an package option to select an alternate mana font for the casting cost and similar fields
-include file: /magic-modules.mse-include/styling-options/casting-cost-mana-symbols
-
-#### custom-fonts
-#### Adds a boolean to enable custom fonts
-#### Adds four text options for customizing nameline, typeline, textbox, and pt fonts
-include file: /magic-modules.mse-include/styling-options/custom-fonts
 #### You may also need to redefine the defaults in the style file:
 swap_fonts_name_default := [
 	name: {"Beleren Bold"},
@@ -76,4 +66,3 @@ swap_fonts_pt_default := [
 	vertical: {0},
 	italic: {""}
 ]
-
