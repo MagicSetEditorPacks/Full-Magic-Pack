@@ -2,16 +2,15 @@
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/information/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/information/card_fields_dfc
 include file: /magic-modules.mse-include/information/card_fields_tfc
 
 #### Customization
-#### You can adjust global alignment by redefining the following functions after the scripts include statement
+#### Optionally, you can adjust global alignment by redefining the following functions after the scripts include statement
 #### which must return an int corresponding to the number of pixels you want to shift things by
 #### positive numbers move right and down, negative move left and up
 
@@ -30,7 +29,7 @@ information_copyright_offset_pt_top := { 0 }
 #### To shift the secondary copyright left/right on creatures/walkers, if the pt/loyalty box is very narrow/wide:
 information_secondary_offset_pt_left := { 0 }
 
-#### For the other faces on DFCs use:
+#### For the other faces on DFC or TFC templates, use:
 information_offset_top_2 := { 0 }
 information_codes_offset_left_2 := { 0 }
 information_copyright_offset_right_2 := { 0 }
@@ -43,8 +42,6 @@ information_copyright_offset_pt_top_3 := { 0 }
 information_secondary_offset_pt_left_3 := { 0 }
 
 #### These work the same on 90° rotated cards, but you need to imagine the card is upright
-
-#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
 
 #### You can disable the copyright on some of the faces,
 #### by adding the following functions in the init script:

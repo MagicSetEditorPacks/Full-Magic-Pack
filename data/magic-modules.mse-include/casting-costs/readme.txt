@@ -7,7 +7,7 @@ depends on:
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/casting-costs/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/casting-costs/card_fields_dfc
 include file: /magic-modules.mse-include/casting-costs/card_fields_tfc
 
@@ -34,7 +34,7 @@ casting_cost_offset_left := { 0 }
 casting_cost_offset_width := { 0 }
 casting_cost_offset_height := { 0 }
 
-#### And move the casting costs with:
+#### For DFC or TFC templates, use:
 casting_cost_offset_top_2 := { 0 }
 casting_cost_offset_left_2 := { 0 }
 casting_cost_offset_width_2 := { 0 }

@@ -2,11 +2,10 @@
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/namelines/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/namelines/card_fields_dfc
 include file: /magic-modules.mse-include/namelines/card_fields_tfc
 
@@ -52,8 +51,7 @@ transform_symbol_offset_height := { 0 }
 #### when a transformation symbol is present on the card:
 name_transform_symbol_offset_left := { 0 }
 
-#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
-#### And move the namelines with:
+#### For DFC or TFC templates, use:
 nameline_offset_top_2 := { 0 }
 nameline_offset_left_2 := { 0 }
 nameline_offset_width_2 := { 0 }

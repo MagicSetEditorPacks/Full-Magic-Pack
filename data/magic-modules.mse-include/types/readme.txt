@@ -1,14 +1,13 @@
-#### Consider using the Typelines Module instead of this one
+#### Consider using the Typelines module instead of this one
 
 #### To use this include in a template, add the following in the template headers:
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/types/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/types/card_fields_dfc
 include file: /magic-modules.mse-include/types/card_fields_tfc
 
@@ -29,8 +28,7 @@ type_offset_left := { 0 }
 #### To increase/decrease the width and height of the type:
 type_offset_size := { 0 }
 
-#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
-#### And move the types with:
+#### For DFC or TFC templates, use:
 type_offset_top_2 := { 0 }
 type_offset_left_2 := { 0 }
 type_offset_size_2 := { 0 }

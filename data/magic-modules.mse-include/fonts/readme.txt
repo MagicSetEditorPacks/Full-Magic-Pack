@@ -17,38 +17,10 @@ swap_fonts_name_default := [
 	vertical: {0},
 	italic: {""}
 ]
-swap_fonts_name2_default := [
-	name: {"Beleren Bold"},
-	size: {16},
-	color: {"black"},
-	vertical: {0},
-	italic: {""}
-]
-swap_fonts_name3_default := [
-	name: {"Beleren Bold"},
-	size: {16},
-	color: {"black"},
-	vertical: {0},
-	italic: {""}
-]
 swap_fonts_type_default := [
 	name: {"Beleren Bold"},
 	size: {13},
 	color: {"black"},
-	vertical: {0},
-	italic: {""}
-]
-swap_fonts_type2_default := [
-	name: {"Beleren Bold"},
-	size: {13},
-	color: {"white"},
-	vertical: {0},
-	italic: {""}
-]
-swap_fonts_type3_default := [
-	name: {"Beleren Bold"},
-	size: {13},
-	color: {"white"},
 	vertical: {0},
 	italic: {""}
 ]
@@ -66,3 +38,13 @@ swap_fonts_pt_default := [
 	vertical: {0},
 	italic: {""}
 ]
+
+#### For DFC or TFC templates, or just templates with multiple text fields, use:
+swap_fonts_name2_default := []
+swap_fonts_name3_default := []
+swap_fonts_type2_default := []
+swap_fonts_type3_default := []
+swap_fonts_body2_default := []
+swap_fonts_body3_default := []
+swap_fonts_pt2_default := []
+swap_fonts_pt3_default := []

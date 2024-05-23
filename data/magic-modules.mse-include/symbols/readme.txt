@@ -1,14 +1,13 @@
-#### Consider using the Namelines Module instead of this one
+#### Consider using the Namelines module instead of this one
 
 #### To use this include in a template, add the following in the template headers:
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/symbols/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/symbols/card_fields_dfc
 include file: /magic-modules.mse-include/symbols/card_fields_tfc
 
@@ -40,8 +39,6 @@ transform_symbol_offset_left_3 := { 0 }
 transform_symbol_offset_width_3 := { 0 }
 transform_symbol_offset_height_3 := { 0 }
 transform_symbol_offset_mirrored_3 := { 0 }
-
-#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
 
 #### You can disable the symbols on some of the faces,
 #### by adding the following functions in the init script:

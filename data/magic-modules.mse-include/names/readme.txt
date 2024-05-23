@@ -1,14 +1,13 @@
-#### Consider using the Namelines Module instead of this one
+#### Consider using the Namelines module instead of this one
 
 #### To use this include in a template, add the following in the template headers:
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/names/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/names/card_fields_dfc
 include file: /magic-modules.mse-include/names/card_fields_tfc
 
@@ -32,11 +31,7 @@ name_offset_right := { 0 }
 #### To increase/decrease the height of the name:
 name_offset_height := { 0 }
 
-#### For DFC or TFC templates, instead use:
-include file: /magic-modules.mse-include/names/card_fields_dfc
-include file: /magic-modules.mse-include/names/card_fields_tfc
-
-#### And move the names with:
+#### For DFC or TFC templates, use:
 name_offset_top_2 := { 0 }
 name_offset_left_2 := { 0 }
 name_offset_size_2 := { 0 }

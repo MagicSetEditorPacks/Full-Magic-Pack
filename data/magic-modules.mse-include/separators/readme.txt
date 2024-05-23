@@ -2,7 +2,6 @@
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/separators/card_fields
@@ -24,7 +23,7 @@ flavor_bar_offset_left := { 0 }
 flavor_bar_offset_width := { 0 }
 flavor_bar_offset_height := { 0 }
 
-#### For the other faces on DFCs or TFCs use:
+#### For the other faces on DFC or TFC templates, use:
 flavor_bar_offset_top_2 := { 0 }
 flavor_bar_offset_left_2 := { 0 }
 flavor_bar_offset_width_2 := { 0 }

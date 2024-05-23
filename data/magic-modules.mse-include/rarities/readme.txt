@@ -1,4 +1,4 @@
-#### Consider using the Typelines Module instead of this one
+#### Consider using the Typelines module instead of this one
 
 #### To use this include in a template, add the following in the template headers:
 depends on:
@@ -7,7 +7,7 @@ depends on:
 
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/rarities/card_fields
-#### For DFC or TFC templates, instead use:
+#### For DFC or TFC templates, instead override the faces_coordinates function, and use:
 include file: /magic-modules.mse-include/rarities/card_fields_dfc
 include file: /magic-modules.mse-include/rarities/card_fields_tfc
 
@@ -34,8 +34,7 @@ rarity_offset_left := { 0 }
 #### To increase/decrease the width and height of the rarity:
 rarity_offset_size := { 0 }
 
-#### For DFC or TFC templates, dont forget to override the faces_coordinates function.
-#### And move the rarities with:
+#### For DFC or TFC templates, use:
 rarity_offset_top_2 := { 0 }
 rarity_offset_left_2 := { 0 }
 rarity_offset_size_2 := { 0 }

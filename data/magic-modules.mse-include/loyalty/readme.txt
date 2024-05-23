@@ -2,17 +2,15 @@
 depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
-#### Use the highest date version needed among modules
 
 #### Add the following line, indented by one tab, in the init script section:
 	include file: /magic-modules.mse-include/loyalty/init_script
+
 #### Add the following line,unindented, in the styling field section:
 include file: /magic-modules.mse-include/loyalty/styling_fields
+
 #### Also add this, unindented, before the card style section:
 include file: /magic-modules.mse-include/information/card_fields
-#### For DFC or TFC templates, instead use:
-include file: /magic-modules.mse-include/information/card_fields_dfc
-include file: /magic-modules.mse-include/information/card_fields_tfc
 
 #### Customization
 #### Optionally, you can adjust appearance by defining the following functions in the init script:
