@@ -11,9 +11,9 @@ include file: /magic-modules.mse-include/watermarks/card_fields_tfc
 
 #### Default Field Placement (@375x523, w=1 h=1)
 set code:
-	left:   text_left - 15w
+	left:   text_left - 10w
 	top:    text_top + 3h
-	width:  text_width + 30w
+	width:  text_width + 20w
 	height: text_height - 6h
 #### Customization
 #### Optionally, you can define which face of the card the watermark should snap to,
