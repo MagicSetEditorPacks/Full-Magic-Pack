@@ -14,22 +14,22 @@ include file: /magic-modules.mse-include/names/card_fields_tfc
 #### Customization
 #### Optionally, you can define which face of the card the name should snap to,
 #### by defining the following function in the init script:
-nameline_face := { 1 }
+nameline_face_1 := { 1 }
 
 #### You can also adjust global alignment by defining the following functions, again in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift the name by:
 
 #### To shift the name up/down:
-name_offset_top := { 0 }
+name_offset_top_1 := { 0 }
 
 #### To shift the name left/right:
-name_offset_left := { 0 }
+name_offset_left_1 := { 0 }
 
 #### To shift where the name ends:
-name_offset_right := { 0 }
+name_offset_right_1 := { 0 }
 
 #### To increase/decrease the height of the name:
-name_offset_height := { 0 }
+name_offset_height_1 := { 0 }
 
 #### For DFC or TFC templates, use:
 name_offset_top_2 := { 0 }

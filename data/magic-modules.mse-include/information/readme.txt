@@ -15,19 +15,19 @@ include file: /magic-modules.mse-include/information/card_fields_tfc
 #### positive numbers move right and down, negative move left and up
 
 #### To shift everything up/down:
-information_offset_top := { 0 }
+information_offset_top_1 := { 0 }
 
 #### To shift the card number, set code and artist credit left/right:
-information_codes_offset_left := { 0 }
+information_codes_offset_left_1 := { 0 }
 
 #### To shift the actual copyright lines left/right:
-information_copyright_offset_right := { 0 }
+information_copyright_offset_right_1 := { 0 }
 
 #### To shift the copyright up/down on creatures/walkers, if the pt/loyalty box is very short/tall:
-information_copyright_offset_pt_top := { 0 }
+information_copyright_offset_pt_top_1 := { 0 }
 
 #### To shift the secondary copyright left/right on creatures/walkers, if the pt/loyalty box is very narrow/wide:
-information_secondary_offset_pt_left := { 0 }
+information_secondary_offset_pt_left_1 := { 0 }
 
 #### For the other faces on DFC or TFC templates, use:
 information_offset_top_2 := { 0 }
@@ -45,6 +45,6 @@ information_secondary_offset_pt_left_3 := { 0 }
 
 #### You can disable the copyright on some of the faces,
 #### by adding the following functions in the init script:
-information_disabled := { true }
+information_disabled_1 := { true }
 information_disabled_2 := { true }
 information_disabled_3 := { true }

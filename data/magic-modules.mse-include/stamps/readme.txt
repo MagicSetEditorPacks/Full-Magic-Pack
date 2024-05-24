@@ -14,14 +14,14 @@ include file: /magic-modules.mse-include/stamps/card_fields_tfc
 #### which must return an int corresponding to the number of pixels you want to shift the stamp by:
 
 #### To shift the stamp up/down:
-card_stamp_offset_top := { 0 }
+card_stamp_offset_top_1 := { 0 }
 
 #### To shift the stamp left/right:
-card_stamp_offset_left := { 0 }
+card_stamp_offset_left_1 := { 0 }
 
 #### To increase/decrease the size:
-card_stamp_offset_width := { 0 }
-card_stamp_offset_height := { 0 }
+card_stamp_offset_width_1 := { 0 }
+card_stamp_offset_height_1 := { 0 }
 
 #### For the other faces on DFCs use:
 card_stamp_offset_top_2 := { 0 }
@@ -35,6 +35,6 @@ card_stamp_offset_height_3 := { 0 }
 
 #### You can disable the stamp on some of the faces,
 #### by adding the following functions in the init script:
-card_stamp_disabled := { true }
+card_stamp_disabled_1 := { true }
 card_stamp_disabled_2 := { true }
 card_stamp_disabled_3 := { true }

@@ -14,14 +14,14 @@ include file: /magic-modules.mse-include/separators/card_fields_tfc
 #### which must return an int corresponding to the number of pixels you want to shift the flavor bar by:
 
 #### To shift the bar up/down:
-flavor_bar_offset_top := { 0 }
+flavor_bar_offset_top_1 := { 0 }
 
 #### To shift the bar left/right:
-flavor_bar_offset_left := { 0 }
+flavor_bar_offset_left_1 := { 0 }
 
 #### To increase/decrease the size:
-flavor_bar_offset_width := { 0 }
-flavor_bar_offset_height := { 0 }
+flavor_bar_offset_width_1 := { 0 }
+flavor_bar_offset_height_1 := { 0 }
 
 #### For the other faces on DFC or TFC templates, use:
 flavor_bar_offset_top_2 := { 0 }
