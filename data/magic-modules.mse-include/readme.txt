@@ -40,3 +40,50 @@ Templates sometimes refer to things like the Vehicle trim as overlays, but these
 Corners are functionally a special kind of overlay to standardize corners, and get their own section to ensure they always apply last.
 This has the minor drawback that popout art can't be applied to the most extreme corners for square-corner cards.
 The invisible corner option has been added as a workaround for this.
+
+Specific z indexes
+100 Image
+
+200 Card Color
+
+300 Standard color trim
+310 Vehicle
+320 Snow
+330 Nyx
+
+400 Color pinlines
+410 Pride pinlines
+
+500 Card border
+
+600 Moveable name/typelines
+610 Name/type caps (spree attachment)
+620 Transform symbol
+620 Adventure page
+640 Leveler backgrounds
+
+700 Textbox background
+710 Loyalty ability stripes
+720 Watermarks
+740 Flavor bar
+790 Pop-under art
+
+800 Indicators, rarity symbol
+800 Legend crown
+810 Tombstone/alchemy symbol
+830 Loyalty boxes
+840 PT Box, Leveler arrows, Flash dot
+850 Color stamp
+860 Holofoil stamp
+880 Alias box
+
+900 Loyalty cost colons
+900 User text fields
+900 Information below the textbox & credit symbols
+920 Casting cost
+
+1010 Popout art
+1050 Overlay package
+
+1100 Partition select
+1100 Corners
