@@ -11,8 +11,8 @@
 0500:	border			#### Border
 0600:	plate editing	#### Major frame pieces: Transform sym/Lesson/Spree handling, Adventure pages, movable typelines
 0700:	watermarking	#### Watermarks, loyalty ability stripes, flavor bar, pop-under art (ex: WAR JP Tamiyo's popout goes under the rarity symbol)
-0800:	attachments		#### Optional frame additions: Crown, ptbox, level arrows, loyalty boxes, stamps, rarity symbol, color indicators, alias box, flash dot
-0900:	text			#### Any text
+0800:	attachments		#### Optional frame additions: Crown, ptbox, level arrows, loyalty boxes, stamps, color indicators, alias box, flash dot
+0900:	text			#### Any text, rarity symbol
 1000:	overlays		#### Popout art, foiling and other overlay packages
 1100:	corners			#### These must always be last
 
@@ -68,7 +68,7 @@ Specific z indexes
 740 Flavor bar
 790 Pop-under art
 
-800 Indicators, rarity symbol
+800 Indicators
 800 Legend crown
 810 Tombstone/alchemy symbol
 830 Loyalty boxes
@@ -81,6 +81,7 @@ Specific z indexes
 900 User text fields
 900 Information below the textbox & credit symbols
 920 Casting cost
+950 Rarity
 
 1010 Popout art
 1050 Overlay package
