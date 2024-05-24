@@ -39,3 +39,4 @@ Templates sometimes refer to things like the Vehicle trim as overlays, but these
 
 Corners are functionally a special kind of overlay to standardize corners, and get their own section to ensure they always apply last.
 This has the minor drawback that popout art can't be applied to the most extreme corners for square-corner cards.
+The invisible corner option has been added as a workaround for this.
