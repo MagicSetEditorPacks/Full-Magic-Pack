@@ -10,6 +10,14 @@ include file: /magic-modules.mse-include/namelines/card_fields_dfc
 include file: /magic-modules.mse-include/namelines/card_fields_tfc
 
 #### Customization
+#### The transform symbols default to "none", defaults can be changed with
+transform_symbol_default :=
+{
+	if		margin_code == "transform1" then	"front triangle"
+	else if	margin_code == "transform2" then	"back triangle"
+	else										"eldrazi"
+}
+
 #### Optionally, you can define which face of the card the nameline should snap to,
 #### by defining the following function in the init script:
 nameline_face_1 := { 1 }

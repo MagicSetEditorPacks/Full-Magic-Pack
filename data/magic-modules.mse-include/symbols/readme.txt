@@ -18,6 +18,13 @@ transformation:
 	width:  43w
 	height: 43h
 #### Customization
+#### The symbols default to "none", defaults can be changed with
+transform_symbol_default :=
+{
+	if		margin_code == "transform1" then	"front triangle"
+	else if	margin_code == "transform2" then	"back triangle"
+	else										"eldrazi"
+}
 #### Optionally, you can adjust global alignment by defining the following functions in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift things by:
 
