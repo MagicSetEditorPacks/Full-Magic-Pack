@@ -11,6 +11,12 @@ include file: /magic-modules.mse-include/names/card_fields
 include file: /magic-modules.mse-include/names/card_fields_dfc
 include file: /magic-modules.mse-include/names/card_fields_tfc
 
+#### Default Field Placement (@375x523, w=1 h=1)
+name:
+	left:   32w + symbols_width
+	top:    27h
+	right:  341w - casting_cost
+	height: 26h
 #### Customization
 #### Optionally, you can define which face of the card the name should snap to,
 #### by defining the following function in the init script:

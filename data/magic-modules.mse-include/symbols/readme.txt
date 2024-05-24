@@ -11,6 +11,12 @@ include file: /magic-modules.mse-include/symbols/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields_dfc
 include file: /magic-modules.mse-include/symbols/card_fields_tfc
 
+#### Default Field Placement (@375x523, w=1 h=1)
+transformation:
+	left:   13w, 319 mirrored
+	top:    19h
+	width:  43w
+	height: 43h
 #### Customization
 #### Optionally, you can adjust global alignment by defining the following functions in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift things by:

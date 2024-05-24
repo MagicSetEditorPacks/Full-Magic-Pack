@@ -16,6 +16,12 @@ include file: /magic-modules.mse-include/casting-costs/card_fields_tfc
 #### This adds a package option to select an alternate mana font for the casting cost.
 include file: /magic-modules.mse-include/casting-costs/styling_fields
 
+#### Default Field Placement (@375x523, w=1 h=1)
+casting cost:
+	right:  346w
+	top:    27h
+	width:  min(30w, content) + 5w
+	height: 21h
 #### Customization
 #### Optionally, you can define which face of the card the casting cost should snap to,
 #### by defining the following function in the init script:

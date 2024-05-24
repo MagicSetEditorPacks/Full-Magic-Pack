@@ -11,6 +11,12 @@ include file: /magic-modules.mse-include/types/card_fields
 include file: /magic-modules.mse-include/types/card_fields_dfc
 include file: /magic-modules.mse-include/types/card_fields_tfc
 
+#### Default Field Placement (@375x523, w=1 h=1)
+type:
+	left:   31w + 1.15*indicator_width
+	top:    300h
+	width:  variable
+	height: 22h
 #### Customization
 #### Optionally, you can define which face of the card the type should snap to,
 #### by defining the following function in the init script:

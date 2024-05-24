@@ -17,6 +17,12 @@ include file: /magic-modules.mse-include/rarities/card_fields_tfc
 #### and another to further tweak the positioning of the rarity symbol.
 include file: /magic-modules.mse-include/rarities/styling_fields
 
+#### Default Field Placement (@375x523, w=1 h=1)
+rarity:
+	left:   317w
+	top:    297h
+	width:  24w
+	height: 24h
 #### Customization
 #### Optionally, you can define which face of the card the rarity should snap to,
 #### by defining the following function in the init script:

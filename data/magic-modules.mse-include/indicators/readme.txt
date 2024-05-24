@@ -11,6 +11,12 @@ include file: /magic-modules.mse-include/indicators/card_fields
 include file: /magic-modules.mse-include/indicators/card_fields_dfc
 include file: /magic-modules.mse-include/indicators/card_fields_tfc
 
+#### Default Field Placement (@375x523, w=1 h=1)
+indicator:
+	left:   31w
+	top:    301h
+	width:  17w
+	height: 17h
 #### Customization
 #### Optionally, you can define which face of the card the color indicator should snap to,
 #### by defining the following function in the init script:

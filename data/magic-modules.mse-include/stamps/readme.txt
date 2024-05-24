@@ -9,6 +9,12 @@ include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields_dfc
 include file: /magic-modules.mse-include/stamps/card_fields_tfc
 
+#### Default Field Placement (@375x523, w=1 h=1)
+card stamp:
+	left:   166w
+	top:    473h
+	width:  43w
+	height: 43h
 #### Customization
 #### Optionally, you can adjust global alignment by defining the following functions in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift the stamp by:

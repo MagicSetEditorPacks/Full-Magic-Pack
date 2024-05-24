@@ -9,6 +9,47 @@ include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/information/card_fields_dfc
 include file: /magic-modules.mse-include/information/card_fields_tfc
 
+#### Default Field Placement (@375x523, w=1 h=1)
+set code:
+	left:   24w
+	top:    499h
+	width:  40w
+	height: 10h
+set language:
+	left:   24w
+	top:    509h
+	width:  40w
+	height: 10h
+card code:
+	left:   24w
+	top:    489h
+	width:  120w
+	height: 10h
+parition select:
+	left:   24w
+	top:    489h
+	width:  35w
+	height: 10h
+illustrator:
+	left:   25w + set_code_language_width
+	top:    499h
+	width:  10w - 50w
+	height: 10h
+copyright:
+	right:  351w
+	top:    490h, 500w w/secondary
+	width:  140w
+	height: 10h
+secondary copyright:
+	left:   211w
+	top:    490h
+	width:  variable
+	height: 10h
+the list icon:
+	left:   0w
+	bottom: 523h
+	width:  22w
+	height: 33h
 #### Customization
 #### Optionally, you can adjust global alignment by redefining the following functions after the scripts include statement
 #### which must return an int corresponding to the number of pixels you want to shift things by
