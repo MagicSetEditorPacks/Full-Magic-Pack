@@ -214,14 +214,15 @@ get_alpha_percentage :=
 ############################################################## For the user
 #### Remove card codes
 cc_filter := replace@(match:"^[CURMSL][WUBRGMZACL][0-9]+ ?[-—]? ?", replace:"")
+has_alchemy := contains@(match:"alchemy")
 strip_card_codes := {
 	save := input
 	input := cc_filter(input)
 	input := if input == "" or input == " " then save else input
-	if alch_compatible() and card.card_symbol == "alchemy"
+	if atom and alch_compatible() and has_alchemy(card.card_symbol)
 		then "<sym>A-</sym>" + input
 	else input
-}
+}@(atom:false)
 name_default := { "" }
 name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
 
@@ -1495,11 +1496,11 @@ text_filter :=
 	#### step 3c : fill in atom fields
 	tag_contents@(
 		tag: "<atom-cardname>",
-		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name)) + "</nospellcheck>" }
+		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
 	) +
 	tag_contents@(
 		tag: "<atom-legname>",
-		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name))) + "</nospellcheck>" }
+		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name, atom:true))) + "</nospellcheck>" }
 	) +
 	replace@(
 		match: "INS([1-9])",
@@ -2897,6 +2898,85 @@ transform_symbol_height_3 :=
 	if width > height then	43 * height/375 + transform_symbol_offset_height_3()
 	else					43 * height/523 + transform_symbol_offset_height_3()
 }
+############################################################## Tombstone/Alchemy symbols
+card_symbol_default := { "" }
+card_symbol_field := { if input <= 1 then card.card_symbol else card["card_symbol_" + input] }
+card_symbol_image := { 
+	map := face_coordinates_map(face)
+	shape := card_symbol_field(field)
+	if shape == "none" or map.width == 0 or map.height == 0
+		then ""
+	else "/magic-modules.mse-include/card-symbols/" + shape + ".png"
+}
+
+card_symbol_left :=
+{
+	map := face_coordinates_map(face)
+	default := 8
+		+ (if card_symbol_field(face) != "none" then 18 else if transform_symbol_field(face) != "none" then 12 else 0)
+		+ (if transform_symbol_field(face) != "none" then 28 else 0)
+	if map.width > map.height then map.left + default * map.width/523 + offset
+	else                           map.left + default * map.width/375 + offset
+}
+card_symbol_top :=
+{
+	map := face_coordinates_map(face)
+	if map.width > map.height then	map.top + 21 * map.height/375 + offset
+	else					        map.top + 29 * map.height/523 + offset
+}
+card_symbol_width :=
+{
+	map := face_coordinates_map(face)
+	default := if card_symbol_field(face) == "none" and transform_symbol_field(face) != "none" then 9 else 23
+	if map.width > map.height then	default * map.width/523 + offset
+	else					        default * map.width/375 + offset
+}
+card_symbol_height :=
+{
+	map := face_coordinates_map(face)
+	if map.width > map.height then	21 * map.height/375 + offset
+	else					        21 * map.height/523 + offset
+}
+
+card_symbol_face := { 1 }
+
+card_symbol_disabled := { false }
+card_symbol_offset_top := { 0 }
+card_symbol_offset_left := { 0 }
+card_symbol_offset_width := { 0 }
+card_symbol_offset_height := { 0 }
+
+card_symbol_left_1 :=   { card_symbol_left(  face:card_symbol_face(), offset:card_symbol_offset_left())   }
+card_symbol_top_1 :=    { card_symbol_top(   face:card_symbol_face(), offset:card_symbol_offset_top())    }
+card_symbol_width_1 :=  { card_symbol_width( face:card_symbol_face(), offset:card_symbol_offset_width())  }
+card_symbol_height_1 := { card_symbol_height(face:card_symbol_face(), offset:card_symbol_offset_height()) }
+
+card_symbol_face_2 := { 2 }
+
+card_symbol_disabled_2 := { false }
+card_symbol_offset_top_2 := { 0 }
+card_symbol_offset_left_2 := { 0 }
+card_symbol_offset_width_2 := { 0 }
+card_symbol_offset_height_2 := { 0 }
+
+card_symbol_left_2 :=   { card_symbol_left(  face:card_symbol_face_2(), offset:card_symbol_offset_left_2())   }
+card_symbol_top_2 :=    { card_symbol_top(   face:card_symbol_face_2(), offset:card_symbol_offset_top_2())    }
+card_symbol_width_2 :=  { card_symbol_width( face:card_symbol_face_2(), offset:card_symbol_offset_width_2())  }
+card_symbol_height_2 := { card_symbol_height(face:card_symbol_face_2(), offset:card_symbol_offset_height_2()) }
+
+card_symbol_face_3 := { 3 }
+
+card_symbol_disabled_3 := { false }
+card_symbol_offset_top_3 := { 0 }
+card_symbol_offset_left_3 := { 0 }
+card_symbol_offset_width_3 := { 0 }
+card_symbol_offset_height_3 := { 0 }
+
+card_symbol_left_3 :=   { card_symbol_left(  face:card_symbol_face_3(), offset:card_symbol_offset_left_3())   }
+card_symbol_top_3 :=    { card_symbol_top(   face:card_symbol_face_3(), offset:card_symbol_offset_top_3())    }
+card_symbol_width_3 :=  { card_symbol_width( face:card_symbol_face_3(), offset:card_symbol_offset_width_3())  }
+card_symbol_height_3 := { card_symbol_height(face:card_symbol_face_3(), offset:card_symbol_offset_height_3()) }
+
 ############################################################## Loyalty costs
 loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
 loyalty_cost_field :=
@@ -3413,9 +3493,21 @@ name_height :=
 
 name_transform_symbol_shift :=
 {
-	if card.transformation == "none" or transform_symbol_disabled() then 0 else (
-	map := face_coordinates_map(nameline_face())
-	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left()
+	if card.transformation == "none" or transform_symbol_disabled()
+		then 0
+	else (
+		map := face_coordinates_map(nameline_face())
+		29 * (min(map.width, map.height)/375) + name_transform_symbol_offset_left()
+	)
+}
+
+name_card_symbol_shift := {
+	if card.card_symbol == "none" or card_symbol_disabled()
+		then 0
+	else (
+		map := face_coordinates_map(nameline_face())
+		18 * (min(map.width, map.height)/375) + name_transform_symbol_offset_left()
+	)
 }
 
 name_disabled_2 := { false }
@@ -3460,9 +3552,12 @@ name_height_2 :=
 
 name_transform_symbol_shift_2 :=
 {
-	if card.transformation_2 == "none" or transform_symbol_disabled_2() then 0 else (
-	map := face_coordinates_map(nameline_face_2())
-	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left_2()
+	if card.transformation_2 == "none" or transform_symbol_disabled_2()
+		then 0
+	else (
+		map := face_coordinates_map(nameline_face_2())
+		29 * (min(map.width, map.height)/375) + name_transform_symbol_offset_left_2()
+	)
 }
 
 name_disabled_3 := { false }
@@ -3507,9 +3602,12 @@ name_height_3 :=
 
 name_transform_symbol_shift_3 :=
 {
-	if card.transformation_3 == "none" or transform_symbol_disabled_3() then 0 else (
-	map := face_coordinates_map(nameline_face_3())
-	29 * min(map.width, map.height)/375) + name_transform_symbol_offset_left_3()
+	if card.transformation_3 == "none" or transform_symbol_disabled_3()
+		then 0
+	else (
+		map := face_coordinates_map(nameline_face_3())
+		29 * (min(map.width, map.height)/375) + name_transform_symbol_offset_left_3()
+	)
 }
 
 ############################################################## Nameline offsets
