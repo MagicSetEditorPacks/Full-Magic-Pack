@@ -11,21 +11,22 @@ mfsfiles/ contains images that can be shared across most Mainframe templates
 
 Some example images are provided:
 Transform/Lesson Circles
-	aetherprint.png, comedy.png, tragedy.png
-Mainframe Rarity
-	DISc.png, DISu.png, DISr.png, DISm.png, DISmp.png, DISs.png
+	examples/symbol/aetherprint.png, examples/symbol/comedy.png, examples/symbol/tragedy.png
 Custom Saga chapter
-	discovery.png
+	examples/symbol/discovery.png
 Replacement Saga chapters
-	doom/ folder
+	examples/doom/ folder
+Mainframe Rarity
+	examples/rarity/ folder (DISc.png, DISu.png, DISr.png, DISm.png, DISmp.png, DISs.png)
+	use examples/rarity/DIS.png as the mainframe rarity name
 Custom Legend Crowns
-	cajun/legend/ folder
+	examples/legend/ folder
 Mainframe Custom Mana
-	cajun/small, cajun/large, cajun/future folders
+	examples/small, examples/large, examples/future folders
 Custom Border
-	colorless.png
+	examples/border/colorless.png
 Adventure Decorations
-	decoration/ folder
+	examples/decoration/ folder
 	these images can be used as the forms
-		decoration/clight.png
-		decoration/light.png;color
+		examples/decoration/clight.png
+		examples/decoration/light.png;color
