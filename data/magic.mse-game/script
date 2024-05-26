@@ -32,7 +32,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2024-05-24 Mainframe 1.3.b Showcase Catchup: Include Modules"}
+version_date := {"2024-05-24 Mainframe 1.3.c Showcase Catchup: Showcase Corners"}
 version := version_date
 ############################################################## Common filters
 ############################################################## Utility
@@ -633,10 +633,11 @@ partition_index := {
 	if ind == "" then ind := "A"
 	ind
 }
+default_partition := {"A"}
 #### determine if a card is "over-partition", ie should be excluded from the main set count
 over_partition := {
 	mn_pos := if set.last_main_partition == "" then "M" else to_upper(substring(set.last_main_partition, end:1))
-	partition_scores[partition_index()] > partition_scores[mn_pos]
+	(partition_scores[partition_index()] or else 10) > (partition_scores[mn_pos] or else 22)
 }
 partition_scores := [
 	0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9,
@@ -3702,7 +3703,7 @@ nameline_offset_height_3 := { 0 }
 card_stamp_default := {
 	shape := styling.default_stamp or else set.default_stamp
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
-	if stamp_behavior == "default" then stamp_behavior := set.stamp_behavior
+	if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
 	rare_face := is_rare(field:field)
 	
 	stamp_behavior_checks[stamp_behavior](rare_face:rare_face, shape:shape)
@@ -3721,12 +3722,10 @@ stamp_behavior_checks := [
 ]
 ### The image to use for custom stamp
 custom_stamp := {
-	flat := not is_foil_stamped(field:field)
 	if set.custom_stamp_name != "" and has_png(set.custom_stamp_name)
 		then "/magic-mainframe-extras.mse-include/" + un_png(set.custom_stamp_name) + (if flat then " flat" else "") + ".png"
 	else "/magic-modules.mse-include/stamps/375x523 " + (if flat then "flatstamped " else "") + "heart.png"
-}@(field:1)
-
+}@(flat:false)
 ### The shape of the background stamp for templates
 ### This can be overwritten to give a template a special stamp for the heart stamp, for example
 stamp_shape := {
@@ -3759,8 +3758,9 @@ card_stamp_image :=
 			dimensions := map.width + "x" + map.height
 			dimensions := card_stamp_possible_dimensions[dimensions] or else (if map.width > map.height then "1039x744" else "744x1039")
 			shape := card_stamp_field(field)
+			if shape == "default" then shape := set.default_stamp
 			if shape == "custom" or shape == "flatstamped custom"
-				then custom_stamp(field: field)
+				then custom_stamp(flat:not is_foil_stamped(field:field))
 			else "/magic-modules.mse-include/stamps/" + dimensions + " " + shape + ".png"
 		)
 	)
