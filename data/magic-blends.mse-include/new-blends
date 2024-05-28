@@ -1089,7 +1089,7 @@ shadow_watermark_blend := {
 	set_combine(
 		combine:"shadow",
 		set_alpha(
-			alpha: 0.5,
+			alpha: alpha,
 			drop_shadow(
 				offset_x: -0.01,
 				offset_y: 0.03,
@@ -1103,13 +1103,13 @@ shadow_watermark_blend := {
 			)
 		)
 	)
-}
+}@(alpha:0.5)
 
 glow_watermark_blend := {
 	set_combine(
 		combine:"glow",
 		set_alpha(
-			alpha: 0.3,
+			alpha: alpha,
 			drop_shadow(
 				offset_x: -0.01,
 				offset_y: 0.03,
@@ -1123,13 +1123,18 @@ glow_watermark_blend := {
 			)
 		)
 	)
-}
+}@(alpha:0.3)
 
 watermark_blend :=
 {
+	shadow_alpha := 0.5
+	glow_alpha := 0.3
+	backup := if custom then set.blend_with_colors else set.use_blended_watermarks
+	option := styling.watermark_render or else backup
 	dark_textbox :=		(face == 1 and invert_watermark_1())
 					or	(face == 2 and invert_watermark_2())
 					or	(face == 3 and invert_watermark_3())
+	if option == "inverted" then dark_textbox := not dark_textbox
 	invert_base_image := false
 	if dark_textbox then
 	(
@@ -1137,12 +1142,19 @@ watermark_blend :=
 		spotlight_alpha := dark_spotlight_alpha
 		invert_base_image := true
 	)
-	backup := if custom then set.blend_with_colors else set.use_blended_watermarks
-	option := styling.watermark_render or else backup
+	user_alpha := styling.watermark_opacity_percentage or else ""
+	user_alpha := if user_alpha != "" then get_alpha_percentage(user_alpha, default: -1.0) else -1.0
+	if user_alpha >= 0.0 then
+	(
+		alpha := user_alpha
+		spotlight_alpha := user_alpha
+		shadow_alpha := user_alpha
+		glow_alpha := user_alpha
+	)
 	if colored then set_alpha(alpha: alpha, input)
 	else if option == "yes" or option == "blend with colors" then spotlight_watermark_blend(h:h, l:l, face:face, alpha: spotlight_alpha, input)
-	else if option == "shadow" then shadow_watermark_blend(input)
-	else if option == "glow" then glow_watermark_blend(input)
+	else if option == "shadow" then shadow_watermark_blend(input, alpha: shadow_alpha)
+	else if option == "glow" then glow_watermark_blend(input, alpha: glow_alpha)
 	else if invert_base_image then set_alpha(alpha: alpha, invert_image(input))
 	else set_alpha(alpha: alpha, input)
 }@(h:500,l:500,colored:false,face:1,alpha:0.25,spotlight_alpha:0.75,dark_alpha:0.25,dark_spotlight_alpha:0.35,custom:false)
