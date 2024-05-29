@@ -841,23 +841,71 @@ card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_numbe
 card_count_mom := { (if card_count() < 1000 then "0" else "") + (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
 
 use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
+get_card_number := {
+	if set.card_number_style == "0001/0099" or set.card_number_style == "0001"
+		then card_number_mom()
+	else if set.card_number_style == "001/099" or set.card_number_style == "001"
+		then card_number_m15()
+	else card_number()
+}
+get_card_count := {
+	if over_partition() and set.over_partition_display == "100"
+		then ""
+	else if set.card_number_style == "0001/0099"
+		then card_count_mom()
+	else if set.card_number_style == "001/099"
+		then card_count_m15()
+	else if set.card_number_style == "1/99"
+		then card_count()
+	else ""
+}
+get_card_number_count := {
+	cc := get_card_count()
+	if cc == "" then get_card_number() + tag
+	else get_card_number() + tag + "/" + cc
+}@(tag:"")
 #### Use this in templates so we don't have to update 700 templates the next time they change the ordering
 card_number_script_core := {
+	cn := get_card_number_count(tag:tag)
 	if not use_auto_numbers() then
 		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-	else if set.card_number_style == "0001/0099" then
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom()) + " ", field: card.card_code_text)
-	else if set.card_number_style == "0001" then
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + " ", field: card.card_code_text)
-	else if set.card_number_style == "001/099" then
-		forward_editor(prefix: card_number_m15() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card.card_code_text)
-	else if set.card_number_style == "001" then
-		forward_editor(prefix: card_number_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-	else if set.card_number_style == "1/99" then
-		forward_editor(prefix: card_number() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card.card_code_text)
+	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
+		forward_editor(prefix: rarity_code() + " " + cn + " ", field: card.card_code_text)
 	else
-		forward_editor(prefix: card_number() + " " + rarity_code() + " ", field: card.card_code_text)
+		forward_editor(prefix: cn + " " + rarity_code() + " ", field: card.card_code_text)
+}@(tag:"")
+#### i tried to make this one work like above but it kept breaking so here
+card_number_old_1 := {
+	cn := " " + get_card_number_count(tag:card_number_tags().0) + " "
+	if not use_auto_numbers() and set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright, separator:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
+	else if not use_auto_numbers() then
+		combined_editor(field1: card.copyright, separator:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
+	else if set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright, separator:cn, field2: card.card_code_text)
+	else combined_editor(field1: card.copyright, separator:cn, field2: card.card_code_text)
 }
+card_number_old_2 := {
+	cn := " " + get_card_number_count(tag:card_number_tags().1) + " "
+	if not use_auto_numbers() and set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_2, separator:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
+	else if not use_auto_numbers() then
+		combined_editor(field1: card.copyright_2, separator:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
+	else if set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_2, separator:cn, field2: card.card_code_text_2)
+	else combined_editor(field1: card.copyright_2, separator:cn, field2: card.card_code_text_2)
+}
+card_number_old_3 := {
+	cn := " " + get_card_number_count(tag:card_number_tags().2) + " "
+	if not use_auto_numbers() and set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_3, separator:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
+	else if not use_auto_numbers() then
+		combined_editor(field1: card.copyright_3, separator:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
+	else if set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_3, separator:cn, field2: card.card_code_text_3)
+	else combined_editor(field1: card.copyright_3, separator:cn, field2: card.card_code_text_3)
+}
+
 
 #### Determine a rarity code for M15 styles.
 rarity_code := {
@@ -2242,6 +2290,17 @@ watermark_scripts :=
 	"mana symbol hi res green":                           { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana symbols/watermark_g_big.png") }
 	"mana symbol hi res colorless":                       { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana symbols/watermark_c_big.png") }
 	
+	"mana symbol double WU":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wu.png") }
+	"mana symbol double UB":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ub.png") }
+	"mana symbol double BR":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_br.png") }
+	"mana symbol double RG":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rg.png") }
+	"mana symbol double GW":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gw.png") }
+	"mana symbol double WB":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wb.png") }
+	"mana symbol double UR":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ur.png") }
+	"mana symbol double BG":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_bg.png") }
+	"mana symbol double RW":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rw.png") }
+	"mana symbol double GU":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gu.png") }
+	
 	"transparent mana symbol white":                      { watermark_blend(colored: true, alpha: 0.45, dark_alpha: 0.30, wm_directory + "mana symbols/watermark_w.png") }
 	"transparent mana symbol blue":                       { watermark_blend(colored: true, alpha: 0.35, dark_alpha: 0.30, wm_directory + "mana symbols/watermark_u.png") }
 	"transparent mana symbol black":                      { watermark_blend(colored: true, alpha: 0.30, dark_alpha: 0.45, wm_directory + "mana symbols/watermark_b.png") }
@@ -2261,6 +2320,17 @@ watermark_scripts :=
 	"transparent mana symbol hi res red":                 { watermark_blend(colored: true, alpha: 0.4, dark_alpha: 0.4, wm_directory + "mana symbols/watermark_r_big.png") }
 	"transparent mana symbol hi res green":               { watermark_blend(colored: true, alpha: 0.4, dark_alpha: 0.4, wm_directory + "mana symbols/watermark_g_big.png") }
 	"transparent mana symbol hi res colorless":           { watermark_blend(colored: true, alpha: 0.4, dark_alpha: 0.4, wm_directory + "mana symbols/watermark_c_big.png") }
+	
+	"transparent mana symbol double WU":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wu_old.png") }
+	"transparent mana symbol double UB":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ub_old.png") }
+	"transparent mana symbol double BR":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_br_old.png") }
+	"transparent mana symbol double RG":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rg_old.png") }
+	"transparent mana symbol double GW":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gw_old.png") }
+	"transparent mana symbol double WB":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wb_old.png") }
+	"transparent mana symbol double UR":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ur_old.png") }
+	"transparent mana symbol double BG":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_bg_old.png") }
+	"transparent mana symbol double RW":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rw_old.png") }
+	"transparent mana symbol double GU":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gu_old.png") }
 	
 	"guild symbol The Azorius Senate (W/U)":              { watermark_blend(wm_directory + "ravnica/azorius2.png") }
 	"guild symbol House Dimir (U/B)":                     { watermark_blend(wm_directory + "ravnica/dimir2.png") }
@@ -2532,6 +2602,7 @@ card_code_script_core := {
 		### 1 R TEXT
 		forward_editor(prefix: card_number() + tag + " " + rarity_code() + " ", field: card_code_text)
 }@(tag: "")
+
 #### Card code script for individual faces
 card_code_script :=
 {
