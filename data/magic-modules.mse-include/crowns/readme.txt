@@ -31,4 +31,4 @@ include file: /magic-modules.mse-include/corners/card_fields_tfc
 	]
 
 #### Optionally, the crowns folder can be changed. Default is
-crowns_folder := "/magic-modules.mse-include/crowns/375/"
+crowns_folder := {"/magic-modules.mse-include/crowns/375/"}

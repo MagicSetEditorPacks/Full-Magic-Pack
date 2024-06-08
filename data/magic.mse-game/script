@@ -312,8 +312,21 @@ is_rare :=
 	rarity := rarity_field(field)
 	rarity == "rare" or rarity == "mythic rare" or rarity == "masterpiece"
 }@(field: 1)
-is_walker :=       { contains(card.super_type, match:"Planeswalker") }
-is_legend :=       { true } #### TODO ???
+
+type_field :=
+{
+	if input <= 1 then card.type else card["type" + input]
+}
+
+is_walker :=
+{ 
+	lang_setting("is_planeswalker")(type_field(face))
+}@(face:1)
+
+is_legend :=
+{ 
+	lang_setting("is_legendary")(type_field(face))
+}@(face:1) 
 ############################################################## Identity
 #### Indicators never appear if the indicator would be colorless, colorless land, or colorless artifact.
 #### Indicators do appear if the chosen frame doesn't match the default.
@@ -2993,6 +3006,26 @@ card_symbol_width_3 :=  { card_symbol_width( face:card_symbol_face_3(), offset:c
 card_symbol_height_3 := { card_symbol_height(face:card_symbol_face_3(), offset:card_symbol_offset_height_3()) }
 
 ############################################################## Loyalty costs
+use_tall_walker_frame_1 :=
+{
+	count := loyalty_abilities_count(instance: 1, active:true)
+	method := styling.use_tall_frame or else "default"
+	if method == "default" and count >= 4
+		then true
+	else if method == "always"
+		then true
+	else false
+}
+use_tall_walker_frame_2 :=
+{
+	count := loyalty_abilities_count(instance: 2, active:true)
+	method := styling.use_tall_frame_2 or else "default"
+	if method == "default" and count >= 4
+		then true
+	else if method == "always"
+		then true
+	else false
+}
 loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
 loyalty_cost_field :=
 {
@@ -3063,9 +3096,9 @@ loyalty_cost_offset_text_margin_1 := { 0 }
 
 loyalty_textbox_mask_1 :=
 {
-	if is_stamped(field: loyalty_stamp_field_1())
-	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
-	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
+	"/magic-modules.mse-include/loyalty/default_textbox"
+	+ (if use_tall_walker_frame_1() then "_tall" else "")
+	+ "_mask.png"
 }
 
 loyalty_face_2 := { 2 }
@@ -3086,9 +3119,9 @@ loyalty_cost_offset_text_margin_2 := { 0 }
 
 loyalty_textbox_mask_2 :=
 {
-	if is_stamped(field: loyalty_stamp_field_2())
-	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
-	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
+	"/magic-modules.mse-include/loyalty/default_textbox"
+	+ (if use_tall_walker_frame_2() then "_tall" else "")
+	+ "_mask.png"
 }
 
 loyalty_face_3 := { 3 }
@@ -3291,7 +3324,7 @@ loyalty_stripe_mask :=
 		or	mask == "/magic-modules.mse-include/loyalty/default_textbox_mask.png" then
 	(
 		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count() >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
+		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
 		top := to_744_height(top - a_top())
 		height := to_744_height(height)
 		crop_safe(
@@ -3307,7 +3340,7 @@ loyalty_stripe_mask :=
 	else
 	(
 		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count() >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
+		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
 		top := top - a_top()
 		crop_safe(
 			mask,

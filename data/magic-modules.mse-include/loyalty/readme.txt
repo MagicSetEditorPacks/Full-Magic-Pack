@@ -32,7 +32,6 @@ loyalty_face_1 := { 1 }
 
 #### To change which card field the boxes snap to,
 #### 1 is for card.text, 2 for card.text_2, and 3 for card.text_3
-#### This text field and it's watermark should have z index greater than 1100
 loyalty_text_field_1 := { 1 }
 
 #### This text field's font color should be:
