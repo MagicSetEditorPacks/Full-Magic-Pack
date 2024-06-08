@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/normal cards
 position hint: 096
 
-version: 2018-03-24
+version: 2024-06-07
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -14,11 +14,8 @@ depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -40,8 +37,20 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [card: "" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.png" pt: "pt.png", stamp: "stamp.png" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		pt: "/magic-modules.mse-include/pts/375 m15/"
+		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.png"
+		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
@@ -59,7 +68,7 @@ init script:
 	
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	has_identity := { styling.color_indicator_dot }
+	watermark_include := "/magic-modules.mse-include/watermarks"
 	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
 	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
 	is_unsorted := {styling.remove_from_autocount}
@@ -92,14 +101,10 @@ styling field:
 	description: reduces the typeline text N points.
 styling field:
 	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
-	initial: no
-styling field:
-	type: boolean
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
 	initial: no
+include file: /magic-modules.mse-include/rarities/styling_fields
 styling field:
 	type: boolean
 	name: grey hybrid name
@@ -177,6 +182,10 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/separators/card_fields
+include file: /magic-modules.mse-include/watermarks/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -184,7 +193,6 @@ card style:
 		top : 0
 		width:	375
 		height:	523
-		radius: 18
 		left width:   17
 		right width:  17
 		top width:    17
@@ -209,7 +217,7 @@ card style:
 		height: { 20 - (0.5 * shrink_name()) }
 		alignment: center bottom shrink overflow
 		padding bottom: 0
-		z index: 3
+		z index: 900
 		font:
 			name: Daisy Regular
 			size: { 20 - shrink_name() }
@@ -228,7 +236,7 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 3
+		z index: 920
 		padding top: 0
 	############################# Image
 	image:
@@ -245,17 +253,17 @@ card style:
 		top: 300
 		width: 17
 		height: 17
-		z index: 2
+		z index: 800
 		render style: image
-		visible: { styling.color_indicator_dot }
-		image: { card_identity() }
+		visible: { has_identity() }
+		image: { module_identity() }
 	type:
 		left: 30
 		top: { 297 + shrink_type() }
 		right: 345
 		height: { 24 - shrink_type() }
 		alignment: center bottom shrink-overflow
-		z index: 4
+		z index: 900
 		padding top: 2
 		font:
 			name: Daisy Regular
@@ -267,24 +275,10 @@ card style:
 		top: 476
 		width: 44
 		height: 22
-		z index: 2
+		z index: 950
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 26
@@ -309,7 +303,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: 1.2
@@ -317,19 +311,9 @@ card style:
 		line height soft: 0.9
 		line height hard max: 1.3
 		line height line max: 1.4
-	watermark:
-		left: 117
-		top: 321
-		width: 138
-		height: 166
-		z index: 1
-		render style: image
-		popup style: in place
-		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
 	############################# PT
 	pt:
-		z index: 4
+		z index: 900
 		left: 286
 		top: 469
 		width: 60
@@ -340,58 +324,7 @@ card style:
 			size: 18
 			color: black
 			separator color: red
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 4
-		alignment: middle right shrink-overflow
-		visible: {not set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
 extra card field:
 	type: choice
 	name: pt box
@@ -400,28 +333,10 @@ extra card field:
 	save value: false
 extra card field:
 	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
-extra card field:
-	type: choice
 	name: foil layer
 	choice: foil
 	save value: false
 	editable: false
-extra card field:
-	type: text
-	name: mainframe
-	script: styling.chop_top
-	editable: false
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
 extra card field:
 	type: text
 	name: replace type
@@ -446,31 +361,12 @@ extra card field:
 	save value: false
 	choice: target
 extra card style:
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 1
-		render style: image
-		image: artist_arrow.png
 	pt box:
 		left: 273
 		top: 466
 		width: 81
 		height:	42
-		z index: 3
+		z index: 840
 		visible: { card.pt != "" }
 		render style: image
 		image: { card_ptbox() }
@@ -479,30 +375,17 @@ extra card style:
 		top : 0
 		width: 375
 		height: 523
-		z index: 3
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
-	auto copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 4
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 	replace type:
 		left: 30
 		top: { 297 + shrink_type() }
 		right: 345
 		height: { 24 - shrink_type() }
 		alignment: center bottom shrink-overflow
-		z index: 3
+		z index: 900
 		padding top: 2
 		font:
 			name: Daisy Regular
@@ -514,7 +397,7 @@ extra card style:
 		top: 0
 		width: 375
 		height: 523
-		z index: 1
+		z index: 720
 		render style: image
 		image: target.png
 	bounty:
@@ -522,7 +405,7 @@ extra card style:
 		top: 64
 		width: 55
 		height: 30
-		z index: 2
+		z index: 900
 		angle: 41
 		alignment: center shrink-overflow
 		font:

@@ -17,6 +17,10 @@ include file: /magic-modules.mse-include/rarities/card_fields_tfc
 #### and another to further tweak the positioning of the rarity symbol.
 include file: /magic-modules.mse-include/rarities/styling_fields
 
+#### Inverted common and olduncommon/oldrare can be added with these after the styling fields
+include file: /magic-modules.mse-include/rarities/set_info
+include file: /magic-modules.mse-include/rarities/set_info_old
+
 #### Default Field Placement (@375x523, w=1 h=1)
 rarity:
 	left:   317w
