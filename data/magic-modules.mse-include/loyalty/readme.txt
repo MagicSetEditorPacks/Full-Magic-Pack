@@ -10,7 +10,19 @@ depends on:
 include file: /magic-modules.mse-include/loyalty/styling_fields
 
 #### Also add this, unindented, before the card style section:
-include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/loyalty/card_fields
+
+#### Sub-include files are also available for
+#### Only the ability fields
+include file: /magic-modules.mse-include/loyalty/ability_fields
+#### Only the ability separator fields
+include file: /magic-modules.mse-include/loyalty/separator_fields
+#### Only the ability background striping fields
+include file: /magic-modules.mse-include/loyalty/stripe_fields
+#### Only the ability formatting styling options
+include file: /magic-modules.mse-include/loyalty/styling_formatting
+#### Only the ability recoloring styling options
+include file: /magic-modules.mse-include/loyalty/styling_recoloring
 
 #### Customization
 #### Optionally, you can adjust appearance by defining the following functions in the init script:
