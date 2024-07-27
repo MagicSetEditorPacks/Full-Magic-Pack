@@ -41,6 +41,9 @@ transform_symbol_offset_height_1 := { 0 }
 #### To move the symbol to the right of the card:
 transform_symbol_mirrored_1 := { true }
 
+#### When the symbol is on the right of the card, transform_symbol_offset_left_1's effect if flipped
+#### (Positive numbers will shift to the left)
+
 #### For the other faces on DFCs use:
 transform_symbol_offset_top_2 := { 0 }
 transform_symbol_offset_left_2 := { 0 }
