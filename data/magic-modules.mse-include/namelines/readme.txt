@@ -56,7 +56,8 @@ transform_symbol_offset_width_1 := { 0 }
 transform_symbol_offset_height_1 := { 0 }
 
 #### You can increase/decrease the amount by which the name shifts left
-#### when a transformation symbol is present on the card:
+#### when a card symbol or a transformation symbol is present on the card:
+name_card_symbol_offset_left_1 := { 0 }
 name_transform_symbol_offset_left_1 := { 0 }
 
 #### For DFC or TFC templates, use:
