@@ -1,0 +1,855 @@
+﻿mse version: 2.0.0
+game: magic
+short name: M15 CS Walker Devoid
+full name: Classicshifted Walker Devoid
+icon: card-sample.png
+position hint: 280
+
+version: 2014-07-15
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-watermarks.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-classicshifted-stamps.mse-include
+	version: 2020-08-28
+depends on:
+	package: magic-classicshifted-icons.mse-include
+	version: 2020-08-28
+depends on:
+	package: magic-classicshifted-shared.mse-include
+	version: 2020-08-28
+depends on:
+	package: magic-identity-new.mse-include
+	version: 2012-01-22
+depends on:
+	package: magic-classicshifted-blends.mse-include
+	version: 2020-08-06
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+
+card width: 3288
+card height: 4488
+card dpi: 1200
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# How should mana costs be sorted?
+	mana_sort       := {
+		colors := ""
+		
+		if contains(input, match:"W") then colors := colors + "W"
+		if contains(input, match:"U") then colors := colors + "U"
+		if contains(input, match:"B") then colors := colors + "B"
+		if contains(input, match:"G") then colors := colors + "G"
+		if contains(input, match:"R") then colors := colors + "R"
+		
+		if contains(styling.mana_sorting, match:"standard") then
+			# For these color triads use khans sorting
+			if colors == "UGR" or colors == "WBG" or colors == "WUR"  or colors == "UBG"  or colors == "WBR" then 	
+				sort_text@(order: "XYZI[0123456789]CHSA(WBGUR)")()
+			else
+				sort_text@(order: "XYZI[0123456789]CHSA(WUBRG)")()
+		else if contains(styling.mana_sorting, match:"unsorted") then		
+			input
+		input
+	}
+	
+	# Load new blends (order of 3 colors match new sets)
+	include file: /magic-classicshifted-blends.mse-include/new-blends
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_prefix := [card: "" tall: "" card2: "" identity: "/magic-identity-new.mse-include/" crown: "/magic-classicshifted-shared.mse-include/crown/" transform: "transformation/t_"]
+	template_suffix := [card: "" tall: "" card2: "card2.jpg" identity: "identity.png" crown: "crown.png" transform: "card.jpg"]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	
+	# Loyalty cost arrows
+	loyalty_image := {
+		if      contains(input, match: "+") then "loyalty up"
+		else if contains(input, match: "-") then "loyalty down"
+		else                                     "loyalty naught"
+	}
+	
+	# Does the card have four abilities?
+	has_four_abilities := { contains(paragraph_count(card.rule_text), match: "\n\n\n") }
+	paragraph_count := 
+		replace@(match:"<soft-line>\n", replace:"")+
+		filter_text@(match:"\n")
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-classicshifted.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: choice
+	name: text size
+	description: Override text size
+	choice: auto
+	choice: 40
+	choice: 45
+	choice: 50
+	choice: 55
+	choice: 60
+	choice: 65
+	choice: 70
+	choice: 75
+	choice: 80
+	choice: 85
+	choice: 90
+	choice: 95
+	choice: 100
+	choice: 105
+	choice: 110
+	initial: auto
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: boolean
+	name: add transformation
+	description: add transformation icon
+	initial: no
+styling field:
+	type: boolean
+	name: transformation front
+	description: add transformation triangle + p/t
+	initial: no
+styling field:
+	type: boolean
+	name: crown overlay
+	description: add legendary crown treatment to top of card
+	initial: yes
+styling field:
+	type: boolean
+	name: miracle overlay
+	description: add miracle overlay
+	initial: no
+styling field:
+	type: boolean
+	name: nyx overlay
+	description: add nyx overlay
+	initial: no
+styling field:
+	type: choice
+	name: mana sorting
+	description: Sort mana automatically
+	initial: standard
+	choice: standard
+	choice: unsorted
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+card style:
+	############################# Background stuff
+	card color:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 0
+		render style: image
+		popup style: in place
+		image: /magic-classicshifted-shared.mse-include/black.png
+	############################# Name line
+	name:
+		left: { if styling.add_transformation then 576 else 398}
+		top: { if styling.crown_overlay and contains(card.type, match:"Legendary") then 386 else 346 }
+		right:  { 2699.4 - card_style.casting_cost.content_width }
+		height: 166.2
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 15
+		font:
+			name: Beleren Bold
+			size: 118.7
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow displacement x: 8
+			shadow displacement y: 8
+	casting cost:
+		right: 2895
+		top: { if styling.crown_overlay and contains(card.type, match:"Legendary") then 378 else 336 }
+		width: { max(237.5, card_style.casting_cost.content_width) + 39.6 }
+		height: 168
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 110.8
+		symbol font:
+			name: magic-mana-large
+			size: 110.8
+			alignment: middle right
+		always symbol: true
+		z index: 15
+		padding top: 0
+
+	############################# Image
+	image:
+		left: 156
+		top: 168
+		width: 2976
+		height: 4152
+		z index: 1
+		default: { default_image(card.card_color) }
+	############################# Card type
+	indicator:
+		left: 401.4
+		top: { if has_four_abilities() then 2306 else 2580.4 }
+		width: 134.6
+		height: 134.6
+		z index: 15
+		render style: image
+		visible: { has_identity() }
+		image: { card_identity() }
+	type:
+		left: { if has_identity() then "567.6" else "409.3" }
+		top: { if has_four_abilities() then 2279 else 2553 }
+		width: { (if has_identity() then "2295.7" else "2454") }
+		height: 158.3
+		alignment: top shrink-overflow
+		z index: 15
+		padding top: 15.8
+		font:
+			name: Beleren Bold
+			size: 95
+			color: rgb(255,255,255)
+			shadow color: rgb(0,0,0)
+			shadow displacement x: 8
+			shadow displacement y: 8
+			separator color: rgb(128,128,128)
+	rarity:
+		right: 2879.1
+		top: { if has_four_abilities() then 2283 else 2557 }
+		width: 348.3
+		height: 174.2
+		z index: 15
+		render style: image
+		alignment: middle right
+		choice images:
+			# Images based on the set symbol
+			basic land:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			common:
+				script:
+					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
+					else symbol_variation(symbol: set.symbol, variation: "common")
+			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
+			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
+			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
+			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+	############################# Text box
+	text:
+		left: 660
+		top: { if has_four_abilities() then 2506 else 2780.3 }
+		width: 2256
+		height: { if has_four_abilities() then 1416 else 1163.7 }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {if styling.text_size == "auto" then 110.8 else styling.text_size}
+			scale down to: 47.5
+			color: { if has_four_abilities() then rgba(0,0,0,0) else "black" }
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {if styling.text_size == "auto" then 110.8 else styling.text_size}
+		paragraph height: 400
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		mask: text_mask.png
+		z index: 21
+		padding left:   47.5
+		padding right:  31.66
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: { if has_four_abilities() then 0.895 else 0.9 }
+		line height hard max: 1.3
+		line height line max: 1.6
+	watermark:
+		left: 1082.2
+		top: 2709.1
+		width: 1092.4
+		height: 1314.1
+		z index: 10
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file: /magic-watermarks.mse-include/watermarks-old
+	############################# Loyalty
+	loyalty:
+		height: 304
+		z index: 7
+		left: 2451
+		top: 3878
+		width: 480
+		height:	277
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 122
+			color: white
+	loyalty cost 1:
+		z index: 7
+		left: 412
+		top: { if has_four_abilities() then 2552 else 2848 }
+		width: 105
+		height:	276
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 88
+			color: white
+	loyalty cost 2:
+		z index: 7
+		left: 412
+		top: { if has_four_abilities() then 2936 else 3256 }
+		width: 105
+		height:	276
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 88
+			color: white
+	loyalty cost 3:
+		z index: 7
+		left: 412
+		top: { if has_four_abilities() then 3321 else 3648 }
+		width: 105
+		height:	276
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 88
+			color: white
+	loyalty cost 4:
+		z index: 7
+		left: 412
+		top: 3680
+		width: { if has_four_abilities() then 105 else 0 }
+		height:	{ if has_four_abilities() then 276 else 0 }
+		alignment: center middle
+		font:
+			name: Beleren Bold
+			size: 88
+			color: white
+	############################# Artist
+	illustrator:
+		left: 587.4
+		top: 4047.9
+		width: 926.2
+		height: 237.5
+		z index: 15
+		font:
+			name: Beleren Small Caps Bold
+			size: 57.4
+			scale down to: 57.4
+			color: white
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: matte
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: loyalty box
+	editable: false
+	choice: loyalty
+extra card field:
+	type: choice
+	name: foil stamp
+	editable: true
+	save value: true
+	include file: /magic-classicshifted-stamps.mse-include/stamp-names
+extra card field:
+	type: choice
+	name: loyalty cost box 1
+	editable: false
+	script: loyalty_image(card.loyalty_cost_1)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 2
+	editable: false
+	script: loyalty_image(card.loyalty_cost_2)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 3
+	editable: false
+	script: loyalty_image(card.loyalty_cost_3)
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty cost box 4
+	editable: false
+	script: loyalty_image(card.loyalty_cost_4)
+	save value: false
+extra card field:
+	type: text
+	name: colon 1
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 2
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 3
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: colon 4
+	editable: false
+	script: ":"
+	save value: false
+extra card field:
+	type: text
+	name: second text
+	editable: false
+	multi line: true
+	save value: false
+	script: card.text
+extra card field:
+	type: choice
+	name: miracleoverlay
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: nyxoverlay
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_card_mask
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_frame
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_frame2
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_frame_4abil
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_frame2_4abil
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_textbox
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid_textbox_4abil
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: transformation_icon
+	editable: true
+	save value: true
+	include file: /magic-classicshifted-icons.mse-include/transformation_icon-names
+extra card style:
+	matte:
+		left: 0
+		top: 0
+		width: 3288
+		height:	4488
+		z index: 0
+		render style: image
+		image: /magic-classicshifted-shared.mse-include/matte/black.png
+	devoid_card_mask:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 2
+		render style: image
+		visible: true
+		image: { if  (styling.crown_overlay and contains(card.type, match:"Legendary")) then set_combine(input: "masks/devoid_image_mask_crown.png", combine: "multiply") else set_combine(input: "masks/devoid_image_mask.png", combine: "multiply") }
+	devoid_frame:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 3
+		render style: image
+		visible: { not has_four_abilities() }
+		image: { if styling.crown_overlay and contains(card.type, match:"Legendary") then set_combine(input: "masks/devoid_crown.jpg", combine: "multiply") else set_combine(input: "masks/devoid.jpg", combine: "multiply") }
+		mask: { if styling.crown_overlay and contains(card.type, match:"Legendary") then "masks/devoid_mask_crown.png" else  "masks/devoid_mask.png" }
+	devoid_frame2:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 4
+		render style: image
+		visible: { not has_four_abilities() }
+		image: { if styling.crown_overlay and contains(card.type, match:"Legendary") then set_alpha(set_combine(input: "masks/devoid_screen_crown.jpg", combine: "screen"), alpha:0.2) else set_alpha(set_combine(input: "masks/devoid_screen.jpg", combine: "screen"), alpha:0.2) }
+		mask: { if styling.crown_overlay and contains(card.type, match:"Legendary") then "masks/devoid_mask_crown.png" else  "masks/devoid_mask.png" }
+	devoid_textbox:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 5
+		visible: { not has_four_abilities() }
+		render style: image
+		image: { set_alpha(set_combine(input: "masks/rare3abilitymask.png", combine: "add"), alpha:0.75) }
+		mask: masks/devoid_textbox_mask.png
+	devoid_frame_4abil:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 3
+		render style: image
+		visible: { has_four_abilities() }
+		image: { if styling.crown_overlay and contains(card.type, match:"Legendary") then set_combine(input: "masks/devoid_crown_tall.jpg", combine: "multiply") else set_combine(input: "masks/devoid_tall.jpg", combine: "multiply") }
+		mask: { if styling.crown_overlay and contains(card.type, match:"Legendary") then "masks/devoid_mask_crown_tall.png" else  "masks/devoid_mask_tall.png" }
+	devoid_frame2_4abil:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 4
+		render style: image
+		visible: { has_four_abilities() }
+		image: { if styling.crown_overlay and contains(card.type, match:"Legendary") then set_alpha(set_combine(input: "masks/devoid_screen_crown_tall.jpg", combine: "screen"), alpha:0.2) else set_alpha(set_combine(input: "masks/devoid_screen_tall.jpg", combine: "screen"), alpha:0.2) }
+		mask: { if styling.crown_overlay and contains(card.type, match:"Legendary") then "masks/devoid_mask_crown_tall.png" else  "masks/devoid_mask_tall.png" }
+	devoid_textbox_4abil:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 5
+		visible: { has_four_abilities() }
+		render style: image
+		image: { set_alpha(set_combine(input: "masks/rare4abilitymask.png", combine: "add"), alpha:0.75) }
+		mask: masks/devoid_textbox_mask_tall.png
+	miracleoverlay:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 6
+		visible: { styling.miracle_overlay }
+		render style: image
+		image: { if styling.crown_overlay and contains(card.type, match:"Legendary") then set_alpha(set_combine(input: "/magic-classicshifted-shared.mse-include/miracle/miracle-crown.png", combine: "add"), alpha:0.6) else set_alpha(set_combine(input: "/magic-classicshifted-shared.mse-include/miracle/miracle.png", combine: "add"), alpha:0.6) }
+	nyxoverlay:
+		left:	156
+		top:	168
+		width:	2976
+		height:	4152
+		z index: 6
+		visible: { styling.nyx_overlay }
+		render style: image
+		image: { if styling.crown_overlay and contains(card.type, match:"Legendary") then set_combine(input: "/magic-classicshifted-shared.mse-include/nyx/nyxmask-crown.png", combine: "add") else set_combine(input: "/magic-classicshifted-shared.mse-include/nyx/nyxmask.png", combine: "add") }
+	transformation_icon:
+		left:	366
+		top:	{ if styling.crown_overlay and contains(card.type, match:"Legendary") then 372 else 336 }
+		width:	174
+		height:	174
+		z index: 20
+		visible: { styling.add_transformation }
+		render style: image
+		include file: /magic-classicshifted-icons.mse-include/transformation_icons
+	artist arrow:
+		left: 353
+		top: 4070
+		width: 220
+		height: 47
+		z index: 20
+		render style: image
+		image: /magic-classicshifted-shared.mse-include/artistbrush.png
+	foil stamp:
+		left: 1508
+		top: 3975
+		width:279
+		height: 143
+		z index: 20
+		render style: image
+		include file: /magic-classicshifted-stamps.mse-include/stamps
+	loyalty box:
+		left: 2451
+		top: 3870
+		width: 480
+		height: 304
+		z index: 6
+		render style: image
+		visible: { card.loyalty !="" }
+		choice images:
+			loyalty: /magic-classicshifted-shared.mse-include/loyalty.png
+	loyalty cost box 1:
+		left: 300
+		top: { if has_four_abilities() then 2515 else 2811 }
+		width: 336
+		height: 362
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_1 !="" }
+		choice images:
+			loyalty up: /magic-classicshifted-shared.mse-include/loyalty-up.png
+			loyalty down: /magic-classicshifted-shared.mse-include/loyalty-down.png
+			loyalty naught: /magic-classicshifted-shared.mse-include/loyalty-neutral.png
+	loyalty cost box 2:
+		left: 300
+		top: { if has_four_abilities() then 2891 else 3211}
+		width: 336
+		height: 362
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_2 !="" }
+		choice images:
+			loyalty up: /magic-classicshifted-shared.mse-include/loyalty-up.png
+			loyalty down: /magic-classicshifted-shared.mse-include/loyalty-down.png
+			loyalty naught: /magic-classicshifted-shared.mse-include/loyalty-neutral.png
+	loyalty cost box 3:
+		left: 300
+		top: { if has_four_abilities() then 3276 else 3603 }
+		width: 336
+		height: 362
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_3 !="" }
+		choice images:
+			loyalty up: /magic-classicshifted-shared.mse-include/loyalty-up.png
+			loyalty down: /magic-classicshifted-shared.mse-include/loyalty-down.png
+			loyalty naught: /magic-classicshifted-shared.mse-include/loyalty-neutral.png
+	loyalty cost box 4:
+		left: 300
+		top: 3643
+		width: { if has_four_abilities() then 336 else 0 }
+		height: 362
+		z index: 6
+		render style: image
+		visible: { card.loyalty_cost_4 !="" }
+		choice images:
+			loyalty up: /magic-classicshifted-shared.mse-include/loyalty-up.png
+			loyalty down: /magic-classicshifted-shared.mse-include/loyalty-down.png
+			loyalty naught: /magic-classicshifted-shared.mse-include/loyalty-neutral.png
+	colon 1:
+		left: 628
+		top: { if has_four_abilities() then 2640 else 2944 }
+		width: 20
+		height: 80
+		z index: 6
+		font:
+			name: MPlantin
+			size: 120
+			scale down to: 120
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_1 !="" }
+	colon 2:
+		left: 628
+		top: { if has_four_abilities() then 3016 else 3344 }
+		width: 20
+		height: 80
+		z index: 6
+		font:
+			name: MPlantin
+			size: 120
+			scale down to: 120
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_2 !="" }
+	colon 3:
+		left: 628
+		top: { if has_four_abilities() then 3392 else 3736 }
+		width: 40
+		height: 80
+		z index: 6
+		font:
+			name: MPlantin
+			size: 120
+			scale down to: 120
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_3 !="" }
+	colon 4:
+		left: 628
+		top: 3768
+		width: { if has_four_abilities() then 40 else 0 }
+		height: 80
+		z index: 6
+		font:
+			name: MPlantin
+			size: 120
+			scale down to: 120
+			color: black
+		alignment: middle center
+		visible: { card.loyalty_cost_4 !="" }
+	second text:
+		left: 660
+		top: { if has_four_abilities() then 2506 else 2780.3 }
+		width: 2256
+		height: { if has_four_abilities() then 1416 else 1163.7 }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {if styling.text_size == "auto" then 110.8 else styling.text_size}
+			scale down to: 47.5
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {if styling.text_size == "auto" then 110.8 else styling.text_size}
+		paragraph height: 376
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 20
+		padding left:   47.5
+		padding right:  31.66
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: { if has_four_abilities() then 0.895 else 0.9 }
+		line height hard max: 1.3
+		line height line max: 1.6
+		mask: text_mask.png
+		visible: { has_four_abilities() }
+
