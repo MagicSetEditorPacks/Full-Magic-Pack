@@ -109,6 +109,23 @@ init script:
 	
 	card_crown :=		{ color_background(type:"crown", base_hybrid:card_hybrid) }
 	
+	is_clear :=
+	{
+		styling.clear_frame == "yes" or
+		(
+			styling.clear_frame == "if colorless" and
+			not lang_setting("is_artifact")(card.super_type) and
+			not lang_setting("is_land")(card.super_type) and
+			not contains(card.card_color, match: "white") and
+			not contains(card.card_color, match: "blue") and
+			not contains(card.card_color, match: "black") and
+			not contains(card.card_color, match: "red") and
+			not contains(card.card_color, match: "green") and
+			not contains(card.card_color, match: "land") and
+			not contains(card.card_color, match: "artifact") and
+			not contains(card.card_color, match: "multicolor")
+		)
+	}
 	is_crowned := { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
 	is_nyx := { styling.nyx_frame == "yes" or (styling.nyx_frame == "if enchantment" and lang_setting("is_nyx")(card.super_type)) }
 	is_vehicle := { styling.vehicle_frame == "yes" or (styling.vehicle_frame == "if vehicle" and lang_setting("is_vehicle")(card.sub_type)) }
@@ -158,6 +175,14 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
+styling field:
+	type:			choice
+	name:			clear frame
+	description:	Use a see-through frame?
+	choice:			yes
+	choice:			if colorless
+	choice:			no
+	initial:		if colorless
 styling field:
 	type:			choice
 	name:			vehicle frame
@@ -234,14 +259,14 @@ card style:
 		z index:			1
 		popup style:		in place
 		render style:		image
-		image:				{ card_background() }
+		image:				{ if is_clear() then "" else card_background() }
 	
 	############################# Image
 	image:
-		left:				{ if styling.stretch_art_to_whole_card then 0						else 62 }
-		top:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned()	then 105	else 98 }
-		right:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width	else 689 }
-		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height	else 586 }
+		left:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 11		else if is_clear() then 29									else 62 }
+		top:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 15		else if is_clear() then 30	else if is_crowned() then 105	else 98 }
+		right:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width	else if is_crowned() and is_clear() then 739	else if is_clear() then 721									else 689 }
+		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height	else if is_crowned() and is_clear() then 971	else if is_clear() then 971									else 586 }
 		z index:			1
 	mainframe image:
 		left:				{ popout_left() }
@@ -338,6 +363,30 @@ extra card field:
 	editable: false
 	save value: false
 	choice: white
+extra card field:
+	type: choice
+	name: devoid card mask
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid frame
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid frame 2
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid textbox
+	editable: false
+	save value: false
+	choice: white
 extra card style:
 	crownoverlay:
 		left:				0
@@ -385,15 +434,53 @@ extra card style:
 		render style:		image
 		image:				/magic-classicshifted-shared-m15.mse-include/power-toughness.png
 	transform pt:
-		left:				478
-		top:				860
-		width:				180
-		height:				18
-		z index:			25
-		visible:			{ styling.transformation_reminder }
-		alignment:			right middle shrink-overflow
+		left:				591
+		top:				{ if card.pt == "" then 901 else 899 }
+		width:				{ if styling.transformation_reminder and not is_clear() then 100 else 0 }
+		height:				30
+		z index:			920
+		alignment:			right middle
 		font:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				23.5
 			color:				{ body_font_color() }
+	devoid card mask:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			1
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ image := if is_crowned() then "masks/devoid_image_mask_crown.png" else "masks/devoid_image_mask.png"; set_combine(image, combine: "multiply") }
+	devoid frame:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			2
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ image := if is_crowned() then "masks/devoid_crown.jpg" else "masks/devoid.jpg"; set_combine(image, combine: "multiply") }
+		mask:				{ if is_crowned() then "masks/devoid_mask_crown.png" else "masks/devoid_mask.png" }
+	devoid frame 2:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			2
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ mask := if is_crowned() then "masks/devoid_screen_crown.jpg" else "masks/devoid_screen.jpg"; set_alpha(set_combine(mask, combine: "screen"), alpha:0.2) }
+		mask:				{ if is_crowned() then "masks/devoid_mask_crown.png" else "masks/devoid_mask.png" }
+	devoid textbox:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			2
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ set_alpha(set_combine("masks/devoid_screen.jpg", combine: "screen"), alpha:0.75) }
+		mask:				masks/devoid_textbox_mask.png
