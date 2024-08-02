@@ -31,6 +31,29 @@ card dpi: 300
 
 ############################################################## Extra scripts
 init script:
+	nameline_offset_top_1 := { if is_crowned() then -7 else -16 }
+	casting_cost_offset_top_1 := { 1 }
+	transform_symbol_offset_left_1 := { 18 }
+	transform_symbol_offset_top_1 := { 14 }
+	transform_symbol_offset_width_1 := { -28 }
+	transform_symbol_offset_height_1 := { -28 }
+	name_transform_symbol_offset_left_1 := { -18 }
+	card_symbol_offset_left_1 := { -12 }
+	card_symbol_offset_top_1 := { 5 }
+	card_symbol_offset_width_1 := { -6 }
+	card_symbol_offset_height_1 := { -6 }
+	name_card_symbol_offset_left_1 := { 12 }
+	
+	typeline_offset_top_1 := { 3 }
+	typeline_offset_left_1 := { -2 }
+	rarity_offset_left_1 := { 4 }
+	rarity_offset_top_1 := { 1 }
+	
+	card_stamp_offset_top_1 := { -2 }
+	card_stamp_offset_height_1 := { 12 }
+	card_stamp_offset_left_1 := { -6 }
+	card_stamp_offset_width_1 := { 12 }
+	
 	swap_fonts_pt_default :=
 	[
 		name: {"Beleren Bold"},
@@ -99,6 +122,7 @@ init script:
 			not contains(card.card_color, match: "multicolor")
 		)
 	}
+	is_clear_textbox := { get_alpha_percentage(styling.textbox_opacity_percentage, default: 70) <= 0.995 }
 	is_crowned := { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
 	is_nyx := { styling.nyx_frame == "yes" or (styling.nyx_frame == "if enchantment" and lang_setting("is_nyx")(card.super_type)) }
 	is_vehicle := { styling.vehicle_frame == "yes" or (styling.vehicle_frame == "if vehicle" and lang_setting("is_vehicle")(card.sub_type)) }
@@ -130,7 +154,8 @@ init script:
 		(if is_tall() then "textbox_mask_tall.png" else "textbox_mask.png")
 	}
 	
-	loyalty_textbox_background_image := { "" }
+	old_loyalty_textbox_background_image := loyalty_textbox_background_image
+	loyalty_textbox_background_image := { if is_clear() then old_loyalty_textbox_background_image() else "" }
 	
 	card_mask :=
 	{
@@ -247,7 +272,7 @@ include file: /magic-modules.mse-include/namelines/card_fields
 
 include file: /magic-modules.mse-include/typelines/card_fields
 
-include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/loyalty/card_fields
 
 card style:
 	############################# Background stuff
@@ -259,15 +284,15 @@ card style:
 		z index:			2
 		popup style:		in place
 		render style:		image
-		image:				{ card_background() }
+		image:				{ if is_clear() then "" else card_background() }
 		mask:				{ card_mask() }
 	
 	############################# Image
 	image:
-		left:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 11		else if is_clear() then 29									else 62 }
-		top:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 15		else if is_clear() then 30	else if is_crowned() then 105	else 98 }
-		right:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width	else if is_crowned() and is_clear() then 739	else if is_clear() then 721									else 689 }
-		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height	else if is_crowned() and is_clear() then 971	else if is_clear() then 971									else 586 }
+		left:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 11		else if is_clear() then 29	else if is_clear_textbox() then 49									else 62 }
+		top:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 15		else if is_clear() then 30										else if is_crowned() then 105	else 98 }
+		right:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width	else if is_crowned() and is_clear() then 739	else if is_clear() then 721	else if is_clear_textbox() then 701									else 689 }
+		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height																				else if is_clear_textbox() then 977	else if is_tall() then 519		else 586 }
 		z index:			1
 	mainframe image:
 		left:				{ popout_left() }
@@ -337,6 +362,24 @@ extra card field:
 	editable: false
 	save value: false
 	choice: white
+extra card field:
+	type: choice
+	name: devoid card mask
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid frame
+	editable: false
+	save value: false
+	choice: white
+extra card field:
+	type: choice
+	name: devoid frame 2
+	editable: false
+	save value: false
+	choice: white
 extra card style:
 	crownoverlay:
 		left:				0
@@ -374,3 +417,30 @@ extra card style:
 		visible:			{ is_miracle() }
 		render style:		image
 		image:				{ if is_crowned() then set_alpha(set_combine(input: "/magic-classicshifted-shared-m15.mse-include/miracle/miracle-crown.png", combine: "add"), alpha:0.6) else set_alpha(set_combine(input: "/magic-classicshifted-shared-m15.mse-include/miracle/miracle.png", combine: "add"), alpha:0.6) }
+	devoid card mask:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			2
+		render style:		image
+		visible:			true
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_image_mask_crown.png" else "/devoid_image_mask.png"); set_combine(image, combine: "multiply") }
+	devoid frame:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			3
+		render style:		image
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_crown" else "/devoid") + (if is_tall() then "_tall.png" else ".png"); set_combine(image, combine: "multiply") }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else  "/devoid_mask") + (if is_tall() then "_tall.png" else ".png") }
+	devoid frame 2:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			4
+		render style:		image
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_screen_crown" else "/devoid_screen") + (if is_tall() then "_tall.png" else ".png"); set_alpha(set_combine(image , combine: "screen"), alpha:0.2) }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else  "/devoid_mask") + (if is_tall() then "_tall.png" else ".png") }

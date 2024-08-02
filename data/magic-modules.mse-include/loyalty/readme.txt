@@ -10,7 +10,7 @@ depends on:
 include file: /magic-modules.mse-include/loyalty/styling_fields
 
 #### Also add this, unindented, before the card style section:
-include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/loyalty/card_fields
 
 #### Customization
 #### Optionally, you can adjust appearance by defining the following functions in the init script:
