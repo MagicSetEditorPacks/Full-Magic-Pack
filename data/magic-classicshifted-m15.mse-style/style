@@ -89,14 +89,16 @@ init script:
 	
 	template_prefix :=
 	[
-		card:			{ (if styling.transformation_reminder then "transformation" else if lang_setting("is_artifact")(card.super_type) then "artifact" else "card") + (if is_stamped() then "/" else "_nonstamp/") }
+		card:			{ (if chosen(card.card_color, choice: "artifact") then "artifact_card" else "card") + (if is_stamped() then "/" else "_nonstamp/") }
+		transform:		{ (if chosen(card.card_color, choice: "artifact") then "artifact_transform/" else "transform/") }
 		pt:				{ "/magic-classicshifted-shared-m15.mse-include/pt/" }
 		identity:		{ "/magic-modules.mse-include/indicators/" }
-		crown:			{ "/magic-classicshifted-shared-m15.mse-include/" + (if lang_setting("is_artifact")(card.super_type) then "artifact_crown/" else "crown/") }
+		crown:			{ "/magic-classicshifted-shared-m15.mse-include/" + (if chosen(card.card_color, choice: "artifact") then "artifact_crown/" else "crown/") }
 	]
 	template_suffix :=
 	[
 		card:			"card.png"
+		transform:		"card.png"
 		pt:				"pt.png"
 		identity:		"identity.png"
 		crown:			"crown.png"
@@ -104,15 +106,16 @@ init script:
 	template :=			{ template_prefix[type]() + input + template_suffix[type] }
 	land_template :=	{ template_prefix[type]() + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
 	
-	card_crown :=		{ color_background(type:"crown",	base_hybrid:card_hybrid) }
-	card_ptbox :=		{ color_background(type:"pt",		base_hybrid:card_hybrid) }
+	card_transform :=	{ color_background(type:"transform",	base_hybrid:card_hybrid) }
+	card_crown :=		{ color_background(type:"crown",		base_hybrid:card_hybrid) }
+	card_ptbox :=		{ color_background(type:"pt",			base_hybrid:card_hybrid) }
 	
 	is_clear :=
 	{
 		styling.clear_frame == "yes" or
 		(
 			styling.clear_frame == "if colorless" and
-			not lang_setting("is_artifact")(card.super_type) and
+			not chosen(card.card_color, choice: "artifact") and
 			not lang_setting("is_land")(card.super_type) and
 			not contains(card.card_color, match: "white") and
 			not contains(card.card_color, match: "blue") and
@@ -254,10 +257,11 @@ card style:
 		top:				0
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
-		z index:			1
+		z index:			2
 		popup style:		in place
 		render style:		image
 		image:				{ if is_clear() then "" else card_background() }
+		mask:				masks/card_mask.png
 	
 	############################# Image
 	image:
@@ -307,6 +311,18 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			scale down to:		7
+	rule text 3:
+		left:				591
+		top:				{ if card.pt == "" then 901 else 899 }
+		width:				{ if styling.transformation_reminder then 100 else 0 }
+		height:				30
+		z index:			920
+		alignment:			right middle
+		font:
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				23.5
+			color:				{ body_font_color() }
 	
 	############################# PT
 	pt:
@@ -327,9 +343,11 @@ card style:
 
 ############################################################## Extra card fields
 extra card field:
-	type:				text
-	name:				transform pt
-	save value:			true
+	type:				choice
+	name:				transform notch
+	editable:			false
+	save value:			false
+	script:				card.card_color
 extra card field:
 	type:				choice
 	name:				pt box
@@ -385,18 +403,15 @@ extra card field:
 	save value:			false
 	choice:				devoid textbox
 extra card style:
-	transform pt:
-		left:				591
-		top:				{ if card.pt == "" then 901 else 899 }
-		width:				{ if styling.transformation_reminder and not is_clear() then 100 else 0 }
-		height:				30
-		z index:			920
-		alignment:			right middle
-		font:
-			name:				{ body_font() }
-			italic name:		{ body_font_italic() }
-			size:				23.5
-			color:				{ body_font_color() }
+	transform notch:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			3
+		visible:			{ styling.transformation_reminder and not is_clear() }
+		render style:		image
+		image:				{ card_transform() }
 	pt box:
 		left:				0
 		top:				0
@@ -405,7 +420,11 @@ extra card style:
 		z index:			19
 		visible:			{ card.pt != "" }
 		render style:		image
-		image:				{ card_ptbox() }
+		image:
+			script:
+				if is_clear() then											"/magic-classicshifted-shared-m15.mse-include/pt/cpt.png"
+				else if chosen(card.card_color, choice: "artifact") then	"/magic-classicshifted-shared-m15.mse-include/pt/apt.png"
+				else														card_ptbox()
 	crown overlay:
 		left:				0
 		top:				0
@@ -450,7 +469,7 @@ extra card style:
 		z index:			1
 		visible:			{ is_clear() }
 		render style:		image
-		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_image_mask_crown.png" else "/devoid_image_mask.png"); set_combine(image, combine: "multiply") }
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_image_mask_crown" else "/devoid_image_mask") + (if styling.transformation_reminder then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
 	devoid frame:
 		left:				0
 		top:				0
@@ -459,8 +478,8 @@ extra card style:
 		z index:			2
 		visible:			{ is_clear() }
 		render style:		image
-		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_crown.png" else "/devoid.png"); set_combine(image, combine: "multiply") }
-		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown.png" else "/devoid_mask.png") }
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_crown" else "/devoid") + (if styling.transformation_reminder then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else "/devoid_mask") + (if styling.transformation_reminder then "_transform.png" else ".png") }
 	devoid frame 2:
 		left:				0
 		top:				0
@@ -469,8 +488,8 @@ extra card style:
 		z index:			2
 		visible:			{ is_clear() }
 		render style:		image
-		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_screen_crown.png" else "/devoid_screen.png"); set_alpha(set_combine(image, combine: "screen"), alpha:0.2) }
-		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown.png" else "/devoid_mask.png") }
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_screen_crown" else "/devoid_screen") + (if styling.transformation_reminder then "_transform.png" else ".png"); set_alpha(set_combine(image, combine: "screen"), alpha:0.2) }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else "/devoid_mask") + (if styling.transformation_reminder then "_transform.png" else ".png") }
 	devoid textbox:
 		left:				0
 		top:				0
@@ -479,5 +498,5 @@ extra card style:
 		z index:			2
 		visible:			{ is_clear() }
 		render style:		image
-		image:				{ set_alpha(set_combine((if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + "/devoid_screen.png", combine: "screen"), alpha:0.75) }
-		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + "/devoid_textbox_mask.png" }
+		image:				{ set_alpha(set_combine((if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + "/devoid_screen" + (if styling.transformation_reminder then "_transform.png" else ".png"), combine: "screen"), alpha:0.75) }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + "/devoid_textbox_mask" + (if styling.transformation_reminder then "_transform.png" else ".png") }
