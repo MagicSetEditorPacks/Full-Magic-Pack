@@ -134,6 +134,7 @@ init script:
 	is_nyx := { styling.nyx_frame == "yes" or (styling.nyx_frame == "if enchantment" and lang_setting("is_nyx")(card.super_type)) }
 	is_vehicle := { styling.vehicle_frame == "yes" or (styling.vehicle_frame == "if vehicle" and lang_setting("is_vehicle")(card.sub_type)) }
 	is_miracle := { styling.miracle_frame == "yes" or (styling.miracle_frame == "if miracle" and lang_setting("is_miracle")(card.text)) }
+	is_notched := { styling.transformation_reminder }
 	has_identity := { styling.color_indicator_dot }
 	has_identity_2 := { false }
 	has_identity_3 := { false }
@@ -157,9 +158,9 @@ init script:
 	
 	loyalty_textbox_mask_1 :=
 	{
-		(if is_stamped() then "masks/" else "masks_nonstamp/scaled_textbox_mask") +
+		(if is_stamped() then "masks/scaled_textbox_mask" else "masks_nonstamp/scaled_textbox_mask") +
 		(if is_tall() then "_tall" else "") +
-		(if styling.transformation_reminder then "_transform.png" else ".png")
+		(if is_notched() then "_transform.png" else ".png")
 	}
 	
 	old_loyalty_textbox_background_image := loyalty_textbox_background_image
@@ -169,9 +170,9 @@ init script:
 	{
 		alpha := get_alpha_percentage(styling.textbox_opacity_percentage, default: 70)
 		shade := 255*alpha
-		mask :=	(if is_stamped() then "masks/" else "masks_nonstamp/frame_alpha_mask") +
+		mask :=	(if is_stamped() then "masks/frame_alpha_mask" else "masks_nonstamp/frame_alpha_mask") +
 				(if is_tall() then "_tall" else "") +
-				(if styling.transformation_reminder then "_transform.png" else ".png")
+				(if is_notched() then "_transform.png" else ".png")
 		recolor_image(mask, color: rgb(shade, shade, shade))
 	}
 
@@ -293,15 +294,15 @@ card style:
 		z index:			2
 		popup style:		in place
 		render style:		image
-		image:				{ if is_clear() then "" else if styling.transformation_reminder then card_transform() else card_background() }
+		image:				{ if is_clear() then "" else if is_notched() then card_transform() else card_background() }
 		mask:				{ card_mask() }
 	
 	############################# Image
 	image:
-		left:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 11		else if is_clear() then 29																			else if is_clear_textbox() then 49									else 62 }
-		top:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 15		else if is_clear() then 30																												else if is_crowned() then 105	else 98 }
-		right:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width	else if is_crowned() and is_clear() then 739	else if is_clear() then 721	else if styling.transformation_reminder and is_clear_textbox() then 721	else if is_clear_textbox() then 701									else 689 }
-		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height																																						else if is_clear_textbox() then 977	else if is_tall() then 519		else 586 }
+		left:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 11		else if is_clear() then 29															else if is_clear_textbox() then 49									else 62 }
+		top:				{ if styling.stretch_art_to_whole_card then 0						else if is_crowned() and is_clear() then 15		else if is_clear() then 30																								else if is_crowned() then 105	else 98 }
+		right:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width	else if is_crowned() and is_clear() then 739	else if is_clear() then 721	else if is_notched() and is_clear_textbox() then 721	else if is_clear_textbox() then 701									else 689 }
+		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height																																		else if is_clear_textbox() then 977	else if is_tall() then 519		else 586 }
 		z index:			1
 	mainframe image:
 		left:				{ popout_left() }
@@ -346,8 +347,8 @@ card style:
 			scale down to:		7
 	rule text 3:
 		left:				591
-		top:				{ if card.pt == "" then 901 else 899 }
-		width:				{ if styling.transformation_reminder then 100 else 0 }
+		top:				{ if card.loyalty == "" then 901 else 899 }
+		width:				{ if is_notched() then 100 else 0 }
 		height:				30
 		z index:			920
 		alignment:			right middle
@@ -405,7 +406,7 @@ extra card style:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
-		height:				136
+		height:				{ stylesheet.card_height }
 		z index:			4
 		visible:			{ is_crowned() and not is_clear() }
 		render style:		image
@@ -418,7 +419,7 @@ extra card style:
 		z index:			5
 		visible:			{ is_nyx() }
 		render style:		image
-		image:				{ if is_crowned() then set_combine(input: "/magic-classicshifted-shared-m15.mse-include/nyx/nyxmask-crown.png", combine: "add") else set_combine(input: "/magic-classicshifted-shared-m15.mse-include/nyx/nyxmask.png", combine: "add") }
+		image:				{ image := "/magic-classicshifted-shared-m15.mse-include/nyx/nyx" + (if is_crowned() then "_crown" else "") + (if is_tall() then "_tall" else "") + ".png"; set_combine(image, combine: "add") }
 	vehicle overlay:
 		left:				0
 		top:				0
@@ -427,7 +428,7 @@ extra card style:
 		z index:			6
 		visible:			{ is_vehicle() }
 		render style:		image
-		image:				/magic-classicshifted-shared-m15.mse-include/vehicle/vehiclerails.png
+		image:				{ "/magic-classicshifted-shared-m15.mse-include/vehicle/vehicle" + (if is_tall() then "_tall" else "") + ".png" }
 	miracle overlay:
 		left:				0
 		top:				0
@@ -436,7 +437,7 @@ extra card style:
 		z index:			7
 		visible:			{ is_miracle() }
 		render style:		image
-		image:				{ if is_crowned() then set_alpha(set_combine(input: "/magic-classicshifted-shared-m15.mse-include/miracle/miracle-crown.png", combine: "add"), alpha:0.6) else set_alpha(set_combine(input: "/magic-classicshifted-shared-m15.mse-include/miracle/miracle.png", combine: "add"), alpha:0.6) }
+		image:				{ image := "/magic-classicshifted-shared-m15.mse-include/miracle/miracle" + (if is_crowned() then "_crown" else "") + (if is_tall() then "_tall" else "") + ".png"; set_alpha(set_combine(image, combine: "add"), alpha:0.6) }
 	devoid card mask:
 		left:				0
 		top:				0
@@ -445,7 +446,7 @@ extra card style:
 		z index:			2
 		render style:		image
 		visible:			true
-		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_image_mask_crown" else "/devoid_image_mask") + (if styling.transformation_reminder then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_image_mask_crown" else "/devoid_image_mask") + (if is_notched() then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
 	devoid frame:
 		left:				0
 		top:				0
@@ -453,8 +454,8 @@ extra card style:
 		height:				{ stylesheet.card_height }
 		z index:			3
 		render style:		image
-		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_crown" else "/devoid") + (if is_tall() then "_tall" else "") + (if styling.transformation_reminder then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
-		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else  "/devoid_mask") + (if is_tall() then "_tall" else "") + (if styling.transformation_reminder then "_transform.png" else ".png") }
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_crown" else "/devoid") + (if is_tall() then "_tall" else "") + (if is_notched() then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else  "/devoid_mask") + (if is_tall() then "_tall" else "") + (if is_notched() then "_transform.png" else ".png") }
 	devoid frame 2:
 		left:				0
 		top:				0
@@ -462,5 +463,5 @@ extra card style:
 		height:				{ stylesheet.card_height }
 		z index:			4
 		render style:		image
-		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_screen_crown" else "/devoid_screen") + (if is_tall() then "_tall" else "") + (if styling.transformation_reminder then "_transform.png" else ".png"); set_alpha(set_combine(image , combine: "screen"), alpha:0.2) }
-		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else  "/devoid_mask") + (if is_tall() then "_tall" else "") + (if styling.transformation_reminder then "_transform.png" else ".png") }
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_screen_crown" else "/devoid_screen") + (if is_tall() then "_tall" else "") + (if is_notched() then "_transform.png" else ".png"); set_alpha(set_combine(image , combine: "screen"), alpha:0.2) }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else  "/devoid_mask") + (if is_tall() then "_tall" else "") + (if is_notched() then "_transform.png" else ".png") }
