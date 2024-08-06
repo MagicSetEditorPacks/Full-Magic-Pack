@@ -28,3 +28,5 @@ Pack containing nearly all public Magic templates for MSE, except outdated ones.
 Some template images are provided by [CardConjurer](https://cardconjurer.com/):
 
 Praetor Showcase, JP Mystical Archive, PT Box for Mystical Archives
+Innistrad Double Feature, New Capenna Golden Age, New Capenna Art Deco, New Capenna Skyscraper
+Unfinity Attractions
