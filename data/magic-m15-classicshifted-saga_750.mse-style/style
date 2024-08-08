@@ -80,7 +80,7 @@ init script:
 	swap_fonts_body_default :=
 	[
 		name: {"MPlantin"},
-		size: {font_size()},
+		size: {font_size(desired_relative_heights: text_relative_heights())},
 		color: {"black"},
 		vertical: {0},
 		italic: {"MPlantin-Italic"}
@@ -170,6 +170,8 @@ init script:
 	saga_text_width :=					{ 274 }
 	saga_text_height :=					{ 594 }
 	
+	saga_text_font_size_cap :=			{ 24 }
+	
 	chapter_left :=					{ 24 }
 	chapter_width :=				{ 58 }
 	chapter_height :=				{ 66 }
@@ -181,8 +183,6 @@ init script:
 	separator_height :=				{ 24 }
 	
 	separator_padding :=			{ -4 }
-	
-	font_size := { if styling.text_font_size == "" then 24 else to_number(styling.text_font_size) or else 24 }
 	
 	saga_reminder :=
 	{
@@ -206,11 +206,12 @@ init script:
 	
 	abilities_count :=	{ to_int(styling.number_of_textboxes) }
 	
+	
 	chapter_indexes :=
 	{
-		snaps := if styling.snap_chapter_to_box == "" then [1,2,3,4,5,6,7] else split_comma(styling.snap_chapter_to_box)
+		snaps := if styling.snap_chapter_to_box == "" then [1,2,3,4,5,6,7,8] else split_comma(styling.snap_chapter_to_box)
 		snaps_count := length(snaps)
-		for c from 0 to 6 do
+		for c from 0 to 7 do
 		(
 			if c >= snaps_count then [-1]
 			else
@@ -222,10 +223,36 @@ init script:
 		)
 	}
 	
+	font_size :=
+	{
+		active_count := abilities_count() - 1
+		
+		total_desired_relative_height := for x from 0 to active_count do (desired_relative_heights[x])
+		total_available_height := saga_text_height() - chop_top() - chop_bot()
+		optimal_font_size := if total_desired_relative_height == 0 then saga_text_font_size_cap() else total_available_height / total_desired_relative_height
+		#trace(optimal_font_size)
+		clamp(optimal_font_size, minimum: 4, maximum: saga_text_font_size_cap())
+	}
+	
+	text_relative_heights :=
+	{
+		active_count := abilities_count() - 1
+		
+		hard_line_height := 1.555 * card_style.level_1_text.line_height_hard
+		soft_line_height := 1.555 * card_style.level_1_text.line_height_soft
+		last_line_height := 1.222
+		
+		content_line_counts := for x from 0 to active_count do [card_style["level_" + (x+1) + "_text"].content_lines]
+		hard_line_counts := for x from 0 to active_count do [length(card_style["level_" + (x+1) + "_text"].layout.paragraphs)-1]
+		soft_line_counts := for x from 0 to active_count do [content_line_counts[x] - hard_line_counts[x] - 1]
+		
+		for x from 0 to active_count do [hard_line_counts[x] * hard_line_height + soft_line_counts[x] * soft_line_height + last_line_height]
+	}
+	
 	textbox_heights :=
 	{
 		###force proper initialization of card_style values
-		hack_to_force_update := card_style.level_1_text.content_width
+		hack := card_style.level_1_text.content_width
 		
 		active_count := abilities_count() - 1
 		
@@ -237,7 +264,8 @@ init script:
 		chaptertrain_4_count := 0
 		chaptertrain_5_count := 0
 		chaptertrain_6_count := 0
-		for c from 0 to 6 do
+		chaptertrain_7_count := 0
+		for c from 0 to 7 do
 		(
 			if		chapter_indexes[c] == -1 then	(0)
 			else if	chapter_indexes[c] == 0 then	(chaptertrain_0_count := chaptertrain_0_count + 1)
@@ -246,19 +274,15 @@ init script:
 			else if	chapter_indexes[c] == 3 then	(chaptertrain_3_count := chaptertrain_3_count + 1)
 			else if	chapter_indexes[c] == 4 then	(chaptertrain_4_count := chaptertrain_4_count + 1)
 			else if	chapter_indexes[c] == 5 then	(chaptertrain_5_count := chaptertrain_5_count + 1)
-			else									(chaptertrain_6_count := chaptertrain_6_count + 1)
+			else if	chapter_indexes[c] == 6 then	(chaptertrain_6_count := chaptertrain_6_count + 1)
+			else									(chaptertrain_7_count := chaptertrain_7_count + 1)
 		)
-		chaptertrain_counts_per_textbox := [chaptertrain_0_count, chaptertrain_1_count, chaptertrain_2_count, chaptertrain_3_count, chaptertrain_4_count, chaptertrain_5_count, chaptertrain_6_count]
+		chaptertrain_counts_per_textbox := [chaptertrain_0_count, chaptertrain_1_count, chaptertrain_2_count, chaptertrain_3_count, chaptertrain_4_count, chaptertrain_5_count, chaptertrain_6_count, chaptertrain_7_count]
 		chaptertrain_desired_heights := for x from 0 to active_count do [chaptertrain_counts_per_textbox[x] * (chapter_height() + chapter_spacing())]
 		
-		line_height := 1.555 * font_size()
-		hard_line_height := line_height * card_style.level_1_text.line_height_hard
-		soft_line_height := line_height * card_style.level_1_text.line_height_soft
-		last_line_height := line_height * 1.222 / 1.555
-		content_line_counts := for x from 0 to active_count do [card_style["level_" + (x+1) + "_text"].content_lines]
-		hard_line_counts := for x from 0 to active_count do [length(card_style["level_" + (x+1) + "_text"].layout.paragraphs)-1]
-		soft_line_counts := for x from 0 to active_count do [content_line_counts[x] - hard_line_counts[x] - 1]
-		text_desired_heights := for x from 0 to active_count do [hard_line_counts[x] * hard_line_height + soft_line_counts[x] * soft_line_height + last_line_height]
+		text_desired_relative_heights := text_relative_heights()
+		text_desired_font_size := font_size(desired_relative_heights: text_desired_relative_heights)
+		text_desired_heights := for x from 0 to active_count do [text_desired_relative_heights[x] * text_desired_font_size]
 		
 		chapter_spacing_importance := (if styling.chapter_spacing_percentage == "" then 70 else clamp(styling.chapter_spacing_percentage or else 70, minimum: 0, maximum: 100)) / 100
 		
@@ -297,7 +321,7 @@ init script:
 		hack_to_force_update := card_style.level_1_text.content_width
 		
 		chapter_info := chapter_info(input)
-		if chapter_info[0] == -1 then 1200
+		if chapter_info[0] == -1 then stylesheet.card_height+1
 		else
 		(
 			index := chapter_info[0]
@@ -306,7 +330,7 @@ init script:
 			desired_chapter_height := count * chapter_height()																###how much total space do the chapter icons want
 			desired_spacing := (count-1) * chapter_spacing()																###how much total space do the gaps between chapters want
 			desired_height := desired_chapter_height + desired_spacing														###how much total space do the chapters and gaps between them want
-			textbox_height := card_style["level_" + (index+1) + "_text"].height												###how much space is does the textbox offer
+			textbox_height := card_style["level_" + (index+1) + "_text"].height												###how much space does the textbox offer
 			missing_height := desired_height - textbox_height																###how much space is missing from the textbox
 			effective_spacing := desired_spacing - max(missing_height, 0)													###how much total space do the gaps between chapters actually have
 			effective_spacing := max(effective_spacing, (count-1) * (chapter_spacing() - chapter_height()))					###chapters must always be at least chapter_spacing() pixels below the previous one
@@ -371,6 +395,7 @@ styling field:
 	choice:			5
 	choice:			6
 	choice:			7
+	choice:			8
 	initial:		3
 styling field:
 	type:			text
@@ -509,7 +534,6 @@ card style:
 		z index:			1000
 	
 	############################# Text box
-	
 	chapter text:
 		left:				{ saga_chapter_text_left() }
 		top:				{ saga_chapter_text_top() + body_font_vertical() }
@@ -545,14 +569,14 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
-		padding bottom:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 1 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_1_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -570,14 +594,14 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
-		padding bottom:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 2 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_2_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -595,14 +619,14 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
-		padding bottom:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 3 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_3_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -620,14 +644,14 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
-		padding bottom:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 4 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_4_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -645,14 +669,14 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
-		padding bottom:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 5 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_5_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -670,14 +694,14 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
-		padding bottom:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 6 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_6_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -695,17 +719,64 @@ card style:
 			name:				{ body_font() }
 			italic name:		{ body_font_italic() }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 			color:				{ body_font_color() }
 		symbol font:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
-			# scale down to:	7
+			# scale down to:		7
 		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ if abilities_count() > 7 then separator_height()/2 + separator_padding() else 0 }
 		line height hard:	{ if is_modal(card.level_7_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
 		line height hard max:	{ if is_modal(card.level_7_text) then 1.0 else 1.3 }
+		line height line max:	1.6
+		line height soft max:	0.9
+	level 8 text:
+		left:				{ saga_text_left() }
+		top:				{ card_style.level_7_text.bottom + body_font_vertical() }
+		width:				{ saga_text_width() }
+		height:				{ if abilities_count() > 7 then textbox_heights()[7] + textbox_move(8) else 0 }
+		z index:			900
+		alignment:			{ text_alignment() }
+		font:
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				{ body_font_size() }
+			# scale down to:		7
+			color:				{ body_font_color() }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ body_font_size() }
+			# scale down to:		7
+		padding top:		{ separator_height()/2 + separator_padding() }
+		line height hard:	{ if is_modal(card.level_8_text) then 0.9 else 1.2 }
+		line height line:	1.5
+		line height soft:	0.9
+		line height hard max:	{ if is_modal(card.level_8_text) then 1.0 else 1.3 }
+		line height line max:	1.6
+		line height soft max:	0.9
+	saga text mirror:
+		left:				{ hack := card.level_8_text; 375 }
+		#left:				{ stylesheet.card_width + 1 }
+		top:				{ saga_text_top() + chop_top() }
+		width:				{ saga_text_width() }
+		height:				{ saga_text_height() - chop_top() - chop_bot() }
+		z index:			900
+		alignment:			{ text_alignment() }
+		font:
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				{ body_font_size() }
+			color:				{ body_font_color() }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ body_font_size() }
+		line height hard:	{ if is_modal(card.saga_text_mirror) then 0.9 else 1.2 }
+		line height line:	1.5
+		line height soft:	0.9
+		line height hard max:	{ if is_modal(card.saga_text_mirror) then 1.0 else 1.3 }
 		line height line max:	1.6
 		line height soft max:	0.9
 	rule text 3:
