@@ -104,7 +104,7 @@ init script:
 	
 	template_prefix :=
 	[
-		card:			{ "card/" }
+		card:			{ if is_crowned() then "crown/" else "card/" }
 		transform:		{ "transform/" }
 		pt:				{ "/magic-m15-classicshifted-shared.mse-include/pt_saga/" }
 		identity:		{ "/magic-modules.mse-include/indicators/" }
@@ -160,41 +160,15 @@ init script:
 	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" and split.3 != "-" then clamp(split.3, maximum:2000, minimum:0) else 0 }
 	
 	
-	a_saga := { true }
+	saga_chapter_text_left :=			{ 74 }
+	saga_chapter_text_top :=			{ if is_crowned() then 120 else 112 }
 	
-	saga_reminder :=
-	{
-		number_of_chapters := if styling.snap_chapter_to_box != "" then min(7,length(split_comma(styling.snap_chapter_to_box))) else styling.number_of_textboxes
-		if styling.default_reminder != "" then replace(styling.default_reminder, match: "\\[number of chapters\\]", replace: roman_numeral_map[number_of_chapters])
-		else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after " + roman_numeral_map[number_of_chapters] + "."
-	}
+	saga_chapter_text_padding_bottom :=	{ 4 }
 	
-	font_size := { if styling.text_font_size == "" then 24 else to_number(styling.text_font_size) or else 24 }
-	
-	text_alignment :=
-	{
-		if	(			styling.center_rule_text == "short text only"
-				and not	contains(match:"\n", card.rule_text)
-				and		card.flavor_text == "<i-flavor></i-flavor>"
-				and		card_style.text.content_lines <= 2
-			)
-			or	styling.center_rule_text == "always"
-		then "middle center"
-		else "middle left"
-	}
-	
-	chapter_text_left :=			{ 74 }
-	chapter_text_top :=				{ if is_crowned() then 120 else 112 }
-	
-	chapter_text_padding_bottom :=	{ 0 }
-	
-	text_left :=					{ 87 }
-	text_top :=						{ 274 }
-	text_width :=					{ 274 }
-	text_height :=					{ 594 }
-	
-	text_padding_top :=				{ -4 }
-	text_padding_bottom :=			{ -4 }
+	saga_text_left :=					{ 87 }
+	saga_text_top :=					{ 274 }
+	saga_text_width :=					{ 274 }
+	saga_text_height :=					{ 594 }
 	
 	chapter_left :=					{ 24 }
 	chapter_width :=				{ 58 }
@@ -205,6 +179,26 @@ init script:
 	separator_left :=				{ 77 }
 	separator_width :=				{ 289 }
 	separator_height :=				{ 24 }
+	
+	separator_padding :=			{ -4 }
+	
+	font_size := { if styling.text_font_size == "" then 24 else to_number(styling.text_font_size) or else 24 }
+	
+	saga_reminder :=
+	{
+		number_of_chapters := if styling.snap_chapter_to_box != "" then min(7,length(split_comma(styling.snap_chapter_to_box))) else styling.number_of_textboxes
+		if styling.default_reminder != "" then replace(styling.default_reminder, match: "\\[number of chapters\\]", replace: roman_numeral_map[number_of_chapters])
+		else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after " + roman_numeral_map[number_of_chapters] + "."
+	}
+	
+	chapter_image :=
+	{
+		path := styling.custom_chapter_icons
+		if contains(path, match: ".png") then (if path.0 == "/" then "" else "/") + (un_png(path) + "_" + input + ".png")
+		else "/magic-modules.mse-include/chapters/chapter" + input + ".png"
+	}
+	
+	a_saga := { true }
 	
 	chapter_move :=		{ split := split_comma(styling.move_chapter_icons);		if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:700, minimum:-700) else 0 }
 	separator_move :=	{ split := split_comma(styling.move_separators);		if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:500, minimum:-500) else 0 }
@@ -272,25 +266,14 @@ init script:
 		
 		total_desired_height := for x from 0 to active_count do textbox_desired_heights[x]
 		
-		missing := ( total_desired_height - text_height() ) / ( active_count + 1 )
-		factor := text_height() / total_desired_height
+		total_available_height := saga_text_height() - chop_top() - chop_bot()
+		
+		missing := ( total_desired_height - total_available_height ) / ( active_count + 1 )
+		factor := total_available_height / total_desired_height
 		
 		###when resizing, always make small textboxes as big as possible, to make for a more balanced looking card
 		textbox_effective_heights :=	if missing <= 0 then	(for x from 0 to active_count do [textbox_desired_heights[x] - missing])	#when increasing size, add equally to each textbox
 										else					(for x from 0 to active_count do [textbox_desired_heights[x] * factor])		#when decreasing size, do it in percentage, taking away more from big textboxes
-		
-		#trace("chapter_indexes "							+ (for c from 0 to 6 do chapter_indexes[c] + " "))
-		#trace("chaptertrain_counts_per_textbox "			+ (for x from 0 to 6 do chaptertrain_counts_per_textbox[x] + " "))
-		#trace("chaptertrain_desired_heights "				+ (for x from 0 to active_count do chaptertrain_desired_heights[x] + " "))
-		#trace("content_line_counts "						+ (for x from 0 to active_count do content_line_counts[x] + " "))
-		#trace("hard_line_counts "							+ (for x from 0 to active_count do hard_line_counts[x] + " "))
-		#trace("soft_line_counts "							+ (for x from 0 to active_count do soft_line_counts[x] + " "))
-		#trace("text_desired_heights "						+ (for x from 0 to active_count do text_desired_heights[x] + " "))
-		#trace("textbox_desired_heights "					+ (for x from 0 to active_count do textbox_desired_heights[x] + " "))
-		#trace("textbox_effective_heights "					+ (for x from 0 to active_count do textbox_effective_heights[x] + " "))
-		#trace("card_style.level_1_text.width "				+ card_style.level_1_text.width)
-		#trace("card_style.level_1_text.content_width "		+ card_style.level_1_text.content_width)
-		#trace("card_style.level_1_text.content_height "		+ card_style.level_1_text.content_height)
 		
 		textbox_effective_heights
 	}
@@ -347,11 +330,16 @@ init script:
 		)
 	}
 	
-	chapter_image :=
+	text_alignment :=
 	{
-		path := styling.custom_chapter_icons
-		if contains(path, match: ".png") then (if path.0 == "/" then "" else "/") + (un_png(path) + "_" + input + ".png")
-		else "/magic-modules.mse-include/chapters/chapter" + input + ".png"
+		if	(			styling.center_text == "short text only"
+				and not	contains(match:"\n", card.rule_text)
+				and		card.flavor_text == "<i-flavor></i-flavor>"
+				and		card_style.text.content_lines <= 2
+			)
+			or	styling.center_text == "always"
+		then "middle center"
+		else "middle left"
 	}
 
 ############################################################## Extra style options
@@ -369,14 +357,9 @@ styling field:
 	name:			stretch art to whole card
 	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
 	initial:		no
-styling field:
-	type:			choice
-	name:			center rule text
-	description:	When to center text (short text means only on one-line cards with no flavor text)
-	choice:			always
-	choice:			short text only
-	choice:			never
-	initial:		never
+
+include file: /magic-modules.mse-include/texts/styling_fields
+
 styling field:
 	type:			choice
 	name:			number of textboxes
@@ -508,7 +491,7 @@ card style:
 		z index:			1
 		popup style:		in place
 		render style:		image
-		image:				{ card_background() }
+		image:				{ if is_clear() then "" else card_background() }
 		mask:				masks/card_mask.png
 	
 	############################# Image
@@ -526,12 +509,13 @@ card style:
 		z index:			1000
 	
 	############################# Text box
+	
 	chapter text:
-		left:				{ chapter_text_left() }
-		top:				{ chapter_text_top() + body_font_vertical() }
-		width:				{ (text_left() - chapter_text_left()) + text_width() }
-		bottom:				{ text_top() + body_font_vertical() }
-		z index:			1000
+		left:				{ saga_chapter_text_left() }
+		top:				{ saga_chapter_text_top() + body_font_vertical() }
+		width:				{ (saga_text_left() - saga_chapter_text_left()) + saga_text_width() }
+		bottom:				{ saga_text_top() + body_font_vertical() }
+		z index:			900
 		alignment:			middle left
 		font:
 			name:				{ body_font() }
@@ -543,7 +527,7 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			scale down to:		7
-		padding bottom:		{ separator_height()/2 + chapter_text_padding_bottom() }
+		padding bottom:		{ separator_height()/2 + saga_chapter_text_padding_bottom() + separator_padding() }
 		line height hard:	{ if is_modal(card.chapter_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -551,11 +535,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 1 text:
-		left:				{ text_left() }
-		top:				{ text_top() + body_font_vertical() }
-		width:				{ text_width() }
+		left:				{ saga_text_left() }
+		top:				{ saga_text_top() + chop_top() + body_font_vertical() }
+		width:				{ saga_text_width() }
 		height:				{ textbox_heights()[0] + textbox_move(1) }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -567,8 +551,8 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
-		padding bottom:		{ separator_height()/2 + text_padding_bottom() }
+		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_1_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -576,11 +560,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 2 text:
-		left:				{ text_left() }
+		left:				{ saga_text_left() }
 		top:				{ card_style.level_1_text.bottom + body_font_vertical() }
-		width:				{ text_width() }
+		width:				{ saga_text_width() }
 		height:				{ if abilities_count() > 1 then textbox_heights()[1] + textbox_move(2) else 0 }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -592,8 +576,8 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
-		padding bottom:		{ separator_height()/2 + text_padding_bottom() }
+		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_2_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -601,11 +585,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 3 text:
-		left:				{ text_left() }
+		left:				{ saga_text_left() }
 		top:				{ card_style.level_2_text.bottom + body_font_vertical() }
-		width:				{ text_width() }
+		width:				{ saga_text_width() }
 		height:				{ if abilities_count() > 2 then textbox_heights()[2] + textbox_move(3) else 0 }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -617,8 +601,8 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
-		padding bottom:		{ separator_height()/2 + text_padding_bottom() }
+		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_3_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -626,11 +610,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 4 text:
-		left:				{ text_left() }
+		left:				{ saga_text_left() }
 		top:				{ card_style.level_3_text.bottom + body_font_vertical() }
-		width:				{ text_width() }
+		width:				{ saga_text_width() }
 		height:				{ if abilities_count() > 3 then textbox_heights()[3] + textbox_move(4) else 0 }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -642,8 +626,8 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
-		padding bottom:		{ separator_height()/2 + text_padding_bottom() }
+		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_4_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -651,11 +635,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 5 text:
-		left:				{ text_left() }
+		left:				{ saga_text_left() }
 		top:				{ card_style.level_4_text.bottom + body_font_vertical() }
-		width:				{ text_width() }
+		width:				{ saga_text_width() }
 		height:				{ if abilities_count() > 4 then textbox_heights()[4] + textbox_move(5) else 0 }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -667,8 +651,8 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
-		padding bottom:		{ separator_height()/2 + text_padding_bottom() }
+		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_5_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -676,11 +660,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 6 text:
-		left:				{ text_left() }
+		left:				{ saga_text_left() }
 		top:				{ card_style.level_5_text.bottom + body_font_vertical() }
-		width:				{ text_width() }
+		width:				{ saga_text_width() }
 		height:				{ if abilities_count() > 5 then textbox_heights()[5] + textbox_move(6) else 0 }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -692,8 +676,8 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
-		padding bottom:		{ separator_height()/2 + text_padding_bottom() }
+		padding top:		{ separator_height()/2 + separator_padding() }
+		padding bottom:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_6_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
@@ -701,11 +685,11 @@ card style:
 		line height line max:	1.6
 		line height soft max:	0.9
 	level 7 text:
-		left:				{ text_left() }
+		left:				{ saga_text_left() }
 		top:				{ card_style.level_6_text.bottom + body_font_vertical() }
-		width:				{ text_width() }
+		width:				{ saga_text_width() }
 		height:				{ if abilities_count() > 6 then textbox_heights()[6] + textbox_move(7) else 0 }
-		z index:			1000
+		z index:			900
 		alignment:			{ text_alignment() }
 		font:
 			name:				{ body_font() }
@@ -717,19 +701,31 @@ card style:
 			name:				{ styling.text_box_mana_symbols }
 			size:				{ body_font_size() }
 			# scale down to:	7
-		padding top:		{ separator_height()/2 + text_padding_top() }
+		padding top:		{ separator_height()/2 + separator_padding() }
 		line height hard:	{ if is_modal(card.level_7_text) then 0.9 else 1.2 }
 		line height line:	1.5
 		line height soft:	0.9
 		line height hard max:	{ if is_modal(card.level_7_text) then 1.0 else 1.3 }
 		line height line max:	1.6
 		line height soft max:	0.9
+	rule text 3:
+		left:				76
+		top:				838
+		width:				{ if is_notched() then 100 else 0 }
+		height:				30
+		z index:			920
+		alignment:			left middle
+		font:
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				23.5
+			color:				{ body_font_color() }
 	
 	############################# PT
 	pt:
-		left:				598
-		top:				{ 935 + pt_font_vertical() }
-		width:				94
+		left:				589
+		top:				{ 826 + pt_font_vertical() }
+		width:				95
 		height:				60
 		z index:			910
 		alignment:			center middle shrink-overflow
@@ -761,12 +757,6 @@ extra card field:
 	editable:			false
 	save value:			false
 	script:				rgb(0,0,0)
-extra card field:
-	type:				choice
-	name:				crown overlay
-	editable:			false
-	save value:			false
-	script:				card.card_color
 extra card field:
 	type:				choice
 	name:				miracle overlay
@@ -903,15 +893,15 @@ extra card style:
 		visible:			{ is_notched() and not is_clear() }
 		render style:		image
 		image:				{ card_transform() }
-	crown overlay:
+	pt box:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
-		z index:			4
-		visible:			{ is_crowned() }
+		z index:			19
+		visible:			{ card.pt != "" }
 		render style:		image
-		image:				{ card_crown() }
+		image:				{ card_ptbox() }
 	stamp border:
 		left:				0
 		top:				0
@@ -947,15 +937,6 @@ extra card style:
 		visible:			{ is_miracle() }
 		render style:		image
 		image:				{ if is_crowned() then set_alpha(set_combine(input: "/magic-m15-classicshifted-shared.mse-include/miracle/miracle_crown.png", combine: "add"), alpha:0.6) else set_alpha(set_combine(input: "/magic-m15-classicshifted-shared.mse-include/miracle/miracle.png", combine: "add"), alpha:0.6) }
-	pt box:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			19
-		visible:			{ card.pt != "" }
-		render style:		image
-		image:				{ card_ptbox() }
 	devoid card mask:
 		left:				0
 		top:				0
@@ -994,7 +975,7 @@ extra card style:
 		visible:			{ is_clear() }
 		render style:		image
 		image:				{ set_alpha(set_combine("clear_masks" + "/devoid_screen" + (if is_notched() then "_transform.png" else ".png"), combine: "screen"), alpha:0.75) }
-		mask:				{ "clear_masks" + "/devoid_textbox_mask" + (if is_notched() then "_transform.png" else ".png") }
+		mask:				{ "clear_masks" + "/devoid_textbox_mask" + (if is_crowned() then "_crown" else "") + (if is_notched() then "_transform.png" else ".png") }
 	chapter 1:
 		left:				{ chapter_left() }
 		top:				{ chapter_top(0) + chapter_move(1) }
@@ -1058,9 +1039,9 @@ extra card style:
 		render style:		image
 		image:				{ chapter_image(7) }
 	textbox separator 1:
-		left:				{ chapter_text_left() }
+		left:				{ saga_chapter_text_left() }
 		top:				{ hack_to_force_update := card_style.level_1_text.content_width; card_style.level_1_text.top - separator_height()/2 + separator_move(1) }
-		width:				{ (separator_left() - chapter_text_left()) + separator_width() }
+		width:				{ (separator_left() - saga_chapter_text_left()) + separator_width() }
 		height:				{ separator_height() }
 		z index:			710
 		render style:		image
