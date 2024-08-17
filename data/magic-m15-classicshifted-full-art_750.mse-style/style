@@ -65,7 +65,7 @@ init script:
 	[
 		name: {"MPlantin"},
 		size: {28.0},
-		color: {styling.text_color},
+		color: {styling.rule_text_color},
 		vertical: {0},
 		italic: {"MPlantin-Italic"}
 	]
@@ -104,10 +104,52 @@ init script:
 	card_crown :=		{ color_background(type:"crown", base_hybrid:card_hybrid) }
 	card_ptbox :=		{ color_background(type:"pt",		base_hybrid:card_hybrid) }
 	
+	card_mask :=
+	{
+		base := (if styling.extended_art then "masks/extended" else "masks/full") + (if is_stamped() then "_stamp.png" else ".png")
+		if is_notched() then combine_blend(image1: base, image2: "masks/transform.png", combine: "subtract")
+		else base
+	}
+	
+	textbox_background_image :=
+	{
+		color := styling.textbox_color
+		alpha := get_alpha_percentage(styling.textbox_opacity_percentage, default: 0)
+		set_alpha(
+			recolor_image(
+				"/magic-modules.mse-include/loyalty/color.png",
+				color: color
+			),
+			alpha: alpha
+		)
+	}
+	textbox_background_mask :=
+	{
+		(if is_stamped() then "masks" else "masks_nonstamp") + (if is_crowned() then "/textbox_crown" else "/textbox") + (if is_notched() then "_transform.png" else ".png")
+	}
+	
+	is_clear :=
+	{
+		styling.clear_frame == "yes" or
+		(
+			styling.clear_frame == "if colorless" and
+			not lang_setting("is_artifact")(card.super_type) and
+			not lang_setting("is_land")(card.super_type) and
+			not contains(card.card_color, match: "white") and
+			not contains(card.card_color, match: "blue") and
+			not contains(card.card_color, match: "black") and
+			not contains(card.card_color, match: "red") and
+			not contains(card.card_color, match: "green") and
+			not contains(card.card_color, match: "land") and
+			not contains(card.card_color, match: "artifact") and
+			not contains(card.card_color, match: "multicolor")
+		)
+	}
 	is_crowned := { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
 	is_nyx := { styling.nyx_frame == "yes" or (styling.nyx_frame == "if enchantment" and lang_setting("is_nyx")(card.super_type)) }
 	is_vehicle := { styling.vehicle_frame == "yes" or (styling.vehicle_frame == "if vehicle" and lang_setting("is_vehicle")(card.sub_type)) }
 	is_miracle := { styling.miracle_frame == "yes" or (styling.miracle_frame == "if miracle" and lang_setting("is_miracle")(card.text)) }
+	is_notched := { styling.transformation_reminder }
 	has_identity := { styling.color_indicator_dot }
 	has_identity_2 := { false }
 	has_identity_3 := { false }
@@ -131,12 +173,24 @@ styling field:
 	name:			stretch art to whole card
 	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
 	initial:		no
-
-include file: /magic-modules.mse-include/texts/styling_fields
-
+styling field:
+	type:			text
+	name:			textbox opacity percentage
+	description:	Set the opacity percentage for textboxes. Opaque is 100, transparent is 0, default is 0.
 styling field:
 	type:			color
-	name:			text color
+	name:			textbox color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(255,255,255)
+styling field:
+	type:			color
+	name:			rule text color
 	description:	Use the specified color for the rule text.
 	choice:
 		name:			black
@@ -144,12 +198,14 @@ styling field:
 	choice:
 		name:			white
 		color:			rgb(255,255,255)
-	initial:		black
+	initial:		rgb(0,0,0)
+
+include file: /magic-modules.mse-include/texts/styling_fields
 
 styling field:
 	type:			boolean
-	name:			extended art
-	description:	Make the illustration span the entire width of the card?
+	name:			transformation reminder
+	description:	Add a transformation notch and p/t
 	initial:		no
 styling field:
 	type:			choice
@@ -159,6 +215,19 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
+styling field:
+	type:			boolean
+	name:			extended art
+	description:	Make the illustration span the entire width of the card?
+	initial:		no
+styling field:
+	type:			choice
+	name:			clear frame
+	description:	Use a see-through frame?
+	choice:			yes
+	choice:			if colorless
+	choice:			no
+	initial:		if colorless
 styling field:
 	type:			choice
 	name:			vehicle frame
@@ -238,7 +307,7 @@ card style:
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
 		z index:			1
-		mask:				{ (if styling.extended_art then "mask/border_extended" else "mask/border_full") + (if is_stamped() then "_stamp.png" else ".png") }
+		mask:				{ (if styling.extended_art then "masks/border_extended" else "masks/border_full") + (if is_stamped() then "_stamp.png" else ".png") }
 	card color:
 		left:				0
 		top:				0
@@ -247,8 +316,8 @@ card style:
 		z index:			2
 		popup style:		in place
 		render style:		image
-		image:				{ card_background() }
-		mask:				{ (if styling.extended_art then "mask/extended" else "mask/full") + (if is_stamped() then "_stamp.png" else ".png") }
+		image:				{ if is_clear() then "" else card_background() }
+		mask:				{ card_mask() }
 	
 	############################# Image
 	image:
@@ -328,6 +397,12 @@ extra card field:
 	choice:				basic symbol
 extra card field:
 	type:				choice
+	name:				transform notch
+	editable:			false
+	save value:			false
+	script:				card.card_color
+extra card field:
+	type:				choice
 	name:				pt box
 	editable:			false
 	save value:			false
@@ -350,6 +425,31 @@ extra card field:
 	editable:			false
 	save value:			false
 	script:				card.card_color
+extra card field:
+	type:				choice
+	name:				devoid card mask
+	editable:			false
+	save value:			false
+	choice:				devoid card mask
+extra card field:
+	type:				choice
+	name:				devoid frame
+	editable:			false
+	save value:			false
+	choice:				devoid frame
+extra card field:
+	type:				choice
+	name:				devoid frame 2
+	editable:			false
+	save value:			false
+	choice:				devoid frame 2
+extra card field:
+	type:				choice
+	name:				textbox background
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox background
 extra card style:
 	basic symbol:
 		left:				310
@@ -367,6 +467,16 @@ extra card style:
 				else if	styling.basic_land_symbol == "mountain"	then	"badge/rbadge.png"
 				else if	styling.basic_land_symbol == "forest"	then	"badge/gbadge.png"
 				else													"badge/cbadge.png"
+	transform notch:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			3
+		visible:			{ is_notched() and not is_clear() }
+		render style:		image
+		image:				transform.png
+		mask:				{ card_mask() }
 	pt box:
 		left:				0
 		top:				0
@@ -375,7 +485,7 @@ extra card style:
 		z index:			19
 		visible:			{ card.pt != "" }
 		render style:		image
-		image:				{ card_ptbox() }
+		image:				{ if is_clear() then "/magic-m15-classicshifted-shared.mse-include/pt/cpt.png" else card_ptbox() }
 	nyx overlay:
 		left:				0
 		top:				0
@@ -385,7 +495,7 @@ extra card style:
 		visible:			{ is_nyx() }
 		render style:		image
 		image:				{ if is_crowned() then set_combine(input: "/magic-m15-classicshifted-shared.mse-include/nyx/nyx_crown_extended.png", combine: "add") else set_combine(input: "/magic-m15-classicshifted-shared.mse-include/nyx/nyx_extended.png", combine: "add") }
-		mask:				{ (if styling.extended_art then "mask/extended" else "mask/full") + (if is_stamped() then "_stamp.png" else ".png") }
+		mask:				{ (if styling.extended_art then "masks/extended" else "masks/full") + (if is_stamped() then "_stamp.png" else ".png") }
 	vehicle overlay:
 		left:				0
 		top:				0
@@ -395,7 +505,7 @@ extra card style:
 		visible:			{ is_vehicle() }
 		render style:		image
 		image:				/magic-m15-classicshifted-shared.mse-include/vehicle/vehicle_extended.png
-		mask:				{ (if styling.extended_art then "mask/extended" else "mask/full") + (if is_stamped() then "_stamp.png" else ".png") }
+		mask:				{ (if styling.extended_art then "masks/extended" else "masks/full") + (if is_stamped() then "_stamp.png" else ".png") }
 	miracle overlay:
 		left:				0
 		top:				0
@@ -405,4 +515,42 @@ extra card style:
 		visible:			{ is_miracle() }
 		render style:		image
 		image:				{ if is_crowned() then set_alpha(set_combine(input: "/magic-m15-classicshifted-shared.mse-include/miracle/miracle_crown_extended.png", combine: "add"), alpha:0.6) else set_alpha(set_combine(input: "/magic-m15-classicshifted-shared.mse-include/miracle/miracle_extended.png", combine: "add"), alpha:0.6) }
-		mask:				{ (if styling.extended_art then "mask/extended" else "mask/full") + (if is_stamped() then "_stamp.png" else ".png") }
+		mask:				{ (if styling.extended_art then "masks/extended" else "masks/full") + (if is_stamped() then "_stamp.png" else ".png") }
+	devoid card mask:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			1
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_image_mask_crown" else "/devoid_image_mask") + (if is_notched() then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
+	devoid frame:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			2
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_crown" else "/devoid") + (if is_notched() then "_transform.png" else ".png"); set_combine(image, combine: "multiply") }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else "/devoid_mask") + (if is_notched() then "_transform.png" else ".png") }
+	devoid frame 2:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			3
+		visible:			{ is_clear() }
+		render style:		image
+		image:				{ image := (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_screen_crown" else "/devoid_screen") + (if is_notched() then "_transform.png" else ".png"); set_alpha(set_combine(image, combine: "screen"), alpha:0.2) }
+		mask:				{ (if is_stamped() then "clear_masks" else "clear_masks_nonstamp") + (if is_crowned() then "/devoid_mask_crown" else "/devoid_mask") + (if is_notched() then "_transform.png" else ".png") }
+	textbox background:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			700
+		render style:		image
+		image:				{ textbox_background_image() }
+		mask:				{ textbox_background_mask() }
