@@ -43,7 +43,7 @@ saga_chapter_offset_spacing_1 :=		{ 0 }
 #### To change the position of all the textbox separators (grey bars):
 saga_separator_offset_left_1 :=			{ 0 }
 saga_separator_offset_top_1 :=			{ 0 }
-saga_separator_offset_width_1 :=		{ 8 }
+saga_separator_offset_width_1 :=		{ 0 }
 saga_separator_offset_height_1 :=		{ 0 }
 
 #### To additionaly change the position of the first textbox separator,
@@ -65,3 +65,12 @@ saga_bookmark_mask_1 :=
 	then "/magic-modules.mse-include/bookmarks/744x1039/m15/saga/small/default_bookmark_mask.png"
 	else "/magic-modules.mse-include/bookmarks/744x1039/m15/saga/base/default_bookmark_mask.png"
 }
+
+#### To move the watermark:
+watermark_offset_top_1 := { 0 }
+watermark_offset_left_1 := { 0 }
+watermark_offset_width_1 := { 0 }
+watermark_offset_height_1 := { 0 }
+
+#### To disable the watermark:
+watermark_disabled_1 := { true }

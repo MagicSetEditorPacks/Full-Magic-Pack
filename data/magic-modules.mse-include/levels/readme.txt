@@ -34,7 +34,7 @@ class_text_offset_height_1 :=				{ 0 }
 #### To change the position of all the textbox separators (level boxes or grey bars):
 class_separator_offset_left_1 :=			{ 0 }
 class_separator_offset_top_1 :=				{ 0 }
-class_separator_offset_width_1 :=			{ 8 }
+class_separator_offset_width_1 :=			{ 0 }
 class_separator_offset_height_1 :=			{ 0 }
 
 #### To additionaly change the position of the first textbox separator,
@@ -58,3 +58,12 @@ class_level_offset_left_1 :=				{ 0 }
 class_level_offset_top_1 :=					{ 0 }
 class_level_offset_width_1 :=				{ 0 }
 class_level_offset_height_1 :=				{ 0 }
+
+#### To move the watermark:
+watermark_offset_top_1 := { 0 }
+watermark_offset_left_1 := { 0 }
+watermark_offset_width_1 := { 0 }
+watermark_offset_height_1 := { 0 }
+
+#### To disable the watermark:
+watermark_disabled_1 := { true }
