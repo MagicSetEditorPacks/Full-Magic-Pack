@@ -70,17 +70,22 @@ information_copyright_offset_pt_top_1 := { 0 }
 #### To shift the secondary copyright left/right on creatures/walkers, if the pt/loyalty box is very narrow/wide:
 information_secondary_offset_pt_left_1 := { 0 }
 
+#### To disable the fact that copyright moves when there is pt/loyalty (for ex. on leveler frames)
+information_copyright_offset_pt_disable_1 := { true }
+
 #### For the other faces on DFC or TFC templates, use:
 information_offset_top_2 := { 0 }
 information_codes_offset_left_2 := { 0 }
 information_copyright_offset_right_2 := { 0 }
 information_copyright_offset_pt_top_2 := { 0 }
 information_secondary_offset_pt_left_2 := { 0 }
+information_copyright_offset_pt_disable_2 := { true }
 information_offset_top_3 := { 0 }
 information_codes_offset_left_3 := { 0 }
 information_copyright_offset_right_3 := { 0 }
 information_copyright_offset_pt_top_3 := { 0 }
 information_secondary_offset_pt_left_3 := { 0 }
+information_copyright_offset_pt_disable_3 := { true }
 
 #### These work the same on 90° rotated cards, but you need to imagine the card is upright
 
