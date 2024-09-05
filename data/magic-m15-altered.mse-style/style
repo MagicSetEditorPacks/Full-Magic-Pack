@@ -81,7 +81,7 @@ init script:
 		snow: "/magic-modules.mse-include/trims/snow/",
 		nyx: "/magic-modules.mse-include/trims/nyx/",
 		nyx_shifted: "/magic-modules.mse-include/trims/nyx/shifted/",
-		conspiracy: "/magic-modules.mse-include/trims/conspiracy/",
+		draft: "/magic-modules.mse-include/trims/conspiracy/",
 		crown: "/magic-modules.mse-include/crowns/375/",
 		stamp: "/magic-modules.mse-include/stamps/backs/375 round/",
 		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/",
@@ -102,10 +102,12 @@ init script:
 		mappt: "maps/"
 		miracle: "/magic-modules.mse-include/trims/miracle/"
 		miracle_shifted: "/magic-modules.mse-include/trims/miracle/shifted/"
+		miracle_inv: "/magic-modules.mse-include/trims/miracle/inverted/"
+		miracle_fnm: "/magic-modules.mse-include/trims/miracle/fnm/"
 		miracle_snow: "/magic-modules.mse-include/trims/miracle/snow/"
 		draft: "/magic-modules.mse-include/trims/draft/"
 		node: "nodes/"
-		node_shifted: "nodes/shifted"
+		node_shifted: "nodes/shifted/"
 		puma: "puma/"
 		puma_shift: "puma/shifted/"
 		curtains: "curtains/"
@@ -122,7 +124,8 @@ init script:
 		alias: "alias.png",
 		snow: "snow.png",
 		nyx: "nyx.png",
-		conspiracy: "cons.png",
+		nyx_shifted: "nyx.png",
+		draft: "draft.png",
 		crown: "crown.png",
 		stamp: "stamp.png",
 		ubstamp: "stamp.png",
@@ -132,8 +135,13 @@ init script:
 		map: "card.png"
 		mappt: "pt.png"
 		miracle: "miracle.png"
+		miracle_shifted: "miracle.png"
+		miracle_inv: "miracle.png"
+		miracle_fnm: "miracle.png"
+		miracle_snow: "miracle.png"
 		node: "node.png"
-		curtains: "curtains.png"
+		node_shifted: "node.png"
+		curtains: "card.png"
 		
 		slide: "slide.png"
 		slide2: "slide.png"
@@ -147,6 +155,7 @@ init script:
 		
 		season: "flag.png"
 		puma: "puma.png"
+		puma_shift: "puma.png"
 		
 	]
 	template := { 
@@ -167,8 +176,13 @@ init script:
 	}
 	landless_ar := [
 		nyx: true,
+		nyx_shifted: true,
 		node: true,
 		miracle: true,
+		miracle_shifted: true,
+		miracle_snow: true,
+		miracle_inv: true,
+		miracle_fnm: true,
 		alias: true,
 		devoid: true,
 		energy: true,
@@ -177,7 +191,8 @@ init script:
 		arrow: true,
 		arrow2: true,
 		arrow3: true,
-		crown: true
+		crown: true,
+		draft: true
 	]
 	
 	#### Map is a very different frame that usurps basically everything
@@ -210,18 +225,19 @@ init script:
 		and not is_leveler()
 		and remove_tags(card.text) == "\n"
 	}
-	is_full_art := {
-		chosen(styling.frames, choice:"fullart")
+	is_dka := {
+		chosen(styling.frames, choice:"fullart") and not is_map() and not uses_clear_frame()
 	}
 	#### PUMA and Mutate add things on top
 	is_puma := {
-		chosen(styling.frames, choice:"puma")
-		## TODO, can't be used on Clear
-		## TODO, can't be used on Fullart
+		chosen(styling.frames, choice:"puma") and not is_map() and not uses_expanded_art() and not uses_clear_frame() and not is_dka()
 	}
 	is_mutate := {
 		chosen(styling.frames, choice:"mutate") and not is_map()
 		## TODO, alternate behavior with expanded art and clear
+	}
+	mutate_image := {
+		is_mutate() and not uses_expanded_art() and not is_dka()
 	}
 	#### Alternate card bases
 	is_fnm := {
@@ -285,7 +301,7 @@ init script:
 			then "clear"
 		else if is_thbland()
 			then "energy"
-		else if is_full_art()
+		else if is_dka()
 			then "fullart"
 		else if is_fnm()
 			then "fnm"
@@ -299,20 +315,24 @@ init script:
 	}
 	
 	#### trims
-	curtain_plate := { color_background(type:"curtain", base_hybrid: card_hybrid)}
+	curtain_plate := { color_background(type:"curtains", base_hybrid: card_hybrid)}
 	draft_trim := { color_background(type:"draft", base_hybrid: card_hybrid, folder:template_prefix["draft"])}
 
 	miracle_plate_base := { color_background(type:"miracle", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
-	miracle_plate_snow := { color_background(type:"miracle_snow", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
-	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
+	miracle_plate_snow := { color_background(type:"miracle_snow", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_invert := { color_background(type:"miracle_inv", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_fnm := { color_background(type:"miracle_fnm", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate := { 
 		if is_clear() or clear_tops() then template_prefix["miracle"] + "xmiracle.png"
+		else if is_fnm() then miracle_plate_fnm()
+		else if is_inverted() then miracle_plate_invert()
 		else if is_planeshifted() then miracle_plate_shift()
-		else if is_snow() then miracle_plate_snow()
+		else if base_card() == "snow" then miracle_plate_snow()
 		else miracle_plate_base()
 	}
 	
-	nyx_shifted := { color_background(type:"nyx_shifted", base_hybrid: card_hybrid, folder:template_prefix["nyx"])}
+	nyx_shifted := { color_background(type:"nyx_shifted", base_hybrid: card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")}
 	nyx_trim := {
 		if is_planeshifted() then nyx_shifted()
 		else module_nyx()
@@ -320,14 +340,15 @@ init script:
 	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
 	#### other pieces
 	node_base := { color_background(type:"node",     base_hybrid:card_hybrid, folder:"nodes/") }
-	node_shift := { color_background(type:"node_shift",     base_hybrid:card_hybrid, folder:"nodes/") }
+	node_shift := { color_background(type:"node_shifted",     base_hybrid:card_hybrid, folder:"nodes/", blend_type:"node") }
 	node_img := { 
 		if is_devoid() and not is_legend() then "nodes/devoidnode.png"
 		else if is_planeshifted() then node_shift()
-		else node_base() }
+		else node_base()
+	}
 	
 	puma_base := { color_background(type:"puma", base_hybrid:card_hybrid, folder:"puma/") }
-	puma_shift := { color_background(type:"puma_shift", base_hybrid:card_hybrid, folder:"puma/") }
+	puma_shift := { color_background(type:"puma_shift", base_hybrid:card_hybrid, folder:"puma/", blend_type:"puma") }
 	puma_img := { if is_planeshifted() then puma_shift() else puma_base() }
 
 	mappt_background := { color_background(type:"mappt",     base_hybrid:pt_hybrid, folder:"maps/") }
@@ -382,12 +403,16 @@ init script:
 		else module_crown()
 	}
 	module_crown_template_patch := {
-		module_crown_template(override: if is_devoid() or uses_expanded_art() then "borderless" else "")
+		module_crown_template(override: if is_devoid() or uses_expanded_art() or is_puma() then "borderless" else "")
 	}
 	crown_img := {
-		if card.transformation == "none"
-			then crown_main()
-		else set_mask(image:crown_main(), mask:"nodemask.png")
+		img := crown_main()
+		if card.transformation != "none" then
+			img := set_mask(image:img, mask:"nodes/mask.png")
+		if is_borderless() and is_frameless() then
+			img := set_mask(image:img, mask:"frame_masks/crown_miracle_borderless.png")
+		
+		img
 	}
 	custom_border_image := {
 		src := styling.custom_border_source
@@ -402,7 +427,7 @@ init script:
 		color_background(
 			type:"card",
 			base_hybrid:card_hybrid,
-			folder: if is_map() then "maps/" else if is_thbland() then "energies/" else if is_full_art() then "dka/" else template_prefix["card"]
+			folder: if is_map() then "maps/" else if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
 		)
 	}
 	mainframe_card_base := {
@@ -414,7 +439,7 @@ init script:
 			fullart: "dka/" + input + (if land then "l" else "") + "card.jpg"
 			fnm: "fnm/" + input + "card.png"
 			inverted: "inverted/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.png"
-			shifted: "/magic-modules.mse-include/cards/375 m15 simple/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
+			shifted: "/magic-modules.mse-include/cards/375 m15 simple/shifted/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 			snow: "snow/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 			standard: "/magic-modules.mse-include/cards/375 m15 simple/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 		][base_card()]
@@ -435,41 +460,53 @@ init script:
 		+ (if card.border_color == rgb(200,200,200) then "_silver" else "")
 		+ ".png" 
 	}
-	expanded_mask := {
-		"bigimagemasks/"
-		+ (if is_full_art() then "dka_" else "")
-		+ (if is_borderless() then (if is_stamped() then "rare_" else "")
-		+ "borderless_" else "")
-		+ "frameless.png"
-	}
 	frame_mask_script := {
 		if is_map()
 			then "frame_masks/map_mask.png"
-		else if is_borderless() and is_frameless()
-			then "frame_masks/borderless_frameless.png"
-		else if uses_expanded_art()
-			then "frame_masks/borderless.png"
 		else if is_clear()
 			then ""
-		else if is_full_art()
+		else if is_thbland()
+			then "frame_masks/energy.png"
+		else if uses_expanded_art() and is_dka()
+			then "frame_masks/borderless_dka.png"
+		else if is_borderless() and is_frameless()
+			then "frame_masks/borderless_frameless" + (if is_miracle() then "_miracle" else "") + ".png"
+		else if uses_expanded_art()
+			then "frame_masks/borderless.png"
+		else if is_dka()
 			then "frame_masks/dka.jpg"
-		else "frame_masks/frame_mask.png"
+		else "frame_masks/frame_mask" + (if is_puma() then "_puma" else "") + (if is_mutate() then "_mutate" else "") + ".png"
 	}
 	image_mask_script := {
 		if is_map() then ""
-		else if is_devoid() then "image_mask_devoid.png"
-		else if is_clear() then "image_mask.png"
-		else if is_thbland() then "cornermask.png"
-		else if uses_expanded_art() then expanded_mask()
-		else if is_puma() then "puma_mask" + (if is_mutate() then "_mutate.png" else "3.png")
-		else if is_mutate() and not clear_tops() then "mutate_mask.png"
+		else if is_devoid() then "image_masks/devoid.png"
+		else if is_clear() then "image_masks/clear.png"
+		else if is_thbland() then "image_masks/energy.png"
+		else if uses_expanded_art() then ""
+		else if mutate_image() then
+			"image_masks/" + (if is_puma() then "puma_" else "") + "mutate.png"
+		else ""
+	}
+	miracle_mask := {
+		if is_borderless() and is_frameless()
+			then "frame_masks/miracle_borderless" + (if is_legend() then "_crown" else "") + ".png"
+		else if is_legend() and uses_expanded_art()
+			then template_prefix["miracle"] + "mask_onlypoint.png"
+		else if is_legend() and is_puma()
+			then template_prefix["miracle"] + "mask_onlypoint.png"
+		else if uses_expanded_art() or is_puma()
+			then template_prefix["miracle"] + "mask_rays.png"
+		else if is_legend() and is_clear()
+			then template_prefix["miracle"] + "mask_fullcrown.png"
+		else if is_legend()
+			then template_prefix["miracle"] + "mask_pointcrown.png"
 		else ""
 	}
 	main_trim_mask := {
-		"/magic-modules.mse-include/trims/375x523 trim mask" + (if is_full_art() then " fullart.png" else ".png")
+		"/magic-modules.mse-include/trims/375x523 trim mask" + (if is_dka() then " fullart.png" else if is_puma() then " puma.png" else ".png")
 	}
 	twin_trim_mask := {
-		"/magic-modules.mse-include/trims/375x523 doubletrim mask" + (if is_full_art() then " fullart.png" else ".png")
+		"/magic-modules.mse-include/trims/375x523 doubletrim mask" + (if is_dka() then " fullart.png" else if is_puma() then " puma.png" else ".png")
 	}
 
 
@@ -505,7 +542,8 @@ init script:
 	top_of_textbox := {
 		(
 			if is_map() then 340
-			else if is_full_art() then 359
+			else if is_dka() and is_mutate() then 395
+			else if is_dka() then 359
 			else if is_mutate() then 395
 			else 327
 		) - (-chop_top()) + body_font_vertical()
@@ -515,7 +553,7 @@ init script:
 	}
 
 	#### other settings
-	use_flash_dot := {false}
+	use_flash_dot := { styling.use_flash_dot and (lang_setting("is_instant")(card.super_type) or contains(card.type, match:"Flash"))}
 	is_promo := { styling.promo }
 	is_unsorted := {styling.remove_from_autocount}
 	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
@@ -530,7 +568,7 @@ init script:
 			then set.copyright != ""
 		else card.copyright != ""
 	}
-	white_text := {is_full_art() or is_fnm() or is_inverted()}
+	white_text := {is_dka() or is_fnm() or is_inverted()}
 
 	#### backend magic
 	watermark_include := "/magic-modules.mse-include/watermarks"
@@ -628,17 +666,17 @@ init script:
 		else input
 	}
 	lv_2_coordinate := {
-		base := 52 + (if is_full_art() then 10 else if is_mutate() then 12 else 0)
+		base := 52 + (if is_dka() then 10 else if is_mutate() then 12 else 0)
 		base := base + to_number(pull_comma_array(styling.level_offset, cell:0))
 		minimax(base, ceil:152, floor:0)
 	}
 	lv_3_coordinate := {
-		base := 101 + (if is_full_art() then 10 else if is_mutate() then 12 else 0)
+		base := 101 + (if is_dka() then 10 else if is_mutate() then 12 else 0)
 		base := base + to_number(pull_comma_array(styling.level_offset, cell:1))
 		minimax(base, ceil:152, floor:lv_2_coordinate())
 	}
 	lv_4_coordinate := {
-		base := 152 + (if is_full_art() then 10 else if is_mutate() then 12 else 0)
+		base := 152 + (if is_dka() then 10 else if is_mutate() then 12 else 0)
 		base := base + to_number(pull_comma_array(styling.level_offset, cell:2))
 		minimax(base, ceil:152, floor:lv_3_coordinate())
 	}
@@ -646,7 +684,7 @@ init script:
 	lv_2_height := {lv_3_coordinate() - lv_2_coordinate()}
 	lv_3_height := {lv_4_coordinate()-lv_3_coordinate()}
 	lv_4_height := {152-lv_4_coordinate()}
-	l1_center := {327 + (if is_full_art() then 16 else 0) + 0.5*lv_1_height()}
+	l1_center := {327 + (if is_dka() then 16 else 0) + 0.5*lv_1_height()}
 	l2_center := {327 + lv_2_coordinate() + 0.5*lv_2_height()}
 	l3_center := {327 + lv_3_coordinate() + 0.5*lv_3_height()}
 	l4_center := {327 + lv_4_coordinate() + 0.5*lv_4_height()}
@@ -698,21 +736,21 @@ init script:
 	swap_fonts_name_default := [
 		name: {if is_map() then "Beleren Small Caps" else "Beleren Bold"},
 		size: {if is_map() then 14.8 else 16},
-		color: {if is_map() then "black" else if is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
+		color: {if is_map() or uses_clear_frame() then "black" else if is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_type_default := [
 		name: {"Beleren Bold"},
 		size: {if is_map() then 12 else 13},
-		color: {if is_map() then "black" else if is_full_art() or is_puma() or is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
+		color: {if is_map() or uses_clear_frame() then "black" else if is_dka() or is_puma() or is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_body_default := [
 		name: {"MPlantin"},
 		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14},
-		color: {if is_map() then "black" else if is_full_art() or is_fnm() or is_inverted() then "white" else "black"},
+		color: {if is_map() then "black" else if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
 		vertical: {0},
 		italic: {"MPlantin-Italic"}
 	]
@@ -722,7 +760,7 @@ init script:
 		color: {
 			if is_map() then "black" 
 			else if is_planeshifted() or is_fnm() or is_inverted() then "white"
-			else if is_vehicle() and (not is_legend() or chosen(styling.other_options, choice:"brown legendary vehicle pt")) then "white"
+			else if is_vehicle() then "white"
 			else "black"
 		},
 		vertical: {0},
@@ -808,8 +846,8 @@ styling field:
 	choice: conspiracy
 	choice: draft matters
 	choice: miracle
-	choice: vehicle
 	choice: nyx
+	choice: vehicle
 	choice: leveler
 	choice: snow
 	choice: custom border
@@ -826,7 +864,6 @@ styling field:
 	name: other options
 	description: Other frame options
 	choice: prerelease stamp
-	choice: brown legendary vehicle pt
 	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: ancestral generic mana
@@ -941,6 +978,11 @@ styling field:
 	initial: no
 styling field:
 	type: boolean
+	name: use flash dot
+	initial: no
+	description: Automatically applies Tumbles flash dot to Instant/Flash typed cards.
+styling field:
+	type: boolean
 	name: inverted common symbol
 	description: Should the common rarity symbol be inverted, like in Coldsnap?
 	initial: no
@@ -1018,6 +1060,8 @@ card style:
 					then 65
 				else if is_map()
 					then 60
+				else if card.transformation != "none" and card.card_symbol != "none"
+					then 78
 				else if card.transformation != "none"
 					then 58
 				else if card.card_symbol != "none"
@@ -1080,11 +1124,11 @@ card style:
 			script:
 				if is_map() or uses_clear_frame() or uses_expanded_art() or is_puma()
 					then 0
-				else if is_full_art()
+				else if is_dka()
 					then 23
 				else if clear_tops()
 					then 15
-				else if is_mutate()
+				else if mutate_image()
 					then 22
 				else 29
 		top:
@@ -1098,11 +1142,11 @@ card style:
 			script:
 				if is_map() or uses_clear_frame() or uses_expanded_art() or is_puma()
 					then 375
-				else if is_full_art()
+				else if is_dka()
 					then 328
 				else if clear_tops()
 					then 345
-				else if is_mutate()
+				else if mutate_image()
 					then 330
 				else 316
 		height:
@@ -1113,9 +1157,9 @@ card style:
 					then 523
 				else if clear_tops()
 					then 291
-				else if is_full_art()
+				else if is_dka()
 					then 423
-				else if is_mutate()
+				else if mutate_image()
 					then 334
 				else if is_puma()
 					then 265
@@ -1132,7 +1176,7 @@ card style:
 	############################# Card type
 	indicator:
 		left: { if is_map() then 18 else 31 + (if is_season() then 12 else 0) + (if is_clear() then 2 else 0) + (if use_flash_dot() then 3 else 0) }
-		top:  { if is_map() or is_clear() then 298 else if is_thbland() then 449 else if is_full_art() then 332 else 300 }
+		top:  { if is_map() or is_clear() then 298 else if is_thbland() then 449 else if is_dka() then 332 else 300 }
 		width: 17
 		height: 17
 		z index: 800
@@ -1141,7 +1185,7 @@ card style:
 		image: { module_identity() }
 	type:
 		left: 	{ if is_map() then 85 else 32 + (if is_season() then 12 else 0) + (if has_identity() then 20 else 0) + (if is_clear() then 4 else 0) + (if use_flash_dot() then 3 else 0) }
-		top: 	{ (if is_map() then 297.5 else if is_devoid() then 295 else if is_clear() then 294 else if is_thbland() then 444 else if is_full_art() then 329 else 296) + shrink_type() + type_font_vertical() }
+		top: 	{ (if is_map() then 297.5 else if is_devoid() then 295 else if is_clear() then 294 else if is_thbland() then 444 else if is_dka() then 329 else 296) + shrink_type() + type_font_vertical() }
 		width: 	{ if is_map() then 205 else (if has_identity() then 290 else 310) - rare_width() - (if is_season() then 12 else 0) }
 		height: { (if is_map() then 18 else 20) - shrink_type() }
 		alignment: { if is_map() then "center top shrink-overflow" else "top shrink-overflow" }
@@ -1152,13 +1196,13 @@ card style:
 			italic name: { type_font_italic() }
 			size: { type_font_size() }
 			color: { type_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_full_art() or is_puma() or is_planeshifted() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_puma() or is_planeshifted() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 			separator color: red
 	rarity:
 		right:	{ if is_map() then 199 else if is_scrolls() then 334 else 344 }
-		top: 	{ if is_map() then 53 else if is_devoid() then 296 else if is_clear() then 295 else if is_thbland() then 445 else if is_full_art() then 329 else 297 }
+		top: 	{ if is_map() then 53 else if is_devoid() then 296 else if is_clear() then 295 else if is_thbland() then 445 else if is_dka() then 329 else 297 }
 		width: 	{ if set.shorten_types_for_rarity then 44 else 0 }
 		height: 22
 		z index: 950
@@ -1177,12 +1221,12 @@ card style:
 			size: { body_font_size() }
 			scale down to: 6
 			color: { body_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else (if is_mutate() then 12 else 14)}
+			size: {body_font_size()}
 			scale down to: 6
 		alignment:
 			script:
@@ -1205,7 +1249,7 @@ card style:
 	############################# leveler
 	level 1 text:
 		left: { if is_leveler() and card.level_0 != "" then (if loy_leveler() then 57 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
-		top: { if is_mutate() then 329 else top_of_textbox() }
+		top: { if is_dka() and is_mutate() then 359 else if is_mutate() then 329 else top_of_textbox() }
 		right: { if is_leveler() then (if lone_pt() or card.pt == "" then 342 else 277) else if is_mutate() then 342 else if is_map() then 40 else 29}
 		bottom: { if is_mutate() then 392 else if is_leveler() then (327+lv_1_height()) else bottom_of_textbox() }
 		font:
@@ -1215,12 +1259,12 @@ card style:
 			size: { body_font_size() }
 			scale down to: 6
 			color: { body_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			size: {body_font_size()}
 			scale down to: 6
 		alignment:
 			script:
@@ -1248,12 +1292,12 @@ card style:
 			size: { body_font_size() }
 			scale down to: 6
 			color: { body_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			size: {body_font_size()}
 			scale down to: 6
 		alignment:
 			script:
@@ -1281,12 +1325,12 @@ card style:
 			size: { body_font_size() }
 			scale down to: 6
 			color: { body_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			size: {body_font_size()}
 			scale down to: 6
 		alignment:
 			script:
@@ -1314,12 +1358,12 @@ card style:
 			size: { body_font_size() }
 			scale down to: 6
 			color: { body_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_full_art() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: {if styling.font_cap != "" then to_number(styling.font_cap) else 14}
+			size: {body_font_size()}
 			scale down to: 6
 		alignment:
 			script:
@@ -1338,9 +1382,9 @@ card style:
 		line height line max: 1.6
 	watermark:
 		left: { if is_map() then 40 else 19 }
-		top: { if is_map() then 330 else if is_full_art() then 359 else 330 }
+		top: { if is_map() then 330 else if is_dka() then 359 else 330 }
 		width: { if is_tarot() then 0 else if is_map() then 287 else 334 }
-		height: { if is_map() then 154 else if is_full_art() then 120 else 152 }
+		height: { if is_map() then 154 else if is_dka() then 120 else 152 }
 		z index: 720
 		render style: image
 		popup style: in place
@@ -1609,7 +1653,13 @@ extra card field:
 extra card field:
 	type: choice
 	name: custom overlay
-	choice: car door
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: draft overlay
+	script: card.card_color
 	save value: false
 	editable: false
 extra card field:
@@ -1815,7 +1865,7 @@ extra card style:
 		mask: { "foil_mask" + (if card.pt != "" then "_pt") + (if is_stamped() then "_rare") + ".png" }
 	promo label:
 		left: 40
-		top: { if is_full_art() then 295 else 262 }
+		top: { if is_dka() then 295 else 262 }
 		width: {if chosen(styling.other_options, choice:"prerelease stamp") then 295 else 0}
 		height: 29
 		alignment: middle right
@@ -1826,9 +1876,9 @@ extra card style:
 			color: rgb(223,169,41)
 	tarot watermark:
 		left: { if is_map() then 40 else 19 }
-		top: { if is_full_art() then 359 else 330 }
+		top: { if is_dka() then 359 else 330 }
 		width: { if not is_tarot() then 0 else if is_map() then 287 else 334 }
-		height: { if is_map() then 154 else if is_full_art() then 120 else 152 }
+		height: { if is_map() then 154 else if is_dka() then 120 else 152 }
 		z index: 720
 		alignment: middle center
 		font:
@@ -1880,8 +1930,8 @@ extra card style:
 		width: 375
 		height: 523
 		render style: image
-		image: {if is_puma() then puma_img() else (if is_full_art() then "full_" else "") + "consscrolls.png"}
-		z index: 1
+		image: {if is_puma() then puma_img() else "scrolls" + (if is_dka() then "_full" else "") + (if is_miracle() then "_miracle" else "") + ".png"}
+		z index: 820
 		visible: {not is_map() and (is_scrolls() or is_puma())}
 	curtain:
 		left: 0
@@ -1889,19 +1939,20 @@ extra card style:
 		width: 375
 		height: 523
 		render style: image
-		image: {if is_draft() then cons_background() else curtain_background()}
-		z index: 630
-		visible: {not is_map() and (is_draft() or is_curtains())}
-		mask: {if is_legend() and is_curtains() then "lcurtainmask.png"}
+		image: {curtain_plate()}
+		z index: 610
+		visible: {not is_map() and not uses_expanded_art() and is_curtains()}
+		mask: {if is_legend() then "curtains/legend_mask.png"}
 	miracle overlay:
 		left: 0
-		top: 0
+		top: { if is_devoid() and is_legend() then 1 else 0 }
 		width: 375
 		height: 523
 		render style: image
 		image: { miracle_plate() }
-		z index: 610
+		z index: 810
 		visible: {not is_map() and is_miracle()}
+		mask: { miracle_mask() }
 	nyx overlay:
 		left: 0
 		top: 0
@@ -1911,7 +1962,7 @@ extra card style:
 		image: { nyx_trim() }
 		z index: 330
 		visible: { not is_map() and not uses_expanded_art() and is_nyx() }
-		mask: { if is_snow() or is_custom_border() or is_vehicle() then twin_trim_mask() else main_trim_mask() }
+		mask: { if is_snow() or is_custom_border() or is_draft() or is_vehicle() then twin_trim_mask() else main_trim_mask() }
 	snow overlay:
 		left: 0
 		top: 0
@@ -1921,7 +1972,7 @@ extra card style:
 		image: { module_snow() }
 		z index: 320
 		visible: { not is_map() and not uses_expanded_art() and is_snow() and base_card() != "snow" }
-		mask: { if is_custom_border() or is_vehicle() then twin_trim_mask() else main_trim_mask() }
+		mask: { if is_custom_border() or is_draft() or is_vehicle() then twin_trim_mask() else main_trim_mask() }
 	custom overlay:
 		left: 0
 		top: 0
@@ -1929,8 +1980,18 @@ extra card style:
 		height: 523
 		render style: image
 		image: { custom_border_blend() }
-		z index: 315
+		z index: 317
 		visible: { not is_map() and not uses_expanded_art() and is_custom_border() }
+		mask: { if is_vehicle() or is_draft() then twin_trim_mask() else main_trim_mask() }
+	draft overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 315
+		render style: image
+		image: { draft_trim() }
+		visible: {not is_map() and not uses_expanded_art() and is_draft()}
 		mask: { if is_vehicle() then twin_trim_mask() else main_trim_mask() }
 	vehicle overlay:
 		left: 0
@@ -2000,28 +2061,28 @@ extra card style:
 		top: { if is_d20() then top_of_para(rolls_start(card.text)-invert_rolls()) else 329 + lv_2_coordinate()}
 		height: { if is_d20() then height_of_para(rolls_start(card.text)) else lv_2_height()}
 		width: 314
-		z index: 850
+		z index: 640
 		render style: image
 		image: {overlay1()}
-		visible: {(is_d20() and number_of_rolls(card.text) > 0) or (is_leveler() and not is_full_art() and not is_map() and not is_fnm() and not is_inverted())}
+		visible: {(is_d20() and number_of_rolls(card.text) > 0) or (is_leveler() and not is_dka() and not is_map() and not is_fnm() and not is_inverted())}
 	level 3 overlay:
 		left: 29
 		top: { if is_d20() then top_of_para(rolls_start(card.text)+2-invert_rolls()) else 329 + lv_3_coordinate()}
 		height: { if is_d20() then height_of_para(rolls_start(card.text)+2-invert_rolls()) else lv_3_height()}
 		width: 314
-		z index: 850
+		z index: 640
 		render style: image
 		image: {overlay2()}
-		visible: {(is_d20() and number_of_rolls(card.text)-no_roll(card.text) > 2) or (is_leveler() and not is_full_art() and not is_map() and not is_fnm() and not is_inverted())}
+		visible: {(is_d20() and number_of_rolls(card.text)-no_roll(card.text) > 2) or (is_leveler() and not is_dka() and not is_map() and not is_fnm() and not is_inverted())}
 	level 4 overlay:
 		left: 29
 		top: { if is_d20() then top_of_para(rolls_start(card.text)+4-invert_rolls()) else 329 + lv_4_coordinate()}
 		height: { if is_d20() then height_of_para(rolls_start(card.text)+4-invert_rolls()) else lv_4_height()}
 		width: 314
-		z index: 850
+		z index: 640
 		render style: image
 		image: {overlay3()}
-		visible: {(is_d20() and number_of_rolls(card.text)-no_roll(card.text) > 4) or (is_leveler() and not is_full_art() and not is_map() and not is_fnm() and not is_inverted())}
+		visible: {(is_d20() and number_of_rolls(card.text)-no_roll(card.text) > 4) or (is_leveler() and not is_dka() and not is_map() and not is_fnm() and not is_inverted())}
 
 	arrow 1:
 		z index: 840
@@ -2086,10 +2147,10 @@ extra card style:
 		visible: { is_season() }
 		mask: {if uses_expanded_art() then "season/full_mask.png" else ""}
 	mutbar:
-		z index: 2
+		z index: 730
 		left: 28
 		top: 393
-		height: 730
+		height: 2
 		width: 317
 		render style: image
 		image: mutbar.png
