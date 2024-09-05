@@ -86,6 +86,7 @@ init script:
 		stamp: "/magic-modules.mse-include/stamps/backs/375 round/",
 		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/",
 		identity: "/magic-modules.mse-include/indicators/"
+		star: "/magic-modules.mse-include/trims/star/",
 		
 		arrow: "/magic-modules.mse-include/levels/arrows/1/"
 		arrow2: "/magic-modules.mse-include/levels/arrows/2/"
@@ -130,6 +131,7 @@ init script:
 		stamp: "stamp.png",
 		ubstamp: "stamp.png",
 		identity: "identity.png"
+		star: "star.png",
 		
 		devoid: "card.png"
 		map: "card.png"
@@ -177,6 +179,7 @@ init script:
 	landless_ar := [
 		nyx: true,
 		nyx_shifted: true,
+		star: true,
 		node: true,
 		miracle: true,
 		miracle_shifted: true,
@@ -237,7 +240,7 @@ init script:
 		## TODO, alternate behavior with expanded art and clear
 	}
 	mutate_image := {
-		is_mutate() and not uses_expanded_art() and not is_dka()
+		is_mutate() and not uses_expanded_art() and not is_dka() and not uses_clear_frame() and not clear_tops()
 	}
 	#### Alternate card bases
 	is_fnm := {
@@ -274,7 +277,7 @@ init script:
 	}
 	is_nyx := {
 		chosen(styling.frames, choice:"nyx")
-		or lang_setting("is_enchantment")(card.super_type)
+		or (lang_setting("is_enchantment")(card.super_type) and set.auto_nyx)
 	}
 	is_leveler := {
 		chosen(styling.frames, choice:"leveler")
@@ -290,7 +293,7 @@ init script:
 	}
 	is_curtains := {contains(card.notes, match:"!curtain")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
-	clear_tops := {chosen(styling.other_options, choice:"clear tops") and not is_puma()}
+	clear_tops := {chosen(styling.other_options, choice:"clear tops") and not is_puma() and not uses_expanded_art()}
 	
 	base_card := {
 		if is_map()
@@ -334,7 +337,11 @@ init script:
 	
 	nyx_shifted := { color_background(type:"nyx_shifted", base_hybrid: card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")}
 	nyx_trim := {
-		if is_planeshifted() then nyx_shifted()
+		if contains(set.alternate_nyx, match:".png")
+			then color_background(type:"alt_nyx", base_hybrid:card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")
+		else if set.alternate_nyx == "star"
+			then color_background(type:"star", base_hybrid:card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")
+		else if is_planeshifted() then nyx_shifted()
 		else module_nyx()
 	}
 	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
@@ -403,7 +410,7 @@ init script:
 		else module_crown()
 	}
 	module_crown_template_patch := {
-		module_crown_template(override: if is_devoid() or uses_expanded_art() or is_puma() then "borderless" else "")
+		module_crown_template(override: if is_devoid() or uses_expanded_art() or is_puma() then "borderless" else if is_nyx() and chosen(styling.other_options, choice:"auto nyx crowns") then "nyx" else "")
 	}
 	crown_img := {
 		img := crown_main()
@@ -421,6 +428,12 @@ init script:
 			"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
 		else
 			"/magic-mainframe-extras.mse-include/" + src
+	}
+	alt_nyx_template := {
+		src := set.alternate_nyx
+		fs := filter_text(src, match:"[^./]+.png")
+		dir := filter_text(src, match:"^([^.]+/)+")
+		"/magic-mainframe-extras.mse-include/" + dir + input + (if land then "l" else "") + fs
 	}
 	
 	card_background := {
@@ -448,7 +461,8 @@ init script:
 	harder_script := [
 		crown: module_crown_template_patch,
 		card: mainframe_card_base
-		custom_border: custom_border_image
+		custom_border: custom_border_image,
+		alt_nyx: alt_nyx_template
 	]
 
 	#### mask scripts
@@ -473,8 +487,10 @@ init script:
 			then "frame_masks/borderless_frameless" + (if is_miracle() then "_miracle" else "") + ".png"
 		else if uses_expanded_art()
 			then "frame_masks/borderless.png"
+		else if clear_tops()
+			then "frame_masks/clear_tops" + (if is_dka() then "_dka" else "") + "_mask.png"
 		else if is_dka()
-			then "frame_masks/dka.jpg"
+			then "frame_masks/dka.png"
 		else "frame_masks/frame_mask" + (if is_puma() then "_puma" else "") + (if is_mutate() then "_mutate" else "") + ".png"
 	}
 	image_mask_script := {
@@ -513,7 +529,7 @@ init script:
 	#### formatting
 	shrink_type := {
 		if styling.shrink_typeline_text != ""
-			then to_int(styling.shrink_typeline_text) or else 0
+			then to_number(styling.shrink_typeline_text) or else 0
 		else if length(remove_tags(card.type)) > 41
 			then 2
 		else if length(remove_tags(card.type)) > 38
@@ -522,22 +538,22 @@ init script:
 	}
 	shrink_name := {
 		if styling.shrink_name_text != ""
-			then to_int(styling.shrink_name_text) or else 0
+			then to_number(styling.shrink_name_text) or else 0
 		else 0
 	}
 	chop_top := {
 		if styling.chop_top == ""
 			then 0
 		else if comma_count(styling.chop_top) == "," or comma_count(styling.chop_top) == ",,"
-			then split_text(match:",", styling.chop_top).0 or else 0
-		else styling.chop_top or else 0
+			then to_number(split_text(match:",", styling.chop_top).0) or else 0
+		else to_number(styling.chop_top) or else 0
 	}
 	chop_bot := {
 		if comma_count(styling.chop_top) == ",,"
-			then split_text(match:",", styling.chop_top).1 or else 0
+			then to_number(split_text(match:",", styling.chop_top).1) or else 0
 		else if styling.chop_bottom == ""
 			then 0
-		else styling.chop_bottom or else 0
+		else to_number(styling.chop_bottom) or else 0
 	}
 	top_of_textbox := {
 		(
@@ -779,6 +795,31 @@ init script:
 		)
 	}
 	
+	tri_stamp := {
+		if is_map() or is_clear() or is_thbland()
+			then template_prefix["ubstamp"] + "_stamp.png"
+		else if is_devoid()
+			then template_prefix["ubstamp"] + "devoid.png"
+		else module_ubstamp()
+	}
+	round_stamp := {
+		if is_map() or is_clear() or is_thbland()
+			then template_prefix["stamp"] + "_stamp.png"
+		else if is_devoid()
+			then template_prefix["stamp"] + "devoid.png"
+		else module_stamp()
+	}
+	stamp_top := {
+		sh := stamp_shape()
+		if is_map() and sh == "triangle"
+			then 472
+		else if is_clear()
+			then (if sh == "triangle" then 472 else 473)
+		else if is_thbland()
+			then 472
+		else 471
+	}
+
 	#### Module offsets
 	information_secondary_shift_with_pt_1 := {
 		if is_leveler() and not (lone_pt() or starting_loyalty())
@@ -1025,7 +1066,6 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/separators/card_fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
-include file: /magic-modules.mse-include/stamps/stamp_back
 include file: /magic-modules.mse-include/symbols/card_fields
 card style:
 	############################# Background stuff
@@ -1124,10 +1164,10 @@ card style:
 			script:
 				if is_map() or uses_clear_frame() or uses_expanded_art() or is_puma()
 					then 0
-				else if is_dka()
-					then 23
 				else if clear_tops()
 					then 15
+				else if is_dka()
+					then 23
 				else if mutate_image()
 					then 22
 				else 29
@@ -1142,10 +1182,10 @@ card style:
 			script:
 				if is_map() or uses_clear_frame() or uses_expanded_art() or is_puma()
 					then 375
-				else if is_dka()
-					then 328
 				else if clear_tops()
 					then 345
+				else if is_dka()
+					then 328
 				else if mutate_image()
 					then 330
 				else 316
@@ -1155,6 +1195,8 @@ card style:
 					then 241
 				else if uses_clear_frame() or uses_expanded_art()
 					then 523
+				else if clear_tops() and is_dka()
+					then 483
 				else if clear_tops()
 					then 291
 				else if is_dka()
@@ -1804,6 +1846,12 @@ extra card field:
 	choice: dot
 	save value: false
 	editable: false
+extra card field:
+	type: choice
+	name: stamp backing
+	script: card.card_color
+	save value: false
+	editable: false
 
 
 extra card style:
@@ -1891,11 +1939,11 @@ extra card style:
 		top:	0
 		width:	{if clear_tops() then 375 else 0}
 		height:	523
-		z index: 210
+		z index: 199
 		render style: image
 		popup style: in place
-		image: { if not clear_tops() then ""  }
-		mask: {if clear_tops() then "clear_tops_mask.png" else "xcard.png"}
+		image: xcard.png
+		mask: { if is_dka() then "frame_masks/clear_tops_dka_mask2.png" }
 	evobar:
 		left: {if is_map() then 15 else 27}
 		top: {if is_map() then 62 else 57}
@@ -2213,3 +2261,12 @@ extra card style:
 		render style: image
 		image: flashdot.png
 		visible: { use_flash_dot() }
+	stamp backing:
+		left: { 159 }
+		top: { stamp_top() }
+		height: { 26 }
+		width: { 56 }
+		visible: { card.card_stamp != "none" }
+		render style:	image
+		image: { if stamp_shape() == "triangle" then tri_stamp() else round_stamp() }
+		z index:		850
