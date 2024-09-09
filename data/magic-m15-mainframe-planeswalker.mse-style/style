@@ -48,7 +48,7 @@ init script:
 		alias: "alias/"
 		pt: "/magic-modules.mse-include/pts/375 m15/"
 		stamp: "/magic-modules.mse-include/stamps/backs/750 round outlined/"
-		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/pw/"
 		nyx: "/magic-modules.mse-include/trims/nyx/"
 		snow: "/magic-modules.mse-include/trims/snow/"
 		double_page: "/magic-modules.mse-include/pages/double_page/",
@@ -56,6 +56,7 @@ init script:
 		null_page: "/magic-modules.mse-include/pages/null_page/",
 		double_flat: "/magic-modules.mse-include/pages/double_flat/",
 		single_flat: "/magic-modules.mse-include/pages/single_flat/",
+		star: "/magic-modules.mse-include/trims/star/",
 		identity: "/magic-modules.mse-include/indicators/"
 	]
 	template_suffix := [
@@ -76,10 +77,19 @@ init script:
 		null_page: "page.png",
 		double_flat: "page.png",
 		single_flat: "page.png",
+		star: "star.png",
 		identity: "identity.png"
 	]
-	template      := { template_prefix[type] + input + template_suffix[type] }
-	land_template := { template_prefix[type] + "c" + template_suffix[type] }
+	template := { 
+		if type_name(harder_script[type] or else nil) != "nothing"
+			then harder_script[type](input, land:false)
+		else template_prefix[type] + input + template_suffix[type]
+	}
+	land_template := {
+		if type_name(harder_script[type] or else nil) != "nothing"
+			then harder_script[type](input, land:true)
+		else template_prefix[type] + input + input + template_suffix[type]
+	}
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 	
@@ -118,7 +128,7 @@ init script:
 	}
 	
 	card_shape := {"planeswalker"}
-	card_name_for_level := {if set.alias_as_cardname and card.alias != "" then card.alias else card.name}
+	name_tag_for_level := {""}
 
 	# Is the card a promo card?
 	is_promo := { styling.promo }
@@ -236,10 +246,10 @@ init script:
 	is_unsorted := {styling.remove_from_autocount}
 	##shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
 	##shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
-	shrink_type := {if styling.shrink_typeline_text != "" then to_int((if comma_count(styling.shrink_typeline_text) == "" then styling.shrink_typeline_text else split_text(match:",", styling.shrink_typeline_text).0)) else 0 }
-	shrink_name := {if styling.shrink_name_text != "" then to_int((if comma_count(styling.shrink_name_text) == "" then styling.shrink_name_text else split_text(match:",", styling.shrink_name_text).0)) else 0 }
-	shrink_type2 := {if styling.shrink_typeline_text != "" then to_int((if comma_count(styling.shrink_typeline_text) != "" then split_text(match:",", styling.shrink_typeline_text).1)) else 0 }
-	shrink_name2 := {if styling.shrink_name_text != "" then to_int((if comma_count(styling.shrink_name_text) != "" then split_text(match:",", styling.shrink_name_text).1)) else 0 }
+	shrink_type := {if styling.shrink_typeline_text != "" then to_number((if comma_count(styling.shrink_typeline_text) == "" then styling.shrink_typeline_text else split_text(match:",", styling.shrink_typeline_text).0)) else 0 }
+	shrink_name := {if styling.shrink_name_text != "" then to_number((if comma_count(styling.shrink_name_text) == "" then styling.shrink_name_text else split_text(match:",", styling.shrink_name_text).0)) else 0 }
+	shrink_type2 := {if styling.shrink_typeline_text != "" then to_number((if comma_count(styling.shrink_typeline_text) != "" then split_text(match:",", styling.shrink_typeline_text).1)) else 0 }
+	shrink_name2 := {if styling.shrink_name_text != "" then to_number((if comma_count(styling.shrink_name_text) != "" then split_text(match:",", styling.shrink_name_text).1)) else 0 }
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
 	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
@@ -247,7 +257,7 @@ init script:
 	is_skinned := {contains(styling.other_options, match:"godzilla style alias")}
 	use_evobar := {contains(styling.other_options, match: "pokemon evobar") and not is_skinned()}
 	is_clear := {styling.clear or contains(styling.other_options, match:"clear frame")}
-	is_nyx := {chosen(styling.other_options, choice:"nyx")}
+	is_nyx := {chosen(styling.other_options, choice:"nyx") or (set.auto_nyx and lang_setting("is_enchantment")(card.type))}
 	is_adventure := {chosen(styling.other_options, choice:"adventure") and not is_tale()}
 	is_tale := {chosen(styling.other_options, choice:"reversed adventure")}
 	use_adv := {is_tale() or is_adventure()}
@@ -293,6 +303,7 @@ init script:
 			(if use_full_art() then "_mythic" + (if is_stamped() then "_stamp" else "") else "")  + ".png"
 	}
 	card_stamp_offset_top_1 := {if stamp_shape() == "triangle" then -3 else 0}
+	
 ############################################################## Set info fields
 set info style:
 	symbol:

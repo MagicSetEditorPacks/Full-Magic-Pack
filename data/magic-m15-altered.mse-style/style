@@ -99,8 +99,8 @@ init script:
 		slide3_shift: "/magic-modules.mse-include/levels/slides/3/shifted/"
 		
 		devoid: "devoid/"
-		map: "maps/"
-		mappt: "maps/"
+		map: "/magic-modules.mse-include/cards/746 maps/"
+		mappt: "/magic-modules.mse-include/pts/746 maps/"
 		miracle: "/magic-modules.mse-include/trims/miracle/"
 		miracle_shifted: "/magic-modules.mse-include/trims/miracle/shifted/"
 		miracle_inv: "/magic-modules.mse-include/trims/miracle/inverted/"
@@ -195,7 +195,8 @@ init script:
 		arrow2: true,
 		arrow3: true,
 		crown: true,
-		draft: true
+		draft: true,
+		curtains: true
 	]
 	
 	#### Map is a very different frame that usurps basically everything
@@ -237,7 +238,6 @@ init script:
 	}
 	is_mutate := {
 		chosen(styling.frames, choice:"mutate") and not is_map()
-		## TODO, alternate behavior with expanded art and clear
 	}
 	mutate_image := {
 		is_mutate() and not uses_expanded_art() and not is_dka() and not uses_clear_frame() and not clear_tops()
@@ -254,7 +254,6 @@ init script:
 	}
 	is_snow := {
 		chosen(styling.frames, choice:"snow")
-		## TODO, this becomes trim if is_leveler or is overruled
 	}
 	#### Pieces
 	is_season := {
@@ -320,30 +319,47 @@ init script:
 	#### trims
 	curtain_plate := { color_background(type:"curtains", base_hybrid: card_hybrid)}
 	draft_trim := { color_background(type:"draft", base_hybrid: card_hybrid, folder:template_prefix["draft"])}
+	module_nyx :=	 	{ 
+		type := "nyx"
+		if has_png(set.alternate_nyx) and type_name(harder_script["alt_nyx" or else nil] or else nil) != "nothing"
+			then type := "alt_nyx"
+		else if set.alternate_nyx == "star" and type_name(harder_script["star" or else nil] or else template_prefix["star" or else nil] or else nil) != "nothing"
+			then type := "star"
+		else if is_planeshifted() and template_prefix["nyx_shifted"]
+			then type := "nyx_shifted"
+		color_background(
+			type: type,
+			blend_type: "nyx",
+			base_hybrid:card_hybrid,
+			folder:template_prefix["nyx"],
+		)
+	}
 
 	miracle_plate_base := { color_background(type:"miracle", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
 	miracle_plate_snow := { color_background(type:"miracle_snow", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_invert := { color_background(type:"miracle_inv", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_fnm := { color_background(type:"miracle_fnm", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
-	miracle_plate := { 
-		if is_clear() or clear_tops() then template_prefix["miracle"] + "xmiracle.png"
-		else if is_fnm() then miracle_plate_fnm()
-		else if is_inverted() then miracle_plate_invert()
-		else if is_planeshifted() then miracle_plate_shift()
-		else if base_card() == "snow" then miracle_plate_snow()
-		else miracle_plate_base()
+	miracle_plate := {
+		type := if is_fnm()
+					then "miracle_fnm"
+				else if is_inverted()
+					then "miracle_inv"
+				else if is_planeshifted()
+					then "miracle_shifted"
+				else if base_card() == "snow"
+					then "miracle_snow"
+				else "miracle"
+		if is_clear() or clear_tops()
+			then template_prefix["miracle"] + "xmiracle.png"
+		else color_background(
+			type: type,
+			blend_type: "miracle",
+			base_hybrid: card_hybrid,
+			folder: template_prefix["miracle"]
+		)
 	}
 	
-	nyx_shifted := { color_background(type:"nyx_shifted", base_hybrid: card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")}
-	nyx_trim := {
-		if contains(set.alternate_nyx, match:".png")
-			then color_background(type:"alt_nyx", base_hybrid:card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")
-		else if set.alternate_nyx == "star"
-			then color_background(type:"star", base_hybrid:card_hybrid, folder:template_prefix["nyx"], blend_type:"nyx")
-		else if is_planeshifted() then nyx_shifted()
-		else module_nyx()
-	}
 	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
 	#### other pieces
 	node_base := { color_background(type:"node",     base_hybrid:card_hybrid, folder:"nodes/") }
@@ -358,7 +374,7 @@ init script:
 	puma_shift := { color_background(type:"puma_shift", base_hybrid:card_hybrid, folder:"puma/", blend_type:"puma") }
 	puma_img := { if is_planeshifted() then puma_shift() else puma_base() }
 
-	mappt_background := { color_background(type:"mappt",     base_hybrid:pt_hybrid, folder:"maps/") }
+	mappt_background := { color_background(type:"mappt",     base_hybrid:pt_hybrid, folder:"/magic-modules.mse-include/pts/746 maps/", blend_type:"pt") }
 	season_background := { color_background(type:"season",     base_hybrid:card_hybrid) }
 
 	arrow_img_1 := { color_background(type:"arrow", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/arrows/") }
@@ -421,39 +437,25 @@ init script:
 		
 		img
 	}
-	custom_border_image := {
-		src := styling.custom_border_source
-		ps := split_text(src, match:"-color-")
-		if length(ps) > 1 then
-			"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
-		else
-			"/magic-mainframe-extras.mse-include/" + src
-	}
-	alt_nyx_template := {
-		src := set.alternate_nyx
-		fs := filter_text(src, match:"[^./]+.png")
-		dir := filter_text(src, match:"^([^.]+/)+")
-		"/magic-mainframe-extras.mse-include/" + dir + input + (if land then "l" else "") + fs
-	}
 	
 	card_background := {
 		color_background(
 			type:"card",
 			base_hybrid:card_hybrid,
-			folder: if is_map() then "maps/" else if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
+			folder: if is_map() then "/magic-modules.mse-include/cards/746 maps/" else if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
 		)
 	}
 	mainframe_card_base := {
 		[
-			map: "maps/" + input + (if land then "l" else "") + "card.png",
+			map: "/magic-modules.mse-include/cards/746 maps/" + input + (if land then "l" else "") + "card.png",
 			devoid: "devoid/" + input + "card.png",
-			clear: "xcard.png",
+			clear: "/magic-modules.mse-include/cards/375 m15 simple/xcard.png",
 			energy: "energies/" + input + "card.png",
 			fullart: "dka/" + input + (if land then "l" else "") + "card.jpg"
 			fnm: "fnm/" + input + "card.png"
 			inverted: "inverted/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.png"
 			shifted: "/magic-modules.mse-include/cards/375 m15 simple/shifted/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
-			snow: "snow/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
+			snow: "/magic-modules.mse-include/cards/375 m15 simple/snow/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 			standard: "/magic-modules.mse-include/cards/375 m15 simple/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 		][base_card()]
 	}
@@ -706,7 +708,7 @@ init script:
 	l4_center := {327 + lv_4_coordinate() + 0.5*lv_4_height()}
 	overlay1 := {
 		if is_d20()
-			then "d20slice.png"
+			then "/magic-modules.mse-include/levels/d20slice.png"
 		else if is_clear()
 			then ""
 		else slice_crop(
@@ -718,7 +720,7 @@ init script:
 	}
 	overlay2 := {
 		if is_d20()
-			then "d20slice.png"
+			then "/magic-modules.mse-include/levels/d20slice.png"
 		else if is_clear()
 			then ""
 		else slice_crop(
@@ -730,7 +732,7 @@ init script:
 	}
 	overlay3 := {
 		if is_d20()
-			then "d20slice.png"
+			then "/magic-modules.mse-include/levels/d20slice.png"
 		else if is_clear()
 			then ""
 		else slice_crop(
@@ -1243,10 +1245,10 @@ card style:
 			shadow displacement y: 1
 			separator color: red
 	rarity:
-		right:	{ if is_map() then 199 else if is_scrolls() then 334 else 344 }
-		top: 	{ if is_map() then 53 else if is_devoid() then 296 else if is_clear() then 295 else if is_thbland() then 445 else if is_dka() then 329 else 297 }
-		width: 	{ if set.shorten_types_for_rarity then 44 else 0 }
-		height: 22
+		right:	{ (if is_map() then 199 else if is_scrolls() then 334 else 344) + rarity_user_offset_left(styling.rarity_offsets or else "") }
+		top: 	{ (if is_map() then 53 else if is_devoid() then 296 else if is_clear() then 295 else if is_thbland() then 445 else if is_dka() then 329 else 297) + rarity_user_offset_top(styling.rarity_offsets or else "") }
+		width: 	{ if set.shorten_types_for_rarity then 44 + rarity_user_offset_width(styling.rarity_offsets or else "") else 0 }
+		height: {22 + rarity_user_offset_height(styling.rarity_offsets or else "")}
 		z index: 950
 		render style: image
 		alignment: middle right
@@ -1872,7 +1874,7 @@ extra card style:
 		z index: 840
 		visible: { card.pt_2 != "" }
 		render style: image
-		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: "ptbox_multiply_1.png", combine: "multiply")}
+		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_1.png", combine: "multiply")}
 	pt box 3:
 		left: 278
 		top: { l3_center() - (if is_map() then 26 else 15)}
@@ -1881,7 +1883,7 @@ extra card style:
 		z index: 840
 		visible: { card.pt_3 != "" }
 		render style: image
-		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: "ptbox_multiply_2.png", combine: "multiply")}
+		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_2.png", combine: "multiply")}
 	pt box 4:
 		left: 278
 		top: { l4_center() - (if is_map() then 26 else 15)}
@@ -1890,7 +1892,7 @@ extra card style:
 		z index: 840
 		visible: { card.pt_7 != "" }
 		render style: image
-		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: "ptbox_multiply_3.png", combine: "multiply")}
+		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_3.png", combine: "multiply")}
 	loyalty box:
 		right: 362
 		top: 466
@@ -1951,7 +1953,7 @@ extra card style:
 		height: 27
 		z index: 870
 		render style: image
-		image: /magic-modules.mse-include/extras/evobar.png
+		image: /magic-modules.mse-include/extras/evobar/evobar.png
 		visible: {use_evobar()}
 	evobar tip:
 		left: {(if is_map() then 14.6 else 26.6) + card_style.alias.content_width}
@@ -1960,7 +1962,7 @@ extra card style:
 		height: 27
 		z index: 870
 		render style: image
-		image: /magic-modules.mse-include/extras/evobar_tip.png
+		image: /magic-modules.mse-include/extras/evobar/evobar_tip.png
 		visible: {use_evobar()}
 	alias bar:
 		left: 38
@@ -2007,7 +2009,7 @@ extra card style:
 		width: 375
 		height: 523
 		render style: image
-		image: { nyx_trim() }
+		image: { module_nyx() }
 		z index: 330
 		visible: { not is_map() and not uses_expanded_art() and is_nyx() }
 		mask: { if is_snow() or is_custom_border() or is_draft() or is_vehicle() then twin_trim_mask() else main_trim_mask() }

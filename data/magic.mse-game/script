@@ -882,12 +882,14 @@ get_card_number_count := {
 #### Use this in templates so we don't have to update 700 templates the next time they change the ordering
 card_number_script_core := {
 	cn := get_card_number_count(tag:tag)
+	rc := rarity_code()
+	if rc != "" then rc := rc + " "
 	if not use_auto_numbers() then
-		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
+		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card.card_code_text)
 	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
-		forward_editor(prefix: rarity_code() + " " + cn + " ", field: card.card_code_text)
+		forward_editor(prefix: rc + cn + " ", field: card.card_code_text)
 	else
-		forward_editor(prefix: cn + " " + rarity_code() + " ", field: card.card_code_text)
+		forward_editor(prefix: cn + " " + rc, field: card.card_code_text)
 }@(tag:"")
 #### i tried to make this one work like above but it kept breaking so here
 card_number_old_1 := {
@@ -2609,18 +2611,20 @@ card_code_number := {
 }@(tag: "")
 #### General card code handler
 card_code_script_core := {
+	rc := rarity_code()
+	if rc != "" then rc := rc + " "
 	if not use_auto_numbers() and set.card_number_style == "0001" then
 		### R CUSTOM TEXT
-		combined_editor(prefix: rarity_code() + " ", field1: card.custom_card_number, separator: " ", field2: card_code_text)
+		combined_editor(prefix: rc, field1: card.custom_card_number, separator: " ", field2: card_code_text)
 	else if not use_auto_numbers() then
 		### CUSTOM R TEXT
-		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card_code_text)
+		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card_code_text)
 	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
 		### R C#### TEXT
-		forward_editor(prefix: rarity_code() + " " + card_code_number(tag:tag) + " ", field: card_code_text)
+		forward_editor(prefix: rc + card_code_number(tag:tag) + " ", field: card_code_text)
 	else
 		### C# R TEXT
-		forward_editor(prefix: card_code_number(tag:tag) + " " + rarity_code() + " ", field: card_code_text)
+		forward_editor(prefix: card_code_number(tag:tag) + " " + rc, field: card_code_text)
 }@(tag: "")
 
 #### Card code script for individual faces
@@ -2706,19 +2710,60 @@ level_filter_default := { "" }
 level_filter := { input }
 
 #### Correct the CARDNAME atom for levelers
-#### This can be overwritten for more complicated levelers
-#### Dungeons for example will overwrite with just {if set.alias_as_cardname and card.alias != "" then card.alias else card.name}
 card_name_for_level := {
-	lvl :=	if input < 5
-				then ""
-			else if input < 9
-				then "_2"
-			else if input < 13
-				then "_3"
-			else if input < 17
-				then "_4"
-			else ""
-	if set.alias_as_cardname and card["alias"+lvl] != "" then card["alias"+lvl] else card["name"+lvl]
+	tag :=	name_tag_for_level()
+	if set.CARDNAME_replacement == "card's type"
+		then (
+			ty := to_lower(cardname_type(card["type"+tag]))
+			if ty == "" then "this"
+			else "this " + ty
+		)
+	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
+		then card["alias"+tag]
+	else card["name"+tag]
+}
+card_name_for_face := {
+	tag := if input == 1 then "" else "_" + input
+	if set.CARDNAME_replacement == "card's type"
+		then (
+			ty := to_lower(cardname_type(card["type"+tag]))
+			if ty == "" then "this"
+			else "this " + ty
+		)
+	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
+		then card["alias"+tag]
+	else card["name"+tag]
+}
+cardname_type := {
+	if lang_setting("is_creature")(input)
+		then lang_setting("creature")
+	else if lang_setting("is_land")(input)
+		then lang_setting("land")
+	else if lang_setting("is_spell")(input)
+		then lang_setting("spell")
+	else if lang_setting("is_artifact")(input)
+		then lang_setting("artifact")
+	else if lang_setting("is_planeswalker")(input)
+		then lang_setting("planeswalker")
+	else if lang_setting("is_enchantment")(input)
+		then lang_setting("enchantment")
+	else if lang_setting("is_battle")(input)
+		then lang_setting("battle")
+	else ""
+	
+}
+#### This can be overwritten for more complicated levelers
+#### Dungeons for example will overwrite with just {""}
+name_tag_for_level := {
+	if input < 5
+		then ""
+	else if input < 9
+		then "_2"
+	else if input < 13
+		then "_3"
+	else if input < 17
+		then "_4"
+	else ""
 }
 
 ############################################################## Border
@@ -3956,10 +4001,30 @@ pinline_mask_2 := {""}
 pinline_mask_3 := {""}
 
 ############################################################## Custom corner symbols
-custom_symbol_1 := { if set.custom_symbol_1 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_1 else "/magic-modules.mse-include/symbols/aetherprint.png" }
-custom_symbol_2 := { if set.custom_symbol_2 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_2 else "/magic-modules.mse-include/symbols/aetherprint.png" }
-custom_symbol_3 := { if set.custom_symbol_3 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_3 else "/magic-modules.mse-include/symbols/aetherprint.png" }
-custom_symbol_4 := { if set.custom_symbol_4 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_4 else "/magic-modules.mse-include/symbols/aetherprint.png" }
+custom_symbol_1 := {
+	src := styling.custom_symbol_1 or else styling.custom_symbol_one or else set.custom_symbol_1 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
+custom_symbol_2 := {
+	src := styling.custom_symbol_2 or else styling.custom_symbol_two or else set.custom_symbol_2 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
+custom_symbol_3 := {
+	src := styling.custom_symbol_3 or else styling.custom_symbol_three or else set.custom_symbol_3 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
+custom_symbol_4 := {
+	src := styling.custom_symbol_4 or else styling.custom_symbol_four or else set.custom_symbol_4 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
 ############################################################## Custom fonts
 swap_font := {styling.apply_custom_fonts or else false}
 split_font := split_text@(match:";")
@@ -4397,62 +4462,62 @@ pt_font_italic := {
 pt2_font := {
 	swap_font_name(
 		src: swap_fonts_pt_src(), 
-		font_name: swap_fonts_pt_default.name()
+		font_name: swap_fonts_pt2_default.name()
 	)
 }
 pt2_font_size := {
 	swap_font_size(
 		src: swap_fonts_pt_src(), 
-		font_size: swap_fonts_pt_default.size()
+		font_size: swap_fonts_pt2_default.size()
 	)
 }
 pt2_font_color := {
 	swap_font_color(
 		src: swap_fonts_pt_src(),
-		font_color: swap_fonts_pt_default.color()
+		font_color: swap_fonts_pt2_default.color()
 	)
 }
 pt2_font_vertical := {
 	swap_font_vertical(
 		src: swap_fonts_pt_src(),
-		vertical: swap_fonts_pt_default.vertical()
+		vertical: swap_fonts_pt2_default.vertical()
 	)
 }
 pt2_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_pt_src(),
-		font_name: swap_fonts_pt_default.italic()
+		font_name: swap_fonts_pt2_default.italic()
 	)
 }
 
 pt3_font := {
 	swap_font_name(
 		src: swap_fonts_pt_src(), 
-		font_name: swap_fonts_pt_default.name()
+		font_name: swap_fonts_pt3_default.name()
 	)
 }
 pt3_font_size := {
 	swap_font_size(
 		src: swap_fonts_pt_src(), 
-		font_size: swap_fonts_pt_default.size()
+		font_size: swap_fonts_pt3_default.size()
 	)
 }
 pt3_font_color := {
 	swap_font_color(
 		src: swap_fonts_pt_src(),
-		font_color: swap_fonts_pt_default.color()
+		font_color: swap_fonts_pt3_default.color()
 	)
 }
 pt3_font_vertical := {
 	swap_font_vertical(
 		src: swap_fonts_pt_src(),
-		vertical: swap_fonts_pt_default.vertical()
+		vertical: swap_fonts_pt3_default.vertical()
 	)
 }
 pt3_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_pt_src(),
-		font_name: swap_fonts_pt_default.italic()
+		font_name: swap_fonts_pt3_default.italic()
 	)
 }
 
@@ -4508,6 +4573,25 @@ alt_symbol := {
 		center_x:0.5, center_y:0.5, end_x:1, end_y:1
 	)
 }
+############################################################## Other customizable stuff
+custom_border_image := {
+	src := styling.custom_border_source or else ""
+	ps := split_text(src, match:"-color-")
+	if length(ps) > 1 then
+		"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
+	else
+		"/magic-mainframe-extras.mse-include/" + src
+}
+alt_nyx_template := {
+	src := set.alternate_nyx
+	fs := filter_text(src, match:"[^./]+.png")
+	dir := filter_text(src, match:"^([^.]+/)+")
+	"/magic-mainframe-extras.mse-include/" + dir + input + (if land then "l" else "") + fs
+}
+harder_script := [
+	alt_nyx: alt_nyx_template,
+	custom_border: custom_border_image
+]
 ############################################################## Card column sorting
 type_sort_script :=
 {

@@ -191,6 +191,11 @@ init script:
 				+(if card.level_3_text != "" then "\n" + card.level_10_text + (if card.level_3 == "" then " Level 3" else " " + card.level_3) + "\n" + card.level_3_text)
 				+(if card.level_4_text != "" then "\n" + card.level_11_text + (if card.level_4 == "" then " Level 4" else " " + card.level_4) + "\n" + card.level_4_text)
 			)
+		else if is_case() then (
+			card.level_1_text + "\n"
+			+card.level_2_text + "\n"
+			+card.level_3_text
+		)
 		else 
 			(
 				card.chapter_text
@@ -211,7 +216,9 @@ init script:
 	a_saga := {true}
 	saga_reminder := { if styling.alternate_reminder != "" then styling.alternate_reminder else if is_class() then "Gain the next level as a sorcery to add its ability." else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 	is_class := {contains(styling.other_options, match:"class") or lang_setting("is_class")(remove_tags(card.sub_type))}
-	un_marked := {is_class() or contains(styling.other_options, match:"remove bookmark")}
+	is_case := {contains(styling.other_options, match:"case") or lang_setting("is_case")(remove_tags(card.sub_type))}
+	is_saga := {not is_class() and not is_case()}
+	un_marked := {is_class() or is_case() or contains(styling.other_options, match:"remove bookmark")}
 	is_legend :=	{ auto_legend() }
 	is_vehicle :=	{ auto_vehicle()	or contains(styling.other_options, match:"vehicle") }
 	is_nyx :=		{ auto_nyx()		or contains(styling.other_options, match:"nyx") }
@@ -229,9 +236,11 @@ init script:
 	alt_loc := { if styling.replacement_chapter_location != "" then styling.replacement_chapter_location else "no"}
 	alt_chapters := { (if match(styling.replacement_chapter_location, match:"/$") then "/magic-mainframe-extras.mse-include/" + styling.replacement_chapter_location else "") + "chapter" + input + ".png"}
 	
-	alt_text := {is_class()}
+	alt_text := {is_class() or is_case()}
 	alt_text_script := {
-		combined_editor(field1: card.chapter_text, separator1:"<line>\n</line>", field2: card.level_1_text, separator2: "<line>\n</line>", field3: card.level_2_text, separator3: "<line>\n</line>", field4: card.level_3_text, separator4: "<line>\n</line>", field5: card.level_4_text)
+		if is_class()
+			then combined_editor(field1: card.chapter_text, separator1:"<line>\n</line>", field2: card.level_1_text, separator2: "<line>\n</line>", field3: card.level_2_text, separator3: "<line>\n</line>", field4: card.level_3_text, separator4: "<line>\n</line>", field5: card.level_4_text)
+		else combined_editor(field1: card.level_1_text, separator1:"<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
 	}
 	lev0 := {
 		if card_style.text.layout.separator[0] or else 0 > 0 then card_style.text.top+card_style.text.layout.separator[0]-1 else 600
@@ -247,16 +256,17 @@ init script:
 	}
 	text_filter := text_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
 	margin_top := {
-		if not is_class() then 0 else if input == "lv2" or (input == "lv3" and card.level_3_text != "​") or (input == "lv4" and card.level_4_text != "") then 30 else 0
+		if is_saga() then 0 else if input == "lv2" or (input == "lv3" and card.level_3_text != "​") or (input == "lv4" and card.level_4_text != "") then 30 else 0
 	}
 	###add blank spaces to inner levels so they still are clickable while "empty"
 	add_spacers := { if input == "" and (margin_code == "lv1" or margin_code == "lv2" or margin_code == "lv3") then "​" else input}
 
-	# alternate rarity color
-	alt_rarity := {styling.alt_rarity_color}
-	
 	class_bar := {
-		if styling.class_levels == "cyber"
+		if styling.class_levels == "custom" and has_png(styling.custom_class_bar)
+			then "/magic-mainframe-extras.mse-include/" + styling.custom_class_bar
+		else if styling.class_levels == "line"
+			then "levelline.png"
+		else if styling.class_levels == "cyber"
 			then "levelcyber.png"
 		else if styling.class_levels == "unnotched"
 			then "levelbar.png"
@@ -348,6 +358,7 @@ styling field:
 	choice: vehicle
 	choice: snow
 	choice: class
+	choice: case
 	choice: custom border
 	choice: use starting loyalty
 	choice: remove bookmark
@@ -361,7 +372,13 @@ styling field:
 	description: Which type of level bar should classes use?
 	choice: notched
 	choice: unnotched
+	choice: line
 	choice: cyber
+	choice: custom
+styling field:
+	type: text
+	name: custom class bar
+	description: Location of 158x25 image in magic-mainframe-extras to use as class bars
 styling field:
 	type: text
 	name: shrink name text
@@ -636,7 +653,7 @@ card style:
 		image:				{ card_symbol_image(face: 1) }
 	############################# Image
 	image:
-		left: {if is_class() then 29 else 188}
+		left: {if is_saga() then 188 else 29}
 		top: 59
 		width: 157
 		height:	379
@@ -681,7 +698,7 @@ card style:
 		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	watermark:
-		left: { (if styling.wider_watermarks then 29 else 45)+if is_class() then 158 else 0}
+		left: { (if styling.wider_watermarks then 29 else 45)+(if is_saga() then 0 else 158)}
 		top: 60
 		width: { if styling.wider_watermarks then 157 else 133 }
 		height: 378
@@ -694,7 +711,7 @@ card style:
 	text:
 		left: 188
 		top: 60
-		width: {if is_class() then 153 else 0}
+		width: {if is_saga() then 0 else 153}
 		bottom: 437
 		z index: 5
 		font:
@@ -725,7 +742,7 @@ card style:
 	chapter text:
 		left: {30+(if is_class() then 158 else 0)}
 		top: 60
-		width: 153
+		width: {if is_case() then 0 else 153}
 		bottom: {if un_marked() then 60 else chapter0()}
 		z index: 3
 		font:
@@ -758,7 +775,7 @@ card style:
 	level 1 text:
 		left: {if un_marked() then 30 else 45}
 		top: { if un_marked() then 60 else chapter0()}
-		width: { if is_class() then 0 else if un_marked() then 153 else 138}
+		width: { if is_class() or is_case() then 0 else if un_marked() then 153 else 138}
 		bottom: { if split_12() == "" then 249 else split_12() }
 		font:
 			name: MPlantin
@@ -790,7 +807,7 @@ card style:
 	level 2 text:
 		left: {if un_marked() then 30 else 45}
 		top: { if split_12() == "" then 249 else split_12() }
-		width: { if is_class() then 0 else if un_marked() then 153 else 138}
+		width: { if is_class() or is_case()  then 0 else if un_marked() then 153 else 138}
 		bottom: { if split_23() == "" then 343 else split_23() }
 		font:
 			name: MPlantin
@@ -822,7 +839,7 @@ card style:
 	level 3 text:
 		left: {if un_marked() then 30 else 45}
 		top: { if split_23() == "" then 343 else split_23() }
-		width: { if is_class() then 0 else if un_marked() then 153 else 138}
+		width: { if is_class() or is_case()  then 0 else if un_marked() then 153 else 138}
 		bottom: {if split_34() == "" then 437 else split_34() }
 		font:
 			name: MPlantin
@@ -1223,22 +1240,22 @@ extra card style:
 		image: {custom_chapter_node()}
 		visible: {not un_marked()}
 	linebreak 1:
-		left: {30+if is_class() then 158 else 0}
-		top: {if is_class() then lev0() else chapter0()}
+		left: {30+(if is_class() or is_case() then 158 else 0)}
+		top: {if is_class() or is_case() then lev0() else chapter0()}
 		width: 156
-		height: {if is_class() then 2 else 3}
+		height: {if is_case() or is_class() then 2 else 3}
 		render style: image
-		z index: 3
-		image: {if is_class() then class_bar() else "line.png"}
-		visible: {is_class() or not un_marked()}
+		z index: 30
+		image: {if is_case() then "bar.png" else if is_class() then class_bar() else "line.png"}
+		visible: {is_class() or is_case() or not un_marked()}
 	linebreak 2:
-		left: {30+if is_class() then 158 else 0}
-		top: {if is_class() then lev2() else if split_12() == "" then 248 else split_12()-1}
+		left: {30+if is_class() or is_case() then 158 else 0}
+		top: {if is_class() or is_case() then lev2() else if split_12() == "" then 248 else split_12()-1}
 		width: {if is_class() and card.level_2_text == "​" then 0 else 156}
-		height: {if is_class() then 25 else 3}
+		height: {if is_class() or is_case() then 25 else 3}
 		render style: image
 		z index: 3
-		image: {if is_class() then class_bar() else "line.png"}
+		image: {if is_case() then "levelline.png" else if is_class() then class_bar() else "line.png"}
 	linebreak 3:
 		left: {30+if is_class() then 158 else 0}
 		top: {if is_class() then lev3() else if split_23() == "" then 342 else split_23()-1}
@@ -1247,7 +1264,7 @@ extra card style:
 		render style: image
 		z index: 3
 		image: {if is_class() then class_bar() else "line.png"}
-		visible: {three_boxes() or four_boxes()}
+		visible: {three_boxes() or four_boxes() and not is_case()}
 	linebreak 4:
 		left: {30+if is_class() then 158 else 0}
 		top: {if is_class() then lev4() else if split_34() == "" then 600 else split_34()-1}
@@ -1256,7 +1273,7 @@ extra card style:
 		render style: image
 		z index: 3
 		image: {if is_class() then class_bar() else "line.png"}
-		visible: {is_class() or four_boxes()}
+		visible: {is_class() or four_boxes() and not is_case()}
 	linebreak 5:
 		left: {30+if is_class() then 158 else 0}
 		top: {to_number(pull_comma_array(styling.chapter_divider_coordinates, cell:3, end:true, default:600))}
@@ -1320,7 +1337,7 @@ extra card style:
 		width: 375
 		height: 523
 		render style: image
-		image: voverlay_full.png
+		image: /magic-modules.mse-include/trims/vehicle.png
 		mask: trim_masks/mask.png
 		z index: 0
 		visible: {is_vehicle()}
@@ -1333,7 +1350,7 @@ extra card style:
 		image: {module_crown()}
 		z index: 3
 		visible: {is_legend()}
-		mask: {"crown_masks/" + (if is_class() then "class.png" else "saga.png")}
+		mask: {"crown_masks/" + (if is_saga() then "saga.png" else "class.png")}
 	bookmark:
 		left: 15
 		top: 60
@@ -1353,7 +1370,7 @@ extra card style:
 		z index: 820
 		visible: {length(write_wubrg(card.card_color))==2 and not un_marked()}
 	paper:
-		left: {if is_class() then 186 else 28}
+		left: {if is_saga() then 28 else 186}
 		top: 58
 		width: 160
 		height: 380
@@ -1362,7 +1379,7 @@ extra card style:
 		image: paper.png
 	default level 2:
 		left: 270
-		width: {if not is_class() or is_class() and card.level_2_text == "​" then 0 else 70}
+		width: {if not is_class() or (is_class() and card.level_2_text == "​") then 0 else 70}
 		top: {lev2()+3}
 		height: 20
 		z index: 7
@@ -1377,7 +1394,7 @@ extra card style:
 		visible: {is_class() and card.level_2 == ""}
 	default level 3:
 		left: 270
-		width: {if not is_class() or is_class() and card.level_3_text == "​" then 0 else 70}
+		width: {if not is_class() or (is_class() and card.level_3_text == "​") then 0 else 70}
 		top: {lev3()+3}
 		height: 20
 		z index: 7
@@ -1392,7 +1409,7 @@ extra card style:
 		visible: {is_class() and card.level_3 == ""}
 	default level 4:
 		left: 270
-		width: {if not is_class() or is_class() and card.level_4_text == "" then 0 else 70}
+		width: {if not is_class() or (is_class() and card.level_4_text == "") then 0 else 70}
 		top: {lev4()+3}
 		height: 20
 		z index: 7
