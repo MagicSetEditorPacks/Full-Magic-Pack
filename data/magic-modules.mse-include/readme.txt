@@ -52,9 +52,10 @@ Specific z indexes
 330 Nyx
 
 400 Color pinlines
-410 Pride pinlines
+420 Pride pinlines
 
 500 Card border
+510 The List dot
 
 600 Moveable name/typelines
 610 Name/type caps (spree attachment)

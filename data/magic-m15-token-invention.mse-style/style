@@ -1,12 +1,12 @@
 ﻿mse version: 2.0.0
 game: magic
-short name: M15 Invention
+short name: M15 Tokens
 full name: Invention Tokens
 icon: card-sample.png
 installer group: magic/m15 style/devoid cards
 position hint: 092
 
-version: 2018-02-09
+version: 2024-06-07
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -14,11 +14,8 @@ depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -40,8 +37,16 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [card: "" card2: "" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.png" card2: "card2.jpg" pt: "pt.png", stamp: "stamp.jpg" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		card2: ""
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.png"
+		card2: "card2.png"
+		identity: "identity.png"
+	]
 	template      := {
 		if (type == "pt") then "pt.png"
 		else if (type == "stamp") then "stamp.png"
@@ -49,7 +54,7 @@ init script:
 	}
 	land_template := template
 	# Use land templates for previews because they show more contrast
-	hybrid_previews := "land,hybrid"
+	hybrid_previews := "hybrid"
 	
 	# Use the normal tap symbol
 	mana_t := {
@@ -60,14 +65,17 @@ init script:
 	
 	# Use guild mana symbols?
 	guild_mana := { styling.use_guild_mana_symbols }
-	
+	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	has_identity := { styling.color_indicator_dot }
+	watermark_include := "/magic-modules.mse-include/watermarks"
 	is_unsorted := {styling.remove_from_autocount}
+	card_symbol_offset_top_1 := {4}
+	card_symbol_offset_left_1 := {4}
+	card_stamp_offset_top_1 := {4}
+	card_stamp_offset_left_1 := {1}
+	information_offset_top_1 := {1}
 	card_shape := {"token"}
-	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
-
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -86,11 +94,6 @@ styling field:
 	type: boolean
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial: no
-styling field:
-	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
 	initial: no
 styling field:
 	type: boolean
@@ -164,6 +167,12 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/card-symbols/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/watermarks/card_fields
+include file: /magic-modules.mse-include/separators/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -171,7 +180,6 @@ card style:
 		top : 0
 		width:	375
 		height:	523
-		radius: 18
 		left width:   17
 		right width:  17
 		top width:    17
@@ -187,16 +195,16 @@ card style:
 		render style: image
 		popup style: in place
 		mask: image_mask_inv.png
-		image: { card_background() }
+		image: { if is_stamped() then card_background2() else card_background() }
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 37 else 50 }
+		left: { if card.card_symbol=="none" then 37 else 53 }
 		top: 34
 		right:  { 341 - card_style.casting_cost.content_width }
 		height: {23 - (0.5 * shrink_name())}
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 1
+		z index: 900
 		font:
 			name: Beleren Bold
 			size: {16 - shrink_name()}
@@ -215,17 +223,8 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 920
 		padding top: 0
-	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 30}
-		top: 29
-		height: 20
-		width: 14
-		z index: 1
-		render style: image
-		choice images:
-			tombstone: tombstone.png
 	############################# Image
 	image:
 		left: 17
@@ -240,17 +239,17 @@ card style:
 		top: 300
 		width: 17
 		height: 17
-		z index: 2
+		z index: 800
 		render style: image
 		visible: false
-		image: { card_identity() }
+		image: { module_identity() }
 	type:
 		left: 36
 		top: 296
 		width: { 307 - max(22,card_style.rarity.content_width) }
 		height: 20
 		alignment: top shrink-overflow
-		z index: 2
+		z index: 900
 		padding top: 2
 		font:
 			name: Beleren Bold
@@ -262,24 +261,10 @@ card style:
 		top : 297
 		width: 44
 		height: 22
-		z index: 3
+		z index: 950
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 35
@@ -304,7 +289,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: 1.2
@@ -312,19 +297,9 @@ card style:
 		line height soft: 0.9
 		line height hard max: 1.3
 		line height line max: 1.6
-	watermark:
-		left: 117
-		top: 321
-		width: 138
-		height: 166
-		z index: 1
-		render style: image
-		popup style: in place
-		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
 	############################# PT
 	pt:
-		z index: 3
+		z index: 900
 		left: 286
 		top: 469
 		width: 60
@@ -335,58 +310,7 @@ card style:
 			size: 16
 			color: black
 			separator color: red
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 500
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 499.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: { if card.pt != "" then 502 else 490 }
-		width: 140
-		height: 10
-		z index: 2
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
 extra card field:
 	type: choice
 	name: pt box
@@ -395,55 +319,17 @@ extra card field:
 	save value: false
 extra card field:
 	type: choice
-	name: stamp
-	script: card.card_color
-	editable: false
-	save value: false
-extra card field:
-	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
-extra card field:
-	type: choice
 	name: foil layer
 	choice: foil
 	save value: false
 	editable: false
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
 extra card style:
-	card code:
-		left: 24
-		top: 490
-		width: 120
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 502
-		width: 12
-		height: 7
-		z index: 1
-		render style: image
-		image: artist_arrow.png
 	pt box:
 		left: 273
 		top: 466
 		width: 81
 		height:	42
-		z index: 1
+		z index: 840
 		visible: { card.pt != "" }
 		render style: image
 		image: { card_ptbox() }
@@ -452,20 +338,7 @@ extra card style:
 		top : 0
 		width: 375
 		height: 523
-		z index: 3
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
-	auto copyright:
-		right: 350
-		top: { if card.pt != "" then 502 else 490 }
-		width: 140
-		height: 10
-		z index: 2
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold

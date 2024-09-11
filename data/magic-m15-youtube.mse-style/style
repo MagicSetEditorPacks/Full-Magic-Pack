@@ -4,9 +4,9 @@ short name: M15 style
 full name: Youtube
 icon: card-sample.png
 installer group: magic/m15 style/normal cards
-position hint: 008
+position hint: 083
 
-version: 2021-07-01
+version: 2024-09-01
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -14,11 +14,8 @@ depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-small.mse-symbol-font
 	version: 2007-09-23
@@ -43,8 +40,20 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [card: "" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.jpg" pt: "pt.png" stamp: "stamp.jpg" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		pt: "/magic-modules.mse-include/pts/375 m15/"
+		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.jpg"
+		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
@@ -69,7 +78,7 @@ init script:
 			sort_text@(order: "XYZI[0123456789]HSCA(WUBRG)")()
 	}
 	ancestral_mana := { styling.ancestral_mana_symbols }
-	has_identity := { styling.color_indicator_dot }
+	watermark_include := "/magic-modules.mse-include/watermarks"
 	is_unsorted := {styling.remove_from_autocount}
 	shrink_type := {if styling.shrink_typeline_text != "" then to_number(styling.shrink_typeline_text) else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1 else 0 }
 	chop_top := {if styling.text_chops == "" then 0 else if comma_count(styling.text_chops) == "," or comma_count(styling.text_chops) == ",," then split_text(match:",", styling.text_chops).0 else styling.text_chops}
@@ -97,6 +106,16 @@ init script:
 		else 77*power/(power+toughness)
 	}
 	card_shape := {if contains(card.type, match:"Token") then "token" else "normal"}
+	
+	set_code_script := {
+		styling.remove_from_autocount
+		sc := if is_masterpiece() then set.masterpiece_set_code else set.set_code
+		sl := set.set_language
+		cc := if sc != "" and sl != "" then sc + " • " + sl else sc + sl
+		if use_auto_numbers()
+			then card_code_number() + (if cc != "" then " • ") + cc
+		else cc
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -139,11 +158,6 @@ styling field:
 	type: text
 	name: loaded percentage
 	description: What percentage of the video is loaded? (has the colored section). Default is 75.
-styling field:
-	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
-	initial: no
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -223,6 +237,7 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -317,7 +332,7 @@ card style:
 		z index: 1
 		render style: image
 		visible: { has_identity() }
-		image: { card_identity() }
+		image: { module_identity() }
 	type:
 		right: 345
 		top: 313
@@ -359,21 +374,7 @@ card style:
 		z index: 2
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: {if styling.adventure then 200 else 29}
@@ -463,18 +464,6 @@ card style:
 			size: {if length(card.toughness) > 2 then 10 else if length(card.toughness) > 1 then 12 else 16}
 			color: white
 			separator color: red
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
 	############################# Copyright stuff
 	illustrator:
 		left: { 44 + card_style.set_code.content_width }
@@ -499,10 +488,33 @@ card style:
 			size: 7
 			color: white
 			weight: bold
+	############################# Card sorting / numbering
+	set code:
+		left: 24
+		top: 498
+		width: 40
+		height: 10
+		z index: 1
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
 	custom card number:
 		top: 333
 		left: 50
-		width: 100
+		width: {if use_auto_numbers() then 0 else 100}
+		height: 10
+		alignment: left middle
+		z index: 3
+		font:
+			name: Arial
+			size: 7
+			color: rgba(0,0,0,0)
+	level 0:
+		top: 333
+		left: 50
+		width: {if use_auto_numbers() then 100 else 0}
 		height: 10
 		alignment: left middle
 		z index: 3
@@ -527,7 +539,7 @@ extra card field:
 extra card field:
 	type: text
 	name: subs
-	script: sub_formatter(card.custom_card_number) + styling.subscriber_magnitude + " subscribers"
+	script: sub_formatter(if use_auto_numbers() then card.level_0 else card.custom_card_number) + styling.subscriber_magnitude + " subscribers"
 	editable: false
 	save value: false
 	description: The card number or subscriber count
@@ -539,22 +551,10 @@ extra card field:
 	script: rgb(255,255,255)
 extra card field:
 	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
-extra card field:
-	type: choice
 	name: pt box
 	script: card.card_color
 	editable: false
 	save value: false
-extra card field:
-	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
 extra card field:
 	type: choice
 	name: foil layer
@@ -564,46 +564,7 @@ extra card field:
 extra card field:
 	type: multiple choice
 	name: stamp
-	empty choice: colorless
-	choice: white
-	choice: blue
-	choice: black
-	choice: red
-	choice:
-		name: green
-		line below: true
-	choice: artifact
-	choice: land
-	choice: multicolor
-	choice:
-		name: hybrid
-		line below: true
-	choice:
-		name: horizontal
-		type: radio
-	choice:
-		name: vertical
-		type: radio
-	choice:
-		name: radial
-		type: radio
-	choice:
-		name: diagonal
-		type: radio
-	choice:
-		name: overlay
-		type: radio
-	choice:
-		name: reversed
-	script: card_color_filter(value)
-	default: card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name)
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
+	script: card.card_color
 extra card field:
 	type: choice
 	name: loading bar
@@ -636,6 +597,19 @@ extra card field:
 	editable: true
 	description: Number of replies to the Adventure
 	save value: true
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: artist arrow
+	editable: false
+	save value: false
+	choice: white
 extra card style:
 	title:
 		left: 28
@@ -677,14 +651,6 @@ extra card style:
 		height: 2
 		width: {likes_width()}
 		z index: 4
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 1
-		render style: image
-		image: artist_arrow.png
 	pt box:
 		left: 257
 		top: 470
@@ -699,23 +665,10 @@ extra card style:
 		top : 0
 		width: 375
 		height: 523
-		z index: 3
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
-	auto copyright:
-		right: 350
-		top: 498.5
-		width: 140
-		height: 10
-		z index: 2
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 	loading bar:
 		left: 29
 		top: 308
@@ -758,3 +711,24 @@ extra card style:
 		render style: image
 		choice images:
 			triangle: triangle.jpg
+	auto copyright:
+		right: 350
+		top: 498.5
+		width: 140
+		height: 10
+		z index: 2
+		alignment: middle right shrink-overflow
+		visible: {set.automatic_copyright}
+		font:
+			name: Matrix
+			size: 7
+			color: white
+			weight: bold
+	artist arrow:
+		left: { 28 + card_style.set_code.content_width }
+		top: 500
+		width: 12
+		height: 7
+		z index: 1
+		render style: image
+		image: artist_arrow.png
