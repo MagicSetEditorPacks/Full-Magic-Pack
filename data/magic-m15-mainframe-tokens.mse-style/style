@@ -52,7 +52,7 @@ init script:
 	
 	template_prefix := [
 		alias: "alias/"
-		crown:"crowns/"
+		crown:"/magic-modules.mse-include/crowns/375/borderless"
 		card: ""
 		card2: ""
 		card3: ""
@@ -65,6 +65,8 @@ init script:
 		snow: "/magic-modules.mse-include/trims/snow/"
 		nyx: "/magic-modules.mse-include/trims/nyx/"
 		pt:"/magic-modules.mse-include/pts/375 m15/"
+		stamp:"stamps/round/"
+		ubstamp:"stamps/ub/"
 	]
 	template_suffix := [
 		alias: "alias.png",
@@ -81,9 +83,24 @@ init script:
 		snow: "snow.png"
 		nyx: "nyx.png"
 		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
 	]
-	template      := { template_prefix[type] + (if is_m20() and input == "w" and (contains(card.card_color, match:"multicolor") or contains(card.card_color, match:"hybrid")) then "h" else input) + template_suffix[type] }
-	land_template := { template_prefix[type] + (if input == "a" then "c" else if is_m20() and input == "w" then "h" else input) + template_suffix[type] }
+	template      := {
+		template_prefix[type] 
+		+ input_mixer(input, type:type)
+		+ template_suffix[type]
+	}
+	land_template := { 
+		template_prefix[type] 
+		+ input_mixer(input, type:type)
+		+ template_suffix[type]
+	}
+	input_mixer := {
+		if input == "w" and (type == "card7" or type == "card8" or type == "card9")
+			then "h"
+		else input
+	}
 	
 	# Use the normal tap symbol
 	mana_t := {
@@ -121,7 +138,7 @@ init script:
 		else if is_textless() then ""
 		else "2"
 	}
-	crown_background := {color_background(type:"crown", base_hybrid:card_hybrid)}
+	crown_background := {color_background(type:"crown", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/crowns/375/")}
 	alias_bar := { color_background(type:"alias",     base_hybrid:card_hybrid) }
 	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar") and not is_skinned()}
 	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
@@ -185,6 +202,14 @@ init script:
 		vertical: {0},
 		italic: {""}
 	]
+	stamp_img := {
+		sh := stamp_shape()
+		if is_m20() and sh == "triangle"
+			then module_ubstamp()
+		else if is_m20()
+			then module_stamp()
+		else "/magic-modules.mse-include/stamps/backs/" + (if sh == "triangle" then "triangle_stamp.png" else "stamp.png")
+	}
 	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
@@ -358,6 +383,7 @@ styling style:
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/separators/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -688,7 +714,13 @@ extra card field:
 		color: rgb(120,100,100)
 	show statistics: false
 	description: The background of the card; can be any solid color.
-
+extra card field:
+	type: choice
+	name: stamp backing
+	choice: stamp
+	editable: false
+	save value: false
+	script: card.card_color
 extra card style:
 	pt box:
 		left: {if center_pt() then 144 else 273 }
@@ -819,3 +851,12 @@ extra card style:
 		width: {if is_archetype() then 375 else 0}
 		height: 523
 		z index: -2
+	stamp backing:
+		left: 159
+		top: 471
+		width: 56
+		height: 26
+		z index: 850
+		visible: { card.card_stamp != "none" }
+		render style: image
+		image: { stamp_img() }
