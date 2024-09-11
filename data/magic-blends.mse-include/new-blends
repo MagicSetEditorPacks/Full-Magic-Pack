@@ -864,87 +864,90 @@ color_background := {
 				else											"radial"
 	
 	# Determine background (allows styles to hook something else here)
-	color_combination(folder:folder)
-}@(folder: "")
+	color_combination(folder:folder, blend_type:blend_type)
+}@(folder: "", blend_type:"")
 
 color_combination := {
+	# does this have an override blend_type?
+	if blend_type == "" then blend_type := type
 	# The base hybrid, without the outer frame blended over it
 	base := base_hybrid[shape][color_count]()
 	# Put a frame around it?
 	if land and not colored_lands then
 		masked_blend(
-			mask:  "{folder}multicolor_blend_{type}.png",
+			mask:  "{folder}multicolor_blend_{blend_type}.png",
 			dark:  land_template("c"),
 			light: base,
 		)
 	else if land and multi and mask_multi_land_with_color() then
 		masked_blend(
-			mask:  "{folder}hybrid_blend_{type}.png",
+			mask:  "{folder}hybrid_blend_{blend_type}.png",
 			dark:  base,
 			light:  land_template("m"),
 		)
 	else if multi and artifact then
 		masked_blend(
-			mask: "{folder}artifact_blend_{type}.png",
+			mask: "{folder}artifact_blend_{blend_type}.png",
 			dark: template("a"),
 			light: masked_blend(
-				mask: "{folder}multicolor_blend_{type}.png",
+				mask: "{folder}multicolor_blend_{blend_type}.png",
 				dark: template("m"),
 				light: base
 			)
 		)
 	else if multi then 
 		masked_blend(
-			mask:  "{folder}multicolor_blend_{type}.png",
+			mask:  "{folder}multicolor_blend_{blend_type}.png",
 			dark:  template("m"),
 			light: base,
 		)
 	else if artifact and color_count > 1 and mask_hybrid_with_land() then 
 		masked_blend(
-			mask:  "{folder}artifact_blend_{type}.png",
+			mask:  "{folder}artifact_blend_{blend_type}.png",
 			dark:  template("a"),
 			light: masked_blend(
-				mask: "{folder}multicolor_blend_{type}.png",
+				mask: "{folder}multicolor_blend_{blend_type}.png",
 				dark: template("c"),
 				light: base
 			)
 		)
 	else if artifact and color_count > 1 and mask_hybrid_with_gold() then 
 		masked_blend(
-			mask:  "{folder}artifact_blend_{type}.png",
+			mask:  "{folder}artifact_blend_{blend_type}.png",
 			dark:  template("a"),
 			light: masked_blend(
-				mask: "{folder}multicolor_blend_{type}.png",
+				mask: "{folder}multicolor_blend_{blend_type}.png",
 				dark: template("m"),
 				light: base
 			)
 		)
 	else if artifact then 
 		masked_blend(
-			mask:  "{folder}artifact_blend_{type}.png",
+			mask:  "{folder}artifact_blend_{blend_type}.png",
 			dark:  template("a"),
 			light: base,
 		)
 	else if color_count > 1 and mask_hybrid_with_land() then
 		masked_blend(
-			mask:  "{folder}hybrid_blend_{type}.png",
+			mask:  "{folder}hybrid_blend_{blend_type}.png",
 			dark:  land_template("c"),
 			light: base,
 		)
 	else if color_count > 1 and mask_hybrid_with_gold() then
 		masked_blend(
-			mask:  "{folder}hybrid_blend_{type}.png",
+			mask:  "{folder}hybrid_blend_{blend_type}.png",
 			dark:  land_template("m"),
 			light: base,
 		)
 	else base
-}@(folder: "")
+}@(folder: "", blend_type:"")
 
 ########################################################################
 # Specific types
 ########################################################################
 
 card_background		:= { color_background(type:"card",	base_hybrid:card_hybrid)		}@(offset:0 )
+card_background2	:= { color_background(type:"card2",	base_hybrid:card_hybrid)		}@(offset:0 )
 card_ptbox		:= { color_background(type:"pt",	base_hybrid:pt_hybrid)			}@(offset:0 )
 flip_ptbox		:= { color_background(type:"pt",	base_hybrid:flip_pt_hybrid)		}@(offset:0 )
 flip_ptbox2		:= { color_background(type:"pt2",	base_hybrid:flip_pt_hybrid2)		}@(offset:0 )
@@ -957,6 +960,49 @@ card_identity		:= { color_background(type:"identity",	base_hybrid:identity_hybri
 card_identity_2		:= { color_background(type:"identity2",	base_hybrid:identity_hybrid)		}@(offset:0 )
 card_stamp		:= { color_background(type:"stamp",	base_hybrid:stamp_hybrid)		}@(offset:0 )
 card_stamp2		:= { color_background(type:"stamp2",	base_hybrid:stamp_hybrid)		}@(offset:0 )
+
+template_prefix := []
+module_card	:= 		{ color_background(type:"card",		base_hybrid:card_hybrid,		folder:template_prefix["card"])	 }
+module_card2 :=     { color_background(type:"card2",	base_hybrid:card_hybrid,		folder:template_prefix["card2"]) }
+module_identity	:= 	{ color_background(type:"identity",	base_hybrid:identity_hybrid,	folder:template_prefix["identity"])	}
+module_stamp := 	{ color_background(type:"stamp",	base_hybrid:stamp_hybrid,		folder:template_prefix["stamp"]) }
+module_ubstamp := 	{ color_background(type:"ubstamp",	base_hybrid:stamp_hybrid,		folder:template_prefix["ubstamp"], blend_type:"stamp") }
+module_nyx :=	 	{ 
+	type := "nyx"
+	if has_png(set.alternate_nyx) and type_name(harder_script["alt_nyx" or else nil] or else nil) != "nothing"
+		then type := "alt_nyx"
+	else if set.alternate_nyx == "star" and type_name(harder_script["star" or else nil] or else template_prefix["star" or else nil] or else nil) != "nothing"
+		then type := "star"
+	color_background(
+		type: type,
+		blend_type: "nyx",
+		base_hybrid:card_hybrid,
+		folder:template_prefix["nyx"],
+	)
+}
+module_snow :=	 	{ color_background(type:"snow",		base_hybrid:card_hybrid,		folder:template_prefix["snow"]) }
+module_alias :=	 	{ color_background(type:"alias",	base_hybrid:card_hybrid,		folder:template_prefix["alias"]) }
+module_ptbox := 	{ 
+	if vehicle then template_prefix["pt"] + "vpt.png"
+	else color_background(type:"pt",		base_hybrid:pt_hybrid,			folder:template_prefix["pt"])
+}@(vehicle:false)
+module_ptbox2 := 	{ 
+	if vehicle then template_prefix["pt"] + "vpt.png"
+	else color_background(type:"pt2",		base_hybrid:pt_hybrid,			folder:template_prefix["pt"], blend_type:"pt")
+}@(vehicle:false)
+module_levelpt := 	{ 
+	if vehicle then template_prefix["pt"] + "vpt.png"
+	else color_background(type:"pt",		base_hybrid:leveler_pt_hybrid,			folder:template_prefix["pt"])
+}@(vehicle:false)
+module_levelpt2 := 	{ 
+	if vehicle then template_prefix["pt"] + "vpt.png"
+	else color_background(type:"pt",		base_hybrid:leveler_pt_hybrid2,			folder:template_prefix["pt"])
+}@(vehicle:false)
+module_levelpt3 := 	{ 
+	if vehicle then template_prefix["pt"] + "vpt.png"
+	else color_background(type:"pt",		base_hybrid:leveler_pt_hybrid3,			folder:template_prefix["pt"])
+}@(vehicle:false)
+
 
 flip_background := {
 	linear_blend(
@@ -1012,6 +1058,8 @@ font_white	:= {
 font_color := { if font_white() then rgb(255,255,255) else rgb(0,0,0) }
 
 #####Watermark Blending
+#### Overwrite this in style files until we fully deprecate this
+watermark_include := "/magic-watermarks.mse-include"
 watermark_hybrid := {
 	linear_blend(
 		image1: colors[0] + input + ".png"
@@ -1027,15 +1075,15 @@ set_watermark_blend := {
 			linear_blend(
 				image1: 
 					masked_blend(
-						light: "/magic-watermarks.mse-include/sets/" + input + ".png"
-						dark: "/magic-watermarks.mse-include/sets/" + watermark_colors().0 + "mark.png"
-						mask: "/magic-watermarks.mse-include/sets/" + input + ".png"
+						light: watermark_include + "/sets/" + input + ".png"
+						dark: watermark_include + "/sets/" + watermark_colors().0 + "mark.png"
+						mask: watermark_include + "/sets/" + input + ".png"
 					)
 				image2:
 					masked_blend(
-						light: "/magic-watermarks.mse-include/sets/" + input + ".png"
-						dark: "/magic-watermarks.mse-include/sets/" + watermark_colors().1 + "mark.png"
-						mask: "/magic-watermarks.mse-include/sets/" + input + ".png"
+						light: watermark_include + "/sets/" + input + ".png"
+						dark: watermark_include + "/sets/" + watermark_colors().1 + "mark.png"
+						mask: watermark_include + "/sets/" + input + ".png"
 					)
 				x1: 0.4,  y1: 0
 				x2: 0.6,  y2: 0
@@ -1053,7 +1101,7 @@ spotlight_watermark_blend := {
 	wmc := watermark_colors(face:face)
 	c1 := wmc.0 + (if contains(face, match:"land") then "l") + "spotlight.png"
 	c2 := wmc.1 + (if contains(face, match:"land") then "l") + "spotlight.png"
-	wmdir := "/magic-watermarks.mse-include/spotlight/"
+	wmdir := watermark_include + "/spotlight/"
 	if (h != 500 or l != 500) then (
 		wmdir := wmdir + "1024/"
 		c1 := crop(wmdir+c1, height:h, width:l, offset_x:0, offset_y:0)
