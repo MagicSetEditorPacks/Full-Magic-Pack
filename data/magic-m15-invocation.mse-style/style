@@ -7,13 +7,19 @@ installer group: magic/m15 style/amonkhet/invocations
 position hint: 092
 
 
-version: 2024-05-26
+version: 2024-06-07
 depends on:
 	package: magic.mse-game
 	version: 2015-04-08
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2020-02-07
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2020-02-07
 depends on:
 	package: magic-mana-small-invocation.mse-symbol-font
 	version: 2017-03-31
@@ -36,12 +42,22 @@ init script:
 	mask_multi_land_with_color := { contains(styling.regular_options, match:"colored multicolor land names") }
 	
 	# Build the template, new frames need to be added here
-	template_prefix := [card: "" identity: ""]
-	template_suffix := [card: "card.png" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		card2: ""
+		identity: ""
+	]
+	template_suffix := [
+		card: "card.png"
+		card2: "card2.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
+
+	card_background2 := { color_background(type:"card2",	base_hybrid:card_hybrid)		}@(offset:0 )
 
 	# Use the normal tap symbol
 	mana_t := {
@@ -65,6 +81,11 @@ init script:
 	is_gothic := { contains(styling.regular_options, match: "ShangoGothic") }
 
 	is_unsorted := {styling.remove_from_autocount}
+	
+	is_revamped := {styling.revamped_form}
+	card_stamp_disabled_1 := { not is_revamped() }
+	card_stamp_offset_top_1 := {5}
+	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -75,6 +96,10 @@ set info style:
 			fill color:   rgb(255,255,255)
 			border color: rgb(0,0,0)
 ############################################################## Extra style options
+styling field:
+	type: boolean
+	name: revamped form
+	description: Use the revamped form used in March of the Machines
 styling field:
 	type: multiple choice
 	name: regular options
@@ -96,6 +121,7 @@ styling field:
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
 	initial: no
+include file: /magic-modules.mse-include/rarities/styling_fields
 styling field:
 	type: choice
 	name: tap symbol
@@ -122,6 +148,8 @@ styling style:
 		direction: vertical
 ############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/separators/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
 card style:
 	card color:
 		left:	0
@@ -131,11 +159,11 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
-		image: { saturate(card_background(), amount: frame_saturation()) }
+		image: { saturate((if is_revamped() then card_background2() else card_background()), amount: frame_saturation()) }
 	############################# Name line
 	name: 
 		left: 35
-		top: { if is_beleren() then 36 else if is_papyrus() then 38 else if is_gothic() then 35 else 33 }
+		top: { if is_beleren() or is_revamped() then 36 else if is_papyrus() then 38 else if is_gothic() then 35 else 33 }
 		right: { if contains(styling.regular_options, match:"nonexistent") then 320 else if contains(styling.regular_options, match:"snap") then max(30, card_style.name.content_width) + 35 else 320 - card_style.casting_cost.content_width }
 		height: 18
 		alignment: bottom shrink-overflow
@@ -143,10 +171,10 @@ card style:
 		padding top: 0
 		z index: 3
 		font:
-			name: { if contains(styling.regular_options, match: "Beleren") then "Beleren Small Caps" else if contains(styling.regular_options, match: "Papyrus") then "Papyrus" else if is_gothic() then "ShangoGothic-Bold" else "Invocation Calligraphr" }
-			size: { if contains(styling.regular_options, match: "Beleren") then 15 else if contains(styling.regular_options, match: "Papyrus") then 12 else 16 }
+			name: { if is_beleren() or is_revamped()  then "Beleren Bold" else if contains(styling.regular_options, match: "Papyrus") then "Papyrus" else if is_gothic() then "ShangoGothic-Bold" else "Invocation Calligraphr" }
+			size: { if is_beleren() or is_revamped()  then 16 else if contains(styling.regular_options, match: "Papyrus") then 12 else 16 }
 			weight: { if is_papyrus() then "bold" else "" }
-			color: { rgb(40,10,6) }
+			color: { if is_revamped() then "black" else rgb(40,10,6) }
 		
 	casting cost:
 		right: 346
@@ -158,7 +186,7 @@ card style:
 			name: MPlantin
 			size: 15
 		symbol font:
-			name: magic-mana-small-invocation
+			name: { if is_revamped() then "magic-mana-large" else "magic-mana-small-invocation" }
 			size: 15
 			alignment: middle right
 		always symbol: true
@@ -190,16 +218,16 @@ card style:
 		
 	type:
 		left: { 33 + card_style.casting_cost_2.content_width }
-		top: { if is_gothic() then 298 else 299 }
+		top: { if is_revamped() or is_gothic() then 298 else 299 }
 		right: 302
 		height: 20
-		alignment: { if contains(styling.regular_options, match:"center typeline") then "center middle shrink-overflow" else "middle shrink-overflow" }
+		alignment: { if is_revamped() or not contains(styling.regular_options, match:"center typeline") then "middle shrink-overflow" else "center middle shrink-overflow" }
 		z index: 3
 		padding top: 2
 		font:
-			name: { if contains(styling.regular_options, match: "Beleren") then "Beleren Small Caps" else if contains(styling.regular_options, match: "Papyrus") then "Papyrus" else if is_gothic() then "ShangoGothic-Bold" else "Invocation Calligraphr" }
-			size: { if is_beleren() then 14 else if is_papyrus() then 13 else 15 }
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+			name: { if is_beleren() or is_revamped() then "Beleren Bold" else if contains(styling.regular_options, match: "Papyrus") then "Papyrus" else if is_gothic() then "ShangoGothic-Bold" else "Invocation Calligraphr" }
+			size: { if is_beleren() or is_revamped() then 14 else if is_papyrus() then 13 else 15 }
+			color: { if contains(styling.regular_options, match:"grayscale") or is_revamped() then "black" else rgb(40,10,6) }
 			weight: { if is_papyrus() then "bold" else "" }
 			separator color: red
 	rarity:
@@ -210,22 +238,8 @@ card style:
 		z index: 3
 		render style: image
 		alignment: middle right
-		visible: { contains(styling.regular_options, match:"show normal rarity") }
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if contains(styling.regular_options, match:"inverted common symbol") then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if contains(styling.regular_options, match:"inverted common symbol") then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		visible: { is_revamped() or contains(styling.regular_options, match:"show normal rarity") }
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 31
@@ -233,14 +247,14 @@ card style:
 		width: 310
 		bottom: 460
 		font:
-			name: ShangoGothic-Bold
-			size: 12
+			name: {if is_revamped() then "MPlantin" else "ShangoGothic-Bold"}
+			size: { if is_revamped() then 14 else 12 }
 			scale down to: 6
-			color: { rgb(40,20,6) }
+			color: { if is_revamped() then "black" else rgb(40,20,6) }
 		symbol font:
-			name: magic-mana-small-invocation
+			name: { if is_revamped() then "magic-mana-small" else "magic-mana-small-invocation" }
 			size: 14
-		alignment: middle center
+		alignment: { if is_revamped() then "middle left" else "middle center" }
 		z index: 4
 		mask: { if card.power != "" or card.toughness != "" then "text_mask.png" else "" }
 		padding left:   6
@@ -263,7 +277,7 @@ card style:
 			name: MPlantin
 			size: 15
 			weight: bold
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(16,16,0) }
+			color: { if is_revamped() or contains(styling.regular_options, match:"grayscale") then "black" else rgb(16,16,0) }
 	toughness:
 		z index: 6
 		left: 326
@@ -275,19 +289,32 @@ card style:
 			name: MPlantin
 			size: 15
 			weight: bold
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(16,16,0) }
+			color: { if is_revamped() or contains(styling.regular_options, match:"grayscale") then "black" else rgb(16,16,0) }
 	############################# Copyright stuff
+	set code:
+		left: 24
+		top: 502
+		width: 40
+		height: 10
+		visible: { is_revamped() }
+		alignment: middle left
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
+		z index: 900
 	illustrator:
-		left: 48
-		top: 486
-		width: 90
+		left: { if is_revamped() then 44 + card_style.set_code.content_width else 48 }
+		top: { if is_revamped() then 502 else 486 }
+		width: { if is_revamped() then 200 else 90 }
 		height: 10
 		z index: 3
 		alignment: middle left shrink-overflow
 		font:
-			name: ShangoGothic-Bold
-			size: 7.5
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+			name: { if is_revamped() then "Beleren Small Caps Bold" else "ShangoGothic-Bold" }
+			size: {if is_revamped() then 7 else 7.5}
+			color: { if is_revamped() then "white" else if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
 	copyright:
 		right: 350
 		top: 492
@@ -297,15 +324,28 @@ card style:
 		visible: {not set.automatic_copyright}
 		alignment: middle right shrink-overflow
 		font:
-			name: ShangoGothic-Bold
-			size: 6
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+			name: { if is_revamped() then "MPlantin" else "ShangoGothic-Bold" }
+			size: { if is_revamped() then 7.25 else 6 }
+			color: { if is_revamped() then "white" else if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+	card code:
+		left: { if is_revamped() then 24 else 34 }
+		top: { if is_revamped() then 492 else 476 }
+		width: 104
+		height: 10
+		z index: 900
+		font:
+			name: { if is_revamped() then "Relay-Medium" else "ShangoGothic-Bold" }
+			size: { if is_revamped() then 7 else 6.75 }
+			color: { if is_revamped() then "white" else if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+	partition select:
+		left: { if is_revamped() then 24 else 34 }
+		top: { if is_revamped() then 492 else 476 }
+		width: 35
+		height: 10
+		z index: 1100
+		popup style:		menu
+		render style:		hidden
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script: card_number_script_core()
 extra card field:
 	type: choice
 	name: artist arrow
@@ -416,22 +456,28 @@ extra card field:
 	choice: glowmaster
 	initial: glowmaster
 	editable: false
+extra card field:
+	type: choice
+	name: stamp backing
+	choice: backing
+	editable: false
+	save value: false
 
 extra card style:
 	artist arrow:
-		left: 34
-		top: 489
+		left: { if is_revamped() then 28 + card_style.set_code.content_width else 34 }
+		top: {if is_revamped() then 503 else 489 }
 		width: 12
 		height: 7
 		z index: 3
 		render style: image
-		image: { saturate("artist_arrow.png", amount: frame_saturation()) }
+		image: { if is_revamped() then "artist_arrow.png" else saturate("inv_artist_arrow.png", amount: frame_saturation()) }
 	pt box:
 		left: 318
 		top: 422
 		width: 32
 		height: 71
-		z index: 5
+		z index: 840
 		visible: { card.pt != "" }
 		render style: image
 		image: { saturate("ivcpt.png", amount: frame_saturation()) }
@@ -454,7 +500,7 @@ extra card style:
 		popup style: in place
 		alignment: middle center
 		include file: invocation
-		visible: { card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+		visible: { not is_revamped() and card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
 	invocation symbol 2:
 		right: 347
 		top: 296
@@ -465,7 +511,7 @@ extra card style:
 		popup style: in place
 		alignment: middle center
 		include file: invocation
-		visible: { card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+		visible: { not is_revamped() and card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
 	glow:
 		right: 346
 		top: 298
@@ -476,7 +522,7 @@ extra card style:
 		popup style: in place
 		alignment: middle center
 		include file: invocation
-		visible: { card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+		visible: { not is_revamped() and card.rarity != "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
 	invocation symbol master:
 		right: 347
 		top: 296
@@ -487,7 +533,7 @@ extra card style:
 		popup style: in place
 		alignment: middle center
 		include file: invocation
-		visible: { card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+		visible: { not is_revamped() and card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
 	invocation symbol master 2:
 		right: 347
 		top: 296
@@ -498,7 +544,7 @@ extra card style:
 		popup style: in place
 		alignment: middle center
 		include file: invocation
-		visible: { card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+		visible: { not is_revamped() and card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
 	glow master:
 		right: 346
 		top: 298
@@ -509,7 +555,7 @@ extra card style:
 		popup style: in place
 		alignment: middle center
 		include file: invocation
-		visible: { card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
+		visible: { not is_revamped() and card.rarity == "masterpiece" and not contains(styling.regular_options, match:"show normal rarity") }
 	invocation name start:
 		z index: 2
 		left: 25
@@ -518,6 +564,7 @@ extra card style:
 		height: 25
 		render style: image
 		image: { saturate("namestart.png", amount:frame_saturation()) }
+		visible: { not is_revamped() }
 	invocation name:
 		z index: 2
 		left: 70
@@ -526,6 +573,7 @@ extra card style:
 		height: 27
 		render style: image
 		image: { saturate("namemiddle.png", amount:frame_saturation()) }
+		visible: { not is_revamped() }
 	invocation name end:
 		z index: 2
 		left: { if contains(styling.regular_options, match:"snap") then 7 + max(33, card_style.name.content_width) else if contains(styling.regular_options, match:"nonexistent") then 305 else 290 - max(20,card_style.casting_cost.content_width) }
@@ -534,6 +582,7 @@ extra card style:
 		height: 25
 		render style: image
 		image: { saturate("nameend.png", amount:frame_saturation()) }
+		visible: { not is_revamped() }
 	invocation cost end:
 		z index: 2
 		right: 353
@@ -543,6 +592,7 @@ extra card style:
 		render style: image
 		image: { saturate("costend.png", amount:frame_saturation()) }
 		visible: { not contains(styling.regular_options, match:"nonexistent") }
+		visible: { not is_revamped() }
 	invocation cost:
 		z index: 2
 		right: 339
@@ -551,7 +601,7 @@ extra card style:
 		width: { 2 + max(0,card_style.casting_cost.content_width - 17) }
 		render style: image
 		image: { saturate("costmid.png", amount:frame_saturation()) }
-		visible: { not contains(styling.regular_options, match:"nonexistent") }
+		visible: { not is_revamped() and not contains(styling.regular_options, match:"nonexistent") }
 	invocation cost start:
 		z index: 2
 		top: 28
@@ -560,17 +610,7 @@ extra card style:
 		width: 15
 		render style: image
 		image: { saturate("coststart.png", amount:frame_saturation()) }
-		visible: { not contains(styling.regular_options, match:"nonexistent") }
-	card code:
-		left: 34
-		top: 476
-		width: 104
-		height: 10
-		z index: 3
-		font:
-			name: ShangoGothic-Bold
-			size: 6.75
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+		visible: { not is_revamped() and not contains(styling.regular_options, match:"nonexistent") }
 	silver border:
 		left: 0
 		top: 0
@@ -579,7 +619,7 @@ extra card style:
 		z index: 1
 		render style: image
 		image: silver_border.png
-		visible: { contains(styling.regular_options, match:"silver border") }
+		visible: { not is_revamped() and contains(styling.regular_options, match:"silver border") }
 	auto copyright:
 		right: 350
 		top: 492
@@ -589,6 +629,15 @@ extra card style:
 		alignment: middle right shrink-overflow
 		visible: {set.automatic_copyright}
 		font:
-			name: ShangoGothic-Bold
-			size: 6
-			color: { if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+			name: { if is_revamped() then "MPlantin" else "ShangoGothic-Bold" }
+			size: { if is_revamped() then 7.25 else 6 }
+			color: { if is_revamped() then "white" else if contains(styling.regular_options, match:"grayscale") then "black" else rgb(40,10,6) }
+	stamp backing:
+		left: 165
+		top: 477
+		width: 46
+		height: 26
+		z index: 850
+		visible: { is_revamped() and card.card_stamp != "none" }
+		render style: image
+		image: { "/magic-modules.mse-include/stamps/backs/" + (if stamp_shape(field:1) == "triangle" then "triangle_stamp.png" else "stamp.png") }

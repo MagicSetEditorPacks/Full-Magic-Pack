@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/normal cards
 position hint: 095
 
-version: 2021-02-16
+version: 2024-09-01
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -14,11 +14,8 @@ depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -62,20 +59,33 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [card: "" card2:"legend/" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/" icon:"icons/" icon2:"icons/" flag: "flags/" flag2:"flags/" card3: "" card4:"legend/" pt2: "" identity2: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.png" card2:"card.png" pt: "pt.png" stamp: "stamp.jpg" identity: "identity.png" icon:"arrow.png" icon2:"arrow2.png" flag: "flag.png" flag2:"flag2.png" card3: "card.png" card4:"card.png" pt2: "pt.png" identity2: "identity.png"]
+	template_prefix := [
+		card: ""
+		card2: "legend/"
+		pt: ""
+		flag: "flags/"
+		flag2: "flags/"
+		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.png"
+		card2: "card.png"
+		flag: "flag.png"
+		flag2: "flag2.png"
+		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 	legend_background := { color_background(type:"card2",     base_hybrid:card_hybrid) }
-	legend_background2 := { color_background(type:"card4",     base_hybrid:card_hybrid) }
-	card_background2 := { color_background(type:"card3", base_hybrid:card_hybrid) }
 	card_ptbox := { color_background(type:"pt",     base_hybrid:card_hybrid) }
-	card_ptbox2 := { color_background(type:"pt2",     base_hybrid:card_hybrid) }
-	front_arrow_image := { color_background(type:"icon",     base_hybrid:card_hybrid) }
 	front_flag_image := { color_background(type:"flag",     base_hybrid:card_hybrid) }
-	back_arrow_image := { color_background(type:"icon2",     base_hybrid:card_hybrid) }
 	back_flag_image := { color_background(type:"flag2",     base_hybrid:card_hybrid) }
 
 	# Use the normal tap symbol
@@ -97,7 +107,7 @@ init script:
 			sort_text@(order: "XYZI[0123456789]HSCA(WUBRG)")()
 	}
 	ancestral_mana := { styling.ancestral_mana_symbols }
-	has_identity := { styling.color_indicator_dot }
+	watermark_include := "/magic-modules.mse-include/watermarks"
 	is_unsorted := {styling.remove_from_autocount}
 
 	chop_top := {to_number(pull_comma_array(styling.text_chops, cell:0, end:false))}
@@ -111,12 +121,47 @@ init script:
 	un_png := replace@(match:".png", replace: "")
 	is_vehicle := {lang_setting("is_vehicle")(card.sub_type)}
 	is_legend := {set.auto_legends and lang_setting("is_legendary")(card.super_type) }
-	is_modal_dfc := {styling.dfc_type != "transforming"}
-	auto_flags := {styling.dfc_type == "modal with standard flags"}
+	is_modal_dfc := {
+		styling.dfc_type != "transforming"
+		or contains(card.transformation, match:"modal")
+	}
+	auto_flags := {
+		styling.dfc_type == "modal with standard flags"
+		or (styling.dfc_type == "transforming" and contains(card.transformation, match:"modal"))
+	}
 	back_vehicle := {lang_setting("is_vehicle")(card.sub_type_2)}
 	back_legend := {set.auto_legends and lang_setting("is_legendary")(card.super_type_2) }
 	back_face := replace@(match:"a", replace:"b")
-
+	card_stamp_offset_top_1 := {1}
+	
+	transform_symbol_default := {
+		stylesheet
+		if margin_code == "transform1" then
+			(
+				if contains(card.transformation_2, match:"modal back")
+					then "modal front " + sparker_card_color(card.card_color)
+				else if contains(card.transformation_2, match:"modal front")
+					then "modal back " + sparker_card_color(card.card_color)
+				else if styling.dfc_type != "transforming"
+					then "modal front " + sparker_card_color(card.card_color)
+				else "front triangle"
+			)
+		else if	margin_code == "transform2" then
+			(
+				if contains(card.transformation, match:"modal front")
+					then "modal back " + sparker_card_color(card.card_color_2)
+				else if contains(card.transformation, match:"modal back")
+					then "modal front " + sparker_card_color(card.card_color_2)
+				else if styling.dfc_type != "transforming"
+					then "modal back " + sparker_card_color(card.card_color_2)
+				else "back triangle"
+			)
+		else "eldrazi"
+	}
+	transform_symbol_offset_left_1 := {-9}
+	transform_symbol_offset_left_2 := {-9}
+	transform_symbol_offset_top_1 := { if is_legend() then 4 else -7 }
+	transform_symbol_offset_top_2 := { if back_legend() then 4 else -7 }
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -145,15 +190,6 @@ styling field:
 	type: text
 	name: shrink typeline text
 	description: Shrinks type X pixels
-styling field:
-	type: boolean
-	name: use holofoil stamps
-	description: Change to no to disable rare holofoil stamps
-styling field:
-	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
-	initial: no
 styling field:
 	type: text
 	name: custom symbol one
@@ -254,6 +290,13 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields_dfc
+include file: /magic-modules.mse-include/information/card_fields_dfc
+include file: /magic-modules.mse-include/symbols/card_fields_dfc
+include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/stamps/stamp_back
+include file: /magic-modules.mse-include/watermarks/card_fields_dfc
+include file: /magic-modules.mse-include/separators/card_fields_dfc
 card style:
 	############################# Background stuff
 	border color:
@@ -286,7 +329,7 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
-		image: { if back_legend() then legend_background2() else card_background2() }
+		image: { if back_legend() then legend_background() else card_background() }
 		mask: {(if back_legend() then "legend/" else "") + "framemask.png"}
 	############################# Name line
 	name:
@@ -371,7 +414,7 @@ card style:
 		z index: 1
 		render style: image
 		visible: { has_identity() }
-		image: { card_identity() }
+		image: { module_identity() }
 	indicator 2:
 		left: 403
 		top: 308
@@ -379,8 +422,8 @@ card style:
 		height: 17
 		z index: 1
 		render style: image
-		visible: { has_identity() }
-		image: { card_identity() }
+		visible: { has_identity_2() }
+		image: { module_identity() }
 	type:
 		left: { if has_identity() then "46" else "28" }
 		top: {shrink_type() + 305 }
@@ -395,9 +438,9 @@ card style:
 			color: white
 			separator color: red
 	type 2:
-		left: { 377 + (if has_identity() then 46 else 28) }
+		left: { 377 + (if has_identity_2() then 46 else 28) }
 		top: {shrink_type2() + 305 }
-		width: { (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
+		width: { (if has_identity_2() then "290" else "310") - max(22,card_style.rarity.content_width) }
 		height: { 20 - shrink_type2() }
 		alignment: top shrink-overflow
 		z index: 2
@@ -415,38 +458,7 @@ card style:
 		z index: 2
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
-					else symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
-					else symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
-					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
-					else symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
-					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	rarity 2:
 		right: 721
 		top: 308
@@ -455,38 +467,7 @@ card style:
 		z index: 2
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "c.png"
-					else if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "u.png"
-					else symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "r.png"
-					else symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "m.png"
-					else symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "s.png"
-					else symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece:
-				script:
-					if use_main_rarity() then "/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + "mp.png"
-					else symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 29
@@ -512,7 +493,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: {if is_modal(card.rule_text) then 0.9 else 1.2 }
@@ -538,13 +519,13 @@ card style:
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
-				   not contains(match:"\n", card.rule_text) and
-				   card.flavor_text == "<i-flavor></i-flavor>" and
-				   card_style.text.content_lines <= 2) or
+				   not contains(match:"\n", card.rule_text_2) and
+				   card.flavor_text_2 == "<i-flavor></i-flavor>" and
+				   card_style.text_2.content_lines <= 2) or
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: {if is_modal(card.rule_text_2) then 0.9 else 1.2 }
@@ -552,26 +533,6 @@ card style:
 		line height soft: 0.9
 		line height hard max: {if is_modal(card.rule_text_2) then 1.0 else 1.3 }
 		line height line max: 1.6
-	watermark:
-		left: 25
-		top: 338
-		width: 324
-		height: 139
-		z index: 1
-		render style: image
-		popup style: in place
-		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
-	watermark 2:
-		left: 402
-		top: 338
-		width: 324
-		height: 139
-		z index: 1
-		render style: image
-		popup style: in place
-		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
 	############################# PT
 	pt:
 		z index: 2
@@ -597,108 +558,7 @@ card style:
 			size: 15
 			color: black
 			separator color: red
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	set code 2:
-		left: 401
-		top: 498
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	illustrator 2:
-		left: { 421 + card_style.set_code_2.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
-	copyright 2:
-		right: 727
-		top: { if card.pt_2 != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not is_unsorted() then
-			forward_editor(prefix: card_number_m15() + "a/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-extra card field:
-	type: text
-	name: card code 2
-	editable: false
-	save value: false
-	script:
-		if set.automatic_card_numbers and not is_unsorted() then
-			forward_editor(prefix: card_number_m15() + "b/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			back_face(card.custom_card_number) + " " + rarity_code() + " " + card.card_code_text
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
-extra card field:
-	type: choice
-	name: artist arrow 2
-	editable: false
-	save value: false
-	choice: white
 extra card field:
 	type: choice
 	name: pt box
@@ -713,12 +573,6 @@ extra card field:
 	save value: false
 extra card field:
 	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
-extra card field:
-	type: choice
 	name: foil layer
 	choice: foil
 	save value: false
@@ -729,70 +583,6 @@ extra card field:
 	choice: foil
 	save value: false
 	editable: false
-extra card field:
-	type: multiple choice
-	name: stamp
-	empty choice: colorless
-	choice: white
-	choice: blue
-	choice: black
-	choice: red
-	choice:
-		name: green
-		line below: true
-	choice: artifact
-	choice: land
-	choice: multicolor
-	choice:
-		name: hybrid
-		line below: true
-	choice:
-		name: horizontal
-		type: radio
-	choice:
-		name: vertical
-		type: radio
-	choice:
-		name: radial
-		type: radio
-	choice:
-		name: diagonal
-		type: radio
-	choice:
-		name: overlay
-		type: radio
-	choice:
-		name: reversed
-	script: card_color_filter(value)
-	default: card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name)
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
-extra card field:
-	type: text
-	name: auto copyright 2
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
-extra card field:
-	type: choice
-	name: flavor bar
-	choice: bar
-	editable: false
-	save value: false
-	show statistics: false
-extra card field:
-	type: choice
-	name: flavor bar 2
-	choice: bar
-	editable: false
-	save value: false
-	show statistics: false
 extra card field:
 	type: choice
 	name: vehicle overlay
@@ -822,76 +612,6 @@ extra card field:
 	save value: false
 	show statistics: false
 extra card field:
-	type: choice
-	name: corner
-	choice: none
-	choice: day
-	choice: night
-	choice: moon
-	choice: eldrazi
-	choice: compass
-	choice: artifact
-	choice: creature
-	choice: enchantment
-	choice: instant
-	choice: land
-	choice: multitype
-	choice: sorcery
-	choice: planeswalker
-	choice: structure
-	choice: aetherprint
-	choice: modal
-	choice:
-		name: sparker colors
-		choice: white
-		choice: blue
-		choice: black
-		choice: red
-		choice: green
-		choice: multicolor
-		choice: colorless
-	choice: custom one
-	choice: custom two
-	default: "day"
-	script: if is_modal_dfc() then "modal" else if value == "modal" then "day" else value
-	save value: true
-	editable: true
-extra card field:
-	type: choice
-	name: corner 2
-	choice: none
-	choice: day
-	choice: night
-	choice: moon
-	choice: eldrazi
-	choice: compass
-	choice: artifact
-	choice: creature
-	choice: enchantment
-	choice: instant
-	choice: land
-	choice: multitype
-	choice: sorcery
-	choice: planeswalker
-	choice: structure
-	choice: aetherprint
-	choice: modal
-	choice:
-		name: sparker colors
-		choice: white
-		choice: blue
-		choice: black
-		choice: red
-		choice: green
-		choice: multicolor
-		choice: colorless
-	choice: custom one
-	choice: custom two
-	default: "night"
-	script: if is_modal_dfc() then "modal" else if value == "modal" then "night" else value
-	save value: true
-	editable: true
-extra card field:
 	type: text
 	name: back type hint
 	script: if front_modal_hint().0 != "" then front_modal_hint().0 else value
@@ -916,44 +636,6 @@ extra card field:
 	save value: true
 	editable: true
 extra card style:
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	card code 2:
-		left: 401
-		top: 488
-		width: 120
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 1
-		render style: image
-		image: artist_arrow.png
-	artist arrow 2:
-		left: { 405 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 1
-		render style: image
-		image: artist_arrow.png
 	pt box:
 		left: 285
 		top: 460
@@ -971,13 +653,13 @@ extra card style:
 		z index: 1
 		visible: { card.pt_2 != "" }
 		render style: image
-		image: { if back_vehicle() then "vpt.png" else card_ptbox2() }
+		image: { if back_vehicle() then "vpt.png" else card_ptbox() }
 	foil layer:
 		left: 0
 		top : 0
 		width: 375
 		height: 523
-		z index: 3
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
@@ -986,73 +668,10 @@ extra card style:
 		top : 0
 		width: 375
 		height: 523
-		z index: 3
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: foil_mask.png
-	stamp:
-		left: 165
-		top: 472
-		width: 46
-		height: 26
-		z index: 1
-		visible: { is_rare() and styling.use_holofoil_stamps }
-		render style: image
-		image: { card_stamp() }
-		mask: stamp_mask.png
-	foil stamp:
-		left: 165
-		top: 472
-		width: 46
-		height: 26
-		z index: 2
-		visible: { is_rare() and styling.use_holofoil_stamps }
-		render style: image
-		image: foil_stamp.png
-	auto copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
-	auto copyright 2:
-		right: 727
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
-	flavor bar:
-		left: 0
-		top: { bar_equation() }
-		width: 375
-		height: 1
-		z index: 1
-		render style: image
-		image: bar.png
-		visible: { card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
-	flavor bar 2:
-		left: 377
-		top: { bar_equation2() }
-		width: 375
-		height: 1
-		z index: 1
-		render style: image
-		image: bar.png
-		visible: { card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
 	vehicle overlay:
 		left: 0
 		top: 0
@@ -1143,71 +762,3 @@ extra card style:
 			size: 10
 			scale down to: 6
 		alignment: right middle
-
-	################# Transform node
-	corner:
-		left: {if is_modal_dfc() then 4 else 10}
-		top: { if is_legend() then 29 else 18 }
-		height: 31
-		width: {if is_modal_dfc() then 37 else 31}
-		z index: 5
-		render style: image
-		choice images:
-			day: corners/sun_circle.png
-			night: corners/night_circle.png
-			eldrazi: corners/eldrazi.png
-			moon: corners/moon.png
-			compass: corners/compass.png
-			artifact: corners/artifact.png
-			creature: corners/creature.png
-			enchantment: corners/enchantment.png
-			instant: corners/instant.png
-			land: corners/land.png
-			multitype: corners/multitype.png
-			sorcery: corners/sorcery.png
-			planeswalker: corners/planeswalker.png
-			structure: corners/structure.png
-			aetherprint: corners/aetherprint.png
-			sparker colors white: corners/wcorner.png
-			sparker colors blue: corners/ucorner.png
-			sparker colors black: corners/bcorner.png
-			sparker colors red: corners/rcorner.png
-			sparker colors green: corners/gcorner.png
-			sparker colors multicolor: corners/mcorner.png
-			sparker colors colorless: corners/ccorner.png
-			custom one: { if contains(styling.custom_symbol_one, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_symbol_one else "" }
-			custom two: { if contains(styling.custom_symbol_two, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_symbol_two else "" }
-			modal: {front_arrow_image(card.card_color)}
-	corner 2:
-		left: {if is_modal_dfc() then 381 else 387}
-		top: { if back_legend() then 29 else 18 }
-		height: 31
-		width: {if is_modal_dfc() then 37 else 31}
-		z index: 5
-		render style: image
-		choice images:
-			day: corners/sun_circle.png
-			night: corners/night_circle.png
-			eldrazi: corners/eldrazi.png
-			moon: corners/moon.png
-			compass: corners/compass.png
-			artifact: corners/artifact.png
-			creature: corners/creature.png
-			enchantment: corners/enchantment.png
-			instant: corners/instant.png
-			land: corners/land.png
-			multitype: corners/multitype.png
-			sorcery: corners/sorcery.png
-			planeswalker: corners/planeswalker.png
-			structure: corners/structure.png
-			aetherprint: corners/aetherprint.png
-			sparker colors white: corners/wcorner.png
-			sparker colors blue: corners/ucorner.png
-			sparker colors black: corners/bcorner.png
-			sparker colors red: corners/rcorner.png
-			sparker colors green: corners/gcorner.png
-			sparker colors multicolor: corners/mcorner.png
-			sparker colors colorless: corners/ccorner.png
-			custom one: { if contains(styling.custom_symbol_one, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_symbol_one else "" }
-			custom two: { if contains(styling.custom_symbol_two, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_symbol_two else "" }
-			modal: {back_arrow_image(card.card_color_2)}
