@@ -90,6 +90,7 @@ clamp := {
 }
 round_up :=   {to_int(0.99999999999998+input)} #### 0.99999999999999 == 1, leave the 8
 round_near := {to_int(0.5+input)}
+to_number_lax := { to_number(input) or else to_number(trim(input)) or else 0 }
 #### reads from a comma separated list like an array
 pull_comma_array := {
 	array := split_text(input, match:divider)
@@ -450,6 +451,7 @@ ancestral_mana :=
 	else contains(field, match:"ancestral generic")
 }
 white_text := { false }
+symbol_font_small_color := { body_font_color() }
 
 #### Script to make magic-mana-future compatible w/ other templates
 colorless_color := {
@@ -2802,6 +2804,7 @@ corners_possible_dimensions :=
 	"1039x744":	"1039x744"
 	"750x1046":	"750x1046"
 	"1046x750":	"1046x750"
+	"1500x1046":	"1500x1046"
 ]
 
 corners_disabled_1 := { false }
@@ -3886,6 +3889,7 @@ nameline_offset_height_3 := { 0 }
 ### The stamp to use if the user hasn't overwritten it for this card
 card_stamp_default := {
 	shape := styling.default_stamp or else set.default_stamp
+	if shape == "iderp classicshifted" then shape := "iderp classicshifted default"
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
 	if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
 	
@@ -3907,8 +3911,13 @@ stamp_behavior_checks := [
 ]
 ### The image to use for custom stamp
 custom_stamp := {
+	fs := split_custom_directory(set.custom_stamp_name)
 	if set.custom_stamp_name != "" and has_png(set.custom_stamp_name)
-		then "/magic-mainframe-extras.mse-include/" + un_png(set.custom_stamp_name) + (if flat then " flat" else "") + ".png"
+		then "/magic-mainframe-extras.mse-include/" 
+			+ fs.directory
+			+ dimensions + " "
+			+ (if flat then "flatstamped " else "")
+			+ fs.filename
 	else "/magic-modules.mse-include/stamps/375x523 " + (if flat then "flatstamped " else "") + "heart.png"
 }@(flat:false)
 ### The shape of the background stamp for templates
@@ -3944,8 +3953,9 @@ card_stamp_image :=
 			dimensions := card_stamp_possible_dimensions[dimensions] or else (if map.width > map.height then "1039x744" else "744x1039")
 			shape := card_stamp_field(field)
 			if shape == "default" then shape := set.default_stamp
+			if shape == "iderp classicshifted" then shape := "iderp classicshifted default"
 			if shape == "custom" or shape == "flatstamped custom"
-				then custom_stamp(flat:not is_foil_stamped(field:field))
+				then custom_stamp(dimensions: dimensions, flat:not is_foil_stamped(field:field))
 			else if shape == "none"
 				then ""
 			else "/magic-modules.mse-include/stamps/" + dimensions + " " + shape + ".png"
@@ -4064,8 +4074,8 @@ swap_font_color := {
 		nums := split_text(test, match:",")
 		test_color := nil
 		
-		if length(nums) >= 4 then test_color := rgba(nums.0, nums.1, nums.2, nums.3) or else nil
-		if test_color == nil and length(nums) >= 3 then test_color := rgb(nums.0, nums.1, nums.2) or else nil
+		if length(nums) >= 4 then test_color := rgba(to_number_lax(nums.0), to_number_lax(nums.1), to_number_lax(nums.2), to_number_lax(nums.3)) or else nil
+		if test_color == nil and length(nums) >= 3 then test_color := rgb(to_number_lax(nums.0), to_number_lax(nums.1), to_number_lax(nums.2)) or else nil
 		if test_color == nil and test != "" then test_color := to_color(test) or else nil
 		if test_color != nil then font_color := test_color
 	) else ""
@@ -4613,6 +4623,11 @@ alt_symbol := {
 	)
 }
 ############################################################## Other customizable stuff
+split_custom_directory := {
+	fn := filter_text(input, match:"[^./]+.png")
+	dir := filter_text(input, match:"^([^.]+/)+")
+	[directory:dir, filename:fn]
+}
 custom_border_image := {
 	src := styling.custom_border_source or else ""
 	ps := split_text(src, match:"-color-")
