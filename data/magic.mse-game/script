@@ -32,7 +32,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2024-05-27 Mainframe 1.3.e Showcase Catchup: MH3 Keywords"}
+version_date := {"2024-05-27 Mainframe 1.3.f Showcase Catchup: Module Rollout"}
 version := version_date
 ############################################################## Common filters
 ############################################################## Utility
@@ -90,6 +90,12 @@ clamp := {
 }
 round_up :=   {to_int(0.99999999999998+input)} #### 0.99999999999999 == 1, leave the 8
 round_near := {to_int(0.5+input)}
+to_number_lax :=
+{
+	input := trim(input)
+	if input == "" or input == "-" then input := 0
+	to_number(input)
+}
 #### reads from a comma separated list like an array
 pull_comma_array := {
 	array := split_text(input, match:divider)
@@ -314,8 +320,21 @@ is_rare :=
 	rarity := rarity_field(field)
 	rarity == "rare" or rarity == "mythic rare" or rarity == "masterpiece"
 }@(field: 1)
-is_walker :=       { contains(card.super_type, match:"Planeswalker") }
-is_legend :=       { true } #### TODO ???
+
+type_field :=
+{
+	if input <= 1 then card.type else card["type" + input]
+}
+
+is_walker :=
+{ 
+	lang_setting("is_planeswalker")(type_field(face))
+}@(face:1)
+
+is_legend :=
+{ 
+	lang_setting("is_legendary")(type_field(face))
+}@(face:1) 
 ############################################################## Identity
 #### Indicators never appear if the indicator would be colorless, colorless land, or colorless artifact.
 #### Indicators do appear if the chosen frame doesn't match the default.
@@ -327,13 +346,14 @@ blank_indentity := {
 		"artifact": true,
 		else: false;
 }
+cull_directions := replace@(match:", (horizontal|vertical|radial|overlay)", replace:"")
 has_identity := {
 	default := card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless")
 	if blank_indentity(card.indicator)
 		then false
-	else if card.indicator != default
+	else if cull_directions(card.indicator) != default
 		then true
-	else if card.card_color != default
+	else if cull_directions(card.card_color) != default
 		then true
 	else false
 }
@@ -341,9 +361,9 @@ has_identity_2 := {
 	default := card_color(casting_cost: card.casting_cost_2, rules_text: card.rule_text_2, type: card.super_type_2, watermark: card.watermark_2, card_name: card.name_2, default: "colorless")
 	if blank_indentity(card.indicator)
 		then false
-	else if card.indicator_2 != default
+	else if cull_directions(card.indicator_2) != default
 		then true
-	else if card.card_color_2 != default
+	else if cull_directions(card.card_color_2) != default
 		then true
 	else false
 }
@@ -351,9 +371,9 @@ has_identity_3 := {
 	default := card_color(casting_cost: card.casting_cost_3, rules_text: card.rule_text_3, type: card.super_type_3, watermark: card.watermark_3, card_name: card.name_3, default: "colorless")
 	if blank_indentity(card.indicator)
 		then false
-	else if card.indicator_3 != default
+	else if cull_directions(card.indicator_3) != default
 		then true
-	else if card.card_color_3 != default
+	else if cull_directions(card.card_color_3) != default
 		then true
 	else false
 }
@@ -842,23 +862,73 @@ card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_numbe
 card_count_mom := { (if card_count() < 1000 then "0" else "") + (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
 
 use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
+get_card_number := {
+	if set.card_number_style == "0001/0099" or set.card_number_style == "0001"
+		then card_number_mom()
+	else if set.card_number_style == "001/099" or set.card_number_style == "001"
+		then card_number_m15()
+	else card_number()
+}
+get_card_count := {
+	if over_partition() and set.over_partition_display == "100"
+		then ""
+	else if set.card_number_style == "0001/0099"
+		then card_count_mom()
+	else if set.card_number_style == "001/099"
+		then card_count_m15()
+	else if set.card_number_style == "1/99"
+		then card_count()
+	else ""
+}
+get_card_number_count := {
+	cc := get_card_count()
+	if cc == "" then get_card_number() + tag
+	else get_card_number() + tag + "/" + cc
+}@(tag:"")
 #### Use this in templates so we don't have to update 700 templates the next time they change the ordering
 card_number_script_core := {
+	cn := get_card_number_count(tag:tag)
+	rc := rarity_code()
+	if rc != "" then rc := rc + " "
 	if not use_auto_numbers() then
-		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-	else if set.card_number_style == "0001/0099" then
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom()) + " ", field: card.card_code_text)
-	else if set.card_number_style == "0001" then
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + " ", field: card.card_code_text)
-	else if set.card_number_style == "001/099" then
-		forward_editor(prefix: card_number_m15() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card.card_code_text)
-	else if set.card_number_style == "001" then
-		forward_editor(prefix: card_number_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-	else if set.card_number_style == "1/99" then
-		forward_editor(prefix: card_number() + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card.card_code_text)
+		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card.card_code_text)
+	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
+		forward_editor(prefix: rc + cn + " ", field: card.card_code_text)
 	else
-		forward_editor(prefix: card_number() + " " + rarity_code() + " ", field: card.card_code_text)
+		forward_editor(prefix: cn + " " + rc, field: card.card_code_text)
+}@(tag:"")
+#### i tried to make this one work like above but it kept breaking so here
+card_number_old_1 := {
+	cn := " " + get_card_number_count(tag:card_number_tags().0) + " "
+	if not use_auto_numbers() and set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
+	else if not use_auto_numbers() then
+		combined_editor(field1: card.copyright, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
+	else if set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright, separator:cn, field2: card.card_code_text)
+	else combined_editor(field1: card.copyright, separator:cn, field2: card.card_code_text)
 }
+card_number_old_2 := {
+	cn := " " + get_card_number_count(tag:card_number_tags().1) + " "
+	if not use_auto_numbers() and set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_2, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
+	else if not use_auto_numbers() then
+		combined_editor(field1: card.copyright_2, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
+	else if set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_2, separator:cn, field2: card.card_code_text_2)
+	else combined_editor(field1: card.copyright_2, separator:cn, field2: card.card_code_text_2)
+}
+card_number_old_3 := {
+	cn := " " + get_card_number_count(tag:card_number_tags().2) + " "
+	if not use_auto_numbers() and set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_3, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
+	else if not use_auto_numbers() then
+		combined_editor(field1: card.copyright_3, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
+	else if set.automatic_copyright then
+		combined_editor(field1: card.auto_copyright_3, separator:cn, field2: card.card_code_text_3)
+	else combined_editor(field1: card.copyright_3, separator:cn, field2: card.card_code_text_3)
+}
+
 
 #### Determine a rarity code for M15 styles.
 rarity_code := {
@@ -1971,7 +2041,6 @@ sub_type_filter :=
 		else sub_types + "<soft>" + subtype_separator + "</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
 	) else input	#### Do nothing if we don't know the type
 }
-
 #### all sub types, for word list
 space_to_comma := replace@(match:" ", replace:",")
 only_first := replace@(match:" .*", replace:"")
@@ -2189,19 +2258,18 @@ correction_coeff := {
 	else 0) + (if lbh >= 4 then 0.5*lbh-1)
 }
 ############################################################## Watermarks
-card_spotlight := { "/magic-mainframe-watermarks.mse-include/spotlight/" + card_new_color() + "spotlight.png" }
-custom_watermark_1 := { if set.custom_watermark_1 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_1 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_2 := { if set.custom_watermark_2 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_2 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_3 := { if set.custom_watermark_3 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_3 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_4 := { if set.custom_watermark_4 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_4 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_5 := { if set.custom_watermark_5 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_5 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_6 := { if set.custom_watermark_6 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_6 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_7 := { if set.custom_watermark_7 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_7 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_8 := { if set.custom_watermark_8 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_8 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_9 := { if set.custom_watermark_9 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_9 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_10 := { if set.custom_watermark_10 != "" then "/magic-watermarks.mse-include/" + set.custom_watermark_10 else "/magic-watermarks.mse-include/planeswalker.png" }
-custom_watermark_a := {"/magic-watermarks.mse-include/planeswalker.png"}
-custom_watermark_b := {"/magic-watermarks.mse-include/planeswalker.png"}
+custom_watermark_1 := { if set.custom_watermark_1 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_1 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_2 := { if set.custom_watermark_2 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_2 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_3 := { if set.custom_watermark_3 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_3 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_4 := { if set.custom_watermark_4 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_4 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_5 := { if set.custom_watermark_5 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_5 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_6 := { if set.custom_watermark_6 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_6 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_7 := { if set.custom_watermark_7 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_7 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_8 := { if set.custom_watermark_8 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_8 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_9 := { if set.custom_watermark_9 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_9 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_10 := { if set.custom_watermark_10 != "" then "/magic-mainframe-extras.mse-include/" + set.custom_watermark_10 else "/magic-modules.mse-include/watermarks/other/planeswalker.png" }
+custom_watermark_a := {"/magic-modules.mse-include/watermarks/other/planeswalker.png"}
+custom_watermark_b := {"/magic-modules.mse-include/watermarks/other/planeswalker.png"}
 invert_watermark := { false }
 invert_watermark2 := { false }
 invert_watermark3 := { false }
@@ -2243,6 +2311,17 @@ watermark_scripts :=
 	"mana symbol hi res green":                           { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana symbols/watermark_g_big.png") }
 	"mana symbol hi res colorless":                       { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana symbols/watermark_c_big.png") }
 	
+	"mana symbol double WU":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wu.png") }
+	"mana symbol double UB":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ub.png") }
+	"mana symbol double BR":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_br.png") }
+	"mana symbol double RG":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rg.png") }
+	"mana symbol double GW":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gw.png") }
+	"mana symbol double WB":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wb.png") }
+	"mana symbol double UR":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ur.png") }
+	"mana symbol double BG":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_bg.png") }
+	"mana symbol double RW":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rw.png") }
+	"mana symbol double GU":                              { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gu.png") }
+	
 	"transparent mana symbol white":                      { watermark_blend(colored: true, alpha: 0.45, dark_alpha: 0.30, wm_directory + "mana symbols/watermark_w.png") }
 	"transparent mana symbol blue":                       { watermark_blend(colored: true, alpha: 0.35, dark_alpha: 0.30, wm_directory + "mana symbols/watermark_u.png") }
 	"transparent mana symbol black":                      { watermark_blend(colored: true, alpha: 0.30, dark_alpha: 0.45, wm_directory + "mana symbols/watermark_b.png") }
@@ -2262,6 +2341,17 @@ watermark_scripts :=
 	"transparent mana symbol hi res red":                 { watermark_blend(colored: true, alpha: 0.4, dark_alpha: 0.4, wm_directory + "mana symbols/watermark_r_big.png") }
 	"transparent mana symbol hi res green":               { watermark_blend(colored: true, alpha: 0.4, dark_alpha: 0.4, wm_directory + "mana symbols/watermark_g_big.png") }
 	"transparent mana symbol hi res colorless":           { watermark_blend(colored: true, alpha: 0.4, dark_alpha: 0.4, wm_directory + "mana symbols/watermark_c_big.png") }
+	
+	"transparent mana symbol double WU":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wu_old.png") }
+	"transparent mana symbol double UB":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ub_old.png") }
+	"transparent mana symbol double BR":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_br_old.png") }
+	"transparent mana symbol double RG":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rg_old.png") }
+	"transparent mana symbol double GW":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gw_old.png") }
+	"transparent mana symbol double WB":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_wb_old.png") }
+	"transparent mana symbol double UR":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_ur_old.png") }
+	"transparent mana symbol double BG":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_bg_old.png") }
+	"transparent mana symbol double RW":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_rw_old.png") }
+	"transparent mana symbol double GU":                  { watermark_blend(colored: true, alpha: 1, dark_alpha: 1, wm_directory + "mana double/mana_gu_old.png") }
 	
 	"guild symbol The Azorius Senate (W/U)":              { watermark_blend(wm_directory + "ravnica/azorius2.png") }
 	"guild symbol House Dimir (U/B)":                     { watermark_blend(wm_directory + "ravnica/dimir2.png") }
@@ -2422,7 +2512,9 @@ watermark_scripts :=
 	
 	"set symbol":                                         { if (styling.watermark_render or else set.blend_with_colors) == "glow" then glow_watermark_blend(symbol_variation(symbol: set.symbol, variation: "watermark")) else shadow_watermark_blend(symbol_variation(symbol: set.symbol, variation: "watermark")) }
 ]
-
+watermark_image_1 := { watermark_scripts[card.watermark](face:watermark_face_1()) }
+watermark_image_2 := { watermark_scripts[card.watermark_2](face:watermark_face_2()) }
+watermark_image_3 := { watermark_scripts[card.watermark_3](face:watermark_face_3()) }
 ############################################################## Other scripted fields
 #### Dimensions of card faces, can be changed in style files
 faces_coordinates := {
@@ -2460,6 +2552,8 @@ information_copyright_offset_right_1 := { 0 }
 information_copyright_offset_pt_top_1 := { 0 }
 #### To shift the secondary copyright left/right on creatures/walkers, if the pt/loyalty box is very narrow/wide:
 information_secondary_offset_pt_left_1 := { 0 }
+#### Disable if the pt/loyalty doesn't affect the secondary copyright
+information_secondary_shift_with_pt_1 := { true }
 #### For the other faces on DFCs use:
 information_offset_top_2 := { 0 }
 information_codes_offset_left_2 := { 0 }
@@ -2471,6 +2565,8 @@ information_codes_offset_left_3 := { 0 }
 information_copyright_offset_right_3 := { 0 }
 information_copyright_offset_pt_top_3 := { 0 }
 information_secondary_offset_pt_left_3 := { 0 }
+information_secondary_shift_with_pt_2 := { true }
+information_secondary_shift_with_pt_3 := { true }
 #### These work the same on 90° rotated cards, but you need to imagine the card is upright
 #### For DFC or TFC templates, dont forget to override the faces_coordinates function.
 #### You can disable the copyright on some of the faces,
@@ -2502,33 +2598,41 @@ card_number_tags := {
 		then ["a", "b", "b"]
 	else ["", "", ""]
 }
+#### Card number section of card code
+card_code_number := {
+	if not use_auto_numbers()
+		then card.custom_card_number
+	else if set.card_number_style == "0001/0099" then
+		card_number_mom() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom())
+	else if set.card_number_style == "0001" then
+		card_number_mom() + tag
+	else if set.card_number_style == "001/099" then
+		card_number_m15() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15())
+	else if set.card_number_style == "001" then
+		card_number_m15() + tag
+	else if set.card_number_style == "1/99" then
+		card_number() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count())
+	else
+		card_number() + tag
+}@(tag: "")
 #### General card code handler
 card_code_script_core := {
+	rc := rarity_code()
+	if rc != "" then rc := rc + " "
 	if not use_auto_numbers() and set.card_number_style == "0001" then
 		### R CUSTOM TEXT
-		combined_editor(prefix: rarity_code() + " ", field1: card.custom_card_number, separator: " ", field2: card_code_text)
+		combined_editor(prefix: rc, field1: card.custom_card_number, separator: " ", field2: card_code_text)
 	else if not use_auto_numbers() then
 		### CUSTOM R TEXT
-		combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card_code_text)
-	else if set.card_number_style == "0001/0099" then
-		### R 1000/1000 TEXT
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom()) + " ", field: card_code_text)
-	else if set.card_number_style == "0001" then
-		### R 1000 TEXT
-		forward_editor(prefix: rarity_code() + " " + card_number_mom() + tag + " ", field: card_code_text)
-	else if set.card_number_style == "001/099" then
-		### 100/100 R TEXT
-		forward_editor(prefix: card_number_m15() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15()) + " " + rarity_code() + " ", field: card_code_text)
-	else if set.card_number_style == "001" then
-		### 100 R TEXT
-		forward_editor(prefix: card_number_m15() + tag + " " + rarity_code() + " ", field: card_code_text)
-	else if set.card_number_style == "1/99" then
-		### 1/99 R TEXT
-		forward_editor(prefix: card_number() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count()) + " " + rarity_code() + " ", field: card_code_text)
+		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card_code_text)
+	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
+		### R C#### TEXT
+		forward_editor(prefix: rc + card_code_number(tag:tag) + " ", field: card_code_text)
 	else
-		### 1 R TEXT
-		forward_editor(prefix: card_number() + tag + " " + rarity_code() + " ", field: card_code_text)
+		### C# R TEXT
+		forward_editor(prefix: card_code_number(tag:tag) + " " + rc, field: card_code_text)
 }@(tag: "")
+
 #### Card code script for individual faces
 card_code_script :=
 {
@@ -2576,6 +2680,12 @@ the_list_icon_image :=
 	color := styling.copyright_text_color or else set.copyright_text_color
 	recolor_image(image, color: color)
 }
+the_list_dot_image :=
+{
+	shape := the_list_icon_field(field)
+	if shape == "none" then ""
+	else recolor_image("/magic-modules.mse-include/information/list_dot.png", color: card.border_color)
+}
 
 ############################################################## Additional textboxes
 text_filter_default :=
@@ -2606,19 +2716,60 @@ level_filter_default := { "" }
 level_filter := { input }
 
 #### Correct the CARDNAME atom for levelers
-#### This can be overwritten for more complicated levelers
-#### Dungeons for example will overwrite with just {if set.alias_as_cardname and card.alias != "" then card.alias else card.name}
 card_name_for_level := {
-	lvl :=	if input < 5
-				then ""
-			else if input < 9
-				then "_2"
-			else if input < 13
-				then "_3"
-			else if input < 17
-				then "_4"
-			else ""
-	if set.alias_as_cardname and card["alias"+lvl] != "" then card["alias"+lvl] else card["name"+lvl]
+	tag :=	name_tag_for_level()
+	if set.CARDNAME_replacement == "card's type"
+		then (
+			ty := to_lower(cardname_type(card["type"+tag]))
+			if ty == "" then "this"
+			else "this " + ty
+		)
+	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
+		then card["alias"+tag]
+	else card["name"+tag]
+}
+card_name_for_face := {
+	tag := if input == 1 then "" else "_" + input
+	if set.CARDNAME_replacement == "card's type"
+		then (
+			ty := to_lower(cardname_type(card["type"+tag]))
+			if ty == "" then "this"
+			else "this " + ty
+		)
+	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
+		then card["alias"+tag]
+	else card["name"+tag]
+}
+cardname_type := {
+	if lang_setting("is_creature")(input)
+		then lang_setting("creature")
+	else if lang_setting("is_land")(input)
+		then lang_setting("land")
+	else if lang_setting("is_spell")(input)
+		then lang_setting("spell")
+	else if lang_setting("is_artifact")(input)
+		then lang_setting("artifact")
+	else if lang_setting("is_planeswalker")(input)
+		then lang_setting("planeswalker")
+	else if lang_setting("is_enchantment")(input)
+		then lang_setting("enchantment")
+	else if lang_setting("is_battle")(input)
+		then lang_setting("battle")
+	else ""
+	
+}
+#### This can be overwritten for more complicated levelers
+#### Dungeons for example will overwrite with just {""}
+name_tag_for_level := {
+	if input < 5
+		then ""
+	else if input < 9
+		then "_2"
+	else if input < 13
+		then "_3"
+	else if input < 17
+		then "_4"
+	else ""
 }
 
 ############################################################## Border
@@ -2641,7 +2792,7 @@ corners_mask :=
 		dimensions := map.width + "x" + map.height
 		dimensions := corners_possible_dimensions[dimensions] or else (if map.height > map.width then "1046x750" else "750x1046")
 		shape := corners_field(field)
-		shape := if shape == "none" or shape == "invisible" then "rounded" else shape
+		shape := if shape == "none" or shape == "invisible" or shape == "" then "rounded" else shape
 		"/magic-modules.mse-include/corners/" + dimensions + " " + shape + ".png"
 	)
 }
@@ -2651,10 +2802,12 @@ corners_possible_dimensions :=
 	"523x375":	"523x375"
 	"646x902":	"646x902"
 	"902x646":	"902x646"
+	"752x1049":	"752x1049"
 	"744x1039":	"744x1039"
 	"1039x744":	"1039x744"
 	"750x1046":	"750x1046"
 	"1046x750":	"1046x750"
+	"1500x1046":	"1500x1046"
 ]
 
 corners_disabled_1 := { false }
@@ -2714,6 +2867,7 @@ typesymbol_type := { typesymbol_for(type) }
 ############################################################## Transform/Lesson symbols
 transform_symbol_default :=
 {
+	stylesheet
 	if		margin_code == "transform1" then	"none"
 	else if	margin_code == "transform2" then	"none"
 	else										"none"
@@ -2911,6 +3065,26 @@ card_symbol_width_3 :=  { card_symbol_width( face:card_symbol_face_3(), offset:c
 card_symbol_height_3 := { card_symbol_height(face:card_symbol_face_3(), offset:card_symbol_offset_height_3()) }
 
 ############################################################## Loyalty costs
+use_tall_walker_frame_1 :=
+{
+	count := loyalty_abilities_count(instance: 1, active:true)
+	method := styling.use_tall_frame or else "default"
+	if method == "default" and count >= 4
+		then true
+	else if method == "always"
+		then true
+	else false
+}
+use_tall_walker_frame_2 :=
+{
+	count := loyalty_abilities_count(instance: 2, active:true)
+	method := styling.use_tall_frame_2 or else "default"
+	if method == "default" and count >= 4
+		then true
+	else if method == "always"
+		then true
+	else false
+}
 loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
 loyalty_cost_field :=
 {
@@ -2981,9 +3155,9 @@ loyalty_cost_offset_text_margin_1 := { 0 }
 
 loyalty_textbox_mask_1 :=
 {
-	if is_stamped(field: loyalty_stamp_field_1())
-	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
-	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
+	"/magic-modules.mse-include/loyalty/default_textbox"
+	+ (if use_tall_walker_frame_1() then "_tall" else "")
+	+ "_mask.png"
 }
 
 loyalty_face_2 := { 2 }
@@ -3004,9 +3178,9 @@ loyalty_cost_offset_text_margin_2 := { 0 }
 
 loyalty_textbox_mask_2 :=
 {
-	if is_stamped(field: loyalty_stamp_field_2())
-	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
-	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
+	"/magic-modules.mse-include/loyalty/default_textbox"
+	+ (if use_tall_walker_frame_2() then "_tall" else "")
+	+ "_mask.png"
 }
 
 loyalty_face_3 := { 3 }
@@ -3125,13 +3299,24 @@ loyalty_level_is_active :=
 	number := to_int(replace(input, match: "lv", replace: "")) or else 999
 	if number > 24 then false else (
 	instance := if number < 9 then 1 else if number < 17 then 2 else 3
-	loyalty_abilities_count() >= (number mod 8))
+	loyalty_abilities_count(active:true) >= (number mod 8))
 }
 loyalty_abilities_count :=
 {
 	styling_field := if instance <= 1 then (styling.number_of_textboxes or else "0") else (styling["number_of_textboxes_" + instance] or else "0")
+	if styling_field == "automatic" then (
+		counter := 1
+		for x from 1 to 8 do (
+			tf := card["level_" + (x*instance) + "_text"]
+			if tf != "" and tf != zwsp then counter := x;
+		)
+		tf := card["level_" + counter + "_text"]
+		if active then counter := counter - ( if tf == "" or tf == zwsp then 1 else 0)
+		else counter := counter + 1
+		styling_field := counter;
+	)
 	to_int(styling_field)
-}
+}@(active:false) 
 
 loyalty_ability_left :=
 {
@@ -3198,7 +3383,7 @@ loyalty_stripe_mask :=
 		or	mask == "/magic-modules.mse-include/loyalty/default_textbox_mask.png" then
 	(
 		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count() >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
+		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
 		top := to_744_height(top - a_top())
 		height := to_744_height(height)
 		crop_safe(
@@ -3214,7 +3399,7 @@ loyalty_stripe_mask :=
 	else
 	(
 		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count() >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
+		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
 		top := top - a_top()
 		crop_safe(
 			mask,
@@ -3707,9 +3892,10 @@ card_stamp_default := {
 	if shape == "iderp classicshifted" then shape := "extra iderp classicshifted default"
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
 	if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
-	rare_face := is_rare(field:field)
 	
-	stamp_behavior_checks[stamp_behavior](rare_face:rare_face, shape:shape)
+	if field > 1
+		then "none" #### backface doesn't have it by default
+	else stamp_behavior_checks[stamp_behavior](rare_face:is_rare(field:field), shape:shape)
 }@(field:1)
 ### Map for easier checks than if/else or case
 stamp_behavior_checks := [
@@ -3766,6 +3952,8 @@ card_stamp_image :=
 			if shape == "iderp classicshifted" then shape := "extra iderp classicshifted default"
 			if shape == "custom" or shape == "flatstamped custom"
 				then custom_stamp(flat:not is_foil_stamped(field:field))
+			else if shape == "none"
+				then ""
 			else "/magic-modules.mse-include/stamps/" + dimensions + " " + shape + ".png"
 		)
 	)
@@ -3827,10 +4015,30 @@ pinline_mask_2 := {""}
 pinline_mask_3 := {""}
 
 ############################################################## Custom corner symbols
-custom_symbol_1 := { if set.custom_symbol_1 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_1 else "/magic-modules.mse-include/symbols/aetherprint.png" }
-custom_symbol_2 := { if set.custom_symbol_2 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_2 else "/magic-modules.mse-include/symbols/aetherprint.png" }
-custom_symbol_3 := { if set.custom_symbol_3 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_3 else "/magic-modules.mse-include/symbols/aetherprint.png" }
-custom_symbol_4 := { if set.custom_symbol_4 != "" then "/magic-modules.mse-include/symbols/" + set.custom_symbol_4 else "/magic-modules.mse-include/symbols/aetherprint.png" }
+custom_symbol_1 := {
+	src := styling.custom_symbol_1 or else styling.custom_symbol_one or else set.custom_symbol_1 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
+custom_symbol_2 := {
+	src := styling.custom_symbol_2 or else styling.custom_symbol_two or else set.custom_symbol_2 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
+custom_symbol_3 := {
+	src := styling.custom_symbol_3 or else styling.custom_symbol_three or else set.custom_symbol_3 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
+custom_symbol_4 := {
+	src := styling.custom_symbol_4 or else styling.custom_symbol_four or else set.custom_symbol_4 or else ""
+	if has_png(src)
+		then "/magic-mainframe-extras.mse-include/" + src
+	else "/magic-modules.mse-include/symbols/aetherprint.png"
+}
 ############################################################## Custom fonts
 swap_font := {styling.apply_custom_fonts or else false}
 split_font := split_text@(match:";")
@@ -3862,8 +4070,8 @@ swap_font_color := {
 		nums := split_text(test, match:",")
 		test_color := nil
 		
-		if length(nums) >= 4 then test_color := rgba(nums.0, nums.1, nums.2, nums.3) or else nil
-		if test_color == nil and length(nums) >= 3 then test_color := rgb(nums.0, nums.1, nums.2) or else nil
+		if length(nums) >= 4 then test_color := rgba(to_number_lax(nums.0), to_number_lax(nums.1), to_number_lax(nums.2), to_number_lax(nums.3)) or else nil
+		if test_color == nil and length(nums) >= 3 then test_color := rgb(to_number_lax(nums.0), to_number_lax(nums.1), to_number_lax(nums.2)) or else nil
 		if test_color == nil and test != "" then test_color := to_color(test) or else nil
 		if test_color != nil then font_color := test_color
 	) else ""
@@ -4268,62 +4476,62 @@ pt_font_italic := {
 pt2_font := {
 	swap_font_name(
 		src: swap_fonts_pt_src(), 
-		font_name: swap_fonts_pt_default.name()
+		font_name: swap_fonts_pt2_default.name()
 	)
 }
 pt2_font_size := {
 	swap_font_size(
 		src: swap_fonts_pt_src(), 
-		font_size: swap_fonts_pt_default.size()
+		font_size: swap_fonts_pt2_default.size()
 	)
 }
 pt2_font_color := {
 	swap_font_color(
 		src: swap_fonts_pt_src(),
-		font_color: swap_fonts_pt_default.color()
+		font_color: swap_fonts_pt2_default.color()
 	)
 }
 pt2_font_vertical := {
 	swap_font_vertical(
 		src: swap_fonts_pt_src(),
-		vertical: swap_fonts_pt_default.vertical()
+		vertical: swap_fonts_pt2_default.vertical()
 	)
 }
 pt2_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_pt_src(),
-		font_name: swap_fonts_pt_default.italic()
+		font_name: swap_fonts_pt2_default.italic()
 	)
 }
 
 pt3_font := {
 	swap_font_name(
 		src: swap_fonts_pt_src(), 
-		font_name: swap_fonts_pt_default.name()
+		font_name: swap_fonts_pt3_default.name()
 	)
 }
 pt3_font_size := {
 	swap_font_size(
 		src: swap_fonts_pt_src(), 
-		font_size: swap_fonts_pt_default.size()
+		font_size: swap_fonts_pt3_default.size()
 	)
 }
 pt3_font_color := {
 	swap_font_color(
 		src: swap_fonts_pt_src(),
-		font_color: swap_fonts_pt_default.color()
+		font_color: swap_fonts_pt3_default.color()
 	)
 }
 pt3_font_vertical := {
 	swap_font_vertical(
 		src: swap_fonts_pt_src(),
-		vertical: swap_fonts_pt_default.vertical()
+		vertical: swap_fonts_pt3_default.vertical()
 	)
 }
 pt3_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_pt_src(),
-		font_name: swap_fonts_pt_default.italic()
+		font_name: swap_fonts_pt3_default.italic()
 	)
 }
 
@@ -4332,8 +4540,13 @@ shrink_type :=  {0}
 shrink_name2 := {0}
 shrink_type2 := {0}
 ############################################################## Custom rarity symbol
-use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png") }
-mainframe_rarity := {"/magic-mainframe-extras.mse-include/" + un_png(set.mainframe_rarity_name) + input + ".png"}
+mainframe_rarity_string := {
+	if styling.mainframe_rarity_name or else "" != ""
+		then mr := styling.mainframe_rarity_name
+	else set.mainframe_rarity_name
+}
+use_main_rarity := { has_png(mainframe_rarity_string()) }
+mainframe_rarity := {"/magic-mainframe-extras.mse-include/" + un_png(mainframe_rarity_string()) + input + ".png"}
 alt_rarity := { styling.alt_rarity_color or else "" }
 use_alt_rarity := { alt_rarity() != "" }
 alt_rarity_color := {
@@ -4374,6 +4587,25 @@ alt_symbol := {
 		center_x:0.5, center_y:0.5, end_x:1, end_y:1
 	)
 }
+############################################################## Other customizable stuff
+custom_border_image := {
+	src := styling.custom_border_source or else ""
+	ps := split_text(src, match:"-color-")
+	if length(ps) > 1 then
+		"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
+	else
+		"/magic-mainframe-extras.mse-include/" + src
+}
+alt_nyx_template := {
+	src := set.alternate_nyx
+	fs := filter_text(src, match:"[^./]+.png")
+	dir := filter_text(src, match:"^([^.]+/)+")
+	"/magic-mainframe-extras.mse-include/" + dir + input + (if land then "l" else "") + fs
+}
+harder_script := [
+	alt_nyx: alt_nyx_template,
+	custom_border: custom_border_image
+]
 ############################################################## Card column sorting
 type_sort_script :=
 {
