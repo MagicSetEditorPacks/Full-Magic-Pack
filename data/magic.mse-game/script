@@ -90,12 +90,7 @@ clamp := {
 }
 round_up :=   {to_int(0.99999999999998+input)} #### 0.99999999999999 == 1, leave the 8
 round_near := {to_int(0.5+input)}
-to_number_lax :=
-{
-	input := trim(input)
-	if input == "" or input == "-" then input := 0
-	to_number(input)
-}
+to_number_lax := { to_number(input) or else to_number(trim(input)) or else 0 }
 #### reads from a comma separated list like an array
 pull_comma_array := {
 	array := split_text(input, match:divider)
@@ -3888,6 +3883,7 @@ nameline_offset_height_3 := { 0 }
 ### The stamp to use if the user hasn't overwritten it for this card
 card_stamp_default := {
 	shape := styling.default_stamp or else set.default_stamp
+	if shape == "iderp classicshifted" then shape := "iderp classicshifted default"
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
 	if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
 	
@@ -3909,8 +3905,13 @@ stamp_behavior_checks := [
 ]
 ### The image to use for custom stamp
 custom_stamp := {
+	fs := split_custom_directory(set.custom_stamp_name)
 	if set.custom_stamp_name != "" and has_png(set.custom_stamp_name)
-		then "/magic-mainframe-extras.mse-include/" + un_png(set.custom_stamp_name) + (if flat then " flat" else "") + ".png"
+		then "/magic-mainframe-extras.mse-include/" 
+			+ fs.directory
+			+ dimensions + " "
+			+ (if flat then "flatstamped " else "")
+			+ fs.filename
 	else "/magic-modules.mse-include/stamps/375x523 " + (if flat then "flatstamped " else "") + "heart.png"
 }@(flat:false)
 ### The shape of the background stamp for templates
@@ -3946,8 +3947,9 @@ card_stamp_image :=
 			dimensions := card_stamp_possible_dimensions[dimensions] or else (if map.width > map.height then "1039x744" else "744x1039")
 			shape := card_stamp_field(field)
 			if shape == "default" then shape := set.default_stamp
+			if shape == "iderp classicshifted" then shape := "iderp classicshifted default"
 			if shape == "custom" or shape == "flatstamped custom"
-				then custom_stamp(flat:not is_foil_stamped(field:field))
+				then custom_stamp(dimensions: dimensions, flat:not is_foil_stamped(field:field))
 			else if shape == "none"
 				then ""
 			else "/magic-modules.mse-include/stamps/" + dimensions + " " + shape + ".png"
@@ -4584,6 +4586,11 @@ alt_symbol := {
 	)
 }
 ############################################################## Other customizable stuff
+split_custom_directory := {
+	fn := filter_text(input, match:"[^./]+.png")
+	dir := filter_text(input, match:"^([^.]+/)+")
+	[directory:dir, filename:fn]
+}
 custom_border_image := {
 	src := styling.custom_border_source or else ""
 	ps := split_text(src, match:"-color-")
