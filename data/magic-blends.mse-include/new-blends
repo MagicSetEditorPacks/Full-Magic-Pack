@@ -1095,43 +1095,46 @@ spotlight_watermark_blend := {
 	if type_name(input) == "string" and contains(input, match:".png,") then (
 		array := split_text(input+",,", match:",")
 		input := array.0
-		l := min(to_number(array.1),500)
-		h := min(to_number(array.2),500)
 	)
 	wmc := watermark_colors(face:face)
 	c1 := wmc.0 + (if contains(face, match:"land") then "l") + "spotlight.png"
 	c2 := wmc.1 + (if contains(face, match:"land") then "l") + "spotlight.png"
-	wmdir := watermark_include + "/spotlight/"
-	if (h != 500 or l != 500) then (
-		wmdir := wmdir + "1024/"
+	
+	custom_img := to_image(input)
+	l := width_of(custom_img)
+	h := height_of(custom_img)
+	wm := ""
+	if l > 1024 or h > 1024 then (
+		trace("Maximum custom watermark dimensions are 1024x1024.")
+	)else(
+		wmdir := watermark_include + "/spotlight/"
 		c1 := crop(wmdir+c1, height:h, width:l, offset_x:0, offset_y:0)
 		c2 := crop(wmdir+c2, height:h, width:l, offset_x:0, offset_y:0)
-	)else(
-		c1 := wmdir + c1
-		c2 := wmdir + c2
+
+		mask := input
+		wm := set_alpha(
+			alpha: alpha
+			input:
+				linear_blend(
+					image1: 
+						masked_blend(
+							light: custom_img
+							dark: c1
+						mask: mask
+						)
+					image2:
+						masked_blend(
+							light: custom_img
+							dark: c2
+						mask: mask
+						)
+					x1: 0.4,  y1: 0
+					x2: 0.6,  y2: 0
+				)
+		)
 	)
-	mask := input
-	set_alpha(
-		alpha: alpha
-		input:
-			linear_blend(
-				image1: 
-					masked_blend(
-						light: input
-						dark: c1
-					mask: mask
-					)
-				image2:
-					masked_blend(
-						light: input
-						dark: c2
-					mask: mask
-					)
-				x1: 0.4,  y1: 0
-				x2: 0.6,  y2: 0
-			)
-	)
-}@(h:500,l:500,face:1,alpha:0.2)
+	wm
+}@(face:1,alpha:0.2)
 
 shadow_watermark_blend := {
 	set_combine(
