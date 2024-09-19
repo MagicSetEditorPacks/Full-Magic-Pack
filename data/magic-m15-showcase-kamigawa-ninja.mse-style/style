@@ -135,7 +135,24 @@ init script:
 	popout_width := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
 	popout_height := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
 	
-
+	include file: /magic-modules.mse-include/loyalty/init_script
+	mainframe_walker := { lang_setting("is_planeswalker")(card.type) }
+	loyalty_textbox_mask := {"walker_mask.png"}
+	loyalty_textbox_background_image :=
+	{
+		color := if instance <= 1 then (styling.textbox_color or else rgb(255,255,255)) else (styling["textbox_color_" + instance] or else rgb(255,255,255))
+		alpha := if instance <= 1 then (styling.textbox_opacity_percentage or else "50") else (styling["textbox_opacity_percentage_" + instance] or else "70")
+		set_alpha(
+			recolor_image(
+				"/magic-modules.mse-include/loyalty/color.png",
+				color: color
+			),
+			alpha: get_alpha_percentage(
+				alpha,
+				default: 70
+			)
+		)
+	}
 ############################################################## Extra style options
 
 styling field:
@@ -147,6 +164,62 @@ styling field:
 	name:			stretch image to whole card
 	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
 	initial:		no
+
+styling field:
+	type:			choice
+	name:			number of textboxes
+	description:	Number of textboxes for abilities and passives. MODIFY CONTENTS OF TEXTBOXES IF THIS HAS TROUBLE UPDATING AFTER BEING CHANGED.
+	choice:			automatic
+	choice:			1
+	choice:			2
+	choice:			3
+	choice:			4
+	choice:			5
+	choice:			6
+	choice:			7
+	choice:			8
+	initial:		automatic
+
+styling field:
+	type:			text
+	name:			move separators
+	description:	Moves the limits between abilities down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5"
+
+styling field:
+	type:			text
+	name:			move loyalty costs
+	description:	Moves loyalty costs down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5,6"
+
+styling field:
+	type:			text
+	name:			textbox opacity percentage
+	description:	Set the opacity percentage for textboxes. Opaque is 100, transparent is 0, default is 50.
+styling field:
+	type:			color
+	name:			textbox color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0,200)
+	choice:
+		name:			white
+		color:			rgb(255,255,255,200)
+	initial:		rgb(0,0,0,200)
+styling field:
+	type:			text
+	name:			stripes opacity percentage
+	description:	Set the opacity percentage for stripes separating abilities. Opaque is 100, transparent is 0, default is 40.
+styling field:
+	type:			color
+	name:			stripes color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0,200)
+	choice:
+		name:			white
+		color:			rgb(255,255,255,200)
+	initial:		rgb(0,0,0,200)
 
 include file: /magic-modules.mse-include/texts/styling_fields
 
@@ -194,6 +267,8 @@ include file: /magic-modules.mse-include/namelines/card_fields
 
 include file: /magic-modules.mse-include/typelines/card_fields
 
+include file: /magic-modules.mse-include/loyalty/card_fields
+
 card style:
 	############################# Background stuff
 	border color:
@@ -216,13 +291,13 @@ card style:
 		render style:		image
 		popup style:		in place
 		image:				{ card_background() }
-		mask:				card/frame_mask.png
+		mask:				{if mainframe_walker() then "card/frame_mask_walker.png" else "card/frame_mask.png" }
 	############################# Image
 	image:
 		left:				{ if styling.stretch_image_to_whole_card then 0							else 30 }
 		top:				{ if styling.stretch_image_to_whole_card then 0							else 119 }
 		width:				{ if styling.stretch_image_to_whole_card then stylesheet.card_width		else 690 }
-		height:				{ if styling.stretch_image_to_whole_card then stylesheet.card_height	else 464 }
+		height:				{ if styling.stretch_image_to_whole_card then stylesheet.card_height	else if mainframe_walker() then 830 else 464 }
 		z index:			100
 		mask:				{ if styling.stretch_image_to_whole_card then "image_mask_full.png" else "" }
 	mainframe image:
@@ -268,7 +343,7 @@ card style:
 	pt:
 		left:				587
 		top:				{ 935 + pt_font_vertical() }
-		width:				120
+		width:				{ if mainframe_walker() then 0 else 120 }
 		height:				56
 		z index:			900
 		alignment:			center middle shrink-overflow
@@ -323,7 +398,7 @@ extra card style:
 		width: 				146
 		height:				67
 		z index:			840
-		visible:			{ card.pt != "" }
+		visible:			{ card.pt != "" and not mainframe_walker() }
 		render style:		image
 		image:				{ module_ptbox() }
 	crown:
