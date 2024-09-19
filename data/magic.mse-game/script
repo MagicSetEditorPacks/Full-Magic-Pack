@@ -4018,6 +4018,41 @@ pinline_mask_1 := {""}
 pinline_mask_2 := {""}
 pinline_mask_3 := {""}
 
+############################################################## Overlay masks
+foil_mask_base_image := { "foil_mask.png" }
+foil_mask_removed_sections := {
+	output := []
+	sh := stamp_shape(field:face)
+	if sh == "round" then output := output + ["foil_mask_round.png"]
+	else if sh == "triangle" then output := output + ["foil_mask_triangle.png"]
+	output
+}@(face:1)
+foil_mask_added_sections := {
+	output := []
+	pt_field := if face == 1 then card.pt else card["pt_" + face]
+	if pt_field != "" then output := output + ["foil_mask_pt.png"]
+	output
+}@(face:1)
+foil_mask_blended_image := {
+	img := foil_mask_base_image(face)
+	added := foil_mask_added_sections(face)
+	removed := foil_mask_removed_sections(face)
+	len_add := length(added)
+	len_rem := length(removed)
+	if(len_add > 0) then (
+		for i from 0 to len_add-1 do (
+			img := masked_blend(dark:img, light:added[i], mask:added[i]);
+			"dummy return"
+		)
+	)
+	if(len_rem > 0) then (
+		for i from 0 to len_rem-1 do (
+			img := masked_blend(light:img, dark:removed[i], mask:removed[i]);
+			"dummy return"
+		)
+	)
+	img
+}@(face:1)
 ############################################################## Custom corner symbols
 custom_symbol_1 := {
 	src := styling.custom_symbol_1 or else styling.custom_symbol_one or else set.custom_symbol_1 or else ""
