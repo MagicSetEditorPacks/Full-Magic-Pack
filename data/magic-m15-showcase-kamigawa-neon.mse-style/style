@@ -1,6 +1,6 @@
 ﻿mse version:		2.1.2
 game:				magic
-short name:			Ninja
+short name:			Neon
 full name:			Kamigawa Showcase
 icon:				card_sample.png
 position hint:		095
@@ -32,7 +32,6 @@ card dpi:			300
 ############################################################## Extra scripts
 
 init script:
-	card_stamp_offset_left_1 := { -1 }
 	
 	swap_fonts_pt_default :=
 	[
@@ -53,8 +52,9 @@ init script:
 	]
 	
 	typeline_offset_width_1 := { -2 }
-	typeline_offset_top_1 := { 3 }
-	indicator_offset_left_1 := { -4 }
+	typeline_offset_top_1 := { if is_short() then 143 else 3 }
+	typeline_offset_left_1 := { 16 }
+	indicator_offset_left_1 := { -8 }
 	rarity_offset_top_1 := { 2 }
 	swap_fonts_type_default :=
 	[
@@ -68,45 +68,35 @@ init script:
 	transform_symbol_disabled_1 := { true }
 	card_symbol_offset_top_1 := { 1 }
 	casting_cost_offset_top_1 := { 1 }
-	nameline_offset_top_1 := { -1 }
+	nameline_offset_top_1 := { 4 }
 	nameline_offset_width_1 := { 2 }
 	nameline_offset_left_1 := { -1 }
 	swap_fonts_name_default :=
 	[
 		name: {"Beleren Bold"},
-		size: {32.0},
+		size: {30.0},
 		color: {"white"},
 		vertical: {0},
 		italic: {""}
 	]
 	
-	card_stamp_offset_top_1 := { if stamp_shape() == "triangle" then 1 else 3 }
 	card_stamp_offset_left_1 := { 1 }
+	card_stamp_offset_top_1 := { if stamp_shape() == "triangle" then 10 else 0 }
 
-	foil_mask_added_sections := {
-		output := []
-		if card.pt != "" then output := output + ["foil_mask_pt.png"]
-		if is_crowned() then output := output + ["foil_mask_crown.png"]
-		output
-	}@(face:1)
-	foil_mask_removed_sections := {
-		[]
-	}@(face:1)
-	
 	template_prefix := [
 		card: "card/",
+		card2: "short/",
 		pt: "pt/",
 		crown: "crown/",
 		stamp: "stamp/",
-		ubstamp: "/magic-modules.mse-include/stamps/backs/hires ub/",
 		identity: "/magic-modules.mse-include/indicators/"
 	]
 	template_suffix := [
 		card: "card.png",
+		card2: "card.png",
 		pt: "pt.png",
 		crown: "crown.png",
 		stamp: "stamp.png",
-		ubstamp: "stamp.png",
 		identity: "identity.png"
 	]
 	template := { template_prefix[type] + input + template_suffix[type] }
@@ -116,17 +106,21 @@ init script:
 	card_crown := { color_background(input: card.card_color, type: "crown",	base_hybrid: card_hybrid)}@(offset: 0)
 	card_ptbox := { color_background(input: card.card_color, type: "pt",		base_hybrid: card_hybrid)}@(offset: 0)
 	card_stamp := { color_background(input: card.card_color, type: "stamp",	base_hybrid: card_hybrid)}@(offset: 0)
-	
-	has_identity := { styling.color_indicator_dot }
-	has_identity_2 := { false }
-	
+	card_background2 := { color_background(input: card.card_color, type: "card2",		base_hybrid: card_hybrid)}@(offset: 0)
+
 	is_promo := { styling.promo }
 	
 	is_unsorted := { styling.remove_from_autocount }
 
-	
 	is_crowned := { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
 	
+	is_short := { styling.short_frame }
+	
+	foil_mask_base_image := { if is_crowned() then "foil_mask_crown.png" else "foil_mask.png" }
+	foil_mask_removed_sections := {
+		[]
+	}@(face:1)
+
 	chop_top := { split := split_comma(styling.chop_text_box); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -1500) else 0 }
 	chop_bot := { split := split_comma(styling.chop_text_box); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: -1500) else 0 }
 	
@@ -136,7 +130,7 @@ init script:
 	popout_height := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
 	
 	include file: /magic-modules.mse-include/loyalty/init_script
-	mainframe_walker := { lang_setting("is_planeswalker")(card.type) }
+	mainframe_walker := { lang_setting("is_planeswalker")(card.type) and not is_short() }
 	loyalty_textbox_mask := {"walker_mask.png"}
 	loyalty_textbox_background_image :=
 	{
@@ -163,6 +157,12 @@ styling field:
 	type:			boolean
 	name:			stretch image to whole card
 	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
+	initial:		no
+
+styling field:
+	type:			boolean
+	name:			short frame
+	description:	Use the short frame
 	initial:		no
 
 styling field:
@@ -204,7 +204,7 @@ styling field:
 	choice:
 		name:			white
 		color:			rgb(255,255,255)
-	initial:		rgb(0,0,0)
+	initial:		rgb(255,255,255)
 styling field:
 	type:			text
 	name:			stripes opacity percentage
@@ -215,11 +215,11 @@ styling field:
 	description:	Use the specified color for the textbox background.
 	choice:
 		name:			black
-		color:			rgb(0,0,0,200)
+		color:			rgb(0,0,0,)
 	choice:
 		name:			white
-		color:			rgb(255,255,255,200)
-	initial:		rgb(0,0,0,200)
+		color:			rgb(255,255,255)
+	initial:		rgb(0,0,0)
 
 include file: /magic-modules.mse-include/texts/styling_fields
 
@@ -281,7 +281,7 @@ card style:
 		top width:			60
 		bottom width:		90
 		z index:			500
-		mask:				border_mask.png
+		mask:				{ if is_crowned() then "border_crown.png" else "border_mask.png" }
 	card color:
 		left:				0
 		top:				0
@@ -290,14 +290,14 @@ card style:
 		z index:			200
 		render style:		image
 		popup style:		in place
-		image:				{ card_background() }
-		mask:				{if mainframe_walker() then "card/frame_mask_walker.png" else "card/frame_mask.png" }
+		image:				{ if is_short() then card_background2() else card_background() }
+		mask:				{ if is_short() then "short/frame_mask.png" else if mainframe_walker() then "card/frame_mask_walker.png" else "card/frame_mask.png" }
 	############################# Image
 	image:
-		left:				{ if styling.stretch_image_to_whole_card then 0							else 30 }
-		top:				{ if styling.stretch_image_to_whole_card then 0							else 119 }
-		width:				{ if styling.stretch_image_to_whole_card then stylesheet.card_width		else 690 }
-		height:				{ if styling.stretch_image_to_whole_card then stylesheet.card_height	else if mainframe_walker() then 830 else 464 }
+		left:				{ if styling.stretch_image_to_whole_card then 0							else 28 }
+		top:				{ if styling.stretch_image_to_whole_card then 0							else 50 }
+		width:				{ if styling.stretch_image_to_whole_card then stylesheet.card_width		else 694 }
+		height:				{ if styling.stretch_image_to_whole_card then stylesheet.card_height	else 914 }
 		z index:			100
 		mask:				{ if styling.stretch_image_to_whole_card then "image_mask_full.png" else "" }
 	mainframe image:
@@ -309,9 +309,9 @@ card style:
 	############################# Text box
 	text:
 		left:				59
-		top:				{ 660 + chop_top() + body_font_vertical() }
+		top:				{ (if is_short() then 800 else 656) + chop_top() + body_font_vertical() }
 		right:				692
-		bottom:				{ 965 - chop_bot() }
+		bottom:				{ 950 - chop_bot() }
 		z index:			900
 		padding left:		6
 		padding right:		4
@@ -342,7 +342,7 @@ card style:
 	############################# PT
 	pt:
 		left:				587
-		top:				{ 935 + pt_font_vertical() }
+		top:				{ 932 + pt_font_vertical() }
 		width:				{ if mainframe_walker() then 0 else 120 }
 		height:				56
 		z index:			900
@@ -376,27 +376,13 @@ extra card field:
 	save value:			false
 	show statistics:	false
 	choice:				foil layer
-extra card field:
-	type:				color
-	name:				card stamp border
-	script:				card.border_color
-	editable:			false
-	save value:			false
-	show statistics:	false
-extra card field:
-	type:				choice
-	name:				card stamp rim
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				card stamp rim
 
 extra card style:
 	pt box:
 		left: 				575
-		top: 				928
-		width: 				146
-		height:				67
+		top: 				929
+		width: 				145
+		height:				64
 		z index:			840
 		visible:			{ card.pt != "" and not mainframe_walker() }
 		render style:		image
