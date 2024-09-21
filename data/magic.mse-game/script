@@ -1178,6 +1178,16 @@ this_or_that := {
 
 	this_that + " " + type
 }@(upper:false)
+#### see if a keyword should have different text because it's merged with another reminder text
+#### handle_merged_rt("Its a", moved:"A Food token is")
+handle_merged_rt := {
+	"<use-if-moved>" + moved + "</use-if-moved><otherwise>" + input + "</otherwise>"
+}
+#### see if an action keyword should have different text because its distant from the keyword
+#### handle_action_rt(to:"forage", "Exile")
+handle_action_rt := {
+	"<use-if-bumped>To " + to + ", " + to_lower(input) + "</use-if-bumped><otherwise>" + input + "</otherwise>"
+}
 
 ############################################################## Complex reminder texts
 self_pro_check := match@(match:"You ha(ve|s) <kw-A><nospellcheck>protection")
@@ -1472,6 +1482,9 @@ text_filter :=
 	remove_tag@(tag: "<bullet>") +
 	remove_tag@(tag: "<align") +
 	remove_tag@(tag: "<margin") +
+	remove_tag@(tag: "<moved>") +
+	remove_tag@(tag: "<blob>") +
+	remove_tag@(tag: "<key>") +
 	#### step 1b : remove zero-width space used for level spacers
 	replace@(match:"​", replace:"") +
 	#### step 2a : temp fix for formatting buttons
@@ -1496,7 +1509,7 @@ text_filter :=
 			chosen(choice:if correct_case or mode == "action" then mode else "lower case", set.automatic_reminder_text) and chosen(choice:mode, set.automatic_reminder_text)
 		},
 		combine: {
-			keyword := "<nospellcheck>{keyword}</nospellcheck>"
+			keyword := "<nospellcheck><key>{keyword}</key></nospellcheck>"
 			reminder := process_english_hints(reminder)
 			if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
 			else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
@@ -1509,13 +1522,41 @@ text_filter :=
 	) +
 	#### step 2c : move action keywords' reminder text to the end of the line
 	replace@(
-		match: "(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)", #### removed "| ?<kw-" from lookahead
+		match: "(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]+)", #### removed "| ?<kw-" from lookahead
 		replace: "\\2\\1"
 	) +
 	#### step 2d : when there's an action keyword and another one, then move that to the end of the line
 	replace@(
 		match: "(<atom-reminder-[^>]+> (?:(?!</kw)[^\n]*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*?)(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)",
-		replace: "\\2\\4\\3\\1"
+		replace: "\\2<blob>\\4\\3<moved>\\1</moved></blob>"
+	) +
+	#### step 2da : apply multikeyword reminder edits
+		#### A Food token is... vs It's a...
+		#### this one moved
+	replace@(
+		match: "(<moved><atom-reminder[^>]*> [(])<use-if-(?:moved|bumped)>(.*?)</use-if-(?:moved|bumped)><otherwise>(.*?)</otherwise>",
+		replace: "\\1\\2"
+	) +
+		#### this one didn't
+	replace@(
+		match: "<use-if-moved>(.*?)</use-if-moved><otherwise>(.*?)</otherwise>",
+		replace: "\\2"
+	) +
+		#### To forage, exile... vs Exile...
+		#### this was put in a combined rt
+	replace@(
+		match: "(<blob>.*?)<use-if-bumped>(.*?)</use-if-bumped><otherwise>(.*?)</otherwise>",
+		replace: "\\1\\2"
+	) +
+		#### this one wasn't bumped
+	replace@(
+		match: "(</key></nospellcheck>[.]?<atom-reminder[^>]*> [(])<use-if-bumped>(.*?)</use-if-bumped><otherwise>(.*?)</otherwise>",
+		replace: "\\1\\3"
+	) +
+		#### this one was bumped
+	replace@(
+		match: "<use-if-bumped>(.*?)</use-if-bumped><otherwise>(.*?)</otherwise>",
+		replace: "\\1"
 	) +
 	#### step 2e : allow a sentence after lowercase reminder text for equips etc.
 	#replace@(
@@ -1529,7 +1570,7 @@ text_filter :=
 	) +
 	#### step 2g : combine reminder texts
 	replace@(
-		match: "[)](</atom-reminder-[^>]+></kw-[^>]><atom-reminder-[^>]+> )[(]"
+		match: "[)](</atom-reminder-[^>]+></kw-[^>]>(?:</?moved>)?<atom-reminder-[^>]+> )[(]"
 		replace: "\\1"
 	) +
 	#### step 2h : temp fix for formatting buttons
