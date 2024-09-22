@@ -74,16 +74,6 @@ init script:
 		italic: {""}
 	]
 	
-	card_stamp_default :=
-	{
-		shape := "universes beyond"
-		stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
-		if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
-		rare_face := is_rare(field:field)
-		
-		stamp_behavior_checks[stamp_behavior](rare_face:rare_face, shape:shape)
-	}@(field:1)
-	
 	card_stamp_offset_left_1 := { 1 }
 	
 	template_prefix :=
@@ -122,6 +112,13 @@ init script:
 	popout_width := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
 	popout_height := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
 
+	foil_mask_added_sections := {
+		output := []
+		pt_field := if face == 1 then card.pt else card["pt_" + face]
+		if pt_field != "" then output := output + ["foil_mask_pt.png"]
+		if is_crowned() then output := output + ["foil_mask_crown.png"]
+		output
+	}@(face:1)
 ############################################################## Extra style options
 
 styling field:
@@ -171,6 +168,8 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
+
+include file: /magic-modules.mse-include/stamps/styling_fields_ub
 
 include file: /magic-modules.mse-include/rarities/styling_fields
 
@@ -416,7 +415,7 @@ extra card style:
 		height:				{ stylesheet.card_height }
 		z index:			610
 		render style:		image
-		image:				{ if is_stamped() then "stamp_rim.png" else "non_stamp_rim.png" }
+		image:				{ stamp_shape() +  "_stamp_rim.png" }
 	card stamp border:
 		left:				0
 		top:				0
@@ -424,7 +423,7 @@ extra card style:
 		height:				{ stylesheet.card_height }
 		z index:			600
 		visible:			{ is_stamped() }
-		mask:				border_stamp_mask.png
+		mask:				{ "border_stamp_" + (if stamp_shape() == "triangle" then "tri_" else "") + "mask.png" }
 	scanlines:
 		left:				0
 		top:				0
@@ -458,4 +457,4 @@ extra card style:
 		visible:			{ styling.overlay != "none" and styling.overlay != "" }
 		render style:		image
 		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
-		mask:				{ "foil_mask" + (if is_stamped() then "_rare" else "") + (if card.pt != "" then "_pt" else "") + (if is_crowned() then "_crown" else "") + ".png" }
+		mask:				{ foil_mask_blended_image() }
