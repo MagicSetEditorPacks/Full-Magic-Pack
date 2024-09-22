@@ -73,6 +73,12 @@ init script:
 		italic: {""}
 	]
 	
+	card_stamp_offset_top_1 := {
+		if stamp_shape() == "triangle"
+			then 6
+		else 0
+	}
+	
 	template_prefix :=
 	[
 		card:			"card/",
@@ -125,6 +131,17 @@ init script:
 	popout_width :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, minimum: 0,		maximum: 1500) else 0 }
 	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, minimum: 0,		maximum: 2000) else 0 }
 
+	foil_mask_added_sections := {
+		output := []
+		if card.pt != "" then output := output + ["foil_mask_pt.png"]
+		if is_crowned() then output := output + ["foil_mask_crown.png"]
+		output
+	}@(face:1)
+	foil_mask_removed_sections := {
+		output := []
+		if is_stamped() then output := output + ["foil_mask_round.png"]
+		output
+	}@(face:1)
 ############################################################## Extra style options
 
 styling field:
@@ -155,6 +172,8 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
+
+include file: /magic-modules.mse-include/stamps/styling_fields
 
 include file: /magic-modules.mse-include/rarities/styling_fields
 
@@ -190,6 +209,8 @@ include file: /magic-modules.mse-include/separators/card_fields
 include file: /magic-modules.mse-include/namelines/card_fields
 
 include file: /magic-modules.mse-include/typelines/card_fields
+
+include file: /magic-modules.mse-include/foils/card_fields
 
 card style:
 	############################# Background stuff
@@ -306,13 +327,6 @@ extra card field:
 	editable:			false
 	save value:			false
 	show statistics:	false
-extra card field:
-	type:				choice
-	name:				foil layer
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				foil layer
 
 extra card style:
 	crown:
@@ -364,13 +378,3 @@ extra card style:
 		z index:			600
 		visible:			{ is_stamped() }
 		mask:				border_stamp_mask.png
-	foil layer:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			1050
-		visible:			{ styling.overlay != "none" and styling.overlay != "" }
-		render style:		image
-		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
-		mask:				{ "foil_mask" + (if is_stamped() then "_rare" else "") + (if card.pt != "" then "_pt" else "") + (if is_crowned() then "_crown" else "") + ".png"}
