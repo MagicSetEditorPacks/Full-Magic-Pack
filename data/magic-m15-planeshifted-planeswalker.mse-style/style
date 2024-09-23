@@ -1,27 +1,24 @@
 ﻿mse version: 2.0.0
 game: magic
-short name: M15 Planeshifted Walkers
-full name: M15 Planeshifted Planeswalkers
+short name: M15 Shifted
+full name: Planeshifted Walkers
 installer group: magic/m15 style/planeswalkers/planeshifted
 icon: card-sample.png
 position hint: 071
 
-version: 2018-02-09
+version: 2024-06-07
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
 depends on:
 	package: magic-mana-small.mse-symbol-font
 	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
 
 card width: 375
 card height: 523
@@ -31,8 +28,22 @@ init script:
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	
-	template_prefix := [card: "" card2: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.jpg" card2: "card2.jpg" stamp: "stamp.jpg" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		card2: ""
+		pt: "/magic-modules.mse-include/pts/375 m15/shifted/"
+		stamp: "stamps/"
+		ubstamp: "ubstamps/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.jpg"
+		card2: "card2.jpg"
+		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + "c" + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
@@ -55,25 +66,19 @@ init script:
 		if to_int(card.border_color) < 96 then "white" else "black"
 	}
 	
-	# Loyalty cost arrows
-	loyalty_image := {
-		if      contains(input, match: "+") then "loyalty up"
-		else if contains(input, match: "-") then "loyalty down"
-		else                                     "loyalty naught"
-	}
-	
 	card_shape := { if styling.shifted_sorting then "shifted planeswalker" else "planeswalker" }
 	
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	
-	# Does the card have four abilities?
-	has_four_abilities := { contains(paragraph_count(card.rule_text), match: "\n\n\n") }
-	paragraph_count := 
-		replace@(match:"<soft-line>\n", replace:"")+
-		filter_text@(match:"\n")
-	has_identity := { styling.color_indicator_dot }
 	is_unsorted := {styling.remove_from_autocount}
+	card_stamp_offset_top_1 := { if stamp_shape() == "triangle" then -2 else 0 }
+	include file: /magic-modules.mse-include/loyalty/init_script
+	loyalty_textbox_mask_1 := {
+		"default_textbox"
+		+ (if use_tall_walker_frame_1() then "_tall" else "")
+		+ "_mask.png"
+	}
+	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -91,18 +96,11 @@ styling field:
 	initial: yes
 styling field:
 	type: boolean
-	name: use holofoil stamps
-	description: Change to no to disable rare holofoil stamps
-styling field:
-	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
-	initial: no
-styling field:
-	type: boolean
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
 	initial: no
+include file: /magic-modules.mse-include/loyalty/styling_fields
+include file: /magic-modules.mse-include/rarities/styling_fields
 styling field:
 	type: boolean
 	name: grey hybrid name
@@ -171,6 +169,11 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/watermarks/card_fields
+include file: /magic-modules.mse-include/loyalty/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -178,12 +181,11 @@ card style:
 		top : 0
 		width:	375
 		height:	523
-		radius: 18
 		left width:   17
 		right width:  17
 		top width:    17
 		bottom width: 18
-		z index: 4
+		z index: 500
 		mask: border_mask.png
 	card color:
 		left:	0
@@ -193,7 +195,7 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
-		image: { if has_four_abilities() then card_background2() else card_background() }
+		image: { if use_tall_walker_frame_1() then card_background2() else card_background() }
 	############################# Name line
 	name:
 		left: { if card.card_symbol=="none" then 31 else 48 }
@@ -202,7 +204,7 @@ card style:
 		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 1
+		z index: 900
 		font:
 			name: Beleren Bold
 			size: 16
@@ -221,17 +223,17 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 920
 		padding top: 0
 	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 29}
-		top: 23
-		height: 18
-		width: 14
+		left: {if card.card_symbol=="none" then 20 else 25}
+		top: 21
+		height: 21
+		width: 23
 		z index: 1
 		render style: image
-		choice images:
-			tombstone: tombstone.png
+		include file:		/magic.mse-game/card-symbols/menu_choice_images
+		image:				{ card_symbol_image(face: 1) }
 	############################# Image
 	image:
 		left: 25
@@ -239,24 +241,24 @@ card style:
 		width: 324
 		height:	427.5
 		z index: 1
-		mask: { "imagemask" + ( if has_four_abilities() then "_4abil" else "" ) + ( if is_rare() then "_rare" else "" ) + ".png" }
+		mask: { "imagemask" + ( if use_tall_walker_frame_1() then "_4abil" else "" ) + ".png" }
 	############################# Card type
 	indicator:
 		left: 30
-		top: { if has_four_abilities() then 265 else 300 }
+		top: { if use_tall_walker_frame_1() then 265 else 300 }
 		width: 17
 		height: 17
-		z index: 2
+		z index: 800
 		render style: image
 		visible: { has_identity() }
-		image: { card_identity() }
+		image: { module_identity() }
 	type:
 		left: { if has_identity() then "53" else "33" }
-		top: { if has_four_abilities() then 261 else 296 }
+		top: { if use_tall_walker_frame_1() then 261 else 296 }
 		width: { 304 - max(22,card_style.rarity.content_width) }
 		height: 20
 		alignment: top shrink-overflow
-		z index: 2
+		z index: 900
 		padding top: 2
 		font:
 			name: Beleren Bold
@@ -268,43 +270,27 @@ card style:
 			separator color: rgb(192,192,192)
 	rarity:
 		right: 345
-		top: { if has_four_abilities() then 263 else 298 }
+		top: { if use_tall_walker_frame_1() then 263 else 298 }
 		width: 42
 		height: 21
 		z index: 2
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
-		left: 63
-		top: { if has_four_abilities() then 289 else 330 }
-		width: 282
-		height: { if has_four_abilities() then 183 else 148 }
+		left: 48
+		top: { if use_tall_walker_frame_1() then 289 else 330 }
+		width: 300
+		height: { if use_tall_walker_frame_1() then 183 else 148 }
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
-			size: { if has_four_abilities() then 13.8 else 14 }
+			size: { if use_tall_walker_frame_1() then 13.8 else 14 }
 			scale down to: 6
-			color: { if has_four_abilities() then rgba(0,0,0,0) else "black" }
 		symbol font:
-			name: { if has_four_abilities() then "" else styling.text_box_mana_symbols }
+			name: { if use_tall_walker_frame_1() then "" else styling.text_box_mana_symbols }
 			size: 14
-		paragraph height: 49
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
@@ -314,151 +300,26 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 4
-		mask: text_mask.png
+		z index: 900
 		padding left:   6
 		padding right:  4
 		padding bottom: 2
 		line height hard: 1.2
 		line height line: 1.5
-		line height soft: { if has_four_abilities() then 0.895 else 0.9 }
+		line height soft: { if use_tall_walker_frame_1() then 0.895 else 0.9 }
 		line height hard max: 1.3
 		line height line max: 1.6
 	watermark:
-		left: 117
-		top : { if has_four_abilities() then 296 else 331 }
-		width: 138
-		height: { if has_four_abilities() then 185 else 150 }
-		z index: 2
+		left: 38
+		top: { if use_tall_walker_frame_1() then 289 else 330 }
+		width: 320
+		height: { if use_tall_walker_frame_1() then 183 else 148 }
+		z index: 710
 		render style: image
 		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
-	############################# Loyalty
-	loyalty:
-		z index: 7
-		left: 326
-		top: 462
-		width: 13.16
-		height:	34.63
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 14
-			color: white
-	loyalty cost 1:
-		z index: 7
-		left: 32
-		top: { if has_four_abilities() then 297 else 335 }
-		width: 13.16
-		height:	34.63
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 2:
-		z index: 7
-		left: 32
-		top: { if has_four_abilities() then 344 else 386 }
-		width: 13.16
-		height:	34.63
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 3:
-		z index: 7
-		left: 32
-		top: { if has_four_abilities() then 391 else 435 }
-		width: 13.16
-		height:	34.63
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 4:
-		z index: 7
-		left: 32
-		top: 438
-		width: { if has_four_abilities() then 13.16 else 0 }
-		height:	{ if has_four_abilities() then 34.63 else 0 }
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 6
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: 498
-		width: 140
-		height: 10
-		z index: 6
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
+		include file:	/magic.mse-game/watermarks/menu_choice_images
+		image:			{ watermark_image_1() }
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
-extra card field:
-	type: choice
-	name: loyalty box
-	editable: false
-	choice: loyalty
-	save value: false
-extra card field:
-	type: choice
-	name: stamp
-	script: card.card_color
-	editable: false
-	save value: false
-extra card field:
-	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
 extra card field:
 	type: choice
 	name: foil layer
@@ -467,268 +328,25 @@ extra card field:
 	editable: false
 extra card field:
 	type: choice
-	name: loyalty cost box 1
-	editable: false
-	script: loyalty_image(card.loyalty_cost_1)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 2
-	editable: false
-	script: loyalty_image(card.loyalty_cost_2)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 3
-	editable: false
-	script: loyalty_image(card.loyalty_cost_3)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 4
-	editable: false
-	script: loyalty_image(card.loyalty_cost_4)
-	save value: false
-extra card field:
-	type: text
-	name: colon 1
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 2
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 3
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 4
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: second text
-	editable: false
-	multi line: true
-	save value: false
-	script: card.text
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
+	name: stamp backing
+	script: card.card_color
 	save value: false
 	editable: false
-	show statistics: false
 extra card style:
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 6
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 6
-		render style: image
-		image: artist_arrow.png
-	loyalty box:
-		right: 362
-		top: 460
-		width: 60
-		height: 38
-		z index: 6
-		render style: image
-		visible: { card.loyalty !="" }
-		choice images:
-			loyalty: loyalty.png
-	stamp:
-		left: 170
-		top: 473
-		width: 36.5
-		height: 22.5
-		z index: 6
-		visible: { is_rare() }
-		render style: image
-		image: { card_stamp() }
-		mask: stamp_mask.png
-	foil stamp:
-		left: 170
-		top: 473
-		width: 36.5
-		height: 22.5
-		z index: 7
-		visible: { is_rare() }
-		render style: image
-		image: foil_stamp.png
 	foil layer:
 		left: 0
 		top : 0
 		width: 375
 		height: 523
-		z index: 4
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
-	loyalty cost box 1:
-		left: 18
-		top: { if has_four_abilities() then 295 else 333 }
-		width: 42
-		height: 40
-		z index: 6
+	stamp backing:
+		left: 157
+		top: 467
+		width: 61
+		height: 25
+		z index: 840
 		render style: image
-		visible: { card.loyalty_cost_1 !="" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 2:
-		left: 18
-		top: { if has_four_abilities() then 342 else 383 }
-		width: 42
-		height: 40
-		z index: 6
-		render style: image
-		visible: { card.loyalty_cost_2 !="" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 3:
-		left: 18
-		top: { if has_four_abilities() then 389 else 432 }
-		width: 42
-		height: 40
-		z index: 6
-		render style: image
-		visible: { card.loyalty_cost_3 !="" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 4:
-		left: 18
-		top: 436
-		width: { if has_four_abilities() then 42 else 0 }
-		height: 40
-		z index: 6
-		render style: image
-		visible: { card.loyalty_cost_4 !="" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	colon 1:
-		left: 59
-		top: { if has_four_abilities() then 309 else 347 }
-		width: 5
-		height: 10
-		z index: 6
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_1 !="" }
-	colon 2:
-		left: 59
-		top: { if has_four_abilities() then 356 else 397 }
-		width: 5
-		height: 10
-		z index: 6
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_2 !="" }
-	colon 3:
-		left: 59
-		top: { if has_four_abilities() then 403 else 446 }
-		width: 5
-		height: 10
-		z index: 6
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_3 !="" }
-	colon 4:
-		left: 59
-		top: 450
-		width: { if has_four_abilities() then 5 else 0 }
-		height: 10
-		z index: 6
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_4 !="" }
-	second text:
-		left: 63
-		top: 293
-		width: 282
-		height: 183
-		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: 14
-			scale down to: 6
-			color: black
-		symbol font:
-			name: { styling.text_box_mana_symbols }
-			size: 14
-		paragraph height: 47
-		alignment:
-			script:
-				if (styling.center_text == "short text only" and
-				   not contains(match:"\n", card.rule_text) and
-				   card.flavor_text == "<i-flavor></i-flavor>" and
-				   card_style.text.content_lines <= 2) or
-				   styling.center_text == "always"
-				then "middle center"
-				else "middle left"
-		z index: 3
-		mask: text_mask.png
-		padding left:   6
-		padding right:  4
-		padding bottom: 2
-		line height hard: 1.2
-		line height line: 1.5
-		line height soft: 0.9
-		line height hard max: 1.3
-		line height line max: 1.6
-		visible: { has_four_abilities() }
-	auto copyright:
-		right: 350
-		top: 498
-		width: 140
-		height: 10
-		z index: 6
-		visible: {set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
+		image: { if stamp_shape() == "triangle" then module_ubstamp() else module_stamp() }
+		visible: { card.card_stamp != "none" and not card_stamp_disabled_1() }

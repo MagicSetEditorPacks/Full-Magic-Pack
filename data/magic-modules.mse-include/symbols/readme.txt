@@ -21,6 +21,7 @@ transformation:
 #### The symbols default to "none", defaults can be changed with
 transform_symbol_default :=
 {
+	stylesheet ## reload script when template changes
 	if		margin_code == "transform1" then	"front triangle"
 	else if	margin_code == "transform2" then	"back triangle"
 	else										"eldrazi"
