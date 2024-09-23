@@ -16,12 +16,12 @@ include file: /magic-modules.mse-include/corners/card_fields_tfc
 #### Finally, the template script must be adjusted like so:
 
 	template := { 
-		if type_name(harder_script[type] or else nil) != "nothing"
+		if type_name(harder_script[type] or else nil) != type_name(nil)
 			then harder_script[type](input, land:false)
 		else template_prefix[type] + input + template_suffix[type]
 	}
 	land_template := {
-		if type_name(harder_script[type] or else nil) != "nothing"
+		if type_name(harder_script[type] or else nil) != type_name(nil)
 			then harder_script[type](input, land:true)
 		else template_prefix[type] + input + (if input == "a" then "" else "l") + template_suffix[type]
 	}
