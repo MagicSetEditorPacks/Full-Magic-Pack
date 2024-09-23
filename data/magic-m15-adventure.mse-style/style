@@ -48,6 +48,7 @@ init script:
 	
 	template_prefix := [
 		card: "/magic-modules.mse-include/cards/375 m15 simple/",
+		ubcard: "/magic-modules.mse-include/cards/375 m15 simple/beyond/",
 		double_page: "/magic-modules.mse-include/pages/double_page/",
 		single_page: "/magic-modules.mse-include/pages/single_page/",
 		null_page: "/magic-modules.mse-include/pages/null_page/",
@@ -69,6 +70,7 @@ init script:
 	]
 	template_suffix := [
 		card: "card.jpg",
+		ubcard: "card.jpg",
 		double_page: "page.png",
 		single_page: "page.png",
 		null_page: "page.png",
@@ -89,12 +91,12 @@ init script:
 		identity: "identity.png"
 	]
 	template := { 
-		if type_name(harder_script[type] or else nil) != "nothing"
+		if type_name(harder_script[type] or else nil) != type_name(nil)
 			then harder_script[type](input, land:false)
 		else template_prefix[type] + input + template_suffix[type]
 	}
 	land_template := {
-		if type_name(harder_script[type] or else nil) != "nothing"
+		if type_name(harder_script[type] or else nil) != type_name(nil)
 			then harder_script[type](input, land:true)
 		else template_prefix[type] + input + (if landless(type) or input == "a" then "" else "l") + template_suffix[type]
 	}
@@ -132,6 +134,7 @@ init script:
 	spot_pt := { color_background(type:"spotpt", base_hybrid:card_hybrid, folder:"blend_masks/") }
 
 	crown_background := { color_background(type:"crown", base_hybrid: card_hybrid, folder:"blend_masks/")}
+	beyond_background := { color_background(type:"ubcard", base_hybrid: card_hybrid, folder:template_prefix["ubcard"], blend_type:"card")}
 
 	# Use the normal tap symbol
 	mana_t := {
@@ -151,10 +154,12 @@ init script:
 	is_vehicle :=	{ not is_spot() and (auto_vehicle()	or contains(styling.frames, match:"vehicle")) }
 	is_nyx :=		{ not is_spot() and (auto_nyx()		or contains(styling.frames, match:"nyx")) }
 	is_snow :=		{ not is_spot() and (auto_snow()	or contains(styling.frames, match:"snow")) }
+	is_beyond := 	{ not is_spot() and (auto_ub()		or contains(styling.frames, match:"universes beyond")) }
 	auto_legend :=	{ set.auto_legends									and lang_setting("is_legendary")(card.super_type) }
 	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
 	auto_nyx :=		{ contains(styling.auto_frames, match:"nyx")		and lang_setting("is_enchantment")(card.super_type) }
 	auto_snow :=	{ contains(styling.auto_frames, match:"snow")		and lang_setting("is_snow")(card.super_type) }
+	auto_ub :=		{ contains(styling.auto_frames, match:"universes beyond")		and (card.card_stamp == "universes beyond" or card.card_stamp == "flatstamped universes beyond") }
 	
 	##### flavor bar stuff
 	chop_correction := { chop_bot() }
@@ -444,6 +449,7 @@ styling field:
 	choice: nyx
 	choice: vehicle
 	choice: snow
+	choice: universes beyond
 	choice: custom border
 styling field:
 	type: text
@@ -456,7 +462,8 @@ styling field:
 	choice: nyx
 	choice: vehicle
 	choice: snow
-	initial: nyx, vehicle, snow
+	choice: universes beyond
+	initial: nyx, vehicle, snow, universes beyond
 styling field:
 	type: multiple choice
 	name: other options
@@ -636,7 +643,7 @@ card style:
 		z index: -1
 		render style: image
 		popup style: in place
-		image: { if is_spot() then spot_background() else module_card() }
+		image: { if is_spot() then spot_background() else if is_beyond() then beyond_background() else module_card() }
 	card color 2:
 		left:	{if is_spot() then 21 else page_coords[page_2_side()]["page"]}
 		top:	{if is_spot() then 319 else 327}
@@ -1200,7 +1207,7 @@ extra card style:
 		width: 375
 		height: 523
 		render style: image
-		image: /magic-modules.mse-include/trims/vehicle.png
+		image: { "/magic-modules.mse-include/trims/" + (if is_beyond() then "beyond/vbeyond.png" else "vehicle.png") }
 		mask: {"/magic-modules.mse-include/trims/375x523 trim mask.png"}
 		z index: 0
 		visible: {is_vehicle()}
