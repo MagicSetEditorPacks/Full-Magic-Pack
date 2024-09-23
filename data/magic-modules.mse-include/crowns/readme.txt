@@ -3,8 +3,6 @@ depends on:
 	package:			magic-modules.mse-include
 	version:			2024-05-20
 
-#### Also add this, indented once, at the top of the init script section:
-include file: /magic-modules.mse-include/crowns/init_script
 #### Add this, unindented in the styling fields section:
 include file: /magic-modules.mse-include/crowns/styling_fields
 #### And this, unindented, before the card style section:
