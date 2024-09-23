@@ -123,12 +123,12 @@ init script:
 	}
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
 	
-	card_background :=		{ color_background(input: card.card_color, type: "card",		base_hybrid: card_hybrid)}@(offset: 0)
-	card_crown :=			{ color_background(input: card.card_color, type: "crown",		base_hybrid: card_hybrid)}@(offset: 0)
-	card_ptbox :=			{ color_background(input: card.card_color, type: "pt",			base_hybrid: pt_hybrid)}@(offset: 0)
-	card_loyaltycostbox :=	{ color_background(input: card.card_color, type: "loyaltycost",	base_hybrid: card_hybrid)}@(offset: 0)
-	card_stamprim :=		{ color_background(input: card.card_color, type: "stamprim",	base_hybrid: card_hybrid)}@(offset: 0)
-	card_nonstamprim :=		{ color_background(input: card.card_color, type: "nonstamprim",	base_hybrid: card_hybrid)}@(offset: 0)
+	card_background :=		{ color_background(input: card.card_color, type: "card",		base_hybrid: card_hybrid) }
+	card_crown :=			{ color_background(input: card.card_color, type: "crown",		base_hybrid: card_hybrid) }
+	card_ptbox :=			{ color_background(input: card.card_color, type: "pt",			base_hybrid: card_hybrid) }
+	card_loyaltycostbox :=	{ color_background(input: card.card_color, type: "loyaltycost",	base_hybrid: card_hybrid) }
+	card_stamprim :=		{ color_background(input: card.card_color, type: "stamprim",	base_hybrid: card_hybrid) }
+	card_nonstamprim :=		{ color_background(input: card.card_color, type: "nonstamprim",	base_hybrid: card_hybrid) }
 	
 	pure_colors :=
 	{
@@ -141,7 +141,8 @@ init script:
 			(if chosen(card.card_color, choice:"green")	then "g")
 		)
 	}
-	mask_hybrid_with_land := { true }
+	pt_colors := { if styling.PT_color_scheme == "canon" then pt_colors_canon() else styling.PT_color_scheme }
+	pt_colors_canon := { if is_hybrid_cost() then "land" else "gold" }
 	
 	has_identity :=		{ styling.color_indicator_dot }
 	has_identity_2 :=	{ false }
@@ -306,11 +307,13 @@ styling field:
 styling field:
 	type:			choice
 	name:			PT color scheme
-	description:	Use the selected color scheme for the PT box on two color cards.
+	description:	Use the selected color scheme for the PT box on two color cards. Canon is "land" on hybrid cards, "gold" otherwise.
+	choice:			canon
 	choice:			gold
 	choice:			hybrid
-	choice:			blend
-	initial:		blend
+	choice:			colored
+	choice:			land
+	initial:		canon
 styling field:
 	type:			choice
 	name:			legend crown
@@ -668,8 +671,10 @@ extra card style:
 			script:
 				pure := pure_colors()
 				count := length(pure)
-				if styling.PT_color_scheme == "gold" and count > 1 then masked_blend(mask: "special_multicolor_blend_pt.png", dark: template("m", type: "pt"), light: card_ptbox())
-				else if styling.PT_color_scheme == "hybrid" and count == 2 then masked_blend(mask: "special_hybrid_blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
+				color := pt_colors()
+				if color == "gold" and count > 1 then template("m", type: "pt")
+				else if color == "land" and count > 1 then template("c", type: "pt")
+				else if color == "hybrid" and count == 2 then masked_blend(mask: "special_blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
 				else card_ptbox()
 	crown:
 		left:				0
