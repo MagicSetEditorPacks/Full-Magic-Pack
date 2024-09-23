@@ -105,7 +105,9 @@ init script:
 		miracle_shifted: "/magic-modules.mse-include/trims/miracle/shifted/"
 		miracle_inv: "/magic-modules.mse-include/trims/miracle/inverted/"
 		miracle_fnm: "/magic-modules.mse-include/trims/miracle/fnm/"
+		miracle_beyond: "/magic-modules.mse-include/trims/miracle/beyond/"
 		miracle_snow: "/magic-modules.mse-include/trims/miracle/snow/"
+		ub: "/magic-modules.mse-include/trims/beyond/"
 		draft: "/magic-modules.mse-include/trims/draft/"
 		node: "nodes/"
 		node_shifted: "nodes/shifted/"
@@ -141,9 +143,11 @@ init script:
 		miracle_inv: "miracle.png"
 		miracle_fnm: "miracle.png"
 		miracle_snow: "miracle.png"
+		miracle_beyond: "miracle.png"
 		node: "node.png"
 		node_shifted: "node.png"
 		curtains: "card.png"
+		ub:"trim.png"
 		
 		slide: "slide.png"
 		slide2: "slide.png"
@@ -161,12 +165,12 @@ init script:
 		
 	]
 	template := { 
-		if type_name(harder_script[type] or else nil) != "nothing"
+		if type_name(harder_script[type] or else nil) != type_name(nil)
 			then harder_script[type](input, land:false)
 		else template_prefix[type] + input + template_suffix[type]
 	}
 	land_template := {
-		if type_name(harder_script[type] or else nil) != "nothing"
+		if type_name(harder_script[type] or else nil) != type_name(nil)
 			then harder_script[type](input, land:true)
 		else template_prefix[type] + input + (if landless(type) or input == "a" then "" else "l") + template_suffix[type]
 	}
@@ -186,6 +190,7 @@ init script:
 		miracle_snow: true,
 		miracle_inv: true,
 		miracle_fnm: true,
+		miracle_beyond: true,
 		alias: true,
 		devoid: true,
 		energy: true,
@@ -267,6 +272,10 @@ init script:
 		chosen(styling.frames, choice:"conspiracy")
 		or chosen(styling.frames, choice:"draft matters")
 	}
+	is_beyond := {
+		chosen(styling.frames, choice:"universes beyond")
+		or (chosen(styling.other_options, choice:"auto ub") and card.card_stamp == "universes beyond")
+	}
 	is_miracle := {
 		chosen(styling.frames, choice:"miracle")
 	}
@@ -311,13 +320,16 @@ init script:
 			then "inverted"
 		else if is_planeshifted()
 			then "shifted"
+		else if is_beyond()
+			then "beyond"
 		else if is_snow() and not is_leveler()
 			then "snow"
 		else "standard"
 	}
 	
 	#### trims
-	curtain_plate := { color_background(type:"curtains", base_hybrid: card_hybrid)}
+	curtain_plate := { color_background(type:"curtains", base_hybrid: card_hybrid) }
+	ub_background := { color_background(type:"ub", base_hybrid: card_hybrid, folder:template_prefix["ub"]) }
 	draft_trim := { color_background(type:"draft", base_hybrid: card_hybrid, folder:template_prefix["draft"])}
 	module_nyx :=	 	{ 
 		type := "nyx"
@@ -340,6 +352,7 @@ init script:
 	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_invert := { color_background(type:"miracle_inv", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_fnm := { color_background(type:"miracle_fnm", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_beyond := { color_background(type:"miracle_beyond", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate := {
 		type := if is_fnm()
 					then "miracle_fnm"
@@ -347,6 +360,8 @@ init script:
 					then "miracle_inv"
 				else if is_planeshifted()
 					then "miracle_shifted"
+				else if is_beyond()
+					then "miracle_beyond"
 				else if base_card() == "snow"
 					then "miracle_snow"
 				else "miracle"
@@ -423,7 +438,7 @@ init script:
 			then color_background(type:"shifted_pt", base_hybrid:pt_hybrid, folder:template_prefix["shifted_pt"], blend_type:"pt")
 		else module_ptbox()
 	}
-	
+
 	#### crown handling
 	crowns_folder := {
 		"/magic-modules.mse-include/crowns/375/" + (if is_planeshifted() then "shifted/" else "")
@@ -463,6 +478,7 @@ init script:
 			fnm: "fnm/" + input + "card.png"
 			inverted: "inverted/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.png"
 			shifted: "/magic-modules.mse-include/cards/375 m15 simple/shifted/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
+			beyond: "/magic-modules.mse-include/cards/375 m15 simple/beyond/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 			snow: "/magic-modules.mse-include/cards/375 m15 simple/snow/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 			standard: "/magic-modules.mse-include/cards/375 m15 simple/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 		][base_card()]
@@ -903,6 +919,7 @@ styling field:
 	choice: season
 	choice: conspiracy
 	choice: draft matters
+	choice: universes beyond
 	choice: miracle
 	choice: nyx
 	choice: vehicle
@@ -933,12 +950,13 @@ styling field:
 	choice: auto vehicles
 	choice: auto snow
 	choice: auto nyx crowns
+	choice: auto ub
 	choice: text watermarks
 	choice: clear tops
 	choice: vorthos box
 	choice: pride pinlines
 	choice: inverted d20
-	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns
+	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns, auto ub
 styling field:
 	type: text
 	name: custom symbol
@@ -1712,6 +1730,13 @@ extra card field:
 	script: card.card_color
 extra card field:
 	type: choice
+	name: beyond overlay
+	choice: beyond
+	save value: false
+	editable: false
+	script: card.card_color
+extra card field:
+	type: choice
 	name: custom overlay
 	script: card.card_color
 	save value: false
@@ -2065,7 +2090,7 @@ extra card style:
 		width: 375
 		height: 523
 		render style: image
-		image: {devoid_mask("/magic-modules.mse-include/trims/vehicle.png")}
+		image: {if is_beyond() then devoid_mask("/magic-modules.mse-include/trims/beyond/vtrim.png") else devoid_mask("/magic-modules.mse-include/trims/vehicle.png")}
 		z index: 310
 		visible: { not is_map() and not uses_expanded_art() and is_vehicle() }
 		mask: { main_trim_mask() }
