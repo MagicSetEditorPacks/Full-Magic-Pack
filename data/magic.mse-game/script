@@ -25,6 +25,7 @@
 #### Card column sorting
 #### Custom index
 #### Skeleton generator
+#### Hashes
 
 ############################################################## Localization
 include file: language
@@ -378,6 +379,29 @@ exporter_num_grabber := replace@(match:"!num ", replace:"")
 trim_zeroes := replace@(match: "^00?", replace: "")+
 	replace@(match: "a?/[0-9b]+", replace: "")
 corrected_card_number := { if exporter_num_grabber(exporter_num_filter(card.notes)) != "" then exporter_num_grabber(exporter_num_filter(card.notes)) else if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number() }
+
+crop_multi_image := {
+	image_map := hash_new()
+	m3in1 := card.stylesheet.full_name == "M15 Style Meld cards (3-in-1)"
+	three_cards := false
+	cs := get_card_styling(card)
+	if m3in1 and cs.three_cards or else false then three_cards := true
+	card_image := to_card_image(card)
+	len := length(card.stylesheet.card_regions)
+	for i from 0 to len-1 do (
+		region_info := card.stylesheet.card_regions[i]
+		if m3in1 and three_cards and (region_info.name == "front" or region_info.name == "meldback")
+			then ""
+		else if m3in1 and (not three_cards) and (region_info.name != "front" and region_info.name != "meldback")
+			then ""
+		else (
+			region := crop(card_image, height:region_info.height, width:region_info.width, offset_x:region_info.x, offset_y:region_info.y)
+			image_map := hash_create(image_map, key:region_info.name, value:region);
+			"dummy return"
+		)
+	)
+	image_map
+}
 
 ############################################################## Sorting mana symbols
 #### correctly sort a mana symbol (no guild mana)
@@ -4934,3 +4958,146 @@ skeleton_info := {
 	+"skeleton_wedge_uncommons: " + skeleton_wedge_uncommons + "\n"
 	+"skeleton_wedge_rares: " + skeleton_wedge_rares)
 }
+############################################################## Hashes
+#### return a new Hash
+hash_new := {
+	len := min(length(keys), length(values)) - 1
+	if keys != [] and len >= 0
+		then keys := for x from 0 to len do [[keys[x]]]
+	else keys := []
+	if values != [] and len >= 0
+		then values := for x from 0 to len do [[values[x]]]
+	else values := []
+	[
+		keys: keys,
+		values: values
+	]
+}@(keys:[], values:[])
+#### check if hash already has this key
+hash_includes := {
+	if value != nil then
+		key := value;
+	if keys != [] and key != nil then keys := keys + [key]
+	if input == nil
+		then false
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_includes, update:false, value:key)
+	else if position(of:[key] in:input.keys) < 0
+		then false 
+	else true
+}@(key:nil, keys:[], value:nil)
+#### add key:value to hash unless key exists
+hash_create := {
+	if input == [] then input := hash_new()
+	if keys != [] and key != nil then keys := keys + [key]
+	if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_create, value:value)
+	else if hash_includes(input, key:key)
+		then input
+	else hash_push(input, key:key, value:value)
+}@(input:[], keys:[], key:nil)
+#### add a key:value even if the key exists
+hash_push := {
+	if keys != [] and key != nil then keys := keys + [key]
+	if input == nil
+		then []
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_push, value:value)
+	else [
+		keys: input.keys + [[key]],
+		values: input.values + [[value]]
+	]
+}@(keys:[], key:nil)
+#### read value from a key
+hash_read := {
+	if value != nil then
+		key := value;
+	if keys != [] and key != nil then keys := keys + [key]
+	if input == nil
+		then []
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_read, value:value, update:false)
+	else (
+		posi := position(of:[key] in:input.keys)
+		if posi < 0
+			then nil
+		else input.values[posi][0]
+	)
+}@(keys:[], value:nil, key:nil)
+#### add key:value to hash. if key already exists, overwrite
+hash_update := {
+	if keys != [] and key != nil then keys := keys + [key]
+	if input == nil
+		then []
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_update, value:value)
+	else (
+		posi := position(of:[key] in:input.keys)
+		if posi < 0 then hash_create(input, key:key, value:value)
+		else [
+			keys: (for k from 0 to length(input.keys)-1 do if k == posi then [[key]] else [input.keys[k]]),
+			values: (for v from 0 to length(input.values)-1 do if v == posi then [[value]] else [input.values[v]])
+		]
+	)
+}@(keys:[], key:nil)
+#### remove a key:value from the hash
+hash_delete := {
+	if keys != [] and key != nil then keys := keys + [key]
+	if input == nil
+		then []
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_delete, value:value)
+	else (
+		posi := position(of:[key] in:input.keys)
+		if posi < 0 then input
+		else [
+			keys: (for k from 0 to length(input.keys)-1 do if k == posi then [] else [input.keys[k]]),
+			values: (for v from 0 to length(input.values)-1 do if v == posi then [] else [input.values[v]])
+		]
+	)
+}@(keys:[], key:nil)
+#### get keys of the hash, optionally only those with a particular value
+hash_keys := {
+	if keys != [] and key != nil then keys := keys + [key]
+	if value != nil then
+		of := value;
+	if input == nil
+		then []
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_keys, value:value, update:false)
+	else (
+		res := for i from 0 to length(input.keys)-1 do if of == nil or input.values[i] == [of] then input.keys[i] else nil
+		if res == nil then [] else res
+	)
+}@(of:nil, keys:[], key:nil, value:nil)
+hash_increment := {
+	if keys != [] and key != nil then keys := keys + [key]
+	if input == nil
+		then []
+	else if keys != []
+		then hash_nest(input, key_chain:keys, func:hash_increment, value:value)
+	else (
+		initial := hash_read(input, key:key)
+		if initial == nil then initial := 0
+		hash_update(input, key:key, value:initial+value)
+	)
+}@(value:1, keys:[], key:nil)
+hash_decrement := {
+	hash_increment(input, key:key, keys:keys, value:(-1*value))
+}@(value:1, keys:[], key:nil)#### update a nested hash
+hash_nest := {
+	hash_chain := [input]
+	for x from 0 to length(key_chain)-2 do (
+		hash_chain := hash_chain + [hash_read(hash_chain[x], key:key_chain[x])]
+	)
+	len := length(hash_chain)-1
+	value := func(hash_chain[length(hash_chain)-1], key:key_chain[length(key_chain)-1], value:value)
+	if update then (
+		len := len - 1
+		for x from 0 to len do (
+			ind := len - x
+			value := hash_update(hash_chain[ind], key:key_chain[ind])
+		)
+	)
+	value
+}@(key_chain:[], func:hash_update, update:true)

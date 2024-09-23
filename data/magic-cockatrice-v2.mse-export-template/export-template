@@ -1,9 +1,9 @@
-﻿mse version: 0.3.8
+﻿mse version: 2.5.0
 short name: Cockatrice
 full name: Exporter v2.0
 position hint: 007
 icon: icon.png
-version: 2023-02-05
+version: 2024-09-23
 installer group: magic/Export/cockatrice
 
 depends on:
@@ -899,13 +899,42 @@ script:
 	#render image file
 	write_image :=
 	{
+		if length(card.stylesheet.card_regions) > 0 then write_multi_image()
+		else write_single_image()
+	}
+	format_file_name := {
+		options.append_String_To_Names
+		+ input
+		+ (if is_token() and options.append_Set_Code_To_Tokens then " " + set.set_code else "")
+		+ "." + file_type()
+	}
+	write_single_image := {
 		write_image_file(
 			card,
 			directory: set.set_code,
-			file: (options.append_String_To_Names+strip_card_name(card_name())+(if is_token() and options.append_Set_Code_To_Tokens then " " + set.set_code else "")+if splitter_name() and is_double() then "_" + strip_card_name(card.name_2)) + "." + file_type(),
-			width: (if contains(card.shape, match:"split") or contains(card.shape, match:"double") then 752 else 375),
+			file: format_file_name(strip_card_name(card_name())),
+			width: (if contains(card.shape, match:"split") then 752 else 375),
 			height: 523
+		)
+	}
+	write_multi_image := {
+		crop_data := crop_multi_image(card:card)
+		for i from 0 to length(crop_data.keys)-1 do (
+			region_name := crop_data.keys[i][0]
+			region_image := crop_data.values[i][0]
+			face_name := if region_name == "front" or region_name == "minifront"
+							then strip_card_name(card_name())
+						else if region_name == "back" or region_name == "meldpair"
+							then strip_card_name(card.name_2)
+						else if region_name == "meld" or region_name == "meldback" or region_name == "thirdcard"
+							then strip_card_name(card.name_3)
+						else strip_card_name(card_name()) + "_" + region_name
+			write_image_file(
+				region_image,
+				directory: set.set_code,
+				file: format_file_name(face_name)
 			)
+		)
 	}
 
 	#if images are set to be rendered, render all images of rarities that have been selected
