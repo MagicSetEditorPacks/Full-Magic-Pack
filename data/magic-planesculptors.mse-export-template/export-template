@@ -1,7 +1,7 @@
 ﻿mse version: 0.3.8
 short name: PlaneSculptors
-full name: PlaneSculptors Export 1.4
-position hint: 006
+full name: PS Export 1.5
+position hint: 110
 version: 2023-02-04
 installer group: magic/Export/planesculptors
 create directory: true
@@ -36,8 +36,10 @@ script:
 	compare_card_name := { if exporter_name_grabber(exporter_name_filter(input.notes)) != "" then exporter_name_grabber(exporter_name_filter(input.notes)) else input.name }
 	determine_shape := {
 		if (contains(card.shape, match:"normal") or contains(card.shape, match:"planeswalker") or card.loyalty_2 != "") and card.name_2 != "" then "double"
-		else if contains(card.shape, match:"double") then "double"
+		else if contains(card.shape, match:"double") then "split"
+		else if contains(card.shape, match:"mini plane card") then "split"
 		else if contains(card.shape, match:"plane card") then "plane"
+		else if contains(card.shape, match:"battle") then "split"
 		else if contains(card.shape, match:"leveler") then "normal"
 		else if contains(card.shape, match:"saga") then "normal"
 		else if contains(card.shape, match:"adventure") then "vsplit"
@@ -45,6 +47,15 @@ script:
 		else if contains(card.shape, match:"planeswalker") then "normal"
 		else if contains(card.shape, match:"shifted") then "normal"
 		else replace(card.shape, match:" faced", replace:"")
+	}
+	resized_image := {
+		sh := determine_shape()
+		write_image_file(
+			card,
+			file:card_name()+options.export_images,
+			width:  if sh == "double" then 752 else if sh == "split" then 523 else if sh == "plane" then 800 else 375,
+			height: if sh == "split" then 375 else if sh == "plane" then 559 else 523
+		)
 	}
 	paragraph_count := replace@(match:"\n", replace:"�")+
 		filter_text@(match:"�")
@@ -189,7 +200,7 @@ script:
 		for x from 0 to length(input)-1 do if compare_card_name(input[x]) == name then count := count + 1
 		count
 	}
-	write_images := if options.export_images == "no" then "" else for each card in cards do write_image_file(card, file:card_name()+options.export_images)
+	write_images := if options.export_images == "no" then "" else for each card in cards do resized_image()
 	for each card in cards do if check_unique(cards, name:card_name()) > 1 then trace("Warning: Repeated name: " + card.name)
 	write_cards := for each card in cards do write_card()
 	wordshtml := to_string(

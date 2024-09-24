@@ -354,64 +354,153 @@
 		remove_tag@(tag: "<b-auto>")   +
 		remove_tag@(tag: "<error-spelling") +
 		remove_tag@(tag: "<nospellcheck") +
-		# step 2 : reminder text for keywords
+		remove_tag@(tag: "<li>") +
+		remove_tag@(tag: "<bullet>") +
+		remove_tag@(tag: "<align") +
+		remove_tag@(tag: "<margin") +
+		#### step 1b : remove zero-width space used for level spacers
+		replace@(match:"​", replace:"") +
+		#### step 2a : temp fix for formatting buttons
+		replace@(
+			match:"<b></b>",
+			replace:"BOLDAROUND"
+		) +
+		replace@(
+			match:"<i></i>",
+			replace:"ITALAROUND"
+		) +
+		replace@(
+			match:"<sym></sym>",
+			replace:"SYMAROUND"
+		) +
+		#### step 2a : reminder text for keywords
 		expand_keywords@(
 			condition: {
 				correct_case or (mode != "pseudo" and not used_placeholders)
 			}
 			default_expand: {
-				chosen(choice:if correct_case then mode else "lower case", set.automatic_reminder_text)
+				chosen(choice:if correct_case or mode == "action" then mode else "lower case", set.automatic_reminder_text) and chosen(choice:mode, set.automatic_reminder_text)
 			},
 			combine: {
-				keyword  := "<nospellcheck>{keyword}</nospellcheck>"
+				keyword := "<nospellcheck>{keyword}</nospellcheck>"
 				reminder := process_english_hints(reminder)
 				if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
-				else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>"
-			}) +
-		# step 2b : move action keywords' reminder text to the end of the line
+				else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
+			}
+		) +
+		#### step 2b : apply face_code
 		replace@(
-			match: "(<atom-reminder-action>(?:(?!<kw-).)*</atom-reminder-action></kw[^>]*>)(((?!<atom-reminder| ?<kw-)[^\n(])+)",
+			match: "face_(.*?)_end",
+			replace: {face_code(_1)}
+		) +
+		#### step 2c : move action keywords' reminder text to the end of the line
+		replace@(
+			match: "(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)", #### removed "| ?<kw-" from lookahead
 			replace: "\\2\\1"
-			) +
-		# step 2c : remove duplicate reminder text
+		) +
+		#### step 2d : when there's an action keyword and another one, then move that to the end of the line
+		replace@(
+			match: "(<atom-reminder-[^>]+> (?:(?!</kw)[^\n]*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*?)(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)",
+			replace: "\\2\\4\\3\\1"
+		) +
+		#### step 2e : allow a sentence after lowercase reminder text for equips etc.
+		#replace@(
+		#	match: "(<kw[^>]+><nospellcheck>[a-z][^<]+</nospellcheck>)(<atom-reminder-(?:expert|custom|old|core)>(?:(?!<kw-).)*</atom-reminder-(?:expert|custom|old|core)></kw[^>]*>)([^\n]+)$",
+		#	replace: "\\1\\3\\2"
+		#	) +
+		#### step 2f : remove duplicate reminder text
 		replace@(
 			match: "(<atom-reminder-[^>]*>[^)]+[)]</atom-reminder-[^>]*>)([^\n]+)\\1"
 			replace: "\\2\\1"
-			) +
-		# step 3a : expand shortcut word CARDNAME
+		) +
+		#### step 2g : combine reminder texts
 		replace@(
-			match: "CARDNAME",
-			in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+			match: "[)](</atom-reminder-[^>]+></kw-[^>]><atom-reminder-[^>]+> )[(]"
+			replace: "\\1"
+		) +
+		#### step 2h : temp fix for formatting buttons
+		replace@(
+			match:"BOLDAROUND",
+			replace:"<b></b>"
+		) +
+		replace@(
+			match:"ITALAROUND",
+			replace:"<i></i>"
+		) +
+		replace@(
+			match:"SYMAROUND",
+			replace:"<sym></sym>"
+		) +
+		replace@(
+			match:"-\n-"
+			replace:"<soft-line>\n</soft-line>"
+		) +
+		#### step 3a : expand shortcut word CARDNAME
+		replace@(
+			match: "CARDNAME>?", #### >? is here so after replacement, the mouse snaps to the end of </atom>
+			in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
 			replace: "<atom-cardname></atom-cardname>"
-			) +
-		# step 3b : expand shortcut word LEGENDNAME
+		) +
+		#### step 3b : expand shortcut word LEGENDNAME
 		replace@(
-			match: "LEGENDNAME",
-			in_context: "(^|[[:space:]]|\\()<match>", # TODO: Allow any punctuation before
+			match: "LEGENDNAME>?",
+			in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 			replace: "<atom-legname></atom-legname>"
-			) +
-		# step 3c : fill in atom fields
+		) +
+		#### step 3c : fill in atom fields
 		tag_contents@(
 			tag: "<atom-cardname>",
-			contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else card_name) + "</nospellcheck>" }
-			) +
+			contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
+		) +
 		tag_contents@(
 			tag: "<atom-legname>",
-			contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(card_name)) + "</nospellcheck>" }
-			) +
+			contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name, atom:true))) + "</nospellcheck>" }
+		) +
+		replace@(
+			match: "INS([1-9])",
+			in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>",
+			replace: "<atom-insert\\1></atom-insert\\1>"
+		) +
+		{
+			out := input
+			for x from 1 to inserts_count() do
+				out := tag_contents(out,
+					tag: "<atom-insert"+x+">",
+					contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
+				)
+			out
+		} +
 		# step 4 : explict non mana symbols
 		replace@(
-			match: "\\][HSCATQXYZ∞WUBRGPK0-9/|]+\\[",
+			match: "\\][-+=]?[VHSCATQXYZ∞WUBRGPK0-9/|]+\\[",
 			replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
-		# step 5 : add mana & tap symbols
+		#### step 5 : add mana & tap symbols
 		replace@(
-			match: "\\b[HSCATQXYZ∞WUBRGPK0-9/|]+\\b",
+			match: "(?<!\\/)([+=-][XYZ0-9|]+)(?!\\/)",
 			in_context: mana_context,
-			replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"} ) +
-		# step 5b : add explict mana symbols
+			replace: {"<sym-auto>" + _1 + "</sym-auto>"}
+		) +
 		replace@(
-			match: "\\[[HSCATQXYZ∞WUBRGPK0-9/|]+\\]",
-			replace: {"<sym>" + mana_filter_t() + "</sym>"} ) +
+			match: "\\b((TK)+)(T)?\\b",
+			in_context: mana_context,
+			replace: {"<sym-auto>" + _1 + "</sym-auto>" + _3}
+		) +
+		replace@(
+			match: "\\b[VHSCATQXYZ∞WUBRGPK0-9/|]+\\b",
+			in_context: mana_context,
+			replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"}
+		) +
+		#### step 5b : remove false positive mana & tap symbols
+		replace@(
+			match: "<sym-auto>([VHSCATQXYZ∞WUBRGPK0-9/|]+)</sym-auto>",
+			in_context: mana_un_context,
+			replace: "\\1"
+		) +
+		#### step 5c : add explicit mana symbols
+		replace@(
+			match: "\\[[-+=]?[VHSCATQXYZ∞WUBRGPK0-9/|]+\\]",
+			replace: {"<sym>" + mana_filter_t() + "</sym>"}
+		) +
 		# step 6a : curly double quotes
 		replace@(
 			match: "[[.quotation-mark.]]|”",
@@ -425,21 +514,43 @@
 		 	match: "[(]([^)\n]|[(][^)\n]*[)])*[)]?",
 			in_context: "(^|[[:space:]])<match>|<atom-keyword><match></",
 		 	replace: "<i-auto>&</i-auto>") +
-		# step 8 : automatic capitalization, but not after "("
+		#### step 7b : indent bullets
 		replace@(
-			match: "([ ]*: |—| — )" # preceded by this
-			     + "([[:lower:]])" # match this
-			     + "(?![)])",      # not followed by this
-			replace: { _1 + to_upper(_2) }) +
-		#curly_quotes +
-		# step 9 : spellcheck
-		{ if set.mark_errors then
+			match: "^(• |[+] ?)([^\n]+\n?)",
+			replace: {"<li><bullet>" + _1 + "</bullet>" + _2 + "</li>"}
+		) +
+		#### step 7c : clean up modals
+		{
+			if is_modal(input)
+				then bump_text(softline_ripper(input))
+			else input
+		} +
+		#### step 8 : automatic capitalization, but not after "("
+		#replace@(
+		#	match: "([ ]*: |—| — )" #### preceded by this
+		#	     + "([[:lower:]])"  #### match this
+		#	     + "(?![)])",       #### not followed by this
+		#	replace: { _1 + to_upper(_2) }) +
+		#### step 9 : spellcheck
+		{
+			if set.auto_correct then
+				auto_correct(input)
+			else input
+		} +
+		{
+			if set.auto_errata then
+				auto_errata(input)
+			else input
+		} +
+		{
+			if language().code == "ja" or language().code == "zht" or language().code == "zhs" then input
+			else if set.mark_errors then
 			check_spelling(
 				language: language().spellcheck_code,
 				extra_dictionary: "/magic.mse-game/dictionary/magic-words",
 				extra_match: additional_text_words
 			)
-		  else input
+			else input
 		}
 	
 	############################################################## Other boxes
@@ -485,7 +596,41 @@
 	
 	# This script has been modified to check a styling menu choice instead.
 	
-	has_identity := { contains(styling.regular_options, match:"color indicator dot") }
+	colors_from_mana_symbols := {
+		str := []
+		if contains(input, match:"W") then str := str + ["white"]
+		if contains(input, match:"U") then str := str + ["blue"]
+		if contains(input, match:"B") then str := str + ["black"]
+		if contains(input, match:"R") then str := str + ["red"]
+		if contains(input, match:"G") then str := str + ["green"]
+		if contains(input, match:"E") then str := str + ["brown"]
+		if contains(input, match:"K") then str := str + ["pink"]
+		if contains(input, match:"P") then str := str + ["purple"]
+
+		join(str, sep:", ")
+	}
+	has_identity_general := {
+		tag := if face == 1 then "" else "_" + face
+		indicator_field := extra_card.extra_indicator
+		culled_indicator := cull_noncolors(cull_directions(indicator_field))
+		color_field 	:= extra_card.frame
+		cost_field 		:= card["casting_cost"+tag]
+		culled_color	:= cull_directions(cull_noncolors(color_field))
+
+		default_from_casting_cost := colors_from_mana_symbols(cost_field)
+		default_from_card_color := if chosen(color_field, choice:"colorless")
+				then ""							## colorless
+			else if default_from_casting_cost == "" and chosen(color_field, choice:"land")
+				then ""							## land
+			else if chosen(color_field, choice:"multicolor") and culled_color == ""
+				then default_from_casting_cost	## 3+ multicolor
+			else culled_color					## normal color
+		#default_from_card_color := if chosen(color_field, choice:"colorless") then "" else if default_from_casting_cost == "" and chosen(color_field, choice:"land") then "" else if chosen(color_field, choice:"multicolor") and culled_color == "" then default_from_casting_cost else culled_color
+		color_cost_disagree := default_from_card_color != default_from_casting_cost
+		color_indicator_disagree := default_from_card_color != culled_indicator and indicator_field != color_field
+
+		color_cost_disagree or color_indicator_disagree
+	}
 	
 	############################################################## Statistics utilities
 	# Converted mana cost

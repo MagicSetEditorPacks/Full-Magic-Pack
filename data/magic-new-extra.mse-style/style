@@ -1,4 +1,4 @@
-﻿mse version: 2.0.0
+﻿mse version: 2.5.0
 game: magic
 short name: Modern Extra
 full name: Modern w/ Extra Colors
@@ -6,7 +6,7 @@ installer group: magic/new style/extra colors
 icon: card-sample.png
 position hint: 250
 
-version: 2016-01-05
+version: 2024-05-29
 depends on:
 	package: magic.mse-game
 	version: 2015-04-08
@@ -19,9 +19,6 @@ depends on:
 depends on:
 	package: magic-watermarks-extra.mse-include
 	version: 2007-12-22
-depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-29
 depends on:
 	package: magic-mana-large-extra.mse-symbol-font
 	version: 2009-03-23
@@ -40,6 +37,9 @@ depends on:
 depends on:
 	package: magic-pt-symbols-extra.mse-symbol-font
 	version: 2009-09-25
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-05-20
 
 card width: 375
 card height: 523
@@ -113,7 +113,44 @@ init script:
 	comma_count := filter_text@(match:",")
 	
 	# Should the card have a color indicator?
-	has_identity := { styling.color_indicator }
+	colors_from_mana_symbols := {
+		str := []
+		if contains(input, match:"W") then str := str + ["white"]
+		if contains(input, match:"U") then str := str + ["blue"]
+		if contains(input, match:"B") then str := str + ["black"]
+		if contains(input, match:"R") then str := str + ["red"]
+		if contains(input, match:"G") then str := str + ["green"]
+		if contains(input, match:"E") then str := str + ["brown"]
+		if contains(input, match:"K") then str := str + ["pink"]
+		if contains(input, match:"P") then str := str + ["purple"]
+		if contains(input, match:"L") then str := str + ["yellow"]
+		if contains(input, match:"O") then str := str + ["orange"]
+
+		join(str, sep:", ")
+	}
+	has_identity_general := {
+		tag := if face == 1 then "" else "_" + face
+		indicator_field := extra_card.identity
+		culled_indicator := cull_noncolors(cull_directions(indicator_field))
+		color_field 	:= extra_card.frame
+		cost_field 		:= card["casting_cost"+tag]
+		culled_color	:= cull_directions(cull_noncolors(color_field))
+
+		default_from_casting_cost := colors_from_mana_symbols(cost_field)
+		default_from_card_color := if chosen(color_field, choice:"colorless")
+				then ""							## colorless
+			else if default_from_casting_cost == "" and chosen(color_field, choice:"land")
+				then ""							## land
+			else if chosen(color_field, choice:"multicolor") and culled_color == ""
+				then default_from_casting_cost	## 3+ multicolor
+			else culled_color					## normal color
+		#default_from_card_color := if chosen(color_field, choice:"colorless") then "" else if default_from_casting_cost == "" and chosen(color_field, choice:"land") then "" else if chosen(color_field, choice:"multicolor") and culled_color == "" then default_from_casting_cost else culled_color
+		color_cost_disagree := default_from_card_color != default_from_casting_cost
+		color_indicator_disagree := default_from_card_color != culled_indicator and indicator_field != color_field
+
+		color_cost_disagree or color_indicator_disagree
+	}
+
 	
 	############################################################################################################ Scripts from Blends Package
 	## Scripts being overwritten from /magic-blends.mse-include/new-blends
@@ -1598,11 +1635,6 @@ styling field:
 	initial: no
 styling field:
 	type: boolean
-	name: color indicator
-	description: Should there be a color indicator dot?
-	initial: no
-styling field:
-	type: boolean
 	name: inverted common symbol
 	description: Should the common rarity symbol be inverted, like in Coldsnap?
 	initial: no
@@ -1802,6 +1834,8 @@ styling style:
 		render style: checklist
 		direction: vertical
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/the_list_old
 card style:
 	############################# Background stuff
 	border color:
@@ -1820,8 +1854,8 @@ card style:
 		left:
 			{ if card.card_symbol=="none" and (card.type_symbol=="none" or not contains(styling.extras, match:"type symbol with name")) then 32
 			else if card.card_symbol == "none" then 49
-			else if card.type_symbol == "none" or typesymbol_type() == "none" then 51
-			else 68}
+			else if card.type_symbol == "none" or typesymbol_type(type:card.super_type) == "none" then 51
+			else 51}
 		top: 30
 		right: { 341 - card_style.casting_cost.content_width }
 		height: 23
@@ -1852,15 +1886,14 @@ card style:
 	card symbol:
 		left:
 			{if card.card_symbol == "none" then 20
-			else if card.type_symbol == "none" or not contains(styling.extras, match:"type symbol with name") then 32
-			else 50}
+			else if card.type_symbol == "none" or not contains(styling.extras, match:"type symbol with name") then 28
+			else 46}
 		top: {if card.card_symbol == "none" then 42 else 31}
-		height: 20
-		width: 14
+		height: 21
+		width: 23
 		z index: 5
 		render style: image
-		choice images:
-			tombstone: /magic-new.mse-style/tombstone.png
+		image:				{ card_symbol_image(face: 1) }
 	type symbol:
 		left: {if card.type_symbol == "none" or not contains(styling.extras, match:"type symbol with name") then 18 else 30}
 		top: {if card.type_symbol == "none" or not contains(styling.extras, match:"type symbol with name") then 22 else 32}
@@ -1894,7 +1927,7 @@ card style:
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
 		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
 		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
-		z index: 3
+		z index: 1010
 	############################# Card type
 	type:
 		left: { if has_identity() then "55" else "35" }
@@ -1918,20 +1951,7 @@ card style:
 		render style: image
 		alignment: middle right
 		visible: { not contains(styling.extras, match:"mtgsalvation rarity") }
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 31
@@ -2048,7 +2068,7 @@ extra card field:
 	choice:
 		name: reversed
 	script: card_color_filter(value)
-	default: card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name)
+	default: extra_card.frame
 extra card field:
 	type: multiple choice
 	name: pt box
@@ -2255,7 +2275,7 @@ extra card style:
 		top : 0
 		width: 375
 		height: 523
-		z index: 6
+		z index: 1050
 		render style: image
 		mask: {if not styling.foil_art then "no_art_foil_mask.png" else nil}
 		image: {if styling.overlay == "" then nil else set_combine(input: styling.overlay + "/overlay.png", combine: styling.overlay_combine_type)}

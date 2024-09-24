@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/normal cards
 position hint: 099
 
-version: 2021-06-25
+version: 2024-06-06
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -16,6 +16,9 @@ depends on:
 depends on:
 	package: magic-mana-small.mse-symbol-font
 	version: 2007-09-23
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-05-20
 
 card width: 375
 card height: 523
@@ -55,7 +58,7 @@ init script:
 
 	# styling stuff
 	card_shape := {"token"}
-	card_name_for_level := {if set.alias_as_cardname and card.alias != "" then card.alias else card.name}
+	name_tag_for_level := {""}
 	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
 	note_cleaner := replace@(match:"\\+", replace:"")
 	num_cleaner := replace@(match:"[0-9]", replace:"")
@@ -905,13 +908,14 @@ styling style:
 			preview: preview.png
 			yes: bool_yes.png
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
 card style:
 	border color:
 		left: 0
 		top : 0
 		width:	375
 		height:	523
-		radius: 18
 		left width:   17
 		right width:  17
 		top width:    17
@@ -1573,60 +1577,64 @@ card style:
 		line height soft: 0.9
 		line height hard max: 0.9
 		line height line max: 0.9
-
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 4
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
+	illustrator brush:
+		angle:				{ if face_is_rotated(1) then -90 else 0 }
+		left:
+			script:
+				if face_is_rotated(1) then
+				(
+					22 * face_coordinates_map(1).width/523 + face_coordinates_map(1).left - information_offset_top_1()
+				) else (
+					initial_space := 25 * face_coordinates_map(1).width/375
+					set_code_space := 4 * face_coordinates_map(1).width/375
+					set_code_width := if card.set_code == "" then 0 else (set_code_space + card_style.set_code.content_width)
+					set_language_width := if card.set_language == "" then 0 else (set_code_space + card_style.set_language.content_width)
+					set_width := if card.additional_credit_brush == "none" or (not set.adaptive_language_height) then set_code_width else max(set_code_width, set_language_width)
+					initial_space + set_width + face_coordinates_map(1).left + information_codes_offset_left_1()
+				)
+		top:
+			script:
+				if face_is_rotated(1) then
+				(
+					initial_space := 25 * face_coordinates_map(1).height/375
+					set_code_space := 4 * face_coordinates_map(1).height/375
+					set_code_width := if card.set_code == "" then 0 else (set_code_space + card_style.set_code.content_width)
+					set_language_width := if card.set_language == "" then 0 else (set_code_space + card_style.set_language.content_width)
+					set_width := if card.additional_credit_brush == "none" or (not set.adaptive_language_height) then set_code_width else max(set_code_width, set_language_width)
+					initial_space + set_width + face_coordinates_map(1).top + information_codes_offset_left_1()
+				) else (
+					501 * face_coordinates_map(1).height/523 + face_coordinates_map(1).top + information_offset_top_1()
+				)
+		width:
+			script:
+				if face_is_rotated(1) then
+				(
+					(if card.illustrator_brush == "art old" then 30 else if contains(card.illustrator_brush, match: "wide") then 15 else 12) * face_coordinates_map(1).width/523
+				) else (
+					(if card.illustrator_brush == "art old" then 30 else if contains(card.illustrator_brush, match: "wide") then 15 else 12) * face_coordinates_map(1).width/375
+				)
+		height:
+			script:
+				if face_is_rotated(1) then
+				(
+					7 * face_coordinates_map(1).height/375
+				) else (
+					7 * face_coordinates_map(1).height/523
+				)
+		visible:			{ not information_disabled_1() and card.illustrator != "" }
+		popup style:		in place
+		include file:		/magic.mse-game/information/menu_choice_images
+		render style:		image
+		image:				{ illustrator_brush_image(field: 1) }
+		z index:			900
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
 extra card field:
 	type: text
 	name: reminder
 	multi line: true
 	editable: true
 	save value: true
-	script: base_filter(input: value, card_name: if set.alias_as_cardname and card.alias != "" then card.alias else card.name, margin_code:"reminder")
+	script: base_filter(input: value, card_name: card_name_for_face(1), margin_code:"reminder")
 extra card field:
 	type: choice
 	name: walls
@@ -1645,19 +1653,6 @@ extra card field:
 	editable: false
 	save value: false
 	choice: wall
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
 extra card field:
 	type: choice
 	name: grid
@@ -2610,17 +2605,6 @@ extra card field:
 	choice: custom symbol 2
 	default: door_direction(y:8, x:4)
 extra card style:
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
 	reminder:
 		left: 24
 		top: 62
@@ -2644,27 +2628,6 @@ extra card style:
 		line height soft: 0.9
 		line height hard max: 0.9
 		line height line max: 0.9
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: {if styling.custom_floor then 12 else 0}
-		height: 7
-		z index: 4
-		render style: image
-		image: artist_arrow.png
-	auto copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 	grid:
 		left: 22
 		top: {max_start()-5}

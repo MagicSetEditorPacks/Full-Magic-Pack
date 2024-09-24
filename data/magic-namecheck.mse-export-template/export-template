@@ -1,7 +1,7 @@
 ﻿mse version: 2.0.0
 short name: Name Check
 full name: Name Check Exporter
-position hint: 009
+position hint: 300
 icon: icon.png
 version: 2018-01-11
 installer group: magic/Export/Name Check
@@ -38,26 +38,46 @@ script:
 	quote_filter := replace@(match:"”", replace:"")+
 		replace@(match:"“", replace:"")+
 		replace@(match:"[[.quotation-mark.]]", replace:"")
+	near_filter := 	replace@(match:"(and|or|in|into|to|upon|the|of|from|at|through|with) ", replace:"")
+					+ replace@(match:" ", replace:"")
+	match_name := match@(match: "(?i)^{name_list()}$")
+	match_near := match@(match: "(?i)^{near_name_list()}")
 
-
-	#
-	#
-	# Spacer because long blocks of code with lots of card names are long.
-	#
-	#
-	#
-	
-	matches_name := { to_string(quote_filter(card.name)) } + match@(match: "^{name_list()}$")
-	matches_name_2 := { to_string(quote_filter(card.name_2)) } + match@(match: "^{name_list()}$")
-
-	art_check := { options.check_for_artists and (card.illustrator == "" or card.illustrator == "([ ]+|[Uu]nknown|[?]+)")}
-	art_check_2 := { card.name_2 != "" and options.check_for_artists and (card.illustrator_2 == "" or card.illustrator_2 == "([ ]+|[Uu]nknown|[?]+)")}
-
-	write_card := {(if matches_name() then card.name + "\n" else "")
-		+ (if matches_name_2() then card.name_2 + "\n" else "")
+	write_cards := {
+		exact := ""
+		near := ""
+		art := ""
+		for each card in set do (
+			matches_name := match_name(quote_filter(card.name));
+			if matches_name
+				then exact := exact + "\n" + card.name
+			else (
+				matches_near := match_near(near_filter(quote_filter(card.name)))
+				if matches_near
+					then near := near + "\n" + card.name
+			)
+			if options.check_for_artists and (card.illustrator == "" or card.illustrator == "([ ]+|[Uu]nknown|[?]+)")
+				then art := art + "\n" + card.name
+			if card.name_2 != "" then (
+				matches_name_2 := match_name(quote_filter(card.name_2))
+				if matches_name_2
+					then exact := exact + "\n" + card.name_2
+				else (
+					matches_near_2 := match_near(near_filter(quote_filter(card.name_2)))
+					if matches_near_2
+						then near := near + "\n" + card.name_2
+				)
+				if contains(card.shape, match:"double") and options.check_for_artists and (card.illustrator_2 == "" or card.illustrator_2 == "([ ]+|[Uu]nknown|[?]+)")
+					then art := art + "\n" + card.name_2
+			)
+			"dummy return"
+		);
+		
+		str := ""
+			+ (if exact != "" then "----- Exact Matches -----" + exact + "\n\n")
+			+ (if near != "" then "----- Near Matches -----" + near + "\n\n")
+			+ (if art != "" then "----- No Artists -----" + art + "\n\n")
+			
+		str
 	}
-	write_card_2 := { (if art_check() then card.name + "\n" else "")
-		+ (if art_check_2() then card.name_2 + "\n" else "")
-	}
-	write_cards := "----- Exact Matches -----\n\n" + to_text(for each card in cards do write_card()) + (if options.check_for_artists then "\n\n-----No Illustrators-----\n\n" + to_text(for each card in cards do write_card_2()))
-	to_string(write_cards)
+	to_string(write_cards())
