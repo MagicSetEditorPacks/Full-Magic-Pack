@@ -6,13 +6,13 @@ installer group: magic/m15 style/planeswalkers/promo/black on black
 icon: card-sample.png
 position hint: 091
 
-version: 2018-02-09
+version: 2024-09-01
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -38,9 +38,6 @@ init script:
 	# Is the card a promo card?
 	is_promo := { styling.promo }
 	
-	# Determine if the card should have a foil stamp.
-	has_stamp := { is_rare() and styling.foil_stamp }
-	
 	# Loyalty cost arrows
 	loyalty_image := {
 		if      contains(input, match: "+") then "loyalty up"
@@ -55,8 +52,11 @@ init script:
 	paragraph_count := 
 		replace@(match:"<soft-line>\n", replace:"")+
 		filter_text@(match:"\n")
-	has_identity := { styling.color_indicator_dot }
-	is_unsorted := {styling.remove_from_autocount}
+	watermark_include := "/magic-modules.mse-include/watermarks"
+	card_stamp_offset_height_1 := {-8}
+	card_stamp_offset_width_1 := {-8}
+	card_stamp_offset_left_1 := {5}
+	card_stamp_offset_top_1 := {2}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -74,16 +74,6 @@ set info style:
 			fill color:   rgb(12,12,12)
 			border color: rgb(49,45,44)
 ############################################################## Extra style options
-styling field:
-	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
-	initial: no
-styling field:
-	type: boolean
-	name: remove from autocount
-	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial: no
 styling field:
 	type: boolean
 	name: use guild mana symbols
@@ -144,6 +134,9 @@ styling style:
 			short text only: /magic.mse-game/icons/center-short-text.png
 			never:           /magic.mse-game/icons/center-no-text.png
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -166,7 +159,7 @@ card style:
 		z index: 1
 		render style: image
 		popup style: in place
-		mask: { (if has_four_abilities() then "frame2" else "frame") + (if is_rare() then "_rare") + ".png" }
+		mask: { (if has_four_abilities() then "frame2" else "frame") + (if card.card_stamp != "none" then "_rare") + ".png" }
 	############################# Name line
 	name:
 		left: { if card.card_symbol=="none" then 31 else 48 }
@@ -194,14 +187,14 @@ card style:
 		z index: 2
 		padding top: 0
 	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 29}
-		top: 23
-		height: 18
-		width: 14
+		left: {if card.card_symbol=="none" then 20 else 28}
+		top: 21
+		height: 21
+		width: 23
 		z index: 1
 		render style: image
-		choice images:
-			tombstone: tombstone.png
+		include file:		/magic.mse-game/card-symbols/menu_choice_images
+		image:				{ card_symbol_image(face: 1) }
 	############################# Image
 	image:
 		left: 0
@@ -233,7 +226,7 @@ card style:
 		z index: 2
 		render style: image
 		alignment: middle right
-		image: { symbol_variation(symbol: (if card.rarity == "masterpiece" then set.masterpiece_symbol else set.symbol), variation: "blackout") }
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 63
@@ -277,7 +270,8 @@ card style:
 		z index: 2
 		render style: image
 		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
+		include file:	/magic.mse-game/watermarks/menu_choice_images
+		image:			{ watermark_image_1() }
 	############################# Loyalty
 	loyalty:
 		z index: 7
@@ -334,42 +328,6 @@ card style:
 			name: Beleren Bold
 			size: 11
 			color: rgb(140,140,140)
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 6
-		font:
-			name: Relay-Medium
-			size: 7
-			color: rgb(140,140,140)
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 3
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: rgb(140,140,140)
-	copyright:
-		right: 350
-		top: 498
-		width: 140
-		height: 10
-		z index: 6
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: rgb(140,140,140)
-			weight: bold
 ############################################################## Extra card fields
 extra card field:
 	type: color
@@ -380,21 +338,6 @@ extra card field:
 	editable: false
 	save value: false
 extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
-extra card field:
 	type: choice
 	name: loyalty box
 	editable: false
@@ -404,12 +347,6 @@ extra card field:
 	type: choice
 	name: foil layer
 	choice: foil
-	save value: false
-	editable: false
-extra card field:
-	type: choice
-	name: foil stamp
-	choice: stamp
 	save value: false
 	editable: false
 extra card field:
@@ -473,13 +410,6 @@ extra card field:
 	script: "frame"
 	editable: false
 	save value: false
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
-	editable: false
-	show statistics: false
 extra card style:
 	image back:
 		left: 0
@@ -494,26 +424,7 @@ extra card style:
 		height:	523
 		z index: 1
 		render style: image
-		image: { "frame" + (if has_four_abilities() then "2") + (if is_rare() then "_rare") + ".png" }
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 6
-		font:
-			name: Relay-Medium
-			size: 7
-			color: rgb(140,140,140)
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 6
-		render style: image
-		image: artist_arrow.png
+		image: { "frame" + (if has_four_abilities() then "2") + (if card.card_stamp != "none" then "_rare") + ".png" }
 	loyalty box:
 		right: 362
 		top: 460
@@ -529,18 +440,9 @@ extra card style:
 		top : 0
 		width: 375
 		height: 523
-		z index: 4
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
-	foil stamp:
-		left: 170
-		top: 473
-		width: 36.5
-		height: 22.5
-		z index: 7
-		visible: { has_stamp() }
-		render style: image
-		image: foil_stamp.png
 	loyalty cost box 1:
 		left: 18
 		top: { if has_four_abilities() then 295 else 333 }
@@ -676,16 +578,3 @@ extra card style:
 		line height hard max: 1.3
 		line height line max: 1.6
 		visible: { has_four_abilities() }
-	auto copyright:
-		right: 350
-		top: 498
-		width: 140
-		height: 10
-		z index: 6
-		visible: {set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: rgb(140,140,140)
-			weight: bold

@@ -1,0 +1,70 @@
+mse version: 2.0.0
+short name: Skeleton
+full name: Skeleton Extractor
+position hint: 420
+##icon: icon.png
+version: 2018-02-09
+installer group: magic/Export/text
+
+depends on:
+	package: magic.mse-game
+	version: 2009-07-23
+
+game: magic
+create directory: false
+file type: *.txt|*.txt|*.*|*.*
+
+# By Cajun
+script:
+	typeVal := {
+		if contains(card.type, match:"(Artifact|Enchantment) Creature") then 2
+		else if contains(card.type, match:"Creature") then 1
+		else if contains(card.type, match:"Planeswalker") then 3
+		else if contains(card.type, match:"Sorcery") then 4
+		else if contains(card.type, match:"Instant") then 5
+		else if contains(card.type, match:"Enchantment") then 6
+		else if contains(card.type, match:"Artifact") then 7
+		else if contains(card.type, match:"Land") then 8
+		else 9
+	}
+	mse_to_lackeyccg_trim_duplicate_color := {to_text(if contains(input, match:"W") then "W")
+		+to_text(if contains(input, match:"U") then "U")
+		+to_text(if contains(input, match:"B") then "B")
+		+to_text(if contains(input, match:"R") then "R")
+		+to_text(if contains(input, match:"G") then "G")
+		+to_text(if contains(input, match:"A") then "A")
+		}
+	mse_to_lackeyccg_gold_format := {to_text(if contains(card.casting_cost, match:"W") then "W")
+		+to_text(if contains(card.casting_cost, match:"U") then "U")
+		+to_text(if contains(card.casting_cost, match:"B") then "B")
+		+to_text(if contains(card.casting_cost, match:"R") then "R")
+		+to_text(if contains(card.casting_cost, match:"G") then "G")
+		}
+	mse_to_lackeyccg_color_filter := replace@(match:",", replace:"")+
+		replace@(match:" ", replace:"")+
+		replace@(match:"multicolor", replace:mse_to_lackeyccg_gold_format)+
+		replace@(match:"hybrid", replace:mse_to_lackeyccg_gold_format)+
+		replace@(match:"horizontal", replace:"")+
+		replace@(match:"vertical", replace:"")+
+		replace@(match:"radial", replace:"")+
+		replace@(match:"overlay", replace:"")+
+		replace@(match:"colorless", replace:"")+
+		replace@(match:"white", replace:"W")+
+		replace@(match:"blue", replace:"U")+
+		replace@(match:"black", replace:"B")+
+		replace@(match:"red", replace:"R")+
+		replace@(match:"green", replace:"G")+
+		replace@(match:"artifact", replace:"A")
+
+	write_card := {
+		"	"
+		+ card.name + "	"
+		+ card.casting_cost + "	"
+		+ card.type + "	"
+		+ mse_to_lackeyccg_trim_duplicate_color(mse_to_lackeyccg_color_filter(card.card_color)) + "	"
+		+ card.rarity + "	"
+		+ card.cmc + "	"
+		+ typeVal() + "\n"
+	}
+	write_cards := to_text(for each card in sort_list(cards, order_by: {card.name}) do write_card())
+	to_string("Code	Name	Mana Cost	Typeline	Color	Rarity	CMC	TypeVal\n"+write_cards +"}")

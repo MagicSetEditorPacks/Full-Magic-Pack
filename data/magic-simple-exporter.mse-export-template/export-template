@@ -1,0 +1,148 @@
+﻿mse version: 2.0.0
+short name: Simple Exporter
+full name: Simple
+position hint: 410
+icon: icon.png
+version: 2018-01-11
+installer group: magic/Export/text
+
+depends on:
+	package: magic.mse-game
+	version: 2008-08-08
+
+game: magic
+create directory: false
+file type: *.txt|*.txt|*.*|*.*
+
+option field:
+	type: choice
+	name: export two part
+	description: How to export two part cards (DFCs, Adventures, etc).
+	choice: On the same line as first face
+	choice: On the next line as first face
+	choice: Don't export second face
+option field:
+	type: boolean
+	name: export name
+	description: Whether to include a card's name or not.
+	initial: yes
+option field:
+	type: boolean
+	name: export mana cost
+	description: Whether to include a card's mana cost or not.
+	initial: no
+option field:
+	type: boolean
+	name: export type
+	description: Whether to include a card's type or not.
+	initial: no
+option field:
+	type: boolean
+	name: export rarity
+	description: Whether to include a card's rarity or not.
+	initial: yes
+option field:
+	type: boolean
+	name: export rules
+	description: Whether to include a card's rules text or not.
+	initial: no
+option field:
+	type: boolean
+	name: export flavor
+	description: Whether to include a card's flavor text or not.
+	initial: no
+option field:
+	type: boolean
+	name: export pt
+	description: Whether to include a card's power and toughness or not.
+	initial: no
+option field:
+	type: boolean
+	name: export loyalty
+	description: Whether to include a card's loyalty or not.
+	initial: no
+option field:
+	type: boolean
+	name: export illustrator
+	description: Whether to include a card's illustrator or not.
+	initial: no
+option field:
+	type: boolean
+	name: export number
+	description: Whether to include a card's collector number or not.
+	initial: no
+option field:
+	type: boolean
+	name: export notes
+	description: Whether to include a card's notes or not.
+	initial: no
+
+script:
+	export_backs := {options.export_two_part != "Don't export second face"}
+	break_backs := {options.export_two_part == "On the next line as first face"}
+	pull_breaks := replace@(match:"\n", replace:"\\\\n ")
+	exporter_num_filter := filter_text@(match:"!num [^\n!]+")
+	exporter_num_grabber := replace@(match:"!num ", replace:"")
+	corrected_card_number := { if exporter_num_grabber(exporter_num_filter(card.notes)) != "" then exporter_num_grabber(exporter_num_filter(card.notes)) else if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number() }
+	write_header := {
+		"" + 
+		(if options.export_name then "Name	" else "")+
+		(if options.export_mana_cost then "Mana Cost	" else "")+
+		(if options.export_type then "Type	" else "")+
+		(if options.export_rarity then "Rarity	" else "")+
+		(if options.export_rules then "Rules Text	" else "")+
+		(if options.export_flavor then "Flavor Text	" else "")+
+		(if options.export_pt then "Power	" else "")+
+		(if options.export_pt then "Toughness	" else "")+
+		(if options.export_loyalty then "Loyalty	" else "")+
+		(if options.export_illustrator then "Illustrator	" else "")+
+		(if options.export_number then "Card Number	" else "")+
+		(if options.export_notes then "Notes	" else "")+
+		(if export_backs() and not break_backs() then
+			(if options.export_name then "Name 2	" else "")+
+			(if options.export_mana_cost then "Mana Cost 2	" else "")+
+			(if options.export_type then "Type 2	" else "")+
+			(if options.export_rules then "Rules Text 2	" else "")+
+			(if options.export_flavor then "Flavor Text 2	" else "")+
+			(if options.export_pt then "Power 2	" else "")+
+			(if options.export_pt then "Toughness 2	" else "")+
+			(if options.export_loyalty then "Loyalty 2	" else "")+
+			(if options.export_illustrator then "Illustrator 2	" else "")+
+			(if options.export_number then "Card Number 2	" else "")+
+			(if options.export_notes then "Notes	" else "")
+		else "")
+		+"\n"
+	}
+	write_card := {
+		"" + 
+		(if options.export_name then card_name() + "	" else "")+
+		(if options.export_mana_cost then card.casting_cost + "	" else "")+
+		(if options.export_type then card.type + "	" else "")+
+		(if options.export_rarity then card.rarity + "	" else "")+
+		(if options.export_rules then pull_breaks(if card.special_text != "" then card.special_text else card.rule_text) + "	" else "")+
+		(if options.export_flavor then pull_breaks(card.flavor_text) + "	" else "")+
+		(if options.export_pt then card.power + "	" else "")+
+		(if options.export_pt then card.toughness + "	" else "")+
+		(if options.export_loyalty then card.loyalty + "	" else "")+
+		(if options.export_illustrator then card.illustrator + "	" else "")+
+		(if options.export_number then corrected_card_number() + "	" else "")+
+		(if options.export_notes then pull_breaks(card.notes) + "	" else "")+
+		(if break_backs() and has_two_names() then "\n" else "")+
+		(if has_two_names() and export_backs() then
+			(if options.export_name then card.name_2 + "	" else "")+
+			(if options.export_mana_cost then card.casting_cost_2 + "	" else "")+
+			(if options.export_type then card.type_2 + "	" else "")+
+			(if options.export_rarity then card.rarity + "	" else "")+
+			(if options.export_rules then pull_breaks(if card.special_text_2 != "" then card.special_text_2 else card.rule_text_2) + "	" else "")+
+			(if options.export_flavor then pull_breaks(card.flavor_text_2) + "	" else "")+
+			(if options.export_pt then card.power_2 + "	" else "")+
+			(if options.export_pt then card.toughness_2 + "	" else "")+
+			(if options.export_loyalty then card.loyalty_2 + "	" else "")+
+			(if options.export_illustrator then card.illustrator_2 + "	" else "")+
+			(if options.export_number then corrected_card_number() + "	" else "")+
+			(if options.export_notes then pull_breaks(card.notes) + "	" else "")
+		else "")
+		+"\n"
+	}
+	write_cards := for each card in cards do write_card()
+	to_string(to_text(write_header() + write_cards))

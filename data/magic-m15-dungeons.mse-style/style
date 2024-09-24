@@ -1,0 +1,3869 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Dungeons
+full name: AFR Dungeons
+icon: card-sample.png
+installer group: magic/m15 style/normal cards
+position hint: 099
+
+version: 2024-06-06
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-05-20
+
+card width: 375
+card height: 523
+card dpi: 150
+#################################
+##### Blank from CardConjurer
+init script:
+	max_len := 16
+	max_hei := 19
+	# theoretically make the code expandable to bigger boards
+
+	# base images
+	white := to_image("walls.png")
+	black := to_image("base.png")
+	
+	# template blending
+	template_prefix := [card: "", grid:"grid/" wall:"wall_texture/" light:"wall_texture/" dark:"wall_texture/" ]
+	template_suffix := [card: "card.png" grid:"grid.png" wall:"wall.png" light:"light.png" dark:"dark.png" ]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
+
+	grid_background := { color_background(type:"grid",     base_hybrid:card_hybrid) }
+	walls_background := { color_background(type:"wall",     base_hybrid:card_hybrid) }
+	light_background := { color_background(type:"light",     base_hybrid:card_hybrid) }
+	dark_background := { color_background(type:"dark",     base_hybrid:card_hybrid) }
+
+	# keep the normal filter for the Undercity text
+	base_filter := text_filter
+	# bold room names
+	text_filter :=
+		text_filter +
+		remove_tag@(tag: "<font") +
+		replace@(
+			match:"^([^\n]+)(\n|[ ][ ])(.*)$"
+			replace:"<font:Beleren Bold>\\1</font>\\2\\3"
+		)
+
+	# styling stuff
+	card_shape := {"token"}
+	name_tag_for_level := {""}
+	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+	note_cleaner := replace@(match:"\\+", replace:"")
+	num_cleaner := replace@(match:"[0-9]", replace:"")
+	font_size := {if styling.font_size != "" then styling.font_size else 12}
+	font_color := {if styling.advanced_scripts == "preview" then "white" else "black"}
+	custom_sym := {
+		c_folder := if contains(styling.arrow_replacement_folder, match:"/") then styling.arrow_replacement_folder else ""
+		if input == "1" then
+			if contains(styling.custom_symbol_one, match:".png") then "/magic-mainframe-extras.mse-include/"+c_folder+styling.custom_symbol_one
+			else "lock.png"
+		else if input == "2" then
+			if contains(styling.custom_symbol_two, match:".png") then "/magic-mainframe-extras.mse-include/"+c_folder+styling.custom_symbol_two
+			else "key.png"		
+		else if c_folder != ""
+			then "/magic-mainframe-extras.mse-include/" + c_folder + input
+		else input
+	}
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	transfer_levels := {false}
+	
+	# lines on level N, L0 and L8 use the real level
+	line_lanes := {
+		line := min(max(1, input), max_level())
+		min(max(1,to_int(pull_comma_array(styling.room_counts, cell:line-1, end:false))),3)
+	}
+	# max number of levels determined by room count
+	max_level := {min(8,max(3, length(filter_text(styling.room_counts, match:"[0-9]"))))}
+	# simplify our common crop script
+	wall_crop := {crop(input, height:387, width:327, offset_x:x, offset_y:offset)}@(x:0)
+	# line height for a level
+	line_height := {
+		if input == 0
+			then 0
+		else(
+			given := max(min(pull_comma_array(styling.room_heights, cell:input-1), 15), 2)
+			bump := excess_height()[input-1]
+			20*(max(min(given+bump, 15), 2))
+		)
+		# 20 px per block; between 2 and 15 blocks, using room heights and excess height script to redistribute remainder
+	}
+	# line height for a level and all the levels above it
+	line_offset := {
+		off := for x from 1 to input do line_height(x)
+		to_int(off)
+	}
+	# total room height in our style option
+	given_height := {
+		nums := split_text(replace(styling.room_heights, match:",$", replace:""), match:",")
+		val := for x from 0 to length(nums)-1 do min(15,max(2,to_int(nums[x])))
+		miss := max_level() - length(nums)
+		if miss > 0 then val := val + 2*miss
+		val
+	}
+	# distribute any remaining of the 19 block height
+	excess_height := {
+		exc := 19 - given_height()
+		if exc == 0 then [0,0,0,0,0,0,0,0] else (
+			ml := max_level()
+			one_off := 0
+			back_off := 0
+			per := to_int(exc / ml)
+			per2 := to_int(exc / (ml-1))
+			if per2 > per then
+				one_off := -1
+			if per2 > per then
+				per := per2
+			rem := exc - per*ml - one_off
+			bump := for x from 1 to 9 do [per+(if x == ml then rem+back_off else if x == 1 then one_off else 0)]
+			bump
+		)
+	}
+	# starting x coord of the dungeon
+	max_start := {if styling.reminder_box then 95 else 70}
+	# placement of room textboxes
+	# array of where walls are placed in a lane
+	span_array := {
+		if input == 0 then input := 1
+		if input > max_level() then input := max_level()
+		# default numbers
+		lanes := line_lanes(input)
+		array := default_w[lanes]
+		# if widths are edited
+		if not use_fast() and styling["level_"+input+"_custom_widths"] != "" then (
+			shift := split_text(styling["level_"+input+"_custom_widths"]+",,,,,", match:",")
+			# width of room 1
+			l1 := to_int(if shift[0] != "" then shift[0] else array[1])
+			# width of room 2
+			l2 := to_int(if shift[1] != "" then shift[1] else array[2])
+			array := [0, l1, min(l1+l2,max_len), max_len]
+		) else (
+			array := [0, array[0]+array[1], array[0]+array[1]+array[2], max_len]
+		)
+		array
+	}
+	default_w := [
+		[0, 0, 0, 0],
+		[0, 16, 0, 0],
+		[0, 8, 8, 0],
+		[0, 5, 6, 5]
+	]
+	long_box := {
+		if y < 2 or y > max_level()
+			then false
+		else contains(styling["level_"+y+"_long_rooms"], match:to_string(x))
+	}
+	dead_box := {
+		if y > max_level()+1
+			then false
+		else (contains(styling["level_"+(y)+"_dead_ends"], match:to_string(x)))
+	}
+	box_x := {
+		span := span_array(y)
+		if x >= length(span) or span[x-1] == 16 then 0 else 20*span[x-1]+29
+	}
+	box_y := {
+		if y == 1 then max_start()
+		else max_start()+line_offset(y-1)
+	}
+	box_w := {
+		if y > max_level() then 0 else (
+			maxy := y
+			if text and styling["level_"+(y+1)+"_long_rooms"] or else "" != "" then maxy := box_max_y(x:x, y:y)
+			blocks := max_len
+			for n from y to maxy do (
+				span := span_array(n)
+				blocks := min(blocks, span[x] - span[x-1])
+				"filler"
+			)
+			max(0,20*blocks-3)
+		)
+	}@(text:true)
+	box_max_y := {
+		multi := 1
+		maxi := for n from y+1 to 8 do (
+			if not long_box(x:x, y:n) then multi := 0;
+			multi
+		)
+		y+maxi
+	}
+	box_h := {
+		multi := 1
+		if long_box(x:x, y:y) then multi := 0
+		h := for n from y to 8 do (
+			if n > y and not long_box(x:x, y:n) then multi := 0
+			if multi == 0 then n := 8
+			multi*line_height(n)
+		)
+		h
+	}
+	# the default arrow directions
+	arrow_to_room := {
+		span := span_array(y)
+		span2 := span_array(y+1)
+		interface := sort_list((span+span2), remove_duplicates:true)
+		if x >= length(interface)
+			then 0
+		else (
+			point := 0.5*(interface[x]+interface[x-1])
+			if point >= span2[2]
+				then 3
+			else if point >= span2[1]
+				then 2
+			else 1
+		)
+	}
+	arrow_direction := {
+		x := arrow_to_room(x:x, y:y)
+		if not styling.arrows
+			then "none"
+		else if long_box(x:x, y:y+1)
+			then "none"  ## Oubliette room
+		else if dead_box(x:x, y:y)
+			then "none" # this is a dead end, don't show an arrow
+		else if dead_box(x:x, y:y+1)
+			then "updown" # the next room is a dead end, allow back out
+		else "down"
+	}
+	door_direction := {
+		lanes := line_lanes(y)
+		if not styling.arrows then "none"
+		else if x == 4 then # right wall arrow out
+			if lanes == 1 and contains(styling["level_"+y+"_exits"], match:"2") then "right"
+			else if lanes == 2 and contains(styling["level_"+y+"_exits"], match:"3") then "right"
+			else if lanes == 3 and contains(styling["level_"+y+"_exits"], match:"4") then "right"
+			else "none"
+		else if not contains(styling["level_"+y+"_exits"], match:x) then "none"
+		else if x == 1 then "left"
+		else if x > line_lanes(y) then "right"
+		else if styling["level_"+y+"_dead_ends"] != "" then (
+			ldead := dead_box(x:x-1, y:y)
+			rdead := dead_box(x:x, y:y)
+			if ldead == rdead then "leftright"
+			else if ldead then "right"
+			else "left"
+		)
+		else "leftright"
+	}
+	dir_map := [
+		[168, -10, -10, -10, -10],
+		[88, 248, -10, -10, -10],
+		[64, 168, 272, -10, -10],
+		[58, 138, 198, 278, -10]
+	]
+	arrow_x := {
+		arr := sort_list((span_array(y)+span_array(y+1)), remove_duplicates:true)
+		if y >= max_level() or x >= length(arr)
+			then 0
+		else if use_fast() then (
+			openings := length(arr)-1
+			dir_map[openings-1][x-1]+10
+		)
+		else ((arr[x-1]+arr[x])*10)+18+door_offset(x:x, y:y)
+	}
+	arrow_y := {
+		max_start() + line_offset(y) - 10
+	}
+	door_x := {
+		if y > max_level() or door_direction(x:x, y:y) == "none"
+			then 0
+		else (
+			lanes := line_lanes(y)
+			span := span_array(y)
+			if x == 4 then 20*max_len + 17
+			else if x > lanes then 0
+			else span[x-1]*20 + 17
+		)
+	}
+	door_y := {
+		arrow_y(y:y-1) + (0.5*line_height(y))
+	}
+	
+
+	# make sure span_arrays are min length 3, fill extras with max len
+	walls_image_slow := {
+		s := ""
+		lanes := dungeon_lanes(s:s)
+		walls := dungeon_walls(s:s)
+		dungeon := masked_blend(dark:walls, light:white, mask:lanes)
+		
+		if styling.advanced_scripts == "yes" then (
+			# change the dark blue to white
+			open_mask := recolor_image(dungeon, color:rgb(180,0,0))
+			# make pure bw version of image
+			pure_mask := recolor_image(dungeon, color:rgb(100,255,0))
+			# shadows on white
+			shad := masked_blend(dark:white, light:black, mask:open_mask)
+			# dungeon over shadows
+			dungeon := masked_blend(dark:shad, light:dungeon, mask:pure_mask)
+			# color the dungeon
+			dungeon := masked_blend(dark:black, light:walls_background(card.card_color), mask:pure_mask)
+			# apply highlight/shadow
+			if s == "" then dungeon := add_texture(dungeon, lanes:lanes, walls:walls)
+			# and finally mask for transparency
+			dungeon := set_mask(image:dungeon, mask:open_mask)
+		)
+		
+		dungeon
+	}
+	add_texture := {
+		highlight_mask := masked_blend(dark:masked_blend(dark:white, light:"new_masks/light_lines.png", mask:lanes), light:white, mask:walls)
+		shadow_mask := masked_blend(dark:masked_blend(dark:white, light:"new_masks/dark_lines.png", mask:lanes), light:white, mask:walls)
+		dungeon := masked_blend(light:dungeon, dark:light_background(card.card_color), mask:highlight_mask)
+		dungeon := masked_blend(light:dungeon, dark:dark_background(card.card_color), mask:shadow_mask)
+		dungeon
+	}
+	# make horizontal mask
+	dungeon_lanes := {
+		ml := max_level()
+		lanes := add_level_lanes(img:black, line:0, s:s)
+		if ml >= 1 then lanes := add_level_lanes(img:lanes, line:1, s:s)
+		if ml >= 2 then lanes := add_level_lanes(img:lanes, line:2, s:s)
+		if ml >= 3 then lanes := add_level_lanes(img:lanes, line:3, s:s)
+		if ml >= 4 then lanes := add_level_lanes(img:lanes, line:4, s:s)
+		if ml >= 5 then lanes := add_level_lanes(img:lanes, line:5, s:s)
+		if ml >= 6 then lanes := add_level_lanes(img:lanes, line:6, s:s)
+		if ml >= 7 then lanes := add_level_lanes(img:lanes, line:7, s:s)
+		if ml >= 8 then lanes := add_level_lanes(img:lanes, line:8, s:s)
+		lanes
+	}
+	add_level_lanes := {
+		ml := max_level()
+		walls := sort_list((span_array(line)+span_array(line+1)), remove_duplicates:true)
+		len := length(walls)
+		y := 380-line_offset(line)
+		baseline := wall_crop("new_masks/"+s+"lane.png", offset:y)
+		img := masked_blend(dark:img, light:white, mask:baseline)
+		# skip dead ends, open oubliettes, open doors on rest
+		if len >= 2 and not contains(styling["level_"+line+"_dead_ends"], match:"1") then
+			if line > 0 and ml <= 6 and contains(styling["level_"+(line+1)+"_long_rooms"], match:"1")
+				then img := add_long_room(img:img, x:1, y:line, e:walls[1], s:s)
+			else img := add_door(img:img, x:1, y:line, c:0.5*(walls[0]+walls[1]), s:s, w:(walls[1]-walls[0]))
+		if len >= 3 and not contains(styling["level_"+line+"_dead_ends"], match:"2") then
+			if line > 0 and ml <= 6 and contains(styling["level_"+(line+1)+"_long_rooms"], match:"2")
+				then img := add_long_room(img:img, x:2, y:line, e:walls[2], s:s)
+			else img := add_door(img:img, x:2, y:line, c:0.5*(walls[1]+walls[2]), s:s, w:(walls[2]-walls[1]))
+		if len >= 4 and not contains(styling["level_"+line+"_dead_ends"], match:"3") then
+			if line > 0 and ml <= 6 and contains(styling["level_"+(line+1)+"_long_rooms"], match:"3")
+				then img := add_long_room(img:img, x:3, y:line, e:walls[3], s:s)
+			else img := add_door(img:img, x:3, y:line, c:0.5*(walls[2]+walls[3]), s:s, w:(walls[3]-walls[2]))
+		if len >= 5 and not contains(styling["level_"+line+"_dead_ends"], match:"4") then
+			if line > 0 and ml <= 6 and contains(styling["level_"+(line+1)+"_long_rooms"], match:"4")
+				then img := add_long_room(img:img, x:4, y:line, e:walls[4], s:s)
+			else img := add_door(img:img, x:4, y:line, c:0.5*(walls[3]+walls[4]), s:s, w:(walls[4]-walls[3]))
+		if len >= 6 and not contains(styling["level_"+line+"_dead_ends"], match:"5") then
+			if line > 0 and ml <= 6 and contains(styling["level_"+(line+1)+"_long_rooms"], match:"5")
+				then img := add_long_room(img:img, x:5, y:line, e:walls[5], s:s)
+			else img := add_door(img:img, x:5, y:line, c:0.5*(walls[4]+walls[5]), s:s, w:(walls[5]-walls[4]))
+		if len >= 7 and not contains(styling["level_"+line+"_dead_ends"], match:"6") then
+			if line > 0 and ml <= 7 and contains(styling["level_"+(line+1)+"_long_rooms"], match:"6")
+				then img := add_long_room(img:img, x:6, y:line, e:walls[6], s:s)
+			else img := add_door(img:img, x:6, y:line, c:0.5*(walls[5]+walls[6]), s:s, w:(walls[6]-walls[5]))
+		img
+	}
+	add_long_room := {
+		blocks := to_string(round_up(box_w(x:x, y:y, text:false)/20))
+		x:= 20*(max_len - e)
+		out := img
+		if blocks > 0 then (
+			mask_img := wall_crop("new_masks/"+s+"lane_mask_"+blocks+".png", offset:380-line_offset(y), x:x)
+			lane_img := wall_crop("new_masks/"+s+"lane_"+blocks+".png", offset:380-line_offset(y), x:x)
+			out := masked_blend(dark:img, light:lane_img, mask:mask_img)
+		)
+		out
+	}
+	door_offset := {
+		if y == 0 or styling["level_"+y+"_door_offsets"] == "" then 0 else to_int(pull_comma_array(styling["level_"+y+"_door_offsets"], cell:x-1, end:false, default:0))
+	}
+	add_door := {
+		x := 20*(max_len - c)-22-door_offset(x:x, y:y)
+		le := if w == 1 then "_mini" else if w == 2 then "_short" else ""
+		mask_img := wall_crop("new_masks/"+s+"door"+le+"_mask.png", offset:380-line_offset(y), x:x)
+		door_img := wall_crop("new_masks/"+s+"door"+le+".png", offset:380-line_offset(y), x:x)
+		masked_blend(dark:img, light:door_img, mask:mask_img)		
+	}
+	# make vertical mask
+	dungeon_walls := {
+		ml := max_level()
+		walls := add_level_walls(img:black, line:1, s:s)
+		if ml >= 2 then walls := add_level_walls(img:walls, line:2, s:s)
+		if ml >= 3 then walls := add_level_walls(img:walls, line:3, s:s)
+		if ml >= 4 then walls := add_level_walls(img:walls, line:4, s:s)
+		if ml >= 5 then walls := add_level_walls(img:walls, line:5, s:s)
+		if ml >= 6 then walls := add_level_walls(img:walls, line:6, s:s)
+		if ml >= 7 then walls := add_level_walls(img:walls, line:7, s:s)
+		if ml >= 8 then walls := add_level_walls(img:walls, line:8, s:s)
+		walls
+	}
+	add_level_walls := {
+		walls := sort_list(span_array(line), remove_duplicates:true)
+		blocks := to_string(line_height(line) / 20)
+		exits := if line == 0 or line > max_level() then 0 else styling["level_"+line+"_exits"]
+		wall := "new_masks/"+s+"wall_"+blocks+".png"
+		door := "new_masks/"+s+"wall_"+blocks+"o.png"
+		len := length(walls)
+		y := 380-line_offset(line)
+		if len > 0 then (
+			x := 320 - 20*walls[0]
+			slug := if contains(exits, match:"1") then door else wall
+			mask_img := wall_crop(slug, offset:y, x:x)
+			img := masked_blend(dark:img, light:white, mask:mask_img)
+		)
+		if len > 1 then (
+			x := 320 - 20*walls[1]
+			slug := if contains(exits, match:"2") then door else wall
+			mask_img := wall_crop(slug, offset:y, x:x)
+			img := masked_blend(dark:img, light:white, mask:mask_img)
+		)
+		if len > 2 then (
+			x := 320 - 20*walls[2]
+			slug := if contains(exits, match:"3") then door else wall
+			mask_img := wall_crop(slug, offset:y, x:x)
+			img := masked_blend(dark:img, light:white, mask:mask_img)
+		)
+		if len > 3 then (
+			x := 320 - 20*walls[3]
+			slug := if contains(exits, match:"4") then door else wall
+			mask_img := wall_crop(slug, offset:y, x:x)
+			img := masked_blend(dark:img, light:white, mask:mask_img)
+		)
+		img
+	}
+	
+	use_fast := {styling.advanced_scripts == "no"}
+	walls_image := {if use_fast() then walls_image_fast(input) else walls_image_slow(input)}
+	walls_image_split := {
+		## for loop doesn't work or images :(
+		ml := max_level()
+		folder := if input == "shadow/" then "shadow/" else ""
+		walls := black
+		lanes := lane_mask(folder, img:black, line:to_int(0))
+		lanes := lane_mask(folder, img:lanes, line:to_int(1))
+		if ml >= 1 then lanes := lane_mask(folder, img:lanes, line:2)
+		if ml >= 2 then lanes := lane_mask(folder, img:lanes, line:3)
+		if ml >= 3 then lanes := lane_mask(folder, img:lanes, line:4)
+		if ml >= 4 then lanes := lane_mask(folder, img:lanes, line:5)
+		if ml >= 5 then lanes := lane_mask(folder, img:lanes, line:6)
+		if ml >= 6 then lanes := lane_mask(folder, img:lanes, line:7)
+		if ml >= 7 then lanes := lane_mask(folder, img:lanes, line:8)
+		if ml >= 8 then lanes := lane_mask(folder, img:lanes, line:9)
+		if ml >= 1 then walls := wall_mask(folder, img:walls, line:1)
+		if ml >= 2 then walls := wall_mask(folder, img:walls, line:2)
+		if ml >= 3 then walls := wall_mask(folder, img:walls, line:3)
+		if ml >= 4 then walls := wall_mask(folder, img:walls, line:4)
+		if ml >= 5 then walls := wall_mask(folder, img:walls, line:5)
+		if ml >= 6 then walls := wall_mask(folder, img:walls, line:6)
+		if ml >= 7 then walls := wall_mask(folder, img:walls, line:7)
+		if ml >= 8 then walls := wall_mask(folder, img:walls, line:8)
+		if ml >= 1 then walls := door_mask(folder, img:walls, line:1)
+		if ml >= 2 then walls := door_mask(folder, img:walls, line:2)
+		if ml >= 3 then walls := door_mask(folder, img:walls, line:3)
+		if ml >= 4 then walls := door_mask(folder, img:walls, line:4)
+		if ml >= 5 then walls := door_mask(folder, img:walls, line:5)
+		if ml >= 6 then walls := door_mask(folder, img:walls, line:6)
+		if ml >= 7 then walls := door_mask(folder, img:walls, line:7)
+		if ml >= 8 then walls := door_mask(folder, img:walls, line:8)
+		if ml >= 0 then lanes := dead_mask(folder, img:lanes, line:0)
+		if ml >= 1 then lanes := dead_mask(folder, img:lanes, line:1)
+		if ml >= 2 then lanes := dead_mask(folder, img:lanes, line:2)
+		if ml >= 3 then lanes := dead_mask(folder, img:lanes, line:3)
+		if ml >= 4 then lanes := dead_mask(folder, img:lanes, line:4)
+		if ml >= 5 then lanes := dead_mask(folder, img:lanes, line:5)
+		if ml >= 6 then lanes := dead_mask(folder, img:lanes, line:6)
+		if ml >= 7 then lanes := dead_mask(folder, img:lanes, line:7)
+		if ml >= 8 then lanes := dead_mask(folder, img:lanes, line:8)
+		
+		dungeon := masked_blend(dark:walls, light:white, mask:lanes)
+		dungeon_img := black
+		
+		if input != "shadow/" then (
+			dungeon_img := masked_blend(dark:black, light:walls_background(card.card_color), mask:dungeon)
+			dungeon_img := add_texture(dungeon:dungeon_img, lanes:lanes, walls:walls)
+		)
+		dungeon_img := set_mask(image:dungeon_img, mask:dungeon)
+		
+		[dungeon_img, dungeon, walls, lanes]
+	}
+	walls_image_fast := {
+		walls_image_split(input)[cell]
+	}@(cell:0)
+	unique_elements := {
+		e1 := []
+		e2 := []
+		e1 := e1 + for x from 0 to length(of)-1 do if ar_position(of:of[x], in:from) == -1 then [of[x]]
+	}
+	dead_mask := {
+		lanes := line_lanes(line)
+		next := line_lanes(line+1)
+		base := lane_mask_base[lanes][next]
+		rooms := sort_list(break_text(styling["level_"+line+"_dead_ends"], match:"[0-9]"))
+		longs := if line > 1 and line < 8 then break_text(styling["level_"+(line+1)+"_long_rooms"], match:"[0-9]") else ["no"]
+		rooms := unique_elements(of:rooms, from:longs)
+		tail := for x from 0 to length(rooms)-1 do (
+			if rooms[x] == "1" and ar_position(of:"1", in:longs) == -1
+				then "e1"
+			else if rooms[x] == "2" and base > 1
+				then "e2"
+			else if rooms[x] == "3" and base > 2
+				then "e3"
+			else if rooms[x] == "4" and base > 3
+				then "e4"
+			else ""
+		)
+		file := input + "lane_masks/" + base + tail + ".png"
+		if tail == "" or tail == nil
+			then img
+		else masked_blend(dark:img, light:"walls.png" mask:wall_crop(file, offset:380-line_offset(line)))
+	}
+	lane_mask := {
+		lanes := line_lanes(line)
+		next := line_lanes(line+1)
+		base := lane_mask_base[lanes][next]
+		file := input+"lane_masks/"+base
+		if line > 0 and line < 8 and lanes > 1 and lanes == next then file := file + long_map(long_lanes(line))
+		mask_img := wall_crop(file+".png", offset:380-line_offset(line))
+		masked_blend(dark:img, light:"walls.png", mask:mask_img)
+	}
+	wall_mask := {
+		base := line_lanes(line)
+		blocks := line_height(line) / 20
+		if line > max_level() then blocks := line_height(line-1) / 20
+		mask_img := wall_crop(input+"wall_masks/"+base+"_"+blocks+".png", offset:380-line_offset(line))
+		masked_blend(dark:img, light:"walls.png", mask:mask_img)
+	}
+	door_mask := {
+		exits := sort_text(filter_text(styling["level_"+line+"_exits"], match:"[0-9]"))
+		verify := line_lanes(line) + "_" + exits
+		off := 380 - line_offset(line) + (0.5*line_height(line)) - 20
+		if door_check(verify) or else false
+			then masked_blend(dark:img, light:"base.png", mask:wall_crop(input+"door_masks/"+verify+".png", offset:off))
+		else img
+	}
+	
+	long_lanes := {
+		if input > 8 then 0 else (
+			line := to_int(input)+1
+			long := sort_list(break_text(styling["level_"+line+"_long_rooms"], match:"[123]"), remove_duplicates:true)
+			len := length(long)
+			if len == 0 then "0" else for x from 0 to length(long)-1 do long[x]
+		)
+	}
+	lane_mask_base := [
+		[""],
+		["", "1", "2", "3"],
+		["", "2", "2", "4"],
+		["", "3", "4", "3"]
+	]
+	long_map := {
+		[
+		"": "",
+		"0": "",
+		"1": "d1",
+		"2": "d2",
+		"3": "d3",
+		"12": "d1d2",
+		"13": "d1d3",
+		"23": "d2d3",
+		"123": "d1d2d3"
+		][input]
+	}
+
+	door_check := {
+		[
+		"1_1": true,
+		"1_2": true,
+		"1_12": true,
+		"2_1": true,
+		"2_2": true,
+		"2_3": true,
+		"2_12": true,
+		"2_13": true,
+		"2_23": true,
+		"2_123": true,
+		"3_1": true,
+		"3_2": true,
+		"3_3": true,
+		"3_4": true,
+		"3_12": true,
+		"3_13": true,
+		"3_14": true,
+		"3_23": true,
+		"3_24": true,
+		"3_34": true,
+		"3_123": true,
+		"3_124": true,
+		"3_134": true,
+		"3_234": true,
+		"3_1234": true
+		][input]
+	}
+
+############################################################## Set info fields
+styling field:
+	type: choice
+	name: Click here for help!
+	choice: Click here for help!
+	choice: Room counts -
+	choice: Put the number of rooms in each level, separated by commas, "1,2,3,1"
+	choice: Room heights -
+	choice: Room heights try to automate but can be modified
+	choice: Put the number of blocks each level is, with commas, "5,5,4,5,"
+	choice: Or leave a spot blank to keep the default number. 19 blocks total.
+	choice: If the maze doesn't reach the bottom, make sure this ends in a comma
+	choice: Long rooms - 
+	choice: List room numbers to make them continations of the room above. "12"
+	choice: These can be as long as you want. Level above has to be the same number of rooms.
+	choice: Exits - 
+	choice: These open vertical doors in that level of the dungeon in the numbered wall
+	choice: The left border is 1, next wall is 2, and so on
+	choice: So to make a two room level connect, type "2" here
+styling field:
+	type: text
+	name: room counts
+	description: The number of rooms on each level, 1, 2, or 3.
+styling field:
+	type: text
+	name: room heights
+	description: The height in blocks of each level. Min 2, max 15, total 19.
+styling field:
+	type: boolean
+	name: reminder box
+	initial: no
+	description: Move the dungeon to make room for reminder text, like The Undercity?
+styling field:
+	type: text
+	name: font size
+	description: Font size for the rooms. Default is 12.
+styling field:
+	type: boolean
+	name: custom floor
+	initial: no
+	description: Upload a custom image to replace the default floor. Clickable on the outside edges of the border walls.
+styling field:
+	type: boolean
+	name: show grid
+	description: Show the dungeon gridlines?
+styling field:
+	type: text
+	name: level 2 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: text
+	name: level 3 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: text
+	name: level 4 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: text
+	name: level 5 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: text
+	name: level 6 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: text
+	name: level 7 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: text
+	name: level 8 long rooms
+	description: Make these rooms continue from the last level, like Oubliette.
+styling field:
+	type: info
+	name: Dead Ends
+	description: Dead Ends
+styling field:
+	type: text
+	name: level 0 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 1 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 2 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 3 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 4 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 5 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 6 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 7 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: text
+	name: level 8 dead ends
+	description: List of doors out of this level to close, eg "12"
+styling field:
+	type: info
+	name: Exits
+	description: Exits
+styling field:
+	type: text
+	name: level 1 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 2 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 3 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 4 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 5 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 6 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 7 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: level 8 exits
+	description: Walls to put vertical doors on.
+styling field:
+	type: text
+	name: arrow replacement folder
+	description: Change the arrows to use arrows from this folder magic-mainframe-extras. named arrowU.png for U, D, UD, L, R, and LR
+styling field:
+	type: text
+	name: custom symbol one
+	description: Use this image in magic-mainframe-extras as custom symbol one
+styling field:
+	type: text
+	name: custom symbol two
+	description: Use this image in magic-mainframe-extras as custom symbol two
+styling field:
+	type: boolean
+	name: arrows
+	description: Use arrows between rooms
+styling field:
+	type: choice
+	name: advanced help
+	choice: These options below may cause editing the template to be slower
+	choice: Use the setting below to toggle if they apply or not
+	choice: Preview mode gives a faster black and white version
+	choice: You can fill in the numbers and then turn it on after
+	choice: Custom widths - 
+	choice: Set rooms in a level's width, separated by commas, "10,6,"
+	choice: Door offsets - 
+	choice: Move door openings on a level X pixels right, separated by commas, "10,0,-10"
+	choice: Negative numbers move left
+styling field:
+	type: choice
+	name: advanced scripts
+	choice: no
+	choice: preview
+	choice: yes
+	description: Toggle Custom Widths and Door Offsets
+styling field:
+	type: text
+	name: level 1 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 2 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 3 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 4 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 5 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 6 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 7 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: text
+	name: level 8 custom widths
+	description: Make rooms a different number of blocks wide, for example "10,6," for a double sized room
+styling field:
+	type: info
+	name: Door offsets
+	description: Door offsets
+styling field:
+	type: text
+	name: level 1 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 2 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 3 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 4 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 5 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 6 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 7 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: text
+	name: level 8 door offsets
+	description: Move doors X pixels right (use negative for left). A block is 20px
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: text
+	name: shrink name text
+	description: Reduces the name text N points.
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling style:
+	advanced scripts:
+		render style: both
+		choice images:
+			no: bool_no.png
+			preview: preview.png
+			yes: bool_yes.png
+############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+card style:
+	border color:
+		left: 0
+		top : 0
+		width:	375
+		height:	523
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 4
+		mask: border_mask.png
+	card color:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: {card_background()}
+	name:
+		left: 30
+		top: 24
+		width: 315
+		height: {28 - (0.5 * shrink_name())}
+		alignment: middle center
+		padding bottom: -2
+		padding top: 3
+		z index: 5
+		font:
+			name: Beleren Small Caps Bold
+			size: { 17 - shrink_name()}
+			color: rgb(222,222,222)
+	############################# Image
+	image:
+		left: 22
+		top: {max_start()-5}
+		width: {if styling.custom_floor then 331 else 0}
+		height: 391
+		z index: 0
+	############################# Textboxes
+	rule text:
+		left: {box_x(x:1, y:1)}
+		top: {box_y(x:1, y:1)}
+		width: {box_w(x:1, y:1)}
+		height: {box_h(x:1, y:1)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 1 text:
+		left: {box_x(x:2, y:1)}
+		top: {box_y(x:2, y:1)}
+		width: {box_w(x:2, y:1)}
+		height: {box_h(x:2, y:1)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 2 text:
+		left: {box_x(x:3, y:1)}
+		top: {box_y(x:3, y:1)}
+		width: {box_w(x:3, y:1)}
+		height: {box_h(x:3, y:1)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 3 text:
+		left: {box_x(x:1, y:2)}
+		top: {box_y(x:1, y:2)}
+		width: {box_w(x:1, y:2)}
+		height: {box_h(x:1, y:2)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 4 text:
+		left: {box_x(x:2, y:2)}
+		top: {box_y(x:2, y:2)}
+		width: {box_w(x:2, y:2)}
+		height: {box_h(x:2, y:2)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 5 text:
+		left: {box_x(x:3, y:2)}
+		top: {box_y(x:3, y:2)}
+		width: {box_w(x:3, y:2)}
+		height: {box_h(x:3, y:2)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 6 text:
+		left: {box_x(x:1, y:3)}
+		top: {box_y(x:1, y:3)}
+		width: {box_w(x:1, y:3)}
+		height: {box_h(x:1, y:3)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 7 text:
+		left: {box_x(x:2, y:3)}
+		top: {box_y(x:2, y:3)}
+		width: {box_w(x:2, y:3)}
+		height: {box_h(x:2, y:3)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 8 text:
+		left: {box_x(x:3, y:3)}
+		top: {box_y(x:3, y:3)}
+		width: {box_w(x:3, y:3)}
+		height: {box_h(x:3, y:3)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 9 text:
+		left: {box_x(x:1, y:4)}
+		top: {box_y(x:1, y:4)}
+		width: {box_w(x:1, y:4)}
+		height: {box_h(x:1, y:4)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 10 text:
+		left: {box_x(x:2, y:4)}
+		top: {box_y(x:2, y:4)}
+		width: {box_w(x:2, y:4)}
+		height: {box_h(x:2, y:4)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 11 text:
+		left: {box_x(x:3, y:4)}
+		top: {box_y(x:3, y:4)}
+		width: {box_w(x:3, y:4)}
+		height: {box_h(x:3, y:4)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 12 text:
+		left: {box_x(x:1, y:5)}
+		top: {box_y(x:1, y:5)}
+		width: {box_w(x:1, y:5)}
+		height: {box_h(x:1, y:5)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 13 text:
+		left: {box_x(x:2, y:5)}
+		top: {box_y(x:2, y:5)}
+		width: {box_w(x:2, y:5)}
+		height: {box_h(x:2, y:5)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 14 text:
+		left: {box_x(x:3, y:5)}
+		top: {box_y(x:3, y:5)}
+		width: {box_w(x:3, y:5)}
+		height: {box_h(x:3, y:5)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 15 text:
+		left: {box_x(x:1, y:6)}
+		top: {box_y(x:1, y:6)}
+		width: {box_w(x:1, y:6)}
+		height: {box_h(x:1, y:6)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 16 text:
+		left: {box_x(x:2, y:6)}
+		top: {box_y(x:2, y:6)}
+		width: {box_w(x:2, y:6)}
+		height: {box_h(x:2, y:6)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 17 text:
+		left: {box_x(x:3, y:6)}
+		top: {box_y(x:3, y:6)}
+		width: {box_w(x:3, y:6)}
+		height: {box_h(x:3, y:6)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 18 text:
+		left: {box_x(x:1, y:7)}
+		top: {box_y(x:1, y:7)}
+		width: {box_w(x:1, y:7)}
+		height: {box_h(x:1, y:7)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 19 text:
+		left: {box_x(x:2, y:7)}
+		top: {box_y(x:2, y:7)}
+		width: {box_w(x:2, y:7)}
+		height: {box_h(x:2, y:7)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+
+	rule text 2:
+		left: {box_x(x:3, y:7)}
+		top: {box_y(x:3, y:7)}
+		width: {box_w(x:3, y:7)}
+		height: {box_h(x:3, y:7)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+
+	level 20 text:
+		left: {box_x(x:1, y:8)}
+		top: {box_y(x:1, y:8)}
+		width: {box_w(x:1, y:8)}
+		height: {box_h(x:1, y:8)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	level 21 text:
+		left: {box_x(x:2, y:8)}
+		top: {box_y(x:2, y:8)}
+		width: {box_w(x:2, y:8)}
+		height: {box_h(x:2, y:8)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+
+	level 22 text:
+		left: {box_x(x:3, y:8)}
+		top: {box_y(x:3, y:8)}
+		width: {box_w(x:3, y:8)}
+		height: {box_h(x:3, y:8)}
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: {font_color()}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 5
+		padding top: 3
+		padding bottom: 2
+		padding left: 5
+		padding right: 5
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	illustrator brush:
+		angle:				{ if face_is_rotated(1) then -90 else 0 }
+		left:
+			script:
+				if face_is_rotated(1) then
+				(
+					22 * face_coordinates_map(1).width/523 + face_coordinates_map(1).left - information_offset_top_1()
+				) else (
+					initial_space := 25 * face_coordinates_map(1).width/375
+					set_code_space := 4 * face_coordinates_map(1).width/375
+					set_code_width := if card.set_code == "" then 0 else (set_code_space + card_style.set_code.content_width)
+					set_language_width := if card.set_language == "" then 0 else (set_code_space + card_style.set_language.content_width)
+					set_width := if card.additional_credit_brush == "none" or (not set.adaptive_language_height) then set_code_width else max(set_code_width, set_language_width)
+					initial_space + set_width + face_coordinates_map(1).left + information_codes_offset_left_1()
+				)
+		top:
+			script:
+				if face_is_rotated(1) then
+				(
+					initial_space := 25 * face_coordinates_map(1).height/375
+					set_code_space := 4 * face_coordinates_map(1).height/375
+					set_code_width := if card.set_code == "" then 0 else (set_code_space + card_style.set_code.content_width)
+					set_language_width := if card.set_language == "" then 0 else (set_code_space + card_style.set_language.content_width)
+					set_width := if card.additional_credit_brush == "none" or (not set.adaptive_language_height) then set_code_width else max(set_code_width, set_language_width)
+					initial_space + set_width + face_coordinates_map(1).top + information_codes_offset_left_1()
+				) else (
+					501 * face_coordinates_map(1).height/523 + face_coordinates_map(1).top + information_offset_top_1()
+				)
+		width:
+			script:
+				if face_is_rotated(1) then
+				(
+					(if card.illustrator_brush == "art old" then 30 else if contains(card.illustrator_brush, match: "wide") then 15 else 12) * face_coordinates_map(1).width/523
+				) else (
+					(if card.illustrator_brush == "art old" then 30 else if contains(card.illustrator_brush, match: "wide") then 15 else 12) * face_coordinates_map(1).width/375
+				)
+		height:
+			script:
+				if face_is_rotated(1) then
+				(
+					7 * face_coordinates_map(1).height/375
+				) else (
+					7 * face_coordinates_map(1).height/523
+				)
+		visible:			{ not information_disabled_1() and card.illustrator != "" }
+		popup style:		in place
+		include file:		/magic.mse-game/information/menu_choice_images
+		render style:		image
+		image:				{ illustrator_brush_image(field: 1) }
+		z index:			900
+############################################################## Extra card fields
+extra card field:
+	type: text
+	name: reminder
+	multi line: true
+	editable: true
+	save value: true
+	script: base_filter(input: value, card_name: card_name_for_face(1), margin_code:"reminder")
+extra card field:
+	type: choice
+	name: walls
+	editable: false
+	save value: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: texture
+	editable: false
+	save value: false
+	choice: texture
+extra card field:
+	type: choice
+	name: shadows
+	editable: false
+	save value: false
+	choice: wall
+extra card field:
+	type: choice
+	name: grid
+	editable: false
+	save value: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: floor
+	editable: false
+	save value: false
+	choice: floor
+
+extra card field:
+	type: choice
+	name: arrow 11
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:1, x:1)
+extra card field:
+	type: choice
+	name: arrow 12
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:1, x:2)
+extra card field:
+	type: choice
+	name: arrow 13
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:1, x:3)
+extra card field:
+	type: choice
+	name: arrow 14
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:1, x:4)
+extra card field:
+	type: choice
+	name: arrow 15
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:1, x:5)
+extra card field:
+	type: choice
+	name: wall arrow 11
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:1, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 12
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:1, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 13
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:1, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 14
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:1, x:4)
+extra card field:
+	type: choice
+	name: arrow 21
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:2, x:1)
+extra card field:
+	type: choice
+	name: arrow 22
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:2, x:2)
+extra card field:
+	type: choice
+	name: arrow 23
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:2, x:3)
+extra card field:
+	type: choice
+	name: arrow 24
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:2, x:4)
+extra card field:
+	type: choice
+	name: arrow 25
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:2, x:5)
+extra card field:
+	type: choice
+	name: wall arrow 21
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:2, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 22
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:2, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 23
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:2, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 24
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:2, x:4)
+extra card field:
+	type: choice
+	name: arrow 31
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:3, x:1)
+extra card field:
+	type: choice
+	name: arrow 32
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:3, x:2)
+extra card field:
+	type: choice
+	name: arrow 33
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:3, x:3)
+extra card field:
+	type: choice
+	name: arrow 34
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:3, x:4)
+extra card field:
+	type: choice
+	name: arrow 35
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:3, x:5)
+extra card field:
+	type: choice
+	name: wall arrow 31
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:3, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 32
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:3, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 33
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:3, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 34
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:3, x:4)
+extra card field:
+	type: choice
+	name: arrow 41
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:4, x:1)
+extra card field:
+	type: choice
+	name: arrow 42
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:4, x:2)
+extra card field:
+	type: choice
+	name: arrow 43
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:4, x:3)
+extra card field:
+	type: choice
+	name: arrow 44
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:4, x:4)
+extra card field:
+	type: choice
+	name: arrow 45
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:4, x:5)
+extra card field:
+	type: choice
+	name: wall arrow 41
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:4, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 42
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:4, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 43
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:4, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 44
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:4, x:4)
+extra card field:
+	type: choice
+	name: arrow 51
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:5, x:1)
+extra card field:
+	type: choice
+	name: arrow 52
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:5, x:2)
+extra card field:
+	type: choice
+	name: arrow 53
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:5, x:3)
+extra card field:
+	type: choice
+	name: arrow 54
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:5, x:4)
+extra card field:
+	type: choice
+	name: arrow 55
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:5, x:5)
+extra card field:
+	type: choice
+	name: wall arrow 51
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:5, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 52
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:5, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 53
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:5, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 54
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:5, x:4)
+extra card field:
+	type: choice
+	name: arrow 61
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:6, x:1)
+extra card field:
+	type: choice
+	name: arrow 62
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:6, x:2)
+extra card field:
+	type: choice
+	name: arrow 63
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:6, x:3)
+extra card field:
+	type: choice
+	name: arrow 64
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:6, x:4)
+extra card field:
+	type: choice
+	name: arrow 65
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:6, x:5)
+extra card field:
+	type: choice
+	name: arrow 71
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:7, x:1)
+extra card field:
+	type: choice
+	name: arrow 72
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:7, x:2)
+extra card field:
+	type: choice
+	name: arrow 73
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:7, x:3)
+extra card field:
+	type: choice
+	name: arrow 74
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:7, x:4)
+extra card field:
+	type: choice
+	name: arrow 75
+	editable: true
+	save value: true
+	choice: none
+	choice: up
+	choice: down
+	choice: updown
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: arrow_direction(y:7, x:5)
+extra card field:
+	type: choice
+	name: wall arrow 61
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:6, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 62
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:6, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 63
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:6, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 64
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:6, x:4)
+extra card field:
+	type: choice
+	name: wall arrow 71
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:7, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 72
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:7, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 73
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:7, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 74
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:7, x:4)
+extra card field:
+	type: choice
+	name: wall arrow 81
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:8, x:1)
+extra card field:
+	type: choice
+	name: wall arrow 82
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:8, x:2)
+extra card field:
+	type: choice
+	name: wall arrow 83
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:8, x:3)
+extra card field:
+	type: choice
+	name: wall arrow 84
+	editable: true
+	save value: true
+	choice: none
+	choice: left
+	choice: right
+	choice: leftright
+	choice: lock
+	choice: key
+	choice: custom symbol 1
+	choice: custom symbol 2
+	default: door_direction(y:8, x:4)
+extra card style:
+	reminder:
+		left: 24
+		top: 62
+		width: {if styling.reminder_box then 327 else 0}
+		height: 27
+		z index: 3
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: {font_size()}
+			scale down to: 6
+			color: black
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: {font_size()}
+			scale down to: 6
+		alignment: middle center
+		z index: 2
+		line height hard: 0.9
+		line height line: 0.9
+		line height soft: 0.9
+		line height hard max: 0.9
+		line height line max: 0.9
+	grid:
+		left: 22
+		top: {max_start()-5}
+		width: 331
+		height: 391
+		z index: 1
+		render style: image
+		image: {grid_background()}
+		mask: {if styling.show_grid then "" else "gridmask.png"}
+	floor:
+		left: 22
+		top: {max_start()-5}
+		width: {if styling.custom_floor then 0 else 331}
+		height: 391
+		z index: 0
+		render style: image
+		image: grid/floor.png
+	walls:
+		left: 24
+		top: {max_start()-3}
+		width: 327
+		height: 387
+		render style: image
+		image: {walls_image("")}
+		z index: 4
+	shadows:
+		left: 24
+		top: {max_start()-3}
+		width: 327
+		height: 387
+		render style: image
+		image: {if use_fast() then walls_image("shadow/") else "corners.png"}
+		z index: 3
+	arrow 11:
+		left: {arrow_x(x:1, y:1)}
+		top: {arrow_y(x:1, y:1)}
+		width: {if arrow_x(x:1, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 12:
+		left: {arrow_x(x:2, y:1)}
+		top: {arrow_y(x:2, y:1)}
+		width: {if arrow_x(x:2, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 13:
+		left: {arrow_x(x:3, y:1)}
+		top: {arrow_y(x:3, y:1)}
+		width: {if arrow_x(x:3, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 14:
+		left: {arrow_x(x:4, y:1)}
+		top: {arrow_y(x:4, y:1)}
+		width: {if arrow_x(x:4, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 15:
+		left: {arrow_x(x:5, y:1)}
+		top: {arrow_y(x:5, y:1)}
+		width: {if arrow_x(x:5, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 11:
+		left: {door_x(x:1, y:1)}
+		top: {door_y(x:1, y:1)}
+		width: {if door_x(x:1, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 12:
+		left: {door_x(x:2, y:1)}
+		top: {door_y(x:2, y:1)}
+		width: {if door_x(x:2, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 13:
+		left: {door_x(x:3, y:1)}
+		top: {door_y(x:3, y:1)}
+		width: {if door_x(x:3, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 14:
+		left: {door_x(x:4, y:1)}
+		top: {door_y(x:4, y:1)}
+		width: {if door_x(x:4, y:1) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 21:
+		left: {arrow_x(x:1, y:2)}
+		top: {arrow_y(x:1, y:2)}
+		width: {if arrow_x(x:1, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 22:
+		left: {arrow_x(x:2, y:2)}
+		top: {arrow_y(x:2, y:2)}
+		width: {if arrow_x(x:2, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 23:
+		left: {arrow_x(x:3, y:2)}
+		top: {arrow_y(x:3, y:2)}
+		width: {if arrow_x(x:3, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 24:
+		left: {arrow_x(x:4, y:2)}
+		top: {arrow_y(x:4, y:2)}
+		width: {if arrow_x(x:4, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 25:
+		left: {arrow_x(x:5, y:2)}
+		top: {arrow_y(x:5, y:2)}
+		width: {if arrow_x(x:5, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 21:
+		left: {door_x(x:1, y:2)}
+		top: {door_y(x:1, y:2)}
+		width: {if door_x(x:1, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 22:
+		left: {door_x(x:2, y:2)}
+		top: {door_y(x:2, y:2)}
+		width: {if door_x(x:2, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 23:
+		left: {door_x(x:3, y:2)}
+		top: {door_y(x:3, y:2)}
+		width: {if door_x(x:3, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 24:
+		left: {door_x(x:4, y:2)}
+		top: {door_y(x:4, y:2)}
+		width: {if door_x(x:4, y:2) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 31:
+		left: {arrow_x(x:1, y:3)}
+		top: {arrow_y(x:1, y:3)}
+		width: {if arrow_x(x:1, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 32:
+		left: {arrow_x(x:2, y:3)}
+		top: {arrow_y(x:2, y:3)}
+		width: {if arrow_x(x:2, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 33:
+		left: {arrow_x(x:3, y:3)}
+		top: {arrow_y(x:3, y:3)}
+		width: {if arrow_x(x:3, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 34:
+		left: {arrow_x(x:4, y:3)}
+		top: {arrow_y(x:4, y:3)}
+		width: {if arrow_x(x:4, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 35:
+		left: {arrow_x(x:5, y:3)}
+		top: {arrow_y(x:5, y:3)}
+		width: {if arrow_x(x:5, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 31:
+		left: {door_x(x:1, y:3)}
+		top: {door_y(x:1, y:3)}
+		width: {if door_x(x:1, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 32:
+		left: {door_x(x:2, y:3)}
+		top: {door_y(x:2, y:3)}
+		width: {if door_x(x:2, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 33:
+		left: {door_x(x:3, y:3)}
+		top: {door_y(x:3, y:3)}
+		width: {if door_x(x:3, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 34:
+		left: {door_x(x:4, y:3)}
+		top: {door_y(x:4, y:3)}
+		width: {if door_x(x:4, y:3) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 41:
+		left: {arrow_x(x:1, y:4)}
+		top: {arrow_y(x:1, y:4)}
+		width: {if arrow_x(x:1, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 42:
+		left: {arrow_x(x:2, y:4)}
+		top: {arrow_y(x:2, y:4)}
+		width: {if arrow_x(x:2, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 43:
+		left: {arrow_x(x:3, y:4)}
+		top: {arrow_y(x:3, y:4)}
+		width: {if arrow_x(x:3, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 44:
+		left: {arrow_x(x:4, y:4)}
+		top: {arrow_y(x:4, y:4)}
+		width: {if arrow_x(x:4, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 45:
+		left: {arrow_x(x:5, y:4)}
+		top: {arrow_y(x:5, y:4)}
+		width: {if arrow_x(x:5, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 41:
+		left: {door_x(x:1, y:4)}
+		top: {door_y(x:1, y:4)}
+		width: {if door_x(x:1, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 42:
+		left: {door_x(x:2, y:4)}
+		top: {door_y(x:2, y:4)}
+		width: {if door_x(x:2, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 43:
+		left: {door_x(x:3, y:4)}
+		top: {door_y(x:3, y:4)}
+		width: {if door_x(x:3, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 44:
+		left: {door_x(x:4, y:4)}
+		top: {door_y(x:4, y:4)}
+		width: {if door_x(x:4, y:4) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 51:
+		left: {arrow_x(x:1, y:5)}
+		top: {arrow_y(x:1, y:5)}
+		width: {if arrow_x(x:1, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 52:
+		left: {arrow_x(x:2, y:5)}
+		top: {arrow_y(x:2, y:5)}
+		width: {if arrow_x(x:2, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 53:
+		left: {arrow_x(x:3, y:5)}
+		top: {arrow_y(x:3, y:5)}
+		width: {if arrow_x(x:3, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 54:
+		left: {arrow_x(x:4, y:5)}
+		top: {arrow_y(x:4, y:5)}
+		width: {if arrow_x(x:4, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 55:
+		left: {arrow_x(x:5, y:5)}
+		top: {arrow_y(x:5, y:5)}
+		width: {if arrow_x(x:5, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 51:
+		left: {door_x(x:1, y:5)}
+		top: {door_y(x:1, y:5)}
+		width: {if door_x(x:1, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 52:
+		left: {door_x(x:2, y:5)}
+		top: {door_y(x:2, y:5)}
+		width: {if door_x(x:2, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 53:
+		left: {door_x(x:3, y:5)}
+		top: {door_y(x:3, y:5)}
+		width: {if door_x(x:3, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 54:
+		left: {door_x(x:4, y:5)}
+		top: {door_y(x:4, y:5)}
+		width: {if door_x(x:4, y:5) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 61:
+		left: {arrow_x(x:1, y:6)}
+		top: {arrow_y(x:1, y:6)}
+		width: {if arrow_x(x:1, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 62:
+		left: {arrow_x(x:2, y:6)}
+		top: {arrow_y(x:2, y:6)}
+		width: {if arrow_x(x:2, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 63:
+		left: {arrow_x(x:3, y:6)}
+		top: {arrow_y(x:3, y:6)}
+		width: {if arrow_x(x:3, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 64:
+		left: {arrow_x(x:4, y:6)}
+		top: {arrow_y(x:4, y:6)}
+		width: {if arrow_x(x:4, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 65:
+		left: {arrow_x(x:5, y:6)}
+		top: {arrow_y(x:5, y:6)}
+		width: {if arrow_x(x:5, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 61:
+		left: {door_x(x:1, y:6)}
+		top: {door_y(x:1, y:6)}
+		width: {if door_x(x:1, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 62:
+		left: {door_x(x:2, y:6)}
+		top: {door_y(x:2, y:6)}
+		width: {if door_x(x:2, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 63:
+		left: {door_x(x:3, y:6)}
+		top: {door_y(x:3, y:6)}
+		width: {if door_x(x:3, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 64:
+		left: {door_x(x:4, y:6)}
+		top: {door_y(x:4, y:6)}
+		width: {if door_x(x:4, y:6) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 71:
+		left: {arrow_x(x:1, y:7)}
+		top: {arrow_y(x:1, y:7)}
+		width: {if arrow_x(x:1, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 72:
+		left: {arrow_x(x:2, y:7)}
+		top: {arrow_y(x:2, y:7)}
+		width: {if arrow_x(x:2, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 73:
+		left: {arrow_x(x:3, y:7)}
+		top: {arrow_y(x:3, y:7)}
+		width: {if arrow_x(x:3, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 74:
+		left: {arrow_x(x:4, y:7)}
+		top: {arrow_y(x:4, y:7)}
+		width: {if arrow_x(x:4, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	arrow 75:
+		left: {arrow_x(x:5, y:7)}
+		top: {arrow_y(x:5, y:7)}
+		width: {if arrow_x(x:5, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 71:
+		left: {door_x(x:1, y:7)}
+		top: {door_y(x:1, y:7)}
+		width: {if door_x(x:1, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 72:
+		left: {door_x(x:2, y:7)}
+		top: {door_y(x:2, y:7)}
+		width: {if door_x(x:2, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 73:
+		left: {door_x(x:3, y:7)}
+		top: {door_y(x:3, y:7)}
+		width: {if door_x(x:3, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 74:
+		left: {door_x(x:4, y:7)}
+		top: {door_y(x:4, y:7)}
+		width: {if door_x(x:4, y:7) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 81:
+		left: {door_x(x:1, y:8)}
+		top: {door_y(x:1, y:8)}
+		width: {if door_x(x:1, y:8) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 82:
+		left: {door_x(x:2, y:8)}
+		top: {door_y(x:2, y:8)}
+		width: {if door_x(x:2, y:8) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 83:
+		left: {door_x(x:3, y:8)}
+		top: {door_y(x:3, y:8)}
+		width: {if door_x(x:3, y:8) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}
+	wall arrow 84:
+		left: {door_x(x:4, y:8)}
+		top: {door_y(x:4, y:8)}
+		width: {if door_x(x:4, y:8) == 0 then 0 else 20}
+		height: 20
+		render style: image
+		z index: 6
+		choice images:
+			up: {custom_sym("arrowU.png")}
+			down: {custom_sym("arrowD.png")}
+			updown: {custom_sym("arrowUD.png")}
+			left: {custom_sym("arrowL.png")}
+			right: {custom_sym("arrowR.png")}
+			leftright: {custom_sym("arrowLR.png")}
+			lock: {custom_sym("lock.png")}
+			key: {custom_sym("key.png")}
+			custom_symbol_1: {custom_sym("1")}
+			custom_symbol_2: {custom_sym("2")}

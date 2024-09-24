@@ -6,16 +6,13 @@ installer group: magic/m15 style/planeswalkers
 icon: card-sample.png
 position hint: 018
 
-version: 2020-06-08
+version: 2024-06-06
 depends on:
 	package: magic.mse-game
 	version: 2020-04-25
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -31,8 +28,22 @@ init script:
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	
-	template_prefix := [card: "" card2: "" stamp: "" alias: "alias/" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.png" card2: "card2.png" alias: "card.png" stamp: "stamp.png" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		card2: ""
+		alias: "alias/"
+		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.png"
+		card2: "card2.png"
+		alias: "card.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + "c" + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
@@ -76,10 +87,10 @@ init script:
 	show_alias := { not chosen(styling.other_options, choice: "no alias") }
 	show_stripes := { not chosen(styling.other_options, choice: "no stripes") }
 	show_border := { chosen(styling.other_options, choice: "show border") }
-	show_indicator := { chosen(styling.other_options, choice: "color indicator") }
 
 	alias_background := { color_background(type: "alias", base_hybrid: card_hybrid) }
-	
+	card_stamp_offset_top_1 := {-3}
+	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -96,7 +107,6 @@ styling field:
 	choice: no alias
 	choice: no stripes
 	choice: show border
-	choice: color indicator
 styling field:
 	type: text
 	name: shrink name text
@@ -109,6 +119,8 @@ styling field:
 	type: text
 	name: font size
 	description: Changes the font size of the loyalty abilities. Default is 14.
+include file: /magic-modules.mse-include/rarities/styling_fields
+include file: /magic-modules.mse-include/stamps/styling_fields
 styling field:
 	type: boolean
 	name: grey hybrid name
@@ -180,13 +192,17 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/stamps/stamp_back
 card style:
 	alias:
 		left: 54
 		top: 52
 		width: 268
 		height: 15
-		z index: 3
+		z index: 900
 		visible: { show_alias() }
 		font:
 			name: MPlantin-Italic
@@ -200,12 +216,11 @@ card style:
 		top : 0
 		width:	375
 		height:	523
-		radius: 18
 		left width:   17
 		right width:  17
 		top width:    17
 		bottom width: 18
-		z index: 4
+		z index: 500
 		mask: { if show_border() then "border_mask.png" else "" }
 		visible: { show_border() }
 	card color:
@@ -225,7 +240,7 @@ card style:
 		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 2
+		z index: 900
 		font:
 			name: Beleren Bold
 			size: { 16 - (if styling.shrink_name_text != "" then to_number(styling.shrink_name_text) else 0) }
@@ -241,17 +256,17 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 920
 		padding top: 0
 	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 29}
-		top: 23
-		height: 18
-		width: 14
-		z index: 1
+		left: {if card.card_symbol=="none" then 20 else 28}
+		top : 24
+		height: 21
+		width: 23
+		z index: 810
 		render style: image
-		choice images:
-			tombstone: tombstone.png
+		include file:		/magic.mse-game/card-symbols/menu_choice_images
+		image:				{ card_symbol_image(face: 1) }
 	############################# Image
 	image:
 		left: 0
@@ -266,17 +281,17 @@ card style:
 		top: { if has_four_abilities() then 264 else 299 }
 		width: 17
 		height: 17
-		z index: 2
+		z index: 800
 		render style: image
-		visible: { show_indicator() }
-		image: { card_identity() }
+		visible: { has_identity() }
+		image: { module_identity() }
 	type:
-		left: { if show_indicator() then "53" else "33" }
+		left: { if has_identity() then "53" else "33" }
 		top: { ( if has_four_abilities() then 261 else 296 ) + ( if styling.shrink_typeline_text != "" then to_number(styling.shrink_typeline_text) - 1  else 0 ) }
 		width: { 304 - max(22,card_style.rarity.content_width) }
 		height: 20
 		alignment: top shrink-overflow
-		z index: 2
+		z index: 900
 		padding top: 2
 		font:
 			name: Beleren Bold
@@ -288,23 +303,10 @@ card style:
 		top: { if has_four_abilities() then 263 else 298 }
 		width: 42
 		height: 21
-		z index: 2
+		z index: 950
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 63
@@ -330,7 +332,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 4
+		z index: 900
 		mask: text_mask.png
 		padding left:   6
 		padding right:  4
@@ -348,10 +350,11 @@ card style:
 		z index: 2
 		render style: image
 		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
+		include file:	/magic.mse-game/watermarks/menu_choice_images
+		image:			{ watermark_image_1() }
 	############################# Loyalty
 	loyalty:
-		z index: 7
+		z index: 900
 		left: 326
 		top: 462
 		width: 13.16
@@ -362,7 +365,7 @@ card style:
 			size: 14
 			color: white
 	loyalty cost 1:
-		z index: 7
+		z index: 900
 		left: 32
 		top: { if has_four_abilities() then 297 else 335 }
 		width: 13.16
@@ -373,7 +376,7 @@ card style:
 			size: 11
 			color: white
 	loyalty cost 2:
-		z index: 7
+		z index: 900
 		left: 32
 		top: { if has_four_abilities() then 344 else 386 }
 		width: 13.16
@@ -384,7 +387,7 @@ card style:
 			size: 11
 			color: white
 	loyalty cost 3:
-		z index: 7
+		z index: 900
 		left: 32
 		top: { if has_four_abilities() then 391 else 435 }
 		width: 13.16
@@ -395,7 +398,7 @@ card style:
 			size: 11
 			color: white
 	loyalty cost 4:
-		z index: 7
+		z index: 900
 		left: 32
 		top: 438
 		width: { if has_four_abilities() then 13.16 else 0 }
@@ -405,71 +408,13 @@ card style:
 			name: Beleren Bold
 			size: 11
 			color: white
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 6
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: 498
-		width: 140
-		height: 10
-		z index: 6
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script: forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
 extra card field:
 	type: choice
 	name: loyalty box
 	editable: false
 	choice: loyalty
 	save value: false
-extra card field:
-	type: choice
-	name: stamp
-	script: card.card_color
-	editable: false
-	save value: false
-extra card field:
-	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
 extra card field:
 	type: choice
 	name: foil layer
@@ -554,25 +499,6 @@ extra card style:
 		render style: image
 		image: { alias_background() }
 		visible: { show_alias() }
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 6
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 6
-		render style: image
-		image: artist_arrow.png
 	loyalty box:
 		right: 362
 		top: 460
@@ -583,31 +509,12 @@ extra card style:
 		visible: { card.loyalty !="" }
 		choice images:
 			loyalty: loyalty.png
-	stamp:
-		left: 170
-		top: 472.5
-		width: 36.5
-		height: 20
-		z index: 6
-		visible: { is_rare() }
-		render style: image
-		image: { card_stamp() }
-		mask: stamp_mask.png
-	foil stamp:
-		left: 170
-		top: 473
-		width: 36.5
-		height: 22.5
-		z index: 7
-		visible: { is_rare() }
-		render style: image
-		image: foil_stamp.png
 	foil layer:
 		left: 0
 		top : 0
 		width: 375
 		height: 523
-		z index: 4
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 	loyalty cost box 1:

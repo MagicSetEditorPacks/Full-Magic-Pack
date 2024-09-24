@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/normal cards
 position hint: 021
 
-version: 2018-02-09
+version: 2024-06-06
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -14,11 +14,8 @@ depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
-	package: magic-watermarks.mse-include
-	version: 2007-09-23
-depends on:
-	package: magic-identity-new.mse-include
-	version: 2012-01-22
+	package: magic-modules.mse-include
+	version: 2024-05-20
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -40,13 +37,29 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [card: "" pt: "" stamp: "" identity: "/magic-identity-new.mse-include/"]
-	template_suffix := [card: "card.jpg" pt: "pt.png" stamp: "stamp.jpg" identity: "identity.png"]
+	template_prefix := [
+		card: ""
+		card2: ""
+		pt: "/magic-modules.mse-include/pts/375 m15/"
+		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.jpg"
+		card2: "card2.jpg"
+		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
-	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	land_template := { template_prefix[type] + input + template_suffix[type] }
 	# Use land templates for previews because they show more contrast
-	hybrid_previews := "land,hybrid"
-	
+	hybrid_previews := "hybrid"
+	card_background2 := { color_background(type:"card2",	base_hybrid:card_hybrid, blend_type:"card") }
+	watermark_include := "/magic-modules.mse-include/watermarks"
+
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -66,8 +79,105 @@ init script:
 			sort_text@(order: "XYZI[0123456789]HSCA(WUBRG)")()
 	}
 	ancestral_mana := { styling.ancestral_mana_symbols }
-	has_identity := { styling.color_indicator_dot }
 	is_unsorted := {styling.remove_from_autocount}
+	
+	lower_text_box := {styling.lower_text_box}
+	
+	complicated_stamp_color := {
+		white := chosen(card.card_color, choice:"white")
+		blue := chosen(card.card_color, choice:"blue")
+		black := chosen(card.card_color, choice:"black")
+		red := chosen(card.card_color, choice:"red")
+		green := chosen(card.card_color, choice:"green")
+		colored := white or blue or black or red or green
+		count :=  (if white then 1 else 0)
+				+ (if blue then 1 else 0)
+				+ (if black then 1 else 0)
+				+ (if red then 1 else 0)
+				+ (if green then 1 else 0);
+		
+		dir_string := ""
+		if chosen(card.card_color, choice:"horizontal") then
+			dir_string := dir_string + ", horizontal"
+		if chosen(card.card_color, choice:"vertical") then
+			dir_string := dir_string + ", vertical"
+		if chosen(card.card_color, choice:"radial") then
+			dir_string := dir_string + ", radial"
+		if chosen(card.card_color, choice:"overlay") then
+			dir_string := dir_string + ", overlay"
+		if chosen(card.card_color, choice:"reversed") xor count == 2 then
+			dir_string := dir_string + ", reversed"
+		
+		if lower_text_box() or not colored
+			then card.card_color
+		else if count == 1 then (
+			if white then "blue, green"
+			else if blue then "white, black"
+			else if black then "blue, red"
+			else if red then "black, green"
+			else "white, red"
+		)
+		else if white and blue and black and red and green
+			then "blue, red" + dir_string
+		else if count == 4 then (
+			if white and blue and black and red
+				then "white, red" + dir_string
+			else if blue and black and red and green
+				then "green, blue" + dir_string
+			else if black and red and green and white
+				then "white, black" + dir_string
+			else if red and green and white and blue
+				then "blue, red" + dir_string
+			else if green and white and blue and black
+				then "black, green" + dir_string
+			else if white and blue and black
+				then "white, black" + dir_string
+			else card.card_color
+		)
+		else if count == 3 then (
+			if blue and black and red
+				then "blue, red" + dir_string
+			else if black and red and green
+				then "black, green" + dir_string
+			else if red and green and white
+				then "white, red" + dir_string
+			else if green and white and blue
+				then "blue, green" + dir_string
+			else if white and black and green
+				then "blue, red" + dir_string
+			else if blue and red and white
+				then "black, green" + dir_string
+			else if black and green and blue
+				then "white, red" + dir_string
+			else if red and white and black
+				then "blue, green" + dir_string
+			else if green and blue and red
+				then "white, black" + dir_string
+			else card.card_color
+		)
+		else if white and blue
+			then "black, green" + dir_string
+		else if white and black
+			then "red, green"
+		else if white and red
+			then "blue, black" + dir_string
+		else if white and green
+			then "blue, red" + dir_string
+		else if blue and black
+			then "white, red" + dir_string
+		else if blue and red
+			then "white, green" + dir_string
+		else if blue and green
+			then "black, red" + dir_string
+		else if black and red
+			then "blue, green" + dir_string
+		else if black and green
+			then "white, blue" + dir_string
+		else if red and green
+			then "white, black" + dir_string
+		else card.card_color
+	}
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -80,12 +190,8 @@ set info style:
 ############################################################## Extra style options
 styling field:
 	type: boolean
-	name: use holofoil stamps
-	description: Change to no to disable rare holofoil stamps
-styling field:
-	type: boolean
-	name: color indicator dot
-	description: Use the color indicator dot
+	name: lower text box
+	description: Moves the main textbox to the bottom
 	initial: no
 styling field:
 	type: boolean
@@ -141,7 +247,7 @@ styling field:
 	name: promo
 	description: Is this card a promo card, with the "P" rarity?
 	initial: no
-styling field
+styling field:
 	type: boolean
 	name: masterpiece
 	description: Is this card a Masterpiece?
@@ -179,6 +285,12 @@ styling style:
 			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
 			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/card-symbols/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/rarities/card_fields
+include file: /magic-modules.mse-include/separators/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -186,12 +298,11 @@ card style:
 		top : 0
 		width:	375
 		height:	523
-		radius: 18
 		left width:   17
 		right width:  17
 		top width:    17
 		bottom width: 18
-		z index: 4
+		z index: 500
 		mask: border_mask.png
 	card color:
 		left:	0
@@ -201,7 +312,7 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
-		image: { card_background() }
+		image: { if lower_text_box() then card_background2() else card_background() }
 	############################# Name line
 	name:
 		left: { if card.card_symbol=="none" then 32 else 50 }
@@ -210,7 +321,7 @@ card style:
 		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 1
+		z index: 900
 		font:
 			name: Beleren Bold
 			size: 16
@@ -229,17 +340,8 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 920
 		padding top: 0
-	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 30}
-		top: 29
-		height: 20
-		width: 14
-		z index: 1
-		render style: image
-		choice images:
-			tombstone: tombstone.png
 	############################# Image
 	image:
 		left: 29
@@ -254,17 +356,17 @@ card style:
 		top: 300
 		width: 17
 		height: 17
-		z index: 1
+		z index: 800
 		render style: image
 		visible: { has_identity() }
-		image: { card_identity() }
+		image: { module_identity() }
 	type:
 		left: { if has_identity() then "52" else "32" }
 		top: 296
 		width: { (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
 		height: 20
 		alignment: top shrink-overflow
-		z index: 1
+		z index: 900
 		padding top: 2
 		font:
 			name: Beleren Bold
@@ -276,37 +378,21 @@ card style:
 		top: 297
 		width: 44
 		height: 22
-		z index: 2
+		z index: 950
 		render style: image
 		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "mythic rare")
+		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 24
-		top: 327
+		top: { if lower_text_box() then 430 else 327 }
 		width: 322
 		height: 55
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
 			size: 10
-			color: if (card.color == "black" )
-				then "white"
-				else "black"
+			color: { if card.card_color == "black" then "white" else "black" }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: 11.5
@@ -319,7 +405,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: 1.2
@@ -329,7 +415,7 @@ card style:
 		line height line max: 1.6
 	text 2:
 		left: 29
-		top: 385
+		top: { if lower_text_box() then 327 else 385 }
 		width: 155
 		height: 103
 		font:
@@ -350,7 +436,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: 1.2
@@ -360,7 +446,7 @@ card style:
 		line height line max: 1.6
 	text 3:
 		left: 190
-		top: 385
+		top: { if lower_text_box() then 327 else 385 }
 		width: 155
 		height: 103
 		font:
@@ -381,7 +467,7 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 2
+		z index: 900
 		padding left:   6
 		padding right:  4
 		line height hard: 1.2
@@ -391,27 +477,29 @@ card style:
 		line height line max: 1.6
 	watermark:
 		left: 29
-		top: 385
+		top: { if lower_text_box() then 327 else 385 }
 		width: 155
 		height: 103
-		z index: 1
+		z index: 720
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
+		include file:	/magic.mse-game/watermarks/menu_choice_images
+		image:			{ watermark_image_1() }
 	watermark 2:
 		left: 190
-		top: 385
+		top: { if lower_text_box() then 327 else 385 }
 		width: 155
 		height: 103
-		z index: 1
+		z index: 720
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file: /magic-watermarks.mse-include/watermarks
+		include file:	/magic.mse-game/watermarks/menu_choice_images
+		image:			{ watermark_image_2() }
 	############################# PT
 	pt:
-		z index: 2
+		z index: 900
 		left: 286
 		top: 469
 		width: 60
@@ -422,58 +510,7 @@ card style:
 			size: 16
 			color: black
 			separator color: red
-	############################# Card sorting / numbering
-	set code:
-		left: 24
-		top: 498
-		width: 40
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	############################# Copyright stuff
-	illustrator:
-		left: { 44 + card_style.set_code.content_width }
-		top: 497.5
-		width: 200
-		height: 10
-		z index: 1
-		font:
-			name: Beleren Small Caps Bold
-			size: 7.25
-			color: white
-	copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		visible: {not set.automatic_copyright}
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
 ############################################################## Extra card fields
-extra card field:
-	type: text
-	name: card code
-	save value: false
-	script:
-		if set.automatic_card_numbers and not styling.remove_from_autocount then
-			forward_editor(prefix: card_number_m15() + "/" + card_count_m15() + " " + rarity_code() + " ", field: card.card_code_text)
-		else
-			combined_editor(field1: card.custom_card_number, separator: " " + rarity_code() + " ", field2: card.card_code_text)
-extra card field:
-	type: choice
-	name: artist arrow
-	editable: false
-	save value: false
-	choice: white
 extra card field:
 	type: choice
 	name: pt box
@@ -482,125 +519,41 @@ extra card field:
 	save value: false
 extra card field:
 	type: choice
-	name: foil stamp
-	choice: stamp
-	save value: false
-	editable: false
-extra card field:
-	type: choice
 	name: foil layer
 	choice: foil
 	save value: false
 	editable: false
 extra card field:
-	type: multiple choice
-	name: stamp
-	empty choice: colorless
-	choice: white
-	choice: blue
-	choice: black
-	choice: red
-	choice:
-		name: green
-		line below: true
-	choice: artifact
-	choice: land
-	choice: multicolor
-	choice:
-		name: hybrid
-		line below: true
-	choice:
-		name: horizontal
-		type: radio
-	choice:
-		name: vertical
-		type: radio
-	choice:
-		name: radial
-		type: radio
-	choice:
-		name: diagonal
-		type: radio
-	choice:
-		name: overlay
-		type: radio
-	choice:
-		name: reversed
-	script: card_color_filter(value)
-	default: card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name)
-extra card field:
-	type: text
-	name: auto copyright
-	script: set.copyright
-	save value: false
+	type: choice
+	name: stamp backing
+	script: complicated_stamp_color()
 	editable: false
-	show statistics: false
+	save value: false
 extra card style:
-	card code:
-		left: 24
-		top: 488
-		width: 120
-		height: 10
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
-	artist arrow:
-		left: { 28 + card_style.set_code.content_width }
-		top: 500
-		width: 12
-		height: 7
-		z index: 1
-		render style: image
-		image: artist_arrow.png
 	pt box:
 		left: 273
 		top: 466
 		width: 81
 		height:	42
-		z index: 1
+		z index: 840
 		visible: { card.pt != "" }
 		render style: image
-		image: { card_ptbox() }
+		image: { module_ptbox() }
 	foil layer:
 		left: 0
 		top : 0
 		width: 375
 		height: 523
-		z index: 3
+		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
-	stamp:
-		left: 165
-		top: 472
-		width: 46
+	stamp backing:
+		left: 159
+		top: 471
+		width: 56
 		height: 26
-		z index: 1
-		visible: { is_rare() and styling.use_holofoil_stamps }
-		render style: image
-		image: { card_stamp() }
-	foil stamp:
-		left: 165
-		top: 472
-		width: 46
-		height: 26
-		z index: 2
-		visible: { is_rare() and styling.use_holofoil_stamps }
-		render style: image
-		image: foil_stamp.png
-	auto copyright:
-		right: 350
-		top: { if card.pt != "" then 500 else 488 }
-		width: 140
-		height: 10
-		z index: 2
-		alignment: middle right shrink-overflow
-		visible: {set.automatic_copyright}
-		font:
-			name: Matrix
-			size: 7
-			color: white
-			weight: bold
+		visible: { card.card_stamp != "none" }
+		render style:	image
+		image: { if stamp_shape() == "triangle" then module_ubstamp() else module_stamp() }
+		z index:		850
