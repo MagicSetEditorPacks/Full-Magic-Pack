@@ -596,8 +596,44 @@
 	
 	# This script has been modified to check a styling menu choice instead.
 	
-	has_identity := { contains(styling.regular_options, match:"color indicator dot") }
-	
+	colors_from_mana_symbols := {
+		str := []
+		if contains(input, match:"W") then str := str + ["white"]
+		if contains(input, match:"U") then str := str + ["blue"]
+		if contains(input, match:"B") then str := str + ["black"]
+		if contains(input, match:"R") then str := str + ["red"]
+		if contains(input, match:"G") then str := str + ["green"]
+		if contains(input, match:"E") then str := str + ["brown"]
+		if contains(input, match:"K") then str := str + ["pink"]
+		if contains(input, match:"P") then str := str + ["purple"]
+		if contains(input, match:"L") then str := str + ["yellow"]
+		if contains(input, match:"O") then str := str + ["orange"]
+
+		join(str, sep:", ")
+	}
+	has_identity_general := {
+		tag := if face == 1 then "" else "_" + face
+		indicator_field := extra_card.extra_indicator
+		culled_indicator := cull_noncolors(cull_directions(indicator_field))
+		color_field 	:= extra_card.frame
+		cost_field 		:= card["casting_cost"+tag]
+		culled_color	:= cull_directions(cull_noncolors(color_field))
+
+		default_from_casting_cost := colors_from_mana_symbols(cost_field)
+		default_from_card_color := if chosen(color_field, choice:"colorless")
+				then ""							## colorless
+			else if default_from_casting_cost == "" and chosen(color_field, choice:"land")
+				then ""							## land
+			else if chosen(color_field, choice:"multicolor") and culled_color == ""
+				then default_from_casting_cost	## 3+ multicolor
+			else culled_color					## normal color
+		#default_from_card_color := if chosen(color_field, choice:"colorless") then "" else if default_from_casting_cost == "" and chosen(color_field, choice:"land") then "" else if chosen(color_field, choice:"multicolor") and culled_color == "" then default_from_casting_cost else culled_color
+		color_cost_disagree := default_from_card_color != default_from_casting_cost
+		color_indicator_disagree := default_from_card_color != culled_indicator and indicator_field != color_field
+
+		color_cost_disagree or color_indicator_disagree
+	}
+
 	############################################################## Statistics utilities
 	# Converted mana cost
 	is_half_mana    := match@(match: "1/2|[|][HSAWUBRGPLOEK]")

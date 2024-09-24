@@ -144,10 +144,11 @@ fill_len := {
 
 #### simple array join function
 join := {
-	if i >= length(input) then ""
-	else if i == length(input)-1 then input[i]
-	else input[i]+sep+join(input, i: i+1, sep: sep)
-}@(i: 0, sep:"")
+	len := length(input)-1
+	if len < 0
+		then ""
+	else for x from 0 to len do input[x] + (if x == len then "" else sep)
+}@(sep:",")
 #### join array into list format
 join_list := {
 	string := ""
@@ -333,47 +334,48 @@ is_legend :=
 	lang_setting("is_legendary")(type_field(face))
 }@(face:1) 
 ############################################################## Identity
-#### Indicators never appear if the indicator would be colorless, colorless land, or colorless artifact.
-#### Indicators do appear if the chosen frame doesn't match the default.
-#### Indicators do appear if the chosen color for the indicator doesn't match the default.
-blank_indentity := {
-	case input of
-		"colorless": true,
-		"land": true,
-		"artifact": true,
-		else: false;
+cull_directions := replace@(match:", (horizontal|vertical|radial|overlay|reversed)", replace:"")
+cull_noncolors := replace@(match:"(, )?(artifact|land|multicolor|hybrid|colorless)", replace:"")
+colors_from_mana_symbols := {
+	str := []
+	if contains(input, match:"W") then str := str + ["white"]
+	if contains(input, match:"U") then str := str + ["blue"]
+	if contains(input, match:"B") then str := str + ["black"]
+	if contains(input, match:"R") then str := str + ["red"]
+	if contains(input, match:"G") then str := str + ["green"]
+	
+	join(str, sep:", ")
 }
-cull_directions := replace@(match:", (horizontal|vertical|radial|overlay)", replace:"")
-has_identity := {
-	default := card_color(casting_cost: card.casting_cost, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless")
-	if blank_indentity(card.indicator)
-		then false
-	else if cull_directions(card.indicator) != default
-		then true
-	else if cull_directions(card.card_color) != default
-		then true
-	else false
+has_identity_general := {
+	tag := if face == 1 then "" else "_" + face
+	indicator_field := card["indicator"+tag]
+	culled_indicator := cull_noncolors(cull_directions(indicator_field))
+
+	if culled_indicator == ""
+		then false ## invalid indicator, don't show it
+	else (
+		color_field 	:= card["card_color"+tag]
+		cost_field 		:= card["casting_cost"+tag]
+		culled_color	:= cull_directions(cull_noncolors(color_field))
+
+		default_from_casting_cost := colors_from_mana_symbols(cost_field)
+		default_from_card_color := if chosen(color_field, choice:"colorless")
+				then ""							## colorless
+			else if default_from_casting_cost == "" and chosen(color_field, choice:"land")
+				then ""							## land
+			else if chosen(color_field, choice:"multicolor") and culled_color == ""
+				then default_from_casting_cost	## 3+ multicolor
+			else culled_color					## normal color
+		
+		color_cost_disagree := default_from_card_color != default_from_casting_cost
+		color_indicator_disagree := default_from_card_color != culled_indicator and indicator_field != color_field
+
+		color_cost_disagree or color_indicator_disagree
+	)
 }
-has_identity_2 := {
-	default := card_color(casting_cost: card.casting_cost_2, rules_text: card.rule_text_2, type: card.super_type_2, watermark: card.watermark_2, card_name: card.name_2, default: "colorless")
-	if blank_indentity(card.indicator)
-		then false
-	else if cull_directions(card.indicator_2) != default
-		then true
-	else if cull_directions(card.card_color_2) != default
-		then true
-	else false
-}
-has_identity_3 := {
-	default := card_color(casting_cost: card.casting_cost_3, rules_text: card.rule_text_3, type: card.super_type_3, watermark: card.watermark_3, card_name: card.name_3, default: "colorless")
-	if blank_indentity(card.indicator)
-		then false
-	else if cull_directions(card.indicator_3) != default
-		then true
-	else if cull_directions(card.card_color_3) != default
-		then true
-	else false
-}
+has_identity   := { has_identity_general(face:1) }
+has_identity_2 := { has_identity_general(face:2) }
+has_identity_3 := { has_identity_general(face:3) }
 ############################################################## Exporter utility
 exporter_num_filter := filter_text@(match:"!num [^\n!]+")
 exporter_num_grabber := replace@(match:"!num ", replace:"")
