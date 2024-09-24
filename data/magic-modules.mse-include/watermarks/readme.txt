@@ -43,6 +43,9 @@ watermark_offset_height_1 := { 0 }
 #### To change by how much it moves when a stamp is present:
 watermark_offset_stamp_1 := { 0 }
 
+#### If the textbox is very dark, you can use white watermarks instead of black:
+invert_watermark_1 := { true }
+
 #### For DFC or TFC templates, use:
 watermark_text_field_2 := { 2 }
 watermark_stamp_field_2 := { 2 }
