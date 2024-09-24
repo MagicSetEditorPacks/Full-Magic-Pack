@@ -1,4 +1,4 @@
-﻿mse version: 0.3.8
+﻿mse version: 2.1.2
 game: magic
 short name: Planechase
 full name: Mini Mainframe
@@ -6,7 +6,7 @@ installer group: Magic Planes/normal style
 icon: card-sample.png
 position hint: 090
 
-version: 2024-09-03
+version: 2024-09-23
 depends on:
 	package: magic.mse-game
 	version: 2018-06-01
@@ -22,7 +22,7 @@ depends on:
 
 card width: 523
 card height: 375
-card dpi: 170
+card dpi: 150
 #By Cajun
 ############################################################## Extra scripts
 init script:
@@ -34,26 +34,72 @@ init script:
 	}
 	# Use guild mana symbols?
 	guild_mana := { styling.use_guild_mana_symbols }
-
-	is_nom := {contains(card.super_type, match: "Phenomenon") }
-	card_shape := { "plane card" }
-	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
-	un_png := replace@(match:".png", replace: "")
-	is_unsorted := {styling.remove_from_autocount}
 	
-	bar_offset := {if styling_offset() == "-" then 0 else if styling_offset() != "" then -styling_offset() else 0}
-	styling_offset := { replace(styling.flavor_bar_offset, match:"(u|d)+", replace: "") }
-	offset_lines := {offset_counter(styling.flavor_bar_offset)}
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		italic: {""},
+		size: {13},
+		color: {"black"},
+		vertical: {0}
+	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		italic: {""},
+		size: {10},
+		color: {"black"},
+		vertical: {0}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		italic: {"MPlantin-Italic"},
+		size: { t := to_number_lax(styling.font_size); if t > 0 then t else 10 },
+		color: {"black"},
+		vertical: {0}
+	]
 
-	top_textbox := {268}
-	height_textbox := { if is_nom() then 0 else if styling.chaos_divider != "" then to_number(styling.chaos_divider) else 37 }
-	filter_image := {crop("filter.png", height: height_textbox()+9, width:428, offset_x:0, offset_y:0)}
-	height_chaos := {77 - height_textbox()}
-	height_c_sym := {if is_nom() then 0 else min(22,height_chaos()-4) }
-	special_text := {
-		card.text + (if remove_tags(card.rule_text_2) != "" then "\n" + card.rule_text_2 else "")
+	is_unsorted := {styling.remove_from_autocount}
+
+	is_nom := {contains(card.super_type, match:"Phenomenon") }
+	is_old_frame := { chosen(styling.options, choice:"old frame") }
+
+	alt_text := { not is_nom() }
+	alt_text_script := {
+		combined_editor(field1:card.rule_text, separator1:"<line>\n</line>", field2:card.rule_text_2)
 	}
-	watermark_include := "/magic-modules.mse-include/watermarks"
+	card_name_for_face := { "" }
+	
+	is_loaded := { card_style.text.layout.separator[0] or else 0 > 0 }
+	top_box_height := {
+		if is_loaded()
+			then card_style.text.layout.separator[0]
+		else 45
+	}
+	bottom_box_height := {
+		90 - top_box_height()
+	}
+
+	built_frame_mask := {
+		double_mask := if is_old_frame() then "old_mask.png" else "plane_mask.png"
+		filter := "new_filter.png"
+		
+		## crop the filter
+		cropped := slice_crop (
+			filter,
+			height: 375,
+			width: 523,
+			distance: top_box_height()+375+4
+		)
+		
+		masked_blend(dark:invert_image(double_mask), light:cropped, mask:double_mask)
+	}
+	
+	card_shape := { "mini plane card" }
+	
+	margin_left := {
+		if input == "text2" then 310 else 0
+	}
+	text_filter := text_filter + { apply_margins(input, name: margin_code) }
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -65,22 +111,13 @@ set info style:
 			border color: rgb(0,0,0)
 ############################################################## Extra style options
 styling field:
+	type: multiple choice
+	name: options
+	choice: old frame
+styling field:
 	type: text
 	name: font size
 	description: Set the maximum font size. Default is 16.
-styling field:
-	type: text
-	name: chaos divider
-	description: Set the coordinate where the chaos textbox starts. Default is 40.
-styling field:
-	type: text
-	name: flavor bar offset
-	description: Move the flavor bar up X pixels. Use negative to move down.
-styling field:
-	type: boolean
-	name: center set info
-	description: disables the copyright field and centers set and card information
-	initial: no
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -109,7 +146,11 @@ styling field:
 	name: inverted common symbol
 	description: Should the common rarity symbol be inverted, like in Coldsnap?
 	initial: no
+include file: /magic-modules.mse-include/fonts/styling_fields
 styling style:
+	options:
+		render style: checklist
+		direction: vertical
 	use guild mana symbols:
 		choice images:
 			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
@@ -129,143 +170,125 @@ include file: /magic-modules.mse-include/corners/card_fields
 card style:
 	############################# Name line
 	name:
-		left: 84
-		top: 20
-		width: 354
-		height: 23
-		alignment: bottom center shrink-overflow
-		padding bottom: 0
-		z index: 2
+		left: 		84
+		top: 		20
+		width: 		354
+		height: 	23
+		alignment: 	bottom center shrink-overflow
+		z index: 	900
 		font:
-			name: Beleren Bold
-			size: 13
-			color: black
+			name: 	{ name_font() }
+			italic name: { name_font_italic() }
+			size: 	{ name_font_size () }
+			color: 	{ name_font_color() }
 	############################# Image
 	image:
-		left: 16
-		top: 15
-		width: 492.5
-		height:	344
-		z index: 1
-		mask: { if is_nom() then "image_mask_nom.png" else "image_mask_level.png" }
+		left: 		14
+		top: 		13
+		width: 		494
+		height:		349
+		z index:	0
+		mask: 		{ "guideline.png" }
 	############################# Card type
 	type:
-		left: 114
-		top: 243
-		width: 294
-		height: 23
-		alignment: bottom center shrink-overflow
-		padding bottom: 0
-		z index: 2
+		left: 		114
+		top: 		243
+		width:		294
+		height: 	23
+		alignment: 	bottom center shrink-overflow
+		z index: 	2
 		font:
-			name: Beleren Bold
-			size: 10
-			color: black
+			name: 	{ type_font() }
+			italic name: 	{ type_font_italic() }
+			size: 	{ type_font_size() }
+			color: 	{ type_font_color() }
 	rarity:
-		right: 408
-		top: 253
-		width: 28
-		height: 14
-		z index: 2
+		right: 		408
+		top: 		253
+		width:		28
+		height: 	14
+		z index: 	2
 		render style: image
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
-		left: 62
-		width: 411
-		top: 268
-		height: { if is_nom() then 78 else 0 }
+		left: 		62
+		width: 		411
+		top:		268
+		height: 	90
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: { if styling.font_size != "" then styling.font_size else 10 }
-			scale down to: 1
-			color: black
+			name: 	{ body_font() }
+			italic name: { body_font_italic() }
+			size: 	{ body_font_size() }
+			color: 	{ body_font_color() }
+			scale down to: 6
 		symbol font:
-			name: { styling.text_box_mana_symbols }
-			size: { if styling.font_size != "" then styling.font_size else 10 }
+			name: 	{ styling.text_box_mana_symbols }
+			size: 	{ body_font_size() }
 		alignment: middle left
-		z index: 2
+		z index: 900
 		line height hard: 1.2
 		line height line: 1.5
 		line height soft: 0.9
 		line height hard max: 1.3
 		line height line max: 1.6
-	
-	rule text 2:
-		left: 94
-		width: { if is_nom() then 0 else 369.5 }
-		top: { 271 + height_textbox()}
-		bottom: { if is_nom() then 0 else 348}
-		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: { if styling.font_size != "" then styling.font_size else 10 }
-			scale down to: 1
-			color: black
-		symbol font:
-			name: { styling.text_box_mana_symbols }
-			size: { if styling.font_size != "" then styling.font_size else 10 }
-		alignment: middle left
-		z index: 2
-		line height hard: 1.2
-		line height line: 1.5
-		line height soft: 0.9
-		line height hard max: 1.3
-		line height line max: 1.6
-	############################# Card sorting / numbering
 	############################# Copyright stuff
-	illustrator:
-		right: 314
-		top: 354
-		width: 92
-		height: 7
-		z index: 2
-		alignment: center
-		font:
-			name: Beleren Small Caps Bold
-			size: 6
-			color: {styling.copyright_text_color or else set.copyright_text_color}
-	copyright:
-		right: 385
-		top: 364
-		width: { if set.automatic_copyright then 0 else 130 }
-		height: { if styling.center_set_info then 0 else 7 }
-		z index: 2
-		alignment: middle right shrink-overflow
-		font:
-			name: Matrix
-			size: 7
-			color: {styling.copyright_text_color or else set.copyright_text_color}
-			weight: bold
-		visible: {not set.automatic_copyright}
-	set code:
-		left: { (if styling.center_set_info then 225 else 165) + card_style.card_code.content_width }
-		top: 362
-		width: 34
-		height: 12
-		z index: 1
-		font:
-			name: Relay-Medium
-			size: 6.25
-			color: {styling.copyright_text_color or else set.copyright_text_color}
-			weight: bold
 	card code:
-		left: { if styling.center_set_info then 222 else 161 }
-		top: 362
-		width: 81
-		height: 12
-		z index: 1
+		left: 		{ if is_old_frame() then 161 else 49 }
+		top: 		362
+		width: 		81
+		height: 	12
+		z index: 	1
 		font:
-			name: Relay-Medium
-			size: 6.25
-			color: {styling.copyright_text_color or else set.copyright_text_color}
+			name: 	Relay-Medium
+			size: 	6.25
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+			weight: bold
+	set code:
+		left: 		{ (if is_old_frame() then 165 else 52) + card_style.card_code.content_width }
+		top: 		362
+		width: 		34
+		height: 	2
+		z index: 	900
+		font:
+			name: 	Relay-Medium
+			size: 	6.25
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+			weight: bold
+	illustrator:
+		left: 		{ if is_old_frame() then 222 else card_style.set_code.left + card_style.set_code.content_width + 18 }
+		top: 		{ if is_old_frame() then 354 else 362 }
+		width: 		92
+		height: 	7
+		z index: 	900
+		alignment: 	{ if is_old_frame() then "center" else "left" }
+		font:
+			name: 	Beleren Small Caps Bold
+			size: 	6
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+	copyright:
+		right:		{ if is_old_frame() then 385 else 474 }
+		top: 		364
+		width: 		{ if set.automatic_copyright then 0 else 130 }
+		height: 	7
+		z index: 	900
+		alignment: 	middle right shrink-overflow
+		font:
+			name: 	MPlantin
+			size: 	7
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
 			weight: bold
 ############################################################## Extra card fields
 extra card field:
 	type: choice
 	name: background
+	editable: false
+	save value: false
+	choice: frame
+extra card field:
+	type: choice
+	name: chaos symbol
 	editable: false
 	save value: false
 	choice: frame
@@ -277,11 +300,12 @@ extra card field:
 	editable: false
 	show statistics: false
 extra card field:
-	type: choice
-	name: chaos symbol
-	editable: false
+	type: text
+	name: auto copyright
+	script: set.copyright
 	save value: false
-	choice: chaos
+	editable: false
+	show statistics: false
 extra card field:
 	type: choice
 	name: artist arrow
@@ -289,112 +313,57 @@ extra card field:
 	choice: white
 	editable: false
 extra card field:
-	type: text
-	name: main text
-	multi line: true
-	save value: false
-	show statistics: false
-	script: forward_editor(field: card.rule_text)
-	description: The rule text for the card
-extra card field:
 	type: choice
 	name: flavor bar
 	choice: bar
 	editable: false
 	save value: false
 	show statistics: false
-extra card field:
-	type: choice
-	name: filter
-	choice: overlay
-	editable: false
-	save value: false
-	show statistics: false
-extra card field:
-	type: text
-	name: filler text
-	editable: true
-	save value: true
-	show statistics: false
-	multi line: true
-	script:
-		forward_editor(field: card.special_text)
-		special_text()
-
 extra card style:
 	background:
-		left: 0
-		top: 0
-		width: 523
-		height: 375
-		z index: 0
+		left: 		0
+		top: 		0
+		width: 		523
+		height: 	375
+		z index: 	0
 		render style: image
-		choice images:
-			frame: card.png
+		image: 		{ if is_old_frame() then "old_card.png" else "card.png" }
+		mask:		{ if is_nom() then "" else built_frame_mask() }
 	chaos symbol:
-		left: {62 + 0.5*(22 - height_c_sym())}
-		top: { 275 + height_textbox() + 0.5*height_chaos() - 0.5*height_c_sym() }
-		width: { if is_nom() then 0 else height_c_sym() + 3 }
-		height: { height_c_sym() }
-		z index: 2
+		left: 		62
+		top: 		{ 268 + top_box_height() + 0.5*bottom_box_height() - 11 }
+		width: 		{ 1.15*min(22, bottom_box_height()) }
+		height: 	{ min(22, bottom_box_height()) }
+		z index: 	720
+		visible:	{ not is_nom() }
 		render style: image
-		choice images:
-			chaos: /magic-mana-small.mse-symbol-font/mana_chaos.png
+		image: /magic-mana-small.mse-symbol-font/mana_chaos.png
 	artist arrow:
-		left: { 256 - card_style.illustrator.content_width * 0.5 }
-		top: 356
-		width: 10
-		height: 6
-		z index: 6
+		left: 		{ if is_old_frame() then 256 - card_style.illustrator.content_width * 0.5 else card_style.set_code.left + card_style.set_code.content_width + 5 }
+		top: 		{ if is_old_frame() then 356 else 364 }
+		width: 		10
+		height: 	6
+		z index: 	6
 		render style: image
-		image: artist_arrow.png
+		image: 		artist_arrow.png
 	auto copyright:
-		right: 385
-		top: 364
-		width: { if not set.automatic_copyright or styling.center_set_info then 0 else 130 }
-		height: { if styling.center_set_info then 0 else 7 }
-		z index: 2
-		alignment: middle right shrink-overflow
+		right:		{ if is_old_frame() then 385 else 474 }
+		top: 		364
+		width: 		{ if set.automatic_copyright then 130 else 0 }
+		height: 	7
+		z index: 	900
+		alignment: 	middle right shrink-overflow
 		font:
-			name: Matrix
-			size: 7
-			color: {styling.copyright_text_color or else set.copyright_text_color}
+			name: 	Matrix
+			size: 	7
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
 			weight: bold
-	main text:
-		left: 62
-		width: 411
-		top: {top_textbox()}
-		height: {height_textbox()}
-		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: { if styling.font_size != "" then styling.font_size else 10 }
-			scale down to: 1
-			color: black
-		symbol font:
-			name: { styling.text_box_mana_symbols }
-			size: { if styling.font_size != "" then styling.font_size else 10 }
-		alignment: middle left
-		z index: 2
-		line height hard: 1.2
-		line height line: 1.5
-		line height soft: 0.9
-		line height hard max: 1.3
-		line height line max: 1.6
-	filter:
-		left: 48
-		top: 261
-		width: 428
-		height: {height_textbox() + 9}
-		render style: image
-		image: {filter_image()}
-		z index: 1
 	flavor bar:
-		left: 0
-		top: { bar_equation() }
-		width: 523
-		height: 1
-		z index: 1
+		left: 		0
+		top: 		{ bar_equation() }
+		width: 		523
+		height: 	1
+		z index: 	1
 		render style: image
-		image: bar.png
-		visible: { card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar and is_nom()}
+		image: 		bar.png
+		visible: 	{ card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar and is_nom() }
