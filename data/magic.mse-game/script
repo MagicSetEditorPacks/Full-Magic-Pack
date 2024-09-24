@@ -335,17 +335,6 @@ is_legend :=
 ############################################################## Identity
 cull_directions := replace@(match:", (horizontal|vertical|radial|overlay|reversed)", replace:"")
 cull_noncolors := replace@(match:"(, )?(artifact|land|multicolor|hybrid|colorless)", replace:"")
-card_indicator_default := {
-	card_color := card["card_color"+tag]
-	casting_cost := card["casting_cost"+tag]
-	card_color_pure := cull_directions(cull_noncolors(card_color))
-
-	if chosen(card_color, choice:"colorless")
-		then ""
-	else if chosen(card_color, choice:"multicolor") and card_color_pure == ""
-		then colors_from_mana_symbols(casting_cost)
-	else card_color_pure
-}@(tag:"")
 colors_from_mana_symbols := {
 	str := []
 	if contains(input, match:"W") then str := str + ["white"]
@@ -356,28 +345,36 @@ colors_from_mana_symbols := {
 	
 	join(str, sep:", ")
 }
-has_identity_gen := {
+has_identity_general := {
 	tag := if face == 1 then "" else "_" + face
-	color_field 	:= card["card_color"+tag]
-	cost_field 		:= card["casting_cost"+tag]
 	indicator_field := card["indicator"+tag]
-	if cull_noncolors(cull_directions(indicator_field)) == "" then false ## invalid indicator, don't show it
+	culled_indicator := cull_noncolors(cull_directions(indicator_field))
+
+	if culled_indicator == ""
+		then false ## invalid indicator, don't show it
 	else (
-		default_from_card_color := card_indicator_default(tag:tag)
+		color_field 	:= card["card_color"+tag]
+		cost_field 		:= card["casting_cost"+tag]
+		culled_color	:= cull_directions(cull_noncolors(color_field))
+
 		default_from_casting_cost := colors_from_mana_symbols(cost_field)
-		if default_from_casting_cost == "" and chosen(color_field, choice:"land")
-			then default_from_card_color := ""
-		indicator_chosen := cull_noncolors(cull_directions(indicator_field))
+		default_from_card_color := if chosen(color_field, choice:"colorless")
+				then ""							## colorless
+			else if default_from_casting_cost == "" and chosen(color_field, choice:"land")
+				then ""							## land
+			else if chosen(color_field, choice:"multicolor") and culled_color == ""
+				then default_from_casting_cost	## 3+ multicolor
+			else culled_color					## normal color
 		
 		color_cost_disagree := default_from_card_color != default_from_casting_cost
-		color_indicator_disagree := default_from_card_color != indicator_chosen and indicator_field != color_field
+		color_indicator_disagree := default_from_card_color != culled_indicator and indicator_field != color_field
 
 		color_cost_disagree or color_indicator_disagree
 	)
 }
-has_identity := { has_identity_gen(face:1) }
-has_identity_2 := { has_identity_gen(face:2) }
-has_identity_3 := { has_identity_gen(face:3) }
+has_identity   := { has_identity_general(face:1) }
+has_identity_2 := { has_identity_general(face:2) }
+has_identity_3 := { has_identity_general(face:3) }
 ############################################################## Exporter utility
 exporter_num_filter := filter_text@(match:"!num [^\n!]+")
 exporter_num_grabber := replace@(match:"!num ", replace:"")
