@@ -72,13 +72,16 @@ is_enchantment :=  lang_setting("is_enchantment")
 is_spell :=        lang_setting("is_spell")
 is_sorcery :=      lang_setting("is_sorcery")
 is_instant :=      lang_setting("is_instant")
-is_planeswalker := lang_setting("is_planeswaker")
+is_planeswalker := lang_setting("is_planeswalker")
 is_legendary :=    lang_setting("is_legendary")
 match_vehicle :=   lang_setting("is_vehicle")
 match_snow :=      lang_setting("is_snow")
 is_aura :=         match@(match: "(?i)Aura")
 is_creaturish :=   { is_creature(input) or is_vehicle(input) }
-
+is_battle :=       lang_setting("is_battle")
+is_dungeon :=      lang_setting("is_dungeon")
+is_emblem :=       lang_setting("is_emblem")
+is_plane :=        lang_setting("is_plane")
 ############################################################## Text
 is_modal :=        contains@(match:"<li>")
 
@@ -239,11 +242,12 @@ rare_width := {
 ############################################################## Card characteristics
 ############################################################## Name
 has_two_names := {
-		contains(card.shape, match:"adventure")
-	or	contains(card.shape, match:"aftermath")
-	or	contains(card.shape, match:"double faced")
-	or	contains(card.shape, match:"flip")
-	or	contains(card.shape, match:"split")
+	sh := card.shape
+		contains(sh, match:"adventure")
+	or	contains(sh, match:"aftermath")
+	or	contains(sh, match:"double faced")
+	or	contains(sh, match:"flip")
+	or	contains(sh, match:"split")
 }
 card_full_name_default := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
 card_full_name := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
@@ -479,15 +483,15 @@ symbol_font_small_color := { body_font_color() }
 
 #### Script to make magic-mana-future compatible w/ other templates
 colorless_color := {
-		if contains(card.card_color, match:"hybrid") or contains(card.card_color, match:"multicolor") then "c"
-		else if card.card_color=="white" then "w"
-		else if card.card_color=="blue" then "u"
-		else if card.card_color=="black" then "b"
-		else if card.card_color=="red" then "r"
-		else if card.card_color=="green" then "g"
-		else "c"
-	}
-
+	cc := card.card_color
+	if contains(cc, match:"hybrid") or contains(cc, match:"multicolor") then "c"
+	else if cc == "white" then "w"
+	else if cc == "blue" then "u"
+	else if cc == "black" then "b"
+	else if cc == "red" then "r"
+	else if cc == "green" then "g"
+	else "c"
+}
 
 ############################################################## Mainframe mana
 use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
@@ -741,13 +745,17 @@ color_of_card := {
 }
 is_null_cost := { input == "" or input == "0" }
 is_multicolor := { chosen(choice: "multicolor") and input != "artifact, multicolor" }
-is_hybrid_cost := { contains(card.casting_cost, match: "W/") or contains(card.casting_cost, match: "U/") or contains(card.casting_cost, match: "B/") or contains(card.casting_cost, match: "R/") or contains(card.casting_cost, match: "G/") }
+is_hybrid_cost := { 
+	casting_cost := card.casting_cost
+	contains(casting_cost, match: "W/") or contains(casting_cost, match: "U/") or contains(casting_cost, match: "B/") or contains(casting_cost, match: "R/") or contains(casting_cost, match: "G/")
+}
 basic_land_sort := {
-	if contains(card.name, match:"Plains")        then "MB"      #### Plains
-	else if contains(card.name, match:"Island")   then "MC"      #### Islands
-	else if contains(card.name, match:"Swamp")    then "MD"      #### Swamps
-	else if contains(card.name, match:"Mountain") then "ME"      #### Mountains
-	else if contains(card.name, match:"Forest")   then "MF"      #### Forests
+	name := card.name
+	if contains(name, match:"Plains")        then "MB"      #### Plains
+	else if contains(name, match:"Island")   then "MC"      #### Islands
+	else if contains(name, match:"Swamp")    then "MD"      #### Swamps
+	else if contains(name, match:"Mountain") then "ME"      #### Mountains
+	else if contains(name, match:"Forest")   then "MF"      #### Forests
 	else                                               "MA"      #### other basic lands
 }
 hybrid_color_pair_sort := {
@@ -895,17 +903,18 @@ card_count_mom := {
 }
 #### Determine a rarity code for M15 styles.
 rarity_code := {
+	rarity := card.rarity
 	if not set.rarity_codes then ""
 	else if is_promo() then "P"
 	else if is_masterpiece() then "S"
 	else if contains(card.shape, match:"token") then "T"
 	else if contains(card.shape, match:"emblem") then "E"
-	else if card.rarity == "common" then "C"
-	else if card.rarity == "uncommon" then "U"
-	else if card.rarity == "rare" then "R"
-	else if card.rarity == "mythic rare" then "M"
-	else if card.rarity == "special" then "S"
-	else if card.rarity == "basic land" then "L" 
+	else if rarity == "common" then "C"
+	else if rarity == "uncommon" then "U"
+	else if rarity == "rare" then "R"
+	else if rarity == "mythic rare" then "M"
+	else if rarity == "special" then "S"
+	else if rarity == "basic land" then "L" 
 	else ""
 }
 is_unsorted := { false }
@@ -1008,16 +1017,19 @@ sparker_card_color := {
 trim_reminder_x := replace@(match: ". X can’t be 0.", replace: "")
 has_cc :=          { card.casting_cost != "" }
 has_pt :=          { card.power != "" or card.toughness != "" }
-is_spell :=        { contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") }
+is_spell :=        { 
+	type := if input != "" then input else card.type
+	is_instant(type) or is_sorcery(type)
+}@(input:"")
 contains_target := match@(match:"(?i)([^a-z]|^)targets?([^a-z]|$)")
 is_targeted :=     { contains_target(card.rule_text) }
 
 #### convert color word to mana symbol
 color_to_mana := replace@(match: "white", replace: "[W]")+
-	replace@(match: "blue", replace: "[U]")+
-	replace@(match: "black", replace: "[B]")+
-	replace@(match: "red", replace: "[R]")+
-	replace@(match: "green", replace: "[G]")
+	replace@(match: "blue", 	replace: "[U]")+
+	replace@(match: "black", 	replace: "[B]")+
+	replace@(match: "red", 		replace: "[R]")+
+	replace@(match: "green", 	replace: "[G]")
 
 #### convert number word to digit
 digital_number := {
@@ -1989,16 +2001,16 @@ sub_type_filter :=
 	input := remove_trailing_soft_tags(input)
 	input := replace_soft_tags(input)
 	#### What word list to use?
-	list_type_rest :=	if		lang_setting("is_creature")(type) or lang_setting("is_kindred")(type)		then	"class-"+code
-						else if	lang_setting("is_land")(type)												then	"land"
-						else if	lang_setting("is_artifact")(type)											then	"artifact"
-						else if	lang_setting("is_enchantment")(type)										then	"enchantment"
-						else if	lang_setting("is_spell")(type)												then	"spell"
-						else if	lang_setting("is_planeswalker")(type) or lang_setting("is_emblem")(type)	then	"planeswalker"
-						else if	lang_setting("is_plane")(type)												then	"plane-"+code
-						else if	lang_setting("is_battle")(type)												then	"battle"
-						else if	lang_setting("is_dungeon")(type)											then	"dungeon"
-						else																							nil
+	list_type_rest :=	if		is_creature(type) or is_kindred(type)		then	"class-"+code
+						else if	is_land(type)								then	"land"
+						else if	is_artifact(type)							then	"artifact"
+						else if	is_enchantment(type)						then	"enchantment"
+						else if	is_spell(type)								then	"spell"
+						else if	is_planeswalker(type) or is_emblem(type)	then	"planeswalker"
+						else if	is_plane(type)								then	"plane-"+code
+						else if	is_battle(type)								then	"battle"
+						else if	is_dungeon(type)							then	"dungeon"
+						else														nil
 	if list_type_rest != nil then
 	(
 		#### Transform subtype_separators into spaces, we'll transform them back later
@@ -2043,7 +2055,8 @@ sub_type_filter :=
 		#### Add a new wordlist box at the end
 		if sub_types == "" then "<word-list-{list_type_first}></word-list-{list_type_first}>"
 		else sub_types + "<soft>" + subtype_separator + "</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
-	) else input	#### Do nothing if we don't know the type
+	)
+	else input	#### Do nothing if we don't know the type
 }
 #### all sub types, for word list
 space_to_comma := replace@(match:" ", replace:",")
@@ -2055,13 +2068,13 @@ all_sub_types := {
 }
 all_races := {
 	for each card in set do
-		if lang_setting("is_creature")(card.super_type) or lang_setting("is_kindred")(card.super_type) then
+		if is_creature(card.super_type) or is_kindred(card.super_type) then
 			"," + only_first(to_text(card.sub_type))
 		else ""
 }
 all_classes := {
 	for each card in set do
-		if lang_setting("is_creature")(card.super_type) then
+		if is_creature(card.super_type) then
 			"," + space_to_comma(only_next(to_text(card.sub_type)))
 		else ""
 }
@@ -2856,19 +2869,19 @@ card_name_for_face := {
 	else card["name"+tag]
 }
 cardname_type := {
-	if lang_setting("is_creature")(input)
+	if is_creature(input)
 		then lang_setting("creature")
-	else if lang_setting("is_land")(input)
+	else if is_land(input)
 		then lang_setting("land")
-	else if lang_setting("is_spell")(input)
+	else if is_spell(input)
 		then lang_setting("spell")
-	else if lang_setting("is_artifact")(input)
+	else if is_artifact(input)
 		then lang_setting("artifact")
-	else if lang_setting("is_planeswalker")(input)
+	else if is_planeswalker(input)
 		then lang_setting("planeswalker")
-	else if lang_setting("is_enchantment")(input)
+	else if is_enchantment(input)
 		then lang_setting("enchantment")
-	else if lang_setting("is_battle")(input)
+	else if is_battle(input)
 		then lang_setting("battle")
 	else ""
 	
@@ -2923,7 +2936,7 @@ corners_possible_dimensions :=
 	"1039x744":	"1039x744"
 	"750x1046":	"750x1046"
 	"1046x750":	"1046x750"
-	"1500x1046":	"1500x1046"
+	"1500x1046": "1500x1046"
 ]
 
 corners_disabled_1 := { false }
@@ -3243,7 +3256,7 @@ loyalty_box_default :=
 	loyalty := loyalty_field(margin_code)
 	if loyalty == "" then "none" else (
 	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
-	if lang_setting("is_battle")(type) or contains(card_shape(), match: "battle") then "defense"
+	if is_battle(type) or contains(card_shape(), match: "battle") then "defense"
 	else "loyalty")
 }
 loyalty_box_image :=
@@ -4936,35 +4949,36 @@ harder_script := [
 ############################################################## Card column sorting
 type_sort_script :=
 {
+	sh := card.shape
 	if set.alphabetical_type_column then super_type + " " + sub_type else
 	#### first sort by 5 broad categories
 	(
 		if		is_tokenish_statistics(card.shape)			then	"4"
 		else if	lang_setting("is_nonstandard")(super_type)	then	"3"
-		else if	lang_setting("is_land")(super_type)			then	"0"
-		else if	lang_setting("is_spell")(super_type)		then	"2"
+		else if	is_land(super_type)			then	"0"
+		else if	is_spell(super_type)		then	"2"
 		else														"1"	#### nonland permanents
 	) +
 	
 	#### then check if creature
-	(if lang_setting("is_creature")(super_type)		then	"0" else "1") +
+	(if is_creature(super_type)		then	"0" else "1") +
 	
 	#### then sort by type, no need to re-check for land or creature
-	(if lang_setting("is_sorcery")(super_type)		then	"1" else "0") +
-	(if lang_setting("is_instant")(super_type)		then	"1" else "0") +
-	(if lang_setting("is_planeswalker")(super_type)	then	"1" else "0") +
-	(if lang_setting("is_battle")(super_type)		then	"1" else "0") +
-	(if lang_setting("is_enchantment")(super_type)	then	"1" else "0") +
-	(if lang_setting("is_artifact")(super_type)		then	"1" else "0") +
+	(if is_sorcery(super_type)		then	"1" else "0") +
+	(if is_instant(super_type)		then	"1" else "0") +
+	(if is_planeswalker(super_type)	then	"1" else "0") +
+	(if is_battle(super_type)		then	"1" else "0") +
+	(if is_enchantment(super_type)	then	"1" else "0") +
+	(if is_artifact(super_type)		then	"1" else "0") +
 	
-	(if contains(card.shape, match: "rulestip")		then	"1" else "0") +
-	(if contains(card.shape, match: "checklist")	then	"1" else "0") +
+	(if contains(sh, match: "rulestip")		then	"1" else "0") +
+	(if contains(sh, match: "checklist")	then	"1" else "0") +
 	(if lang_setting("is_token")(super_type)
-		or contains(card.shape, match: "token")		then	"1" else "0") +
-	(if lang_setting("is_emblem")(super_type)
-		or contains(card.shape, match: "emblem")	then	"1" else "0") +
-	(if contains(card.shape, match: "counter")		then	"1" else "0") +
-	(if contains(card.shape, match: "designation")	then	"1" else "0") +
+		or contains(sh, match: "token")		then	"1" else "0") +
+	(if is_emblem(super_type)
+		or contains(sh, match: "emblem")	then	"1" else "0") +
+	(if contains(sh, match: "counter")		then	"1" else "0") +
+	(if contains(sh, match: "designation")	then	"1" else "0") +
 	(if lang_setting("is_conspiracy")(super_type)	then	"1" else "0") +
 	(if lang_setting("is_dungeon")(super_type)		then	"1" else "0") +
 	(if lang_setting("is_phenomenon")(super_type)	then	"1" else "0") +
