@@ -878,81 +878,23 @@ card_count := {
 	number_of_items(in: set, filter: set_filter_under_partition()) + to_number(set_number_offset())
 }
 #### Starting with M15, pad the collector number to three digits
-card_number_m15 := { (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
-card_count_m15 := { (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
+card_number_m15 := {
+	num := card_number()
+	(if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
+}
+card_count_m15 := {
+	num := card_count()
+	(if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
+}
 #### Starting with MOM, pad the collector number to four digits
-card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
-card_count_mom := { (if card_count() < 1000 then "0" else "") + (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
-
-use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
-get_card_number := {
-	if set.card_number_style == "0001/0099" or set.card_number_style == "0001"
-		then card_number_mom()
-	else if set.card_number_style == "001/099" or set.card_number_style == "001"
-		then card_number_m15()
-	else card_number()
+card_number_mom := {
+	num := card_number()
+	(if num < 1000 then "0" else "") + (if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
 }
-get_card_count := {
-	if over_partition() and set.over_partition_display == "100"
-		then ""
-	else if set.card_number_style == "0001/0099"
-		then card_count_mom()
-	else if set.card_number_style == "001/099"
-		then card_count_m15()
-	else if set.card_number_style == "1/99"
-		then card_count()
-	else ""
+card_count_mom := {
+	num := card_count()
+	(if num < 1000 then "0" else "") + (if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
 }
-get_card_number_count := {
-	cc := get_card_count()
-	if cc == "" then get_card_number() + tag
-	else get_card_number() + tag + "/" + cc
-}@(tag:"")
-#### Use this in templates so we don't have to update 700 templates the next time they change the ordering
-card_number_script_core := {
-	cn := get_card_number_count(tag:tag)
-	rc := rarity_code()
-	if rc != "" then rc := rc + " "
-	if not use_auto_numbers() then
-		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card.card_code_text)
-	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
-		forward_editor(prefix: rc + cn + " ", field: card.card_code_text)
-	else
-		forward_editor(prefix: cn + " " + rc, field: card.card_code_text)
-}@(tag:"")
-#### i tried to make this one work like above but it kept breaking so here
-card_number_old_1 := {
-	cn := " " + get_card_number_count(tag:card_number_tags().0) + " "
-	if not use_auto_numbers() and set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
-	else if not use_auto_numbers() then
-		combined_editor(field1: card.copyright, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
-	else if set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright, separator:cn, field2: card.card_code_text)
-	else combined_editor(field1: card.copyright, separator:cn, field2: card.card_code_text)
-}
-card_number_old_2 := {
-	cn := " " + get_card_number_count(tag:card_number_tags().1) + " "
-	if not use_auto_numbers() and set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_2, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
-	else if not use_auto_numbers() then
-		combined_editor(field1: card.copyright_2, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
-	else if set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_2, separator:cn, field2: card.card_code_text_2)
-	else combined_editor(field1: card.copyright_2, separator:cn, field2: card.card_code_text_2)
-}
-card_number_old_3 := {
-	cn := " " + get_card_number_count(tag:card_number_tags().2) + " "
-	if not use_auto_numbers() and set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_3, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
-	else if not use_auto_numbers() then
-		combined_editor(field1: card.copyright_3, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
-	else if set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_3, separator:cn, field2: card.card_code_text_3)
-	else combined_editor(field1: card.copyright_3, separator:cn, field2: card.card_code_text_3)
-}
-
-
 #### Determine a rarity code for M15 styles.
 rarity_code := {
 	if not set.rarity_codes then ""
@@ -2663,52 +2605,163 @@ card_number_tags := {
 	else ["", "", ""]
 }
 #### Card number section of card code
-card_code_number := {
-	if not use_auto_numbers()
-		then card.custom_card_number
-	else if set.card_number_style == "0001/0099" then
-		card_number_mom() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom())
-	else if set.card_number_style == "0001" then
-		card_number_mom() + tag
-	else if set.card_number_style == "001/099" then
-		card_number_m15() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15())
-	else if set.card_number_style == "001" then
-		card_number_m15() + tag
-	else if set.card_number_style == "1/99" then
-		card_number() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count())
-	else
-		card_number() + tag
-}@(tag: "")
+card_number_formatter := {
+	cn_tag := card_number_tags().0
+	
+	case set.card_number_style of
+		"0001/0099": card_number_mom() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count_mom()),
+		"001/099": card_number_m15() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count_m15()),
+		"1/99": card_number() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count()),
+		"0001": card_number_mom() + cn_tag,
+		"001": card_number_m15() + cn_tag,
+		else: card_number() + cn_tag
+}
 #### General card code handler
 card_code_script_core := {
+	auto_number := use_auto_numbers()
 	rc := rarity_code()
 	if rc != "" then rc := rc + " "
-	if not use_auto_numbers() and set.card_number_style == "0001" then
+	cn_style := set.card_number_style
+	cn := adjust_face_card_number(card.card_number, face:face)
+	if not auto_number and cn_style == "0001" then
 		### R CUSTOM TEXT
 		combined_editor(prefix: rc, field1: card.custom_card_number, separator: " ", field2: card_code_text)
-	else if not use_auto_numbers() then
+	else if not auto_number then
 		### CUSTOM R TEXT
 		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card_code_text)
-	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
+	else if cn_style == "0001/0099" or cn_style == "0001" then
 		### R C#### TEXT
-		forward_editor(prefix: rc + card_code_number(tag:tag) + " ", field: card_code_text)
+		forward_editor(prefix: rc + cn + " ", field: card_code_text)
 	else
 		### C# R TEXT
-		forward_editor(prefix: card_code_number(tag:tag) + " " + rc, field: card_code_text)
+		forward_editor(prefix: cn + " " + rc, field: card_code_text)
 }@(tag: "")
 
 #### Card code script for individual faces
 card_code_script :=
 {
-	card_code_script_core(card_code_text: card.card_code_text, tag:card_number_tags()[0])
+	card_code_script_core(card_code_text: card.card_code_text, face:1)
 }
 card_code_script2 :=
 {
-	card_code_script_core(card_code_text: card.card_code_text_2, tag:card_number_tags()[1])
+	card_code_script_core(card_code_text: card.card_code_text_2, face:2)
 }
 card_code_script3 :=
 {
-	card_code_script_core(card_code_text: card.card_code_text_3, tag:card_number_tags()[2])
+	card_code_script_core(card_code_text: card.card_code_text_3, face:3)
+}
+use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
+adjust_face_card_number := {
+	cn_tags := card_number_tags()
+	original := cn_tags.0
+	change_to := cn_tags[face-1]
+	
+	if original == change_to
+		then input
+	else if original != ""
+		then replace(input, match:original, replace:change_to)
+	else (
+		if contains(input, match:"/")
+			then replace(input, match:"/", replace:change_to + "/")
+		else input + change_to
+	)
+}@(face:1)
+
+#### i tried to make this one work like above but it kept breaking so here
+card_number_old_1 := {
+	auto_number := use_auto_numbers()
+	auto_copy := set.automatic_copyright
+	
+	if auto_copy and not auto_number then
+		combined_editor(
+			field1: card.auto_copyright,
+			separator1: " ",
+			field2: card.custom_card_number,
+			separator2: " ",
+			field3: card.card_code_text
+		)
+	else if not auto_number then
+		combined_editor(
+			field1: card.copyright,
+			separator1: " ",
+			field2: card.custom_card_number,
+			separator2: " ",
+			field3: card.card_code_text
+		)
+	else if auto_copy then
+		combined_editor(
+			field1: card.auto_copyright,
+			separator: card.card_number,
+			field2: card.card_code_text
+		)
+	else
+		combined_editor(
+			field1: card.copyright,
+			separator: card.card_number,
+			field2: card.card_code_text
+		)
+}
+card_number_old_2 := {
+	auto_number := use_auto_numbers()
+	auto_copy := set.automatic_copyright
+	cn := adjust_face_card_number(if auto_number then card.card_number else card.custom_card_number, face:2)
+	
+	if auto_copy and not auto_number then
+		combined_editor(
+			field1: card.auto_copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+	else if not auto_number then
+		combined_editor(
+			field1: card.copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+	else if auto_copy then
+		combined_editor(
+			field1: card.auto_copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+	else
+		combined_editor(
+			field1: card.copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+
+}
+card_number_old_3 := {
+	auto_number := use_auto_numbers()
+	auto_copy := set.automatic_copyright
+	cn := adjust_face_card_number(if auto_number then card.card_number else card.custom_card_number, face:3)
+	
+	if auto_copy and not auto_number then
+		combined_editor(
+			field1: card.auto_copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+	else if not auto_number then
+		combined_editor(
+			field1: card.copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+	else if auto_copy then
+		combined_editor(
+			field1: card.auto_copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+	else
+		combined_editor(
+			field1: card.copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+
 }
 ############################################################## Copyright fields
 copyright_default := { set.copyright }
