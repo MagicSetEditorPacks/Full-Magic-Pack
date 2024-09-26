@@ -1092,39 +1092,44 @@ set_watermark_blend := {
 }
 spotlight_watermark_blend := {
 	face := [1:card.card_color, 2:card.card_color_2, 3:card.card_color_3][face]
-	if type_name(input) == type_name("string") and contains(input, match:".png,") then (
-		array := split_text(input+",,", match:",")
+	if type_of(input) == type_of("string") then (
+		array := split_comma(input)
 		input := array.0
+		if length(array) > 1 then (
+			px := px_split(array.2)
+			if length(px) > 2
+				then l := 0
+			else (
+				l := px.0
+				h := px.1
+			)
+		)
 	)
-	wmc := watermark_colors(face:face)
-	c1 := wmc.0 + (if contains(face, match:"land") then "l") + "spotlight.png"
-	c2 := wmc.1 + (if contains(face, match:"land") then "l") + "spotlight.png"
 	
-	custom_img := to_image(input)
-	l := width_of(custom_img)
-	h := height_of(custom_img)
-	wm := ""
-	if l > 1024 or h > 1024 then (
-		trace("Maximum custom watermark dimensions are 1024x1024.")
-	)else(
+	if l < 1 or h < 1 or l > 1024 or h > 1024 then (
+		input
+	) else (
+		wmc := watermark_colors(face:face)
+		c1 := wmc.0 + (if contains(face, match:"land") then "l") + "spotlight.png"
+		c2 := wmc.1 + (if contains(face, match:"land") then "l") + "spotlight.png"
 		wmdir := watermark_include + "/spotlight/"
 		c1 := crop(wmdir+c1, height:h, width:l, offset_x:0, offset_y:0)
 		c2 := crop(wmdir+c2, height:h, width:l, offset_x:0, offset_y:0)
 
 		mask := input
-		wm := set_alpha(
+		set_alpha(
 			alpha: alpha
 			input:
 				linear_blend(
 					image1: 
 						masked_blend(
-							light: custom_img
+							light: input
 							dark: c1
 						mask: mask
 						)
 					image2:
 						masked_blend(
-							light: custom_img
+							light: input
 							dark: c2
 						mask: mask
 						)
@@ -1133,8 +1138,7 @@ spotlight_watermark_blend := {
 				)
 		)
 	)
-	wm
-}@(face:1,alpha:0.2)
+}@(face:1,alpha:0.2,l:500,h:500)
 
 shadow_watermark_blend := {
 	set_combine(
