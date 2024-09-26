@@ -65,21 +65,25 @@ separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
 zwsp :=            "​" # this is a zero-width space not blank
 
 ############################################################## Type
-is_creature :=     match@(match: "(?i)Creature")
-is_creaturish :=   match@(match: "(?i)(Creature|Vehicle)")
-is_tribal :=       match@(match: "(?i)Tribal")
-is_artifact :=     match@(match: "(?i)Artifact")
-is_land :=         match@(match: "(?i)Land")
-is_enchantment :=  match@(match: "(?i)Enchantment")
+is_creature :=     lang_setting("is_creature")
+is_tribal :=       lang_setting("is_tribal")
+is_kindred :=      lang_setting("is_kindred")
+is_artifact :=     lang_setting("is_artifact")
+is_land :=         lang_setting("is_land")
+is_enchantment :=  lang_setting("is_enchantment")
+is_spell :=        lang_setting("is_spell")
+is_sorcery :=      lang_setting("is_sorcery")
+is_instant :=      lang_setting("is_instant")
+is_planeswalker := lang_setting("is_planeswalker")
+is_legendary :=    lang_setting("is_legendary")
+match_vehicle :=   lang_setting("is_vehicle")
+match_snow :=      lang_setting("is_snow")
 is_aura :=         match@(match: "(?i)Aura")
-is_spell :=        match@(match: "(?i)Instant|Sorcery")
-is_sorcery :=      match@(match: "(?i)Sorcery")
-is_instant :=      match@(match: "(?i)Instant")
-is_planeswalker := match@(match: "(?i)Planeswalker")
-is_legendary :=    match@(match: "(?i)Legendary")
-match_vehicle :=   contains@(match:"Vehicle")
-match_snow :=      contains@(match:"Snow")
-
+is_creaturish :=   { is_creature(input) or is_vehicle(input) }
+is_battle :=       lang_setting("is_battle")
+is_dungeon :=      lang_setting("is_dungeon")
+is_emblem :=       lang_setting("is_emblem")
+is_plane :=        lang_setting("is_plane")
 ############################################################## Text
 is_modal :=        contains@(match:"<li>")
 
@@ -103,20 +107,17 @@ type_of := {
 }
 #### reads from a comma separated list like an array
 pull_comma_array := {
-	array := split_text(input, match:divider)
-	length := length(comma_count(input))
-	ending := to_number(end)
-	if (cell >= (length + (1-ending)))
+	array := split_comma(input)
+	if cell >= (length(comma_count(input)) + (1 - to_number(end)))
 		then default
 	else if array[cell] == "" or array[cell] == nil or array[cell] == "-"
 		then default
 	else array[cell]
-}@(default:0, end: 1, divider:",", cell:0)
+}@(default:0, end: 1, cell:0)
 #### standard is pull_comma_array("X,Y,Z,", cell: 0)
 #### returns "X"
-#### ending true for coordinates (requires a final divider to ensure element is complete)
-#### ending false for moving (doesn't require divider, moving 1 then 11 is fine)
-#### divider is "," by default, can change
+#### end true for coordinates (requires a final divider to ensure element is complete)
+#### end false for moving (doesn't require divider, moving 1 then 11 is fine)
 #### can also add default to return in case of errors
 
 #### a workaround for the crop offset function that doesn't appear to work
@@ -250,11 +251,12 @@ rare_width := {
 ############################################################## Card characteristics
 ############################################################## Name
 has_two_names := {
-		contains(card.shape, match:"adventure")
-	or	contains(card.shape, match:"aftermath")
-	or	contains(card.shape, match:"double faced")
-	or	contains(card.shape, match:"flip")
-	or	contains(card.shape, match:"split")
+	sh := card.shape
+		contains(sh, match:"adventure")
+	or	contains(sh, match:"aftermath")
+	or	contains(sh, match:"double faced")
+	or	contains(sh, match:"flip")
+	or	contains(sh, match:"split")
 }
 card_full_name_default := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
 card_full_name := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
@@ -490,15 +492,15 @@ symbol_font_small_color := { body_font_color() }
 
 #### Script to make magic-mana-future compatible w/ other templates
 colorless_color := {
-		if contains(card.card_color, match:"hybrid") or contains(card.card_color, match:"multicolor") then "c"
-		else if card.card_color=="white" then "w"
-		else if card.card_color=="blue" then "u"
-		else if card.card_color=="black" then "b"
-		else if card.card_color=="red" then "r"
-		else if card.card_color=="green" then "g"
-		else "c"
-	}
-
+	cc := card.card_color
+	if contains(cc, match:"hybrid") or contains(cc, match:"multicolor") then "c"
+	else if cc == "white" then "w"
+	else if cc == "blue" then "u"
+	else if cc == "black" then "b"
+	else if cc == "red" then "r"
+	else if cc == "green" then "g"
+	else "c"
+}
 
 ############################################################## Mainframe mana
 use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
@@ -719,7 +721,8 @@ sort_index := {
 color_of_card := {
 	card_color := card.card_color
 	casting_cost := card.casting_cost
-	type := card.super_type
+	#type := card.super_type
+	artifact := chosen(card_color, choice:"artifact")
 	if	contains(card.shape, match: "split") and
 		card_color != card.card_color_2 then "I"                         #### Diff Color Splits
 	else if chosen(choice: "land", card_color) then (                    #### Lands
@@ -738,7 +741,7 @@ color_of_card := {
 	) else (
 		                                                                 #### Cards with costs.
 		colors := sort_text(casting_cost, order: "<WUBRG>")
-		if colors == "" and contains(type, match:"Artifact") then "J"    #### Artifact
+		if colors == "" and artifact then "J"    						#### Artifact
 		else if colors == ""  then "A"                                   #### Clear Colorless
 		else if colors == "W" then "B"                                   #### White
 		else if colors == "U" then "C"                                   #### Blue
@@ -746,19 +749,23 @@ color_of_card := {
 		else if colors == "R" then "E"                                   #### Red
 		else if colors == "G" then "F"                                   #### Green
 		else if is_hybrid_cost() then hybrid_color_pair_sort()           #### Hybrid (by pairs)
-		else if contains(casting_cost, match:"/") and contains(type, match:"Artifact") then "I" #### Hybrid Artifacts
+		else if contains(casting_cost, match:"/") and artifact then "I"  #### Hybrid Artifacts
 		else                       multi_color_pair_sort()               #### Multicolor (by pairs)
 	)
 }
 is_null_cost := { input == "" or input == "0" }
 is_multicolor := { chosen(choice: "multicolor") and input != "artifact, multicolor" }
-is_hybrid_cost := { contains(card.casting_cost, match: "W/") or contains(card.casting_cost, match: "U/") or contains(card.casting_cost, match: "B/") or contains(card.casting_cost, match: "R/") or contains(card.casting_cost, match: "G/") }
+is_hybrid_cost := { 
+	casting_cost := card.casting_cost
+	contains(casting_cost, match: "W/") or contains(casting_cost, match: "U/") or contains(casting_cost, match: "B/") or contains(casting_cost, match: "R/") or contains(casting_cost, match: "G/")
+}
 basic_land_sort := {
-	if contains(card.name, match:"Plains")        then "MB"      #### Plains
-	else if contains(card.name, match:"Island")   then "MC"      #### Islands
-	else if contains(card.name, match:"Swamp")    then "MD"      #### Swamps
-	else if contains(card.name, match:"Mountain") then "ME"      #### Mountains
-	else if contains(card.name, match:"Forest")   then "MF"      #### Forests
+	name := card.name
+	if contains(name, match:"Plains")        then "MB"      #### Plains
+	else if contains(name, match:"Island")   then "MC"      #### Islands
+	else if contains(name, match:"Swamp")    then "MD"      #### Swamps
+	else if contains(name, match:"Mountain") then "ME"      #### Mountains
+	else if contains(name, match:"Forest")   then "MF"      #### Forests
 	else                                               "MA"      #### other basic lands
 }
 hybrid_color_pair_sort := {
@@ -798,12 +805,13 @@ multi_color_pair_sort := {
 #### "separate numbering" specials, masterpieces
 #### tokens, emblems, rulestips, counters checklists
 rarity_sort := {
+	shape := card.shape
 	if is_unsorted() then "R0"
-	else if card.shape == "token" then "T1"
-	else if card.shape == "emblem" then "T2"
-	else if card.shape == "rulestip" then "T3"
-	else if card.shape == "counter" then "T4"
-	else if card.shape == "checklist" then "T5"
+	else if shape == "token" then "T1"
+	else if shape == "emblem" then "T2"
+	else if shape == "rulestip" then "T3"
+	else if shape == "counter" then "T4"
+	else if shape == "checklist" then "T5"
 	else if is_masterpiece() then "S2"
 	else if set.sort_special_rarity == "separate numbering" and card.rarity == "special" then "S1"
 	else if set.sort_special_rarity == "with the rest" or card.rarity != "special" then "R1"
@@ -887,94 +895,37 @@ card_count := {
 	number_of_items(in: set, filter: set_filter_under_partition()) + to_number(set_number_offset())
 }
 #### Starting with M15, pad the collector number to three digits
-card_number_m15 := { (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
-card_count_m15 := { (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
+card_number_m15 := {
+	num := card_number()
+	(if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
+}
+card_count_m15 := {
+	num := card_count()
+	(if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
+}
 #### Starting with MOM, pad the collector number to four digits
-card_number_mom := { (if card_number() < 1000 then "0" else "") + (if card_number() < 100 then "0" else "") + (if card_number() < 10 then "0" else "") + card_number() }
-card_count_mom := { (if card_count() < 1000 then "0" else "") + (if card_count() < 100 then "0" else "") + (if card_count() < 10 then "0" else "") + card_count() }
-
-use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
-get_card_number := {
-	if set.card_number_style == "0001/0099" or set.card_number_style == "0001"
-		then card_number_mom()
-	else if set.card_number_style == "001/099" or set.card_number_style == "001"
-		then card_number_m15()
-	else card_number()
+card_number_mom := {
+	num := card_number()
+	(if num < 1000 then "0" else "") + (if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
 }
-get_card_count := {
-	if over_partition() and set.over_partition_display == "100"
-		then ""
-	else if set.card_number_style == "0001/0099"
-		then card_count_mom()
-	else if set.card_number_style == "001/099"
-		then card_count_m15()
-	else if set.card_number_style == "1/99"
-		then card_count()
-	else ""
+card_count_mom := {
+	num := card_count()
+	(if num < 1000 then "0" else "") + (if num < 100 then "0" else "") + (if num < 10 then "0" else "") + num
 }
-get_card_number_count := {
-	cc := get_card_count()
-	if cc == "" then get_card_number() + tag
-	else get_card_number() + tag + "/" + cc
-}@(tag:"")
-#### Use this in templates so we don't have to update 700 templates the next time they change the ordering
-card_number_script_core := {
-	cn := get_card_number_count(tag:tag)
-	rc := rarity_code()
-	if rc != "" then rc := rc + " "
-	if not use_auto_numbers() then
-		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card.card_code_text)
-	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
-		forward_editor(prefix: rc + cn + " ", field: card.card_code_text)
-	else
-		forward_editor(prefix: cn + " " + rc, field: card.card_code_text)
-}@(tag:"")
-#### i tried to make this one work like above but it kept breaking so here
-card_number_old_1 := {
-	cn := " " + get_card_number_count(tag:card_number_tags().0) + " "
-	if not use_auto_numbers() and set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
-	else if not use_auto_numbers() then
-		combined_editor(field1: card.copyright, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text)
-	else if set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright, separator:cn, field2: card.card_code_text)
-	else combined_editor(field1: card.copyright, separator:cn, field2: card.card_code_text)
-}
-card_number_old_2 := {
-	cn := " " + get_card_number_count(tag:card_number_tags().1) + " "
-	if not use_auto_numbers() and set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_2, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
-	else if not use_auto_numbers() then
-		combined_editor(field1: card.copyright_2, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_2)
-	else if set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_2, separator:cn, field2: card.card_code_text_2)
-	else combined_editor(field1: card.copyright_2, separator:cn, field2: card.card_code_text_2)
-}
-card_number_old_3 := {
-	cn := " " + get_card_number_count(tag:card_number_tags().2) + " "
-	if not use_auto_numbers() and set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_3, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
-	else if not use_auto_numbers() then
-		combined_editor(field1: card.copyright_3, separator1:" ", field2: card.custom_card_number, separator2:" ", field3: card.card_code_text_3)
-	else if set.automatic_copyright then
-		combined_editor(field1: card.auto_copyright_3, separator:cn, field2: card.card_code_text_3)
-	else combined_editor(field1: card.copyright_3, separator:cn, field2: card.card_code_text_3)
-}
-
-
 #### Determine a rarity code for M15 styles.
 rarity_code := {
+	rarity := card.rarity
 	if not set.rarity_codes then ""
 	else if is_promo() then "P"
 	else if is_masterpiece() then "S"
 	else if contains(card.shape, match:"token") then "T"
 	else if contains(card.shape, match:"emblem") then "E"
-	else if card.rarity == "common" then "C"
-	else if card.rarity == "uncommon" then "U"
-	else if card.rarity == "rare" then "R"
-	else if card.rarity == "mythic rare" then "M"
-	else if card.rarity == "special" then "S"
-	else if card.rarity == "basic land" then "L" 
+	else if rarity == "common" then "C"
+	else if rarity == "uncommon" then "U"
+	else if rarity == "rare" then "R"
+	else if rarity == "mythic rare" then "M"
+	else if rarity == "special" then "S"
+	else if rarity == "basic land" then "L" 
 	else ""
 }
 is_unsorted := { false }
@@ -1077,16 +1028,19 @@ sparker_card_color := {
 trim_reminder_x := replace@(match: ". X can’t be 0.", replace: "")
 has_cc :=          { card.casting_cost != "" }
 has_pt :=          { card.power != "" or card.toughness != "" }
-is_spell :=        { contains(card.type, match:"Instant") or contains(card.type, match:"Sorcery") }
+is_spell :=        { 
+	type := if input != "" then input else card.type
+	is_instant(type) or is_sorcery(type)
+}@(input:"")
 contains_target := match@(match:"(?i)([^a-z]|^)targets?([^a-z]|$)")
 is_targeted :=     { contains_target(card.rule_text) }
 
 #### convert color word to mana symbol
 color_to_mana := replace@(match: "white", replace: "[W]")+
-	replace@(match: "blue", replace: "[U]")+
-	replace@(match: "black", replace: "[B]")+
-	replace@(match: "red", replace: "[R]")+
-	replace@(match: "green", replace: "[G]")
+	replace@(match: "blue", 	replace: "[U]")+
+	replace@(match: "black", 	replace: "[B]")+
+	replace@(match: "red", 		replace: "[R]")+
+	replace@(match: "green", 	replace: "[G]")
 
 #### convert number word to digit
 digital_number := {
@@ -2058,16 +2012,16 @@ sub_type_filter :=
 	input := remove_trailing_soft_tags(input)
 	input := replace_soft_tags(input)
 	#### What word list to use?
-	list_type_rest :=	if		lang_setting("is_creature")(type) or lang_setting("is_kindred")(type)		then	"class-"+code
-						else if	lang_setting("is_land")(type)												then	"land"
-						else if	lang_setting("is_artifact")(type)											then	"artifact"
-						else if	lang_setting("is_enchantment")(type)										then	"enchantment"
-						else if	lang_setting("is_spell")(type)												then	"spell"
-						else if	lang_setting("is_planeswalker")(type) or lang_setting("is_emblem")(type)	then	"planeswalker"
-						else if	lang_setting("is_plane")(type)												then	"plane-"+code
-						else if	lang_setting("is_battle")(type)												then	"battle"
-						else if	lang_setting("is_dungeon")(type)											then	"dungeon"
-						else																							nil
+	list_type_rest :=	if		is_creature(type) or is_kindred(type)		then	"class-"+code
+						else if	is_land(type)								then	"land"
+						else if	is_artifact(type)							then	"artifact"
+						else if	is_enchantment(type)						then	"enchantment"
+						else if	is_spell(type)								then	"spell"
+						else if	is_planeswalker(type) or is_emblem(type)	then	"planeswalker"
+						else if	is_plane(type)								then	"plane-"+code
+						else if	is_battle(type)								then	"battle"
+						else if	is_dungeon(type)							then	"dungeon"
+						else														nil
 	if list_type_rest != nil then
 	(
 		#### Transform subtype_separators into spaces, we'll transform them back later
@@ -2112,7 +2066,8 @@ sub_type_filter :=
 		#### Add a new wordlist box at the end
 		if sub_types == "" then "<word-list-{list_type_first}></word-list-{list_type_first}>"
 		else sub_types + "<soft>" + subtype_separator + "</soft><word-list-{list_type_rest}></word-list-{list_type_rest}>"
-	) else input	#### Do nothing if we don't know the type
+	)
+	else input	#### Do nothing if we don't know the type
 }
 #### all sub types, for word list
 space_to_comma := replace@(match:" ", replace:",")
@@ -2124,13 +2079,13 @@ all_sub_types := {
 }
 all_races := {
 	for each card in set do
-		if lang_setting("is_creature")(card.super_type) or lang_setting("is_kindred")(card.super_type) then
+		if is_creature(card.super_type) or is_kindred(card.super_type) then
 			"," + only_first(to_text(card.sub_type))
 		else ""
 }
 all_classes := {
 	for each card in set do
-		if lang_setting("is_creature")(card.super_type) then
+		if is_creature(card.super_type) then
 			"," + space_to_comma(only_next(to_text(card.sub_type)))
 		else ""
 }
@@ -2695,52 +2650,163 @@ card_number_tags := {
 	else ["", "", ""]
 }
 #### Card number section of card code
-card_code_number := {
-	if not use_auto_numbers()
-		then card.custom_card_number
-	else if set.card_number_style == "0001/0099" then
-		card_number_mom() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_mom())
-	else if set.card_number_style == "0001" then
-		card_number_mom() + tag
-	else if set.card_number_style == "001/099" then
-		card_number_m15() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count_m15())
-	else if set.card_number_style == "001" then
-		card_number_m15() + tag
-	else if set.card_number_style == "1/99" then
-		card_number() + tag + (if over_partition() and set.over_partition_display == "100" then "" else "/" + card_count())
-	else
-		card_number() + tag
-}@(tag: "")
+card_number_formatter := {
+	cn_tag := card_number_tags().0
+	
+	case set.card_number_style of
+		"0001/0099": card_number_mom() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count_mom()),
+		"001/099": card_number_m15() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count_m15()),
+		"1/99": card_number() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count()),
+		"0001": card_number_mom() + cn_tag,
+		"001": card_number_m15() + cn_tag,
+		else: card_number() + cn_tag
+}
 #### General card code handler
 card_code_script_core := {
+	auto_number := use_auto_numbers()
 	rc := rarity_code()
 	if rc != "" then rc := rc + " "
-	if not use_auto_numbers() and set.card_number_style == "0001" then
+	cn_style := set.card_number_style
+	cn := adjust_face_card_number(card.card_number, face:face)
+	if not auto_number and cn_style == "0001" then
 		### R CUSTOM TEXT
 		combined_editor(prefix: rc, field1: card.custom_card_number, separator: " ", field2: card_code_text)
-	else if not use_auto_numbers() then
+	else if not auto_number then
 		### CUSTOM R TEXT
 		combined_editor(field1: card.custom_card_number, separator: " " + rc, field2: card_code_text)
-	else if set.card_number_style == "0001/0099" or set.card_number_style == "0001" then
+	else if cn_style == "0001/0099" or cn_style == "0001" then
 		### R C#### TEXT
-		forward_editor(prefix: rc + card_code_number(tag:tag) + " ", field: card_code_text)
+		forward_editor(prefix: rc + cn + " ", field: card_code_text)
 	else
 		### C# R TEXT
-		forward_editor(prefix: card_code_number(tag:tag) + " " + rc, field: card_code_text)
+		forward_editor(prefix: cn + " " + rc, field: card_code_text)
 }@(tag: "")
 
 #### Card code script for individual faces
 card_code_script :=
 {
-	card_code_script_core(card_code_text: card.card_code_text, tag:card_number_tags()[0])
+	card_code_script_core(card_code_text: card.card_code_text, face:1)
 }
 card_code_script2 :=
 {
-	card_code_script_core(card_code_text: card.card_code_text_2, tag:card_number_tags()[1])
+	card_code_script_core(card_code_text: card.card_code_text_2, face:2)
 }
 card_code_script3 :=
 {
-	card_code_script_core(card_code_text: card.card_code_text_3, tag:card_number_tags()[2])
+	card_code_script_core(card_code_text: card.card_code_text_3, face:3)
+}
+use_auto_numbers := {set.automatic_card_numbers and not is_unsorted()}
+adjust_face_card_number := {
+	cn_tags := card_number_tags()
+	original := cn_tags.0
+	change_to := cn_tags[face-1]
+	
+	if original == change_to
+		then input
+	else if original != ""
+		then replace(input, match:original, replace:change_to)
+	else (
+		if contains(input, match:"/")
+			then replace(input, match:"/", replace:change_to + "/")
+		else input + change_to
+	)
+}@(face:1)
+
+#### i tried to make this one work like above but it kept breaking so here
+card_number_old_1 := {
+	auto_number := use_auto_numbers()
+	auto_copy := set.automatic_copyright
+	
+	if auto_copy and not auto_number then
+		combined_editor(
+			field1: card.auto_copyright,
+			separator1: " ",
+			field2: card.custom_card_number,
+			separator2: " ",
+			field3: card.card_code_text
+		)
+	else if not auto_number then
+		combined_editor(
+			field1: card.copyright,
+			separator1: " ",
+			field2: card.custom_card_number,
+			separator2: " ",
+			field3: card.card_code_text
+		)
+	else if auto_copy then
+		combined_editor(
+			field1: card.auto_copyright,
+			separator: card.card_number,
+			field2: card.card_code_text
+		)
+	else
+		combined_editor(
+			field1: card.copyright,
+			separator: card.card_number,
+			field2: card.card_code_text
+		)
+}
+card_number_old_2 := {
+	auto_number := use_auto_numbers()
+	auto_copy := set.automatic_copyright
+	cn := adjust_face_card_number(if auto_number then card.card_number else card.custom_card_number, face:2)
+	
+	if auto_copy and not auto_number then
+		combined_editor(
+			field1: card.auto_copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+	else if not auto_number then
+		combined_editor(
+			field1: card.copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+	else if auto_copy then
+		combined_editor(
+			field1: card.auto_copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+	else
+		combined_editor(
+			field1: card.copyright_2,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_2
+		)
+
+}
+card_number_old_3 := {
+	auto_number := use_auto_numbers()
+	auto_copy := set.automatic_copyright
+	cn := adjust_face_card_number(if auto_number then card.card_number else card.custom_card_number, face:3)
+	
+	if auto_copy and not auto_number then
+		combined_editor(
+			field1: card.auto_copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+	else if not auto_number then
+		combined_editor(
+			field1: card.copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+	else if auto_copy then
+		combined_editor(
+			field1: card.auto_copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+	else
+		combined_editor(
+			field1: card.copyright_3,
+			separator: " " + cn + " ",
+			field2: card.card_code_text_3
+		)
+
 }
 ############################################################## Copyright fields
 copyright_default := { set.copyright }
@@ -2837,19 +2903,19 @@ card_name_for_face := {
 	else card["name"+tag]
 }
 cardname_type := {
-	if lang_setting("is_creature")(input)
+	if is_creature(input)
 		then lang_setting("creature")
-	else if lang_setting("is_land")(input)
+	else if is_land(input)
 		then lang_setting("land")
-	else if lang_setting("is_spell")(input)
+	else if is_spell(input)
 		then lang_setting("spell")
-	else if lang_setting("is_artifact")(input)
+	else if is_artifact(input)
 		then lang_setting("artifact")
-	else if lang_setting("is_planeswalker")(input)
+	else if is_planeswalker(input)
 		then lang_setting("planeswalker")
-	else if lang_setting("is_enchantment")(input)
+	else if is_enchantment(input)
 		then lang_setting("enchantment")
-	else if lang_setting("is_battle")(input)
+	else if is_battle(input)
 		then lang_setting("battle")
 	else ""
 	
@@ -2904,7 +2970,7 @@ corners_possible_dimensions :=
 	"1039x744":	"1039x744"
 	"750x1046":	"750x1046"
 	"1046x750":	"1046x750"
-	"1500x1046":	"1500x1046"
+	"1500x1046": "1500x1046"
 ]
 
 corners_disabled_1 := { false }
@@ -3224,7 +3290,7 @@ loyalty_box_default :=
 	loyalty := loyalty_field(margin_code)
 	if loyalty == "" then "none" else (
 	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
-	if lang_setting("is_battle")(type) or contains(card_shape(), match: "battle") then "defense"
+	if is_battle(type) or contains(card_shape(), match: "battle") then "defense"
 	else "loyalty")
 }
 loyalty_box_image :=
@@ -4917,35 +4983,36 @@ harder_script := [
 ############################################################## Card column sorting
 type_sort_script :=
 {
+	sh := card.shape
 	if set.alphabetical_type_column then super_type + " " + sub_type else
 	#### first sort by 5 broad categories
 	(
 		if		is_tokenish_statistics(card.shape)			then	"4"
 		else if	lang_setting("is_nonstandard")(super_type)	then	"3"
-		else if	lang_setting("is_land")(super_type)			then	"0"
-		else if	lang_setting("is_spell")(super_type)		then	"2"
+		else if	is_land(super_type)			then	"0"
+		else if	is_spell(super_type)		then	"2"
 		else														"1"	#### nonland permanents
 	) +
 	
 	#### then check if creature
-	(if lang_setting("is_creature")(super_type)		then	"0" else "1") +
+	(if is_creature(super_type)		then	"0" else "1") +
 	
 	#### then sort by type, no need to re-check for land or creature
-	(if lang_setting("is_sorcery")(super_type)		then	"1" else "0") +
-	(if lang_setting("is_instant")(super_type)		then	"1" else "0") +
-	(if lang_setting("is_planeswalker")(super_type)	then	"1" else "0") +
-	(if lang_setting("is_battle")(super_type)		then	"1" else "0") +
-	(if lang_setting("is_enchantment")(super_type)	then	"1" else "0") +
-	(if lang_setting("is_artifact")(super_type)		then	"1" else "0") +
+	(if is_sorcery(super_type)		then	"1" else "0") +
+	(if is_instant(super_type)		then	"1" else "0") +
+	(if is_planeswalker(super_type)	then	"1" else "0") +
+	(if is_battle(super_type)		then	"1" else "0") +
+	(if is_enchantment(super_type)	then	"1" else "0") +
+	(if is_artifact(super_type)		then	"1" else "0") +
 	
-	(if contains(card.shape, match: "rulestip")		then	"1" else "0") +
-	(if contains(card.shape, match: "checklist")	then	"1" else "0") +
+	(if contains(sh, match: "rulestip")		then	"1" else "0") +
+	(if contains(sh, match: "checklist")	then	"1" else "0") +
 	(if lang_setting("is_token")(super_type)
-		or contains(card.shape, match: "token")		then	"1" else "0") +
-	(if lang_setting("is_emblem")(super_type)
-		or contains(card.shape, match: "emblem")	then	"1" else "0") +
-	(if contains(card.shape, match: "counter")		then	"1" else "0") +
-	(if contains(card.shape, match: "designation")	then	"1" else "0") +
+		or contains(sh, match: "token")		then	"1" else "0") +
+	(if is_emblem(super_type)
+		or contains(sh, match: "emblem")	then	"1" else "0") +
+	(if contains(sh, match: "counter")		then	"1" else "0") +
+	(if contains(sh, match: "designation")	then	"1" else "0") +
 	(if lang_setting("is_conspiracy")(super_type)	then	"1" else "0") +
 	(if lang_setting("is_dungeon")(super_type)		then	"1" else "0") +
 	(if lang_setting("is_phenomenon")(super_type)	then	"1" else "0") +
