@@ -43,6 +43,7 @@ semicolon_count := filter_text@(match:";")
 split_comma :=     split_text@(match: " *, *")
 split_semicolon := split_text@(match: " *; *")
 line_count :=      split_text@(match:"\n+",include_empty:false) + length
+px_split :=        split_text@(match:"p?x",include_empty:false)
 
 word_count :=      break_text@(match:"[^[:space:]]+") + length
 
@@ -2334,20 +2335,20 @@ invert_watermark_1 := { false }
 invert_watermark_2 := { false }
 invert_watermark_3 := { false }
 verify_watermark_image := {
-	if not has_png(input)
-		then input
+	array := split_comma(input)
+	if not has_png(array.0)
+		then array.0
 	else (
-		array := split_comma(input)
 		wm_link := array.0
 		wm_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+wm_link)
 		if not wm_exists then (
-			wm_link + ",Watermark not found"
+			wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
 		) else (
 			wm_width := width_of("/magic-mainframe-extras.mse-include/"+wm_link)
 			wm_height := height_of("/magic-mainframe-extras.mse-include/"+wm_link)
 			if (wm_width > 1024 or wm_height > 1024)
-				then wm_link + ",unverified,Limit watermarks to 1024x1024 or smaller for color blending"
-			else wm_link + ",verified,{wm_width},{wm_height}"
+				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
+			else wm_link + ",File found,{wm_width}x{wm_height}px"
 		)
 	)
 }
@@ -2355,7 +2356,7 @@ custom_watermark_link := {
 	field := set["custom_watermark_"+input]
 	array := split_comma(field)
 	#### not blank, has png, is either verified or old link that's probably fine
-	if array.0 != "" and has_png(array.0) and array.1 or else "" != "Watermark not found"
+	if array.0 != "" and has_png(array.0) and array.1 or else "" != "Not found"
 		then "/magic-mainframe-extras.mse-include/"+field
 	else "/magic-modules.mse-include/watermarks/other/planeswalker.png"
 }
@@ -2364,7 +2365,7 @@ custom_card_watermark := {
 	field := styling["card_watermark"+tag] or else ""
 	array := split_comma(field)
 	#### not blank, has png, is either verified or old link that's probably fine
-	if array.0 != "" and has_png(array.0) and array.1 or else "" != "Watermark not found"
+	if array.0 != "" and has_png(array.0) and array.1 or else "" != "Not found"
 		then "/magic-mainframe-extras.mse-include/"+field
 	else "/magic-modules.mse-include/watermarks/other/planeswalker.png"
 }
