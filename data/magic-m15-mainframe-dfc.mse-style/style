@@ -300,7 +300,7 @@ init script:
 		filter_text@(match:"\n")
 
 	#### backend magic
-	lv_chop := { pull_comma_array(input, cell:cell, end:0, default:0)}
+	lv_chop := { to_number_lax(pull_comma_array(input, cell:cell, end:0, default:0)) }
 	card_shape := {
 		if contains(styling.dfc_type, match: "modal")
 			then "modal double faced"
@@ -532,6 +532,16 @@ init script:
 	back_clear := { chosen(styling.other_options, choice:"clear back") }
 	
 	#### field scripts
+	chop_front := {
+		if styling.front_chop != "" then
+			lv_chop(styling.front_chop, cell:input)
+		else (if input == 0 then -1 else 1)*lv_chop(styling.level_1_chop, cell:input)
+	}
+	chop_back := {
+		if styling.back_chop != "" then
+			lv_chop(styling.back_chop, cell:input)
+		else (if input == 0 then -1 else 1)*lv_chop(styling.level_5_chop, cell:input)
+	}
 	top_of_textbox := {
 		(
 			if mainframe_walker()
@@ -544,7 +554,7 @@ init script:
 				then 395
 			else 327
 		)
-		- lv_chop(styling.level_1_chop, cell:0)
+		+ chop_front(0)
 	}
 	bottom_of_textbox := {
 		(
@@ -556,7 +566,7 @@ init script:
 				then 475
 			else 481
 		)
-		- lv_chop(styling.level_1_chop, cell:1)
+		- chop_front(1)
 	}
 	top_of_textbox2 := {
 		(
@@ -570,7 +580,7 @@ init script:
 				then 395
 			else 327
 		)
-		- lv_chop(styling.level_5_chop, cell:0)
+		+ chop_back(0)
 	}
 	bottom_of_textbox2 := {
 		(
@@ -582,7 +592,7 @@ init script:
 				then 475
 			else 481
 		)
-		- lv_chop(styling.level_5_chop, cell:1)
+		- chop_back(1)
 	}
 	##### leveler stuff
 	box_leveler := {styling.level_containers == "pt boxes"}
@@ -1775,20 +1785,8 @@ styling field:
 	description: reduces the typeline text N points.
 styling field:
 	type: text
-	name: level 1 chop
-	description: Changes the start/stop points of the first textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
-styling field:
-	type: text
-	name: level 2 chop
-	description: Changes the start/stop points of the second textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
-styling field:
-	type: text
-	name: level 3 chop
-	description: Changes the start/stop points of the third textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
-styling field:
-	type: text
-	name: level 4 chop
-	description: Changes the start/stop points of the fourth textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+	name: front chop
+	description: Changes the start/stop points of the textbox. Formatted as "X,Y"
 styling field:
 	type: choice
 	name: d20 dividers
@@ -1849,20 +1847,8 @@ styling field:
 	description: reduces the typeline text N points.
 styling field:
 	type: text
-	name: level 5 chop
-	description: Changes the start/stop points of the first textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
-styling field:
-	type: text
-	name: level 6 chop
-	description: Changes the start/stop points of the second textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
-styling field:
-	type: text
-	name: level 7 chop
-	description: Changes the start/stop points of the third textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
-styling field:
-	type: text
-	name: level 8 chop
-	description: Changes the start/stop points of the fourth textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+	name: back chop
+	description: Changes the start/stop points of the textbox of the back face. Formatted as "X,Y"
 styling field:
 	type: choice
 	name: d20 dividers back
@@ -1992,6 +1978,41 @@ styling field:
 	choice: arrows
 	choice: pt boxes
 	choice: loyalty boxes
+styling field:
+	type: text
+	name: level 1 chop
+	description: Changes the start/stop points of the first textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 2 chop
+	description: Changes the start/stop points of the second textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 3 chop
+	description: Changes the start/stop points of the third textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 4 chop
+	description: Changes the start/stop points of the fourth textbox. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 5 chop
+	description: Changes the start/stop points of the first textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 6 chop
+	description: Changes the start/stop points of the second textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 7 chop
+	description: Changes the start/stop points of the third textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: text
+	name: level 8 chop
+	description: Changes the start/stop points of the fourth textbox of the back face. Use negative to move down. Formatted as "1,2," MUST end with a comma.
+styling field:
+	type: info
+	name: Custom fonts
 include file: /magic-modules.mse-include/fonts/styling_fields_dfc
 styling field:
 	type: info
@@ -2369,13 +2390,13 @@ card style:
 				else if front_saga()
 					then 0
 				else if front_map()
-					then 287 - lv_chop(styling.level_1_chop, cell:2)
+					then 287 - chop_front(2)
 				else if mainframe_walker()
-					then 300 - lv_chop(styling.level_1_chop, cell:2)
+					then 300 - chop_front(2)
 				else if front_normal() and is_bumped()
-					then 296 - lv_chop(styling.level_1_chop, cell:2)
+					then 296 - chop_front(2)
 				else if front_normal()
-					then 314 - lv_chop(styling.level_1_chop, cell:2)
+					then 314 - chop_front(2)
 				else 0
 		font:
 			name: { body_font() }
@@ -2409,13 +2430,13 @@ card style:
 				else if back_saga()
 					then 0
 				else if back_map()
-					then 287 - lv_chop(styling.level_5_chop, cell:2)
+					then 287 - chop_back(2)
 				else if mainframe_walkerb()
-					then 300 - lv_chop(styling.level_5_chop, cell:2)
+					then 300 - chop_back(2)
 				else if back_normal() and back_bumped()
-					then 296 - lv_chop(styling.level_5_chop, cell:2)
+					then 296 - chop_back(2)
 				else if back_normal()
-					then 314 - lv_chop(styling.level_5_chop, cell:2)
+					then 314 - chop_back(2)
 				else 0
 		font:
 			name: { body2_font() }
