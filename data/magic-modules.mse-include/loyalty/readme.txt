@@ -27,6 +27,9 @@ include file: /magic-modules.mse-include/loyalty/styling_recoloring
 #### Customization
 #### Optionally, you can adjust appearance by defining the following functions in the init script:
 
+#### To conditionally enable loyalty boxes, for combined planeswalker/nonwalker templates
+loyalty_has_abilities_1 := { mainframe_walker() }
+
 #### To change which face of the card the boxes go on:
 loyalty_face_1 := { 1 }
 
