@@ -91,6 +91,8 @@ init script:
 		else if contains(input, match: "-") then "loyaltydown.png"
 		else                                     "loyaltynaught.png"
 	}
+	
+	include file: /magic-modules.mse-include/loyalty/init_script_dfc
 
 	d20_filter := replace@(match:"^(|[Ee]lse ?|[Oo]ther ?|((</sym>)?[-0-9 ,+>\<](<sym>)?)+)[|]", replace:"<b>\\1</b>|")
 	text_filter := text_filter + d20_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)} + {if is_modal(input) then bump_text(softline_ripper(input)) else input}
@@ -990,248 +992,37 @@ init script:
 	}
 
 	####### Planeswalker stuff
-	max_level_function := [
-		"auto": {
-			if card.level_10_text != "" and card.level_10_text != "​" then 6
-			else if card.level_9_text != "" and card.level_9_text != "​" then 5
-			else if card.level_4_text != "" and card.level_4_text != "​" then 4
-			else if card.level_3_text != "" and card.level_3_text != "​" then 3
-			else 2
-		},
-		"one": {1},
-		"two": {2},
-		"three": {3},
-		"four": {4},
-		"none": {0}
-	]
-	max_level := {max_level_function[force_level()]()}
+	#### working place
 	loyalty_abilities_count := {
-		if instance == 1
-			then max_level()
-		else max_levelb()
+		styling_field := if instance <= 1 then styling.front_style else styling.back_style
+		if styling_field == "auto-sizing planeswalker" then (
+			counter := 1
+			for x from 1 to 8 do (
+				tf := card["level_" + (x*instance) + "_text"]
+				if tf != "" and tf != zwsp then counter := x;
+			)
+			tf := card["level_" + counter + "_text"]
+			if active then counter := counter - ( if tf == "" or tf == zwsp then 1 else 0)
+			else counter := counter + 1
+			styling_field := counter;
+		)
+		else if styling_field == "4 ability planeswalker" then styling_field := 4
+		else if styling_field == "3 ability planeswalker" then styling_field := 3
+		else if styling_field == "2 ability planeswalker" then styling_field := 2
+		else if styling_field == "1 ability planeswalker" then styling_field := 1
+		else styling_field := 0
+		to_int(styling_field) or else digital_map[styling_field]
+	}@(active:false)
+	
+	has_four_abilities := {
+		loyalty_abilities_count(instance:1, active:true) >= 4 or use_tall_walker_frame_1()
 	}
-	mainframe_walker_text_script := {
-		lv := max_level()
-		fl := force_level()
-		if lv == 1 or (lv == 2 and card.level_2_text == "") or fl == "two" then
-			combined_editor(
-				field1: card.level_1_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_2_text
-			)
-		else if lv == 2 or fl == "three" then
-			combined_editor(
-				field1: card.level_1_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_2_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_3_text
-			)
-		else if lv == 3 or fl == "four" then
-			combined_editor(
-				field1: card.level_1_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_2_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_3_text,
-				separator3: "<line>\n</line>",
-				field4: card.level_4_text
-			)
-		else if lv == 4 then
-			combined_editor(
-				field1: card.level_1_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_2_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_3_text,
-				separator3: "<line>\n</line>",
-				field4: card.level_4_text,
-				separator4: "<line>\n</line>",
-				field5: card.level_9_text
-			)
-		else if lv >= 5 then
-			combined_editor(
-				field1: card.level_1_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_2_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_3_text,
-				separator3: "<line>\n</line>",
-				field4: card.level_4_text,
-				separator4: "<line>\n</line>",
-				field5: card.level_9_text
-				separator5: "<line>\n</line>",
-				field6: card.level_10_text
-			)
-		else
-			combined_editor(
-				field1: card.level_1_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_2_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_3_text
-			)
+	back_four_abilities := {
+		loyalty_abilities_count(instance:2, active:true) >= 4 or use_tall_walker_frame_2()
 	}
-	max_level_functionb := [
-		"auto": {
-			if card.level_12_text != "" and card.level_12_text != "​" then 6
-			else if card.level_11_text != "" and card.level_11_text != "​" then 5
-			else if card.level_8_text != "" and card.level_8_text != "​" then 4
-			else if card.level_7_text != "" and card.level_7_text != "​" then 3
-			else 2
-		},
-		"one": {1},
-		"two": {2},
-		"three": {3},
-		"four": {4},
-		"none": {0}
-	]
-	max_levelb := {max_level_functionb[force_levelb()]()}
-	mainframe_walker_text_scriptb := {
-		lv := max_levelb()
-		fl := force_levelb()
-		if lv == 1 or (lv == 2 and card.level_6_text == "") or fl == "two" then
-			combined_editor(
-				field1: card.level_5_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_6_text
-			)
-		else if lv == 2 or fl == "three" then
-			combined_editor(
-				field1: card.level_5_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_6_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_7_text
-			)
-		else if lv == 3 or fl == "four" then
-			combined_editor(
-				field1: card.level_5_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_6_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_7_text,
-				separator3: "<line>\n</line>",
-				field4: card.level_8_text
-			)
-		else if lv == 4 then
-			combined_editor(
-				field1: card.level_5_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_6_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_7_text,
-				separator3: "<line>\n</line>",
-				field4: card.level_8_text
-				separator4: "<line>\n</line>",
-				field5: card.level_11_text
-			)
-		else if lv >= 5 then
-			combined_editor(
-				field1: card.level_5_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_6_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_7_text,
-				separator3: "<line>\n</line>",
-				field4: card.level_8_text
-				separator4: "<line>\n</line>",
-				field5: card.level_11_text
-				separator5: "<line>\n</line>",
-				field6: card.level_12_text
-			)
-		else
-			combined_editor(
-				field1: card.level_5_text,
-				separator1: "<line>\n</line>",
-				field2: card.level_6_text,
-				separator2: "<line>\n</line>",
-				field3: card.level_7_text
-			)
-	}
-	margin_left := {
-		if not (mainframe_walker() or mainframe_walkerb()) then 0
-		else if input == "lv1" then (if card.loyalty_cost_1 == "" and unindent() then 0 else 130)
-		else if input == "lv2" then (if card.loyalty_cost_2 == "" and unindent() then 0 else 130)
-		else if input == "lv3" then (if card.loyalty_cost_3 == "" and unindent() then 0 else 130)
-		else if input == "lv4" then (if card.loyalty_cost_4 == "" and unindent() then 0 else 130)
-		else if input == "lv9" then (if card.loyalty_cost_9 == "" and unindent() then 0 else 130)
-		else if input == "lv10" then (if card.loyalty_cost_10 == "" and unindent() then 0 else 130)
-		else if not mainframe_walkerb() then 0
-		else if input == "lv5" then (if card.loyalty_cost_5 == "" and unindent() then 0 else 130)
-		else if input == "lv6" then (if card.loyalty_cost_6 == "" and unindent() then 0 else 130)
-		else if input == "lv7" then (if card.loyalty_cost_7 == "" and unindent() then 0 else 130)
-		else if input == "lv8" then (if card.loyalty_cost_8 == "" and unindent() then 0 else 130)
-		else if input == "lv11" then (if card.loyalty_cost_11 == "" and unindent() then 0 else 130)
-		else if input == "lv12" then (if card.loyalty_cost_12 == "" and unindent() then 0 else 130)
-		else 0
-	}
-	margin_top := {
-		if (front_class() or front_case()) and (input == "lv2" or (input == "lv3" and card.level_3_text != "​") or (input == "lv4" and card.level_4_text != "")) and (input == "lv1" or input == "lv2" or input == "lv3" or input == "lv4") then
-			30
-		else if input == "lv1" or input == "lv2" or input == "lv3" or input == "lv4" or input == "lv9" or input == "lv10" then
-			lv_chop(styling.level_1_chop, cell:3)
-		else if (back_class() or back_case()) and (input == "lv6" or (input == "lv7" and card.level_7_text != "​") or (input == "lv8" and card.level_8_text != "")) and (input == "lv5" or input == "lv6" or input == "lv7" or input == "lv8") then
-			30
-		else if input == "lv5" or input == "lv6" or input == "lv7" or input == "lv8" or input == "lv11" or input == "lv12" then
-			 lv_chop(styling.level_5_chop, cell:3)
-		else 0
-	}
-	add_spacers := { 
-		if input == "" and inner_level(name) then "​"
-		else input
-	}
-	inner_level := {
-		ml := max_level()
-		mlb := max_levelb()
-		if input == "lv10" and ml > 6 then true
-		else if input == "lv9" and ml > 5 then true
-		else if input == "lv4" and ml > 4 then true
-		else if input == "lv3" and (front_class() or front_case() or ml > 3) then true
-		else if input == "lv2" and (front_class() or front_case() or ml > 2) then true
-		else if input == "lv1" and (front_class() or front_case() or ml > 1) then true
-		else if input == "lv12" and mlb > 6 then true
-		else if input == "lv11" and mlb > 5 then true
-		else if input == "lv8" and mlb > 4 then true
-		else if input == "lv7" and (back_class() or front_case() or mlb > 3) then true
-		else if input == "lv6" and (back_class() or front_case() or mlb > 2) then true
-		else if input == "lv5" and (back_class() or front_case() or mlb > 1) then true
-		else false
-	}
-	force_tall := { contains(styling.other_options, match:"force fourwalker front")}
-	force_tallb := { contains(styling.other_options, match:"force fourwalker back")}
-	force_level := {
-		if styling.front_style == "1 ability planeswalker" then "one"
-		else if styling.front_style == "2 ability planeswalker" then "two"
-		else if styling.front_style == "3 ability planeswalker" then "three"
-		else if styling.front_style == "4 ability planeswalker" then "four"
-		else if mainframe_walker() then "auto"
-		else "none"
-	}
-	force_levelb := {
-		if styling.back_style == "1 ability planeswalker" then "one"
-		else if styling.back_style == "2 ability planeswalker" then "two"
-		else if styling.back_style == "3 ability planeswalker" then "three"
-		else if styling.back_style == "4 ability planeswalker" then "four"
-		else if mainframe_walkerb() then "auto"
-		else "none"
-	}
-	has_four_abilities := { max_level() > 3 or force_tall()}
-	has_two_abilities := { max_level() < 3 and max_level() > 0}
-	back_four_abilities := { max_levelb() > 3 or force_tallb()}
-	back_two_abilities := { max_levelb() < 3 and max_levelb() > 0}
-	walker_mask_front := {
-		(if front_clear() then "clear_" else if front_normal_size() or mythic_edition() then "" else "wide_")
-		+ (if mythic_edition() then ("mythic_mask" + (if max_level() > 3 or force_tall() then "_four" else "") + (if is_stamped() then "_rare" else "")))
-		+ (if not mythic_edition() then ((if max_level() > 3 or force_tall() then "four_" else "") + "frame_mask") else "")
-		+ ".png"
-	}
-	walker_mask_back := {
-		(if back_clear() then "clear_" else if front_normal_size() or mythic_edition() then "" else "wide_")
-		+ (if mythic_edition() then ("mythic_mask" + (if max_levelb() > 3 or force_tallb() then "_four" else "") + "_back"))
-		+ (if not mythic_edition() then ((if max_levelb() > 3 or force_tallb() then "four_" else "") + "frame_mask") else "")
-		+ ".png"
-	}
+
+	use_tall_walker_frame_1 := { chosen(styling.other_options, choice:"force fourwalker front") }
+	use_tall_walker_frame_2 := { chosen(styling.other_options, choice:"force fourwalker back") }
 	
 	#### mask scripts
 	mask_script := {
@@ -1280,9 +1071,7 @@ init script:
 			then "image_masks/clear_normal.png"
 		else if back_mutate()
 			then "image_masks/mutate.png"
-		else if not mainframe_walkerb()
-			then ""
-		else "image_masks/guidelines/" + walker_mask_back()
+		else ""
 	}
 	loyalty_textbox_mask_1 := {
 		"/magic-modules.mse-include/cards/750 m15 planeswalker cut/375_"
@@ -2093,6 +1882,7 @@ include file: /magic-modules.mse-include/separators/card_fields_dfc
 include file: /magic-modules.mse-include/corners/card_fields_dfc
 include file: /magic-modules.mse-include/stamps/card_fields_dfc
 include file: /magic-modules.mse-include/symbols/card_fields_dfc
+include file: /magic-modules.mse-include/loyalty/card_fields_dfc
 card style:
 	############################# Background stuff
 	border color:
@@ -3121,337 +2911,6 @@ card style:
 			weight: {if use_evobar() then "italic" else "bold"}
 			color: {if use_evobar() then "black" else "white"}
 
-	loyalty:
-		left:				{ instance := 1; card.loyalty_box; loyalty_left() }
-		top:				{ instance := 1; loyalty_top() }
-		width:				{ instance := 1; card.loyalty_box; loyalty_width() }
-		height:				{ instance := 1; loyalty_height() }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; card.loyalty_box; loyalty_font_size() }
-			color:				white
-	loyalty box:
-		left:				{ instance := 1; loyalty_box_left() }
-		top:				{ instance := 1; loyalty_box_top() }
-		width:				{ instance := 1; if card.loyalty == "" then 0 else loyalty_box_width() }
-		height:				{ instance := 1; loyalty_box_height() }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty != "" }
-		include file:		/magic.mse-game/loyalty/menu_choice_images
-		render style:		image
-		image:				{ instance := 1; loyalty_box_image() }
-	loyalty cost 1:
-		left:				{ instance := 1; loyalty_cost_left() }
-		top:				{ instance := 1; card.loyalty_cost_box_1; loyalty_cost_top(1) }
-		width:				{ instance := 1; loyalty_cost_width() }
-		height:				{ instance := 1; loyalty_cost_height(1) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 2:
-		left:				{ instance := 1; loyalty_cost_left() }
-		top:				{ instance := 1; card.loyalty_cost_box_2; loyalty_cost_top(2) }
-		width:				{ instance := 1; loyalty_cost_width() }
-		height:				{ instance := 1; loyalty_cost_height(2) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 3:
-		left:				{ instance := 1; loyalty_cost_left() }
-		top:				{ instance := 1; card.loyalty_cost_box_3; loyalty_cost_top(3) }
-		width:				{ instance := 1; loyalty_cost_width() }
-		height:				{ instance := 1; loyalty_cost_height(3) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 4:
-		left:				{ instance := 1; loyalty_cost_left() }
-		top:				{ instance := 1; card.loyalty_cost_box_4; loyalty_cost_top(4) }
-		width:				{ instance := 1; loyalty_cost_width() }
-		height:				{ instance := 1; loyalty_cost_height(4) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 9:
-		left:				{ instance := 1; loyalty_cost_left() }
-		top:				{ instance := 1; card.loyalty_cost_box_9; loyalty_cost_top(5) }
-		width:				{ instance := 1; loyalty_cost_width() }
-		height:				{ instance := 1; loyalty_cost_height(5) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 10:
-		left:				{ instance := 1; loyalty_cost_left() }
-		top:				{ instance := 1; card.loyalty_cost_box_10; loyalty_cost_top(6) }
-		width:				{ instance := 1; loyalty_cost_width() }
-		height:				{ instance := 1; loyalty_cost_height(6) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-
-	loyalty cost 5:
-		left:				{ instance := 2; loyalty_cost_left() }
-		top:				{ instance := 2; card.loyalty_cost_box_5; loyalty_cost_top(1) }
-		width:				{ instance := 2; loyalty_cost_width() }
-		height:				{ instance := 2; loyalty_cost_height(1) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 2; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 6:
-		left:				{ instance := 2; loyalty_cost_left() }
-		top:				{ instance := 2; card.loyalty_cost_box_6; loyalty_cost_top(2) }
-		width:				{ instance := 2; loyalty_cost_width() }
-		height:				{ instance := 2; loyalty_cost_height(2) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 2; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 7:
-		left:				{ instance := 2; loyalty_cost_left() }
-		top:				{ instance := 2; card.loyalty_cost_box_7; loyalty_cost_top(3) }
-		width:				{ instance := 2; loyalty_cost_width() }
-		height:				{ instance := 2; loyalty_cost_height(3) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 2; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 8:
-		left:				{ instance := 2; loyalty_cost_left() }
-		top:				{ instance := 2; card.loyalty_cost_box_8; loyalty_cost_top(4) }
-		width:				{ instance := 2; loyalty_cost_width() }
-		height:				{ instance := 2; loyalty_cost_height(4) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 2; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 11:
-		left:				{ instance := 2; loyalty_cost_left() }
-		top:				{ instance := 2; card.loyalty_cost_box_11; loyalty_cost_top(5) }
-		width:				{ instance := 2; loyalty_cost_width() }
-		height:				{ instance := 2; loyalty_cost_height(5) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 2; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-	loyalty cost 12:
-		left:				{ instance := 2; loyalty_cost_left() }
-		top:				{ instance := 2; card.loyalty_cost_box_12; loyalty_cost_top(6) }
-		width:				{ instance := 2; loyalty_cost_width() }
-		height:				{ instance := 2; loyalty_cost_height(6) }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 2; loyalty_cost_font_size() }
-			scale down to:		7
-			color:				white
-
-	loyalty cost box 1:
-		left:				{ instance := 1; loyalty_cost_box_left() }
-		top:				{ instance := 1; loyalty_cost_box_top(1) }
-		width:				{ instance := 1; loyalty_cost_box_width() }
-		height:				{ instance := 1; loyalty_cost_box_height(1) }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty_cost_1 != "" and loyalty_abilities_count() >= 1 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(1) }
-	loyalty cost box 2:
-		left:				{ instance := 1; loyalty_cost_box_left() }
-		top:				{ instance := 1; loyalty_cost_box_top(2) }
-		width:				{ instance := 1; loyalty_cost_box_width() }
-		height:				{ instance := 1; loyalty_cost_box_height(2) }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty_cost_2 != "" and loyalty_abilities_count() >= 2 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(2) }
-	loyalty cost box 3:
-		left:				{ instance := 1; loyalty_cost_box_left() }
-		top:				{ instance := 1; loyalty_cost_box_top(3) }
-		width:				{ instance := 1; loyalty_cost_box_width() }
-		height:				{ instance := 1; loyalty_cost_box_height(3) }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty_cost_3 != "" and loyalty_abilities_count() >= 3}
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(3) }
-	loyalty cost box 4:
-		left:				{ instance := 1; loyalty_cost_box_left() }
-		top:				{ instance := 1; loyalty_cost_box_top(4) }
-		width:				{ instance := 1; loyalty_cost_box_width() }
-		height:				{ instance := 1; loyalty_cost_box_height(4) }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty_cost_4 != "" and loyalty_abilities_count() >= 4 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(4) }
-	loyalty cost box 9:
-		left:				{ instance := 1; loyalty_cost_box_left() }
-		top:				{ instance := 1; loyalty_cost_box_top(5) }
-		width:				{ instance := 1; loyalty_cost_box_width() }
-		height:				{ instance := 1; loyalty_cost_box_height(5) }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty_cost_9 != "" and loyalty_abilities_count() >= 5 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(9) }
-	loyalty cost box 10:
-		left:				{ instance := 1; loyalty_cost_box_left() }
-		top:				{ instance := 1; loyalty_cost_box_top(6) }
-		width:				{ instance := 1; loyalty_cost_box_width() }
-		height:				{ instance := 1; loyalty_cost_box_height(6) }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty_cost_10 != "" and loyalty_abilities_count() >= 6 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(10) }
-
-	loyalty cost box 5:
-		left:				{ instance := 2; loyalty_cost_box_left() }
-		top:				{ instance := 2; loyalty_cost_box_top(1) }
-		width:				{ instance := 2; loyalty_cost_box_width() }
-		height:				{ instance := 2; loyalty_cost_box_height(1) }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_cost_5 != "" and loyalty_abilities_count() >= 1 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(5) }
-	loyalty cost box 6:
-		left:				{ instance := 2; loyalty_cost_box_left() }
-		top:				{ instance := 2; loyalty_cost_box_top(2) }
-		width:				{ instance := 2; loyalty_cost_box_width() }
-		height:				{ instance := 2; loyalty_cost_box_height(2) }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_cost_6 != "" and loyalty_abilities_count() >= 2 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(6) }
-	loyalty cost box 7:
-		left:				{ instance := 2; loyalty_cost_box_left() }
-		top:				{ instance := 2; loyalty_cost_box_top(3) }
-		width:				{ instance := 2; loyalty_cost_box_width() }
-		height:				{ instance := 2; loyalty_cost_box_height(3) }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_cost_7 != "" and loyalty_abilities_count() >= 3 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(7) }
-	loyalty cost box 8:
-		left:				{ instance := 2; loyalty_cost_box_left() }
-		top:				{ instance := 2; loyalty_cost_box_top(4) }
-		width:				{ instance := 2; loyalty_cost_box_width() }
-		height:				{ instance := 2; loyalty_cost_box_height(4) }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_cost_8 != "" and loyalty_abilities_count() >= 4 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(8) }
-	loyalty cost box 11:
-		left:				{ instance := 2; loyalty_cost_box_left() }
-		top:				{ instance := 2; loyalty_cost_box_top(5) }
-		width:				{ instance := 2; loyalty_cost_box_width() }
-		height:				{ instance := 2; loyalty_cost_box_height(3) }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_cost_11 != "" and loyalty_abilities_count() >= 5 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(11) }
-	loyalty cost box 12:
-		left:				{ instance := 2; loyalty_cost_box_left() }
-		top:				{ instance := 2; loyalty_cost_box_top(6) }
-		width:				{ instance := 2; loyalty_cost_box_width() }
-		height:				{ instance := 2; loyalty_cost_box_height(6) }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_cost_12 != "" and loyalty_abilities_count() >= 6 }
-		include file:		/magic.mse-game/loyalty/menu_choice_images_cost
-		render style:		image
-		image:				{ instance := 1; loyalty_cost_box_image(12) }
-
-	loyalty:
-		left:				{ instance := 1; card.loyalty_box; loyalty_left() }
-		top:				{ instance := 1; loyalty_top() }
-		width:				{ instance := 1; card.loyalty_box; loyalty_width() }
-		height:				{ instance := 1; loyalty_height() }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name_font() }
-			size:				{ instance := 1; card.loyalty_box; loyalty_font_size() }
-			color:				white
-	loyalty box:
-		left:				{ instance := 1; loyalty_box_left() }
-		top:				{ instance := 1; loyalty_box_top() }
-		width:				{ instance := 1; if card.loyalty == "" then 0 else loyalty_box_width() }
-		height:				{ instance := 1; loyalty_box_height() }
-		z index:			830
-		visible:			{ instance := 1; card.loyalty != "" }
-		include file:		/magic.mse-game/loyalty/menu_choice_images
-		render style:		image
-		image:				{ instance := 1; loyalty_box_image() }
-	loyalty 2:
-		left:				{ instance := 2; card.loyalty_box_2; loyalty_left() }
-		top:				{ instance := 2; loyalty_top() }
-		width:				{ instance := 2; card.loyalty_box_2; loyalty_width() }
-		height:				{ instance := 2; loyalty_height() }
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ name2_font() }
-			size:				{ instance := 2; card.loyalty_box_2; loyalty_font_size() }
-			color:				white
-	loyalty box 2:
-		left:				{ instance := 2; loyalty_box_left() }
-		top:				{ instance := 2; loyalty_box_top() }
-		width:				{ instance := 2; if card.loyalty_2 == "" then 0 else loyalty_box_width() }
-		height:				{ instance := 2; loyalty_box_height() }
-		z index:			830
-		visible:			{ instance := 2; card.loyalty_2 != "" }
-		include file:		/magic.mse-game/loyalty/menu_choice_images
-		render style:		image
-		image:				{ instance := 2; loyalty_box_image() }
 ############################################################## Extra card fields
 extra card field:
 	type: choice
@@ -5210,103 +4669,6 @@ extra card style:
 		render style: image
 		image: { if stamp_shape(field:2) == "triangle" then tri_stamp2() else round_stamp2() }
 		mask: {if mythic_edition() and mainframe_walkerb() and card.card_stamp_2 != "none" then "/magic-modules.mse-include/stamps/backs/375 " + (if stamp_shape(field:2) == "triangle" then "ub/pw/" else "round outlined/") + "border_mask.png" else if mainframe_walkerb() and not chosen(styling.other_options, choice:"normal back face") and stamp_shape(field:2) == "triangle" then "walker_back_ub_mask.png" else ""}
-
-	colon 1:
-		left:				{ instance := 1; loyalty_colon_left() }
-		top:				{ instance := 1; loyalty_colon_top(1) }
-		width:				{ instance := 1; loyalty_colon_width() }
-		height:				{ instance := 1; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 1; card.loyalty_cost_1 != "" and loyalty_abilities_count() >= 1 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 1; loyalty_colon_font_size() }
-			color:				{ body_font_color() }
-		alignment: center middle
-	colon 2:
-		left:				{ instance := 1; loyalty_colon_left() }
-		top:				{ instance := 1; loyalty_colon_top(2) }
-		width:				{ instance := 1; loyalty_colon_width() }
-		height:				{ instance := 1; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 1; card.loyalty_cost_2 != "" and loyalty_abilities_count() >= 2 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 1; loyalty_colon_font_size() }
-			color:				{ body_font_color() }
-		alignment: center middle
-	colon 3:
-		left:				{ instance := 1; loyalty_colon_left() }
-		top:				{ instance := 1; loyalty_colon_top(3) }
-		width:				{ instance := 1; loyalty_colon_width() }
-		height:				{ instance := 1; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 1; card.loyalty_cost_3 != "" and loyalty_abilities_count() >= 3 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 1; loyalty_colon_font_size() }
-			color:				{ body_font_color() }
-		alignment: center middle
-	colon 4:
-		left:				{ instance := 1; loyalty_colon_left() }
-		top:				{ instance := 1; loyalty_colon_top(4) }
-		width:				{ instance := 1; loyalty_colon_width() }
-		height:				{ instance := 1; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 1; card.loyalty_cost_4 != "" and loyalty_abilities_count() >= 4 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 1; loyalty_colon_font_size() }
-			color:				{ body_font_color() }
-		alignment: center middle
-	colon 5:
-		left:				{ instance := 2; loyalty_colon_left() }
-		top:				{ instance := 2; loyalty_colon_top(1) }
-		width:				{ instance := 2; loyalty_colon_width() }
-		height:				{ instance := 2; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 2; card.loyalty_cost_5 != "" and loyalty_abilities_count() >= 1 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 2; loyalty_colon_font_size() }
-			color:				{ body2_font_color() }
-		alignment: center middle
-	colon 6:
-		left:				{ instance := 2; loyalty_colon_left() }
-		top:				{ instance := 2; loyalty_colon_top(2) }
-		width:				{ instance := 2; loyalty_colon_width() }
-		height:				{ instance := 2; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 2; card.loyalty_cost_6 != "" and loyalty_abilities_count() >= 2 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 2; loyalty_colon_font_size() }
-			color:				{ body2_font_color() }
-		alignment: center middle
-	colon 7:
-		left:				{ instance := 2; loyalty_colon_left() }
-		top:				{ instance := 2; loyalty_colon_top(3) }
-		width:				{ instance := 2; loyalty_colon_width() }
-		height:				{ instance := 2; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 2; card.loyalty_cost_7 != "" and loyalty_abilities_count() >= 3 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 2; loyalty_colon_font_size() }
-			color:				{ body2_font_color() }
-		alignment: center middle
-	colon 8:
-		left:				{ instance := 2; loyalty_colon_left() }
-		top:				{ instance := 2; loyalty_colon_top(4) }
-		width:				{ instance := 2; loyalty_colon_width() }
-		height:				{ instance := 2; loyalty_colon_height() }
-		z index:			900
-		visible:			{ instance := 2; card.loyalty_cost_8 != "" and loyalty_abilities_count() >= 4 }
-		font:
-			name:				Beleren Bold
-			size:				{ instance := 2; loyalty_colon_font_size() }
-			color:				{ body2_font_color() }
-		alignment: center middle
 
 	art mirror:
 		left: 0
