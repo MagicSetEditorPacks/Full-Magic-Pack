@@ -348,28 +348,42 @@ init script:
 	swap_fonts_name_default := [
 		name: 		{"Beleren Bold"},
 		size: 		{15},
-		color: 		{if borderless_frames() then "white" else "black"},
+		color: 		{if borderless_frames() and not left_clear() then "white" else "black"},
 		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_type_default := [
 		name: 		{"Beleren Bold"},
 		size: 		{9},
-		color: 		{ if borderless_frames() or is_room() then "white" else "black"},
+		color: 		{ if (borderless_frames() and not left_clear()) or is_room() then "white" else "black"},
 		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_body_default := [
 		name: 		{"MPlantin"},
 		size: 		{ left_font_size() },
-		color: 		{if borderless_frames() then "white" else "black"},
+		color: 		{if borderless_frames() and not left_clear() then "white" else "black"},
 		italic:		{"MPlantin-Italic"},
+		vertical:	{0}
+	]
+	swap_fonts_name2_default := [
+		name: 		{"Beleren Bold"},
+		size: 		{15},
+		color: 		{if borderless_frames() and not right_clear() then "white" else "black"},
+		italic:		{""},
+		vertical:	{0}
+	]
+	swap_fonts_type2_default := [
+		name: 		{"Beleren Bold"},
+		size: 		{9},
+		color: 		{ if (borderless_frames() and not right_clear()) or is_room() then "white" else "black"},
+		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_body2_default := [
 		name: 		{"MPlantin"},
 		size: 		{ right_font_size() },
-		color: 		{if borderless_frames() then "white" else "black"},
+		color: 		{if borderless_frames() and not right_clear() then "white" else "black"},
 		italic:		{"MPlantin-Italic"},
 		vertical:	{0}
 	]
@@ -439,6 +453,8 @@ init script:
 			then ""
 		else if bl
 			then "normal/image_mask_{input}_bl.png"
+		else if tb and clear and uses_fuse_arrows()
+			then "normal/image_mask_{input}_bl.png"
 		else if clear
 			then "normal/image_mask_{input}_clear.png"
 		else if tb and room_style == "one image" and input == "left"
@@ -482,11 +498,11 @@ init script:
 		rm := is_room()
 		clear := if side == "left" then left_clear() else if side == "right" then right_clear() else false
 
-		img := if bl
-			then borderless_card()
-		else if clear
+		img := if clear
 			then clear_fuse(side)
-		else ""
+		else if bl
+			then borderless_card()
+		else  ""
 		
 		if rm and bl
 			then set_mask(image:img, mask:"normal/borderless/{side}_mask.png")
@@ -497,6 +513,10 @@ init script:
 	clear_fuse := {
 		base := "fuse_{input}/xfuse.png"
 		normal := "normal/xcard.png"
+		if is_borderless() then (
+			base := set_mask(image:base, mask:"fuse_{input}/borderless_clear_mask.png")
+			normal := set_mask(image:normal, mask:"normal/borderless_clear_mask.png")
+		) 
 		fus := is_fuse()
 		arr := uses_fuse_arrows()
 		if fus and arr
@@ -530,17 +550,17 @@ init script:
 		else (
 			lc := left_clear()
 			rc := right_clear()
-			if not lc and not rc
+			if is_fuse() and not lc and not rc
 				then "borders/fuse_mask.png"		#### colors can layer over
 			else blend_clear_border_mask(lc:lc, rc:rc)
 		)
 	}
 	blend_clear_border_mask := {
-		base := "borders/fuse_mask.png"
-		adds := "borders/fuse_add.png"
 		canvas := "borders/canvas.png"
 		arr := uses_fuse_arrows()
 		bar := is_fuse()
+		base := if bar then "borders/fuse_mask.png" else "borders/mask.png"
+		adds := "borders/fuse_add.png"
 		
 		if lc and rc and arr and bar then "borders/clear_fuse.png" else (
 			if lc and not rc then
@@ -803,10 +823,10 @@ card style:
 		padding bottom: 0
 		z index: 900
 		font:
-			name: { name_font() }
-			italic name: { name_font_italic() }
-			size: { name_font_size() }
-			color: { name_font_color() }
+			name: { name2_font() }
+			italic name: { name2_font_italic() }
+			size: { name2_font_size() }
+			color: { name2_font_color() }
 	casting cost:
 		right: 254
 		top: 18
@@ -831,10 +851,10 @@ card style:
 		alignment: middle right
 		font:
 			name: MPlantin
-			size: { name_font_size() }
+			size: { name2_font_size() }
 		symbol font:
 			name: magic-mana-large
-			size: { name_font_size() }
+			size: { name2_font_size() }
 			alignment: middle right
 		always symbol: true
 		z index: 920
@@ -929,10 +949,10 @@ card style:
 		z index: 900
 		padding top: 0
 		font:
-			name: { type_font() }
-			italic name: { type_font_italic() }
-			size: { type_font_size() }
-			color: { type_font_color() }
+			name: { type2_font() }
+			italic name: { type2_font_italic() }
+			size: { type2_font_size() }
+			color: { type2_font_color() }
 			separator color: red
 	rarity:
 		right: { if is_room() then 496 else 255 }
