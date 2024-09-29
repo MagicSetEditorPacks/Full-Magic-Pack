@@ -817,7 +817,23 @@ stamp_hybrid := [
 ########################################################################
 # Putting it all together.
 ########################################################################
-
+blend_colors := {
+	colors := sort_text( order: if card_is_wedge(input) then "(wbgur)" else "(wubrg)"
+					, (if chosen(choice:"white"	)	then "w")
+					+ (if chosen(choice:"blue"	)	then "u")
+					+ (if chosen(choice:"black"	)	then "b")
+					+ (if chosen(choice:"red"	)	then "r")
+					+ (if chosen(choice:"green"	)	then "g"))
+	if multi and (hybrid or colors == "") then (
+		colors := colors + "m"
+	)
+	if artifact and (hybrid or colors == "") then (
+		colors := colors + "a"
+	)
+	if chosen(choice:"reversed") then colors := reverse(colors)
+	if colors == "" then colors := "c"
+	colors
+}
 # Determine the card background based on the card_color multiple choice options
 color_background := {
 	
@@ -839,24 +855,11 @@ color_background := {
 	if land and colored_lands then template := land_template # use land template instead?
 	
 	# The selected colors
-	colors := sort_text( order: if card_is_wedge(input) then "(wbgur)" else "(wubrg)"
-					, (if chosen(choice:"white"	)	then "w")
-					+ (if chosen(choice:"blue"	)	then "u")
-					+ (if chosen(choice:"black"	)	then "b")
-					+ (if chosen(choice:"red"	)	then "r")
-					+ (if chosen(choice:"green"	)	then "g"))
-	if multi and (hybrid or colors == "") then (
-		colors := colors + "m"
-		multi := false
-	)
-	if artifact and (hybrid or colors == "") then (
-		colors := colors + "a"
-		artifact := false
-	)
-	if chosen(choice:"reversed") then colors := reverse(colors)
-	color_count := number_of_items(in: colors)
-	if colors == "" then colors == "c"
-	
+	colors := blend_colors(input,land:land, multi:multi, hybrid:hybrid, artifact:artifact)
+	if contains(colors, match:"a") then artifact := false
+	if contains(colors, match:"m") then multi := false
+	color_count := if colors == "c" then 0 else number_of_items(in: colors)
+
 	# 'shape' / type of hybrid
 	shape :=	if		chosen(choice:"horizontal"	)	then	"horizontal"
 				else if	chosen(choice:"vertical"	)	then	"vertical"

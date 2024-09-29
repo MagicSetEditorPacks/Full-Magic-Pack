@@ -33,7 +33,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2024-09-23 Template Pack 3.0.0-h Showcase Catchup: Showcases"}
+version_date := {"2024-09-23 Template Pack 3.0.0-i Showcase Catchup: Room Frame"}
 version := version_date
 ############################################################## Common filters
 ############################################################## Utility
@@ -1400,7 +1400,82 @@ legend_filter := replace@(match:"(, | of | the | \"| “).*", replace: "" )
 #### set tab insert atoms
 inserts_values := { split_text(set.inserts+";;;;;;;;;", match:";") }
 inserts_count := { clamp(length(semicolon_count(set.inserts)), minimum:1, maximum:9) }
-
+custom_auto_reminder := {""}
+auto_reminder := {
+	level := filter_text(input, match:"[0-9]+")
+	if level == "" then level := "1"
+	tag := name_tag_for_level(to_number(level))
+	type_field := card["type"+tag]
+	cost_field := card["casting_cost"+tag]
+	if custom_auto_reminder()
+		then custom_auto_reminder()
+	else if lang_setting("is_saga")(type_field)
+		then saga_reminder_script(tag:tag)
+	else if lang_setting("is_class")(type_field)
+		then "<i-auto>(Gain the next level as a sorcery to add its ability.)</i-auto>"
+	else if contains(cost_field, match:"/")
+		then hybrid_reminder(cost_field)
+	else if lang_setting("is_room")(type_field)
+		then "<i-auto>(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)</i-auto>"
+	else ""
+}
+saga_map := [
+	1: "I",
+	2: "II",
+	3: "III",
+	4: "IV",
+	5: "V",
+	6: "VI",
+	7: "VII",
+	8: "VIII",
+	9: "IX",
+	10: "X"
+]
+saga_reminder_script := {
+	ch := "III"
+	ch_src := ""
+	ch_extra := ""
+	ch_extra_name := if styling.extra_chapter_name or else "" == "" then "C" else styling.extra_chapter_name
+	if tag == "_2" then (
+		ch_src := styling.snap_chapter_to_back_box or else ""
+		ch_extra := replace(styling.custom_chapter_coordinate or else "", match:"^[^,]*,", replace:"")
+	)
+	else(
+		ch_src := styling.snap_chapter_to_box or else ""
+		ch_extra := styling.custom_chapter_coordinate or else ""
+	)
+	
+	if ch_extra
+		then ch := ch_extra_name
+	else (
+		ch_count := if ch_src == "" then 3 else length(filter_text(ch_src, match:"[0-9]"))
+		ch := saga_map[ch_count] or else ch_count
+	)
+		
+	"<i-auto>(As this Saga enters and after your draw step, add a lore counter. Sacrifice after {ch}.)</i-auto>"
+}
+hybrid_reminder := {
+	first_hybrid := replace(
+		input,
+		match:"(([^ ])/([^ ])(?:/([^ ]))?).*", ## _1 hybrid, _2 sym1, _3 sym2, _4 sym3
+		replace: {
+			if _4 != "" then (
+				if _2 == "2" then
+					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with any two mana, <sym-auto>{_3}</sym-auto>, or <sym-auto>{_4}</sym-auto>. This card's mana value is {english_number(cmc(input))}.)</i-auto>"
+				else if _2 == "H" then
+					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with <sym-auto>{_3}</sym-auto>, <sym-auto>{_4}</sym-auto>, or 2 life.)</i-auto>"
+				else "<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with either <sym-auto>{_2}</sym-auto>, <sym-auto>{3}</sym-auto>, or <sym-auto>{3}</sym-auto>.)</i-auto>"
+			)
+			else (
+				if _2 == "2" then
+					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with any two mana or with <sym-auto>{_3}</sym-auto>. This card's mana value is {english_number(cmc(input))}.)</i-auto>"
+				else if _2 == "H" then
+					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with either <sym-auto>{_3}</sym-auto> or 2 life.)</i-auto>"
+				else "<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with either <sym-auto>{_2}</sym-auto> or <sym-auto>{_3}</sym-auto>.)</i-auto>"
+			)
+		}
+	)
+}
 #### these are considered a correct 'word' for spellchecking in the text box:
 additional_text_words := match@(match:
 	"(?ix)^(?:                         #### match whole word
@@ -1592,6 +1667,12 @@ text_filter :=
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-legname></atom-legname>"
 	) +
+	#### step 3b : expand shortcut word AUTOREM
+	replace@(
+		match: "AUTOREM>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-autorem></atom-autorem>"
+	) +
 	#### step 3c : fill in atom fields
 	tag_contents@(
 		tag: "<atom-cardname>",
@@ -1600,6 +1681,18 @@ text_filter :=
 	tag_contents@(
 		tag: "<atom-legname>",
 		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name, atom:true))) + "</nospellcheck>" }
+	) +
+	tag_contents@(
+		tag: "<atom-autorem>"
+		contents: { auto_reminder(margin_code) }
+	) +
+	replace@(
+		match:"(E+)(</sym(-auto)?>)? <atom-autorem></atom-autorem>",
+		replace: {
+			num := english_number(length(_1))
+			str := if num == "one" then "an energy counter" else num + " energy counters"
+			_1 + _2 + " <atom-autorem><i-auto>({str})</i-auto></atom-autorem>"
+		}
 	) +
 	replace@(
 		match: "INS([1-9])",

@@ -1,7 +1,7 @@
 ﻿mse version: 2.0.0
 game: magic
 short name: Mainframe Splits
-full name: Fusable Split Cards
+full name: Fusable Splits & Rooms
 icon: card-sample.png
 installer group: magic/m15 style/split cards/fuse
 position hint: 011
@@ -41,25 +41,57 @@ init script:
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
 	template_prefix := [
-		card: ""
-		card2: ""
-		card3: "normal/"
+		card: "normal/"
+		fuse_left: "fuse_left/"
+		fuse_right: "fuse_right/"
+		borderless: "normal/borderless/"
+		cover: "rooms/"
+		bridge: "bridge/"
+		nyx: "/magic-modules.mse-include/trims/nyx/",
+		star: "/magic-modules.mse-include/trims/star/",
+		beyond: "/magic-modules.mse-include/trims/beyond/",
 		pt: "/magic-modules.mse-include/pts/375 m15/"
-		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
-		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
-		identity: "/magic-modules.mse-include/indicators/"
+		identity: "/magic-modules.mse-include/indicators/",
+		texture: "texture/"
 	]
 	template_suffix := [
-		card: "card.jpg"
-		card2: "card2.jpg"
-		card3: "card.jpg"
-		pt: "pt.png"
-		stamp: "stamp.png"
-		ubstamp: "stamp.png"
-		identity: "identity.png"
+		card: "card.png"
+		fuse_left: "fuse.png"
+		fuse_right: "fuse.png"
+		borderless: "card.png"
+		bridge: "bridge.png"
+		cover: "cover.png"
+		nyx: "nyx.png",
+		star: "star.png",
+		beyond: "beyond.png",
+		pt: "pt.png",
+		identity: "identity.png",
+		texture:"texture.png",
 	]
-	template := { template_prefix[type] + input + template_suffix[type] }
-	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	template := { 
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:false)
+		else template_prefix[type] + input + template_suffix[type]
+	}
+	land_template := {
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:true)
+		else template_prefix[type] + input + (if landless(type) or input == "a" then "" else "l") + template_suffix[type]
+	}
+	landless := {
+		landless_ar[input] or else false
+	}
+	landless_ar := [
+		nyx: true,
+		cover: true,
+		star: true,
+		beyond: true,
+		left_fuse: true,
+		right_fuse: true,
+		borderless: true,
+		borderless_room_left: true,
+		borderless_room_right: true
+	]
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 	
@@ -75,9 +107,20 @@ init script:
 	
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	
+	is_unsorted := {styling.remove_from_autocount}
+	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
+	name_tag_for_level := { if input == 2 then "_2" else "" }
 	card_shape := { "fuse split" }
 	
+	bridge_image := {
+		lc := left_clear()
+		rc := right_clear()
+		if lc and rc then ""
+		else if lc then set_mask(image:bridge_colored(), mask:"bridge/xcmask.png")
+		else if rc then set_mask(image:bridge_colored(), mask:"bridge/cxmask.png")
+		else bridge_colored()
+		
+	}
 	bridge_colored := {
 		
 		# Card 1
@@ -153,42 +196,390 @@ init script:
 	}
 
 	mask_bridge := {
-		base := color + "bridge.png"
+		base := "bridge/" + color + "bridge.png"
 		
 		if land then
-			"clbridge.png"
+			"bridge/clbridge.png"
 		else if multi then 
 			masked_blend(
-				mask:  "bridgemask.png",
-				dark:  "mbridge.png",
+				mask:  "bridge/bridgemask.png",
+				dark:  "bridge/mbridge.png",
 				light: base,
 			)
 		else if artifact and color_count > 1 and mask_hybrid_with_land() then 
 			masked_blend(
-				mask:  "bridgemask.png",
-				dark:  "clbridge.png",
+				mask:  "bridge/bridgemask.png",
+				dark:  "bridge/clbridge.png",
 				light: base
 			)
 		else if artifact then 
 			base
 		else if color_count > 1 and mask_hybrid_with_land() then
 			masked_blend(
-				mask:  "bridgemask.png",
-				dark:  "clbridge.png",
+				mask:  "bridge/bridgemask.png",
+				dark:  "bridge/clbridge.png",
 				light: base,
 			)
 		else base
 	}
+	
+	beyond_background := { color_background(type:"beyond", base_hybrid:card_hybrid, folder:template_prefix.beyond) }
+	fuse_left_background := { color_background(type:"fuse_left", base_hybrid:card_hybrid, folder:"fuse_left/", blend_type:"fuse") }
+	fuse_right_background := { color_background(type:"fuse_right", base_hybrid:card_hybrid, folder:"fuse_right/", blend_type:"fuse") }
+	fuse_left_img := {
+		if is_borderless()
+			then set_mask(image: fuse_left_background(), mask:"shadow_mask.png")
+		else fuse_left_background()
+	}
+	fuse_right_img := {
+		if is_borderless()
+			then set_mask(image: fuse_right_background(), mask:"shadow_mask.png")
+		else fuse_right_background()
+	}
+	room_cover := { 
+		if left_clear()
+			then "rooms/xcover.png"
+		else color_background(type:"cover", base_hybrid:card_hybrid, folder:"rooms/")
+	}
+	blend_room_cover := {
+		land		:= chosen(card.card_color, choice:"land")
+		multi		:= chosen(card.card_color, choice:"multicolor")
+		hybrid		:= chosen(card.card_color, choice:"hybrid")
+		artifact	:= chosen(card.card_color, choice:"artifact")
+		land2		:= chosen(card.card_color_2, choice:"land")
+		multi2		:= chosen(card.card_color_2, choice:"multicolor")
+		hybrid2		:= chosen(card.card_color_2, choice:"hybrid")
+		artifact2	:= chosen(card.card_color_2, choice:"artifact")
+		
+		colors := sort_text( order: if card_is_wedge(card.card_color) then "(wbgur)" else "(wubrg)"
+						, (if chosen(card.card_color, choice:"white"	)	then "w")
+						+ (if chosen(card.card_color, choice:"blue"	)	then "u")
+						+ (if chosen(card.card_color, choice:"black"	)	then "b")
+						+ (if chosen(card.card_color, choice:"red"	)	then "r")
+						+ (if chosen(card.card_color, choice:"green"	)	then "g"))
+		colors2 := sort_text( order: if card_is_wedge(card.card_color_2) then "(wbgur)" else "(wubrg)"
+						, (if chosen(card.card_color_2, choice:"white"	)	then "w")
+						+ (if chosen(card.card_color_2, choice:"blue"	)	then "u")
+						+ (if chosen(card.card_color_2, choice:"black"	)	then "b")
+						+ (if chosen(card.card_color_2, choice:"red"	)	then "r")
+						+ (if chosen(card.card_color_2, choice:"green"	)	then "g"))
+						
+		if colors == "" and multi then (
+			colors := "m"
+			multi := false
+		)
+		if colors == "" and artifact then (
+			colors := "a"
+			artifact := false
+		)
+		if colors == "" then colors := "c"
+		if chosen(card.card_color, choice:"reversed") then colors := reverse(colors)
+		color_count := number_of_items(in: colors)
+		shape :=	if		chosen(card.card_color, choice:"horizontal"	)	then	"horizontal"
+					else if	chosen(card.card_color, choice:"vertical"	)	then	"vertical"
+					else if	chosen(card.card_color, choice:"overlay"	)	then	"overlay"
+					else															"radial"
+		if colors2 == "" and multi2 then (
+			colors2 := "m"
+			multi2 := false
+		)
+		if colors2 == "" and artifact2 then (
+			colors2 := "a"
+			artifact2 := false
+		)
+		if colors2 == "" then colors2 := "c"
+		if chosen(card.card_color_2, choice:"reversed") then colors2 := reverse(colors)
+		color_count2 := number_of_items(in: colors2)
+		shape2 :=	if		chosen(card.card_color_2, choice:"horizontal")	then	"horizontal"
+					else if	chosen(card.card_color_2, choice:"vertical"	 )	then	"vertical"
+					else if	chosen(card.card_color_2, choice:"overlay"	 )	then	"overlay"
+					else															"radial"
+		
+		img1 := if color_count == 1 then "rooms/" + colors.0 + "cover.png"
+				else if color_count > 2 then "rooms/mcover.png"
+				else if shape == "vertical" then
+					linear_blend(
+						image1:"rooms/" + colors.0 + "cover.png",
+						image2:"rooms/" + colors.1 + "cover.png",
+						x1: 0, x2: 0, y1:0, y2:0.5
+					)
+				else if shape == "overlay" then
+					combine_blend(
+						image1:"rooms/" + colors.0 + "cover.png",
+						image2:"rooms/" + colors.1 + "cover.png",
+						combine: "symmetric overlay"
+					)
+				else linear_blend(
+					image1:"rooms/" + colors.0 + "cover.png",
+					image2:"rooms/" + colors.1 + "cover.png",
+					x1: 0.256, x2: 0.325, y1:0, y2:0
+				)
+		img2 := if color_count2 == 1 then "rooms/" + colors2.0 + "cover.png"
+				else if color_count2 > 2 then "rooms/mcover.png"
+				else if shape2 == "vertical" then
+					linear_blend(
+						image1:"rooms/" + colors2.0 + "cover.png",
+						image2:"rooms/" + colors2.1 + "cover.png",
+						x1: 0, x2: 0, y1:0, y2:0.5
+					)
+				else if shape2 == "overlay" then
+					combine_blend(
+						image1:"rooms/" + colors2.0 + "cover.png",
+						image2:"rooms/" + colors2.1 + "cover.png",
+						combine: "symmetric overlay"
+					)
+				else linear_blend(
+					image1:"rooms/" + colors2.0 + "cover.png",
+					image2:"rooms/" + colors2.1 + "cover.png",
+					x1: 0.671, x2: 0.744, y1:0, y2:0
+				)
+		masked_blend(
+			dark: img1,
+			light: img2,
+			mask: "rooms/blend_mask.png"
+		)
+	}
+	texture_background := { color_background(type:"texture", base_hybrid:card_hybrid, folder:"texture/") }
+	texture_template := {
+		template_prefix[type] + (if land then "l" else input) + template_suffix[type]
+	}
+	borderless_card := { color_background(type:"borderless", base_hybrid:card_hybrid, blend_type:"card", folder:"normal/") }
 
-	use_fuse := { card.rule_text_3 != "" }
-	card_background_2 := { color_background(type:"card2", base_hybrid:card_hybrid) }
-	card_background_3 := { color_background(type:"card3", base_hybrid:card_hybrid) }
+	swap_fonts_name_default := [
+		name: 		{"Beleren Bold"},
+		size: 		{15},
+		color: 		{if borderless_frames() and not left_clear() then "white" else "black"},
+		italic:		{""},
+		vertical:	{0}
+	]
+	swap_fonts_type_default := [
+		name: 		{"Beleren Bold"},
+		size: 		{9},
+		color: 		{ if (borderless_frames() and not left_clear()) or is_room() then "white" else "black"},
+		italic:		{""},
+		vertical:	{0}
+	]
+	swap_fonts_body_default := [
+		name: 		{"MPlantin"},
+		size: 		{ left_font_size() },
+		color: 		{if borderless_frames() and not left_clear() then "white" else "black"},
+		italic:		{"MPlantin-Italic"},
+		vertical:	{0}
+	]
+	swap_fonts_name2_default := [
+		name: 		{"Beleren Bold"},
+		size: 		{15},
+		color: 		{if borderless_frames() and not right_clear() then "white" else "black"},
+		italic:		{""},
+		vertical:	{0}
+	]
+	swap_fonts_type2_default := [
+		name: 		{"Beleren Bold"},
+		size: 		{9},
+		color: 		{ if (borderless_frames() and not right_clear()) or is_room() then "white" else "black"},
+		italic:		{""},
+		vertical:	{0}
+	]
+	swap_fonts_body2_default := [
+		name: 		{"MPlantin"},
+		size: 		{ right_font_size() },
+		color: 		{if borderless_frames() and not right_clear() then "white" else "black"},
+		italic:		{"MPlantin-Italic"},
+		vertical:	{0}
+	]
+	swap_fonts_body3_default := [
+		name: 		{"MPlantin"},
+		size: 		{ if is_room() then 10 else 11 },
+		color: 		{ if is_room() then "white" else "black"},
+		italic:		{"MPlantin-Italic"},
+		vertical:	{0}
+	]
+
+	image_width := {
+		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
+		bl := is_borderless()
+		room_style := styling.room_images
+		if is_room() then (
+			if room_style == "one image" and input == "left"
+				then if bl then 488 else if clear then 474 else 452
+			else if room_style == "one image"
+				then 0
+			else if bl and input == "left"
+				then 251
+			else if bl
+				then 265
+			else if clear
+				then 251
+			else 240
+		)
+		else if bl and input == "left" and room_style == "one image"
+			then 488
+		else if bl and room_style == "one image"
+			then 0
+		else if bl and input == "left"
+			then 251
+		else if bl
+			then 265
+		else if clear
+			then 237
+		else 203
+	}
+	image_height := {
+		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
+		if is_borderless()
+			then 375
+		else if clear
+			then 345
+		else if is_room()
+			then 211
+		else 148
+	}
+	image_mask := {
+		tb := is_borderless()
+		bl := borderless_frames()
+		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
+		tag := if tb and uses_fuse_arrows() then (if clear then "_bl" else "_arrow") else if tb and bl then "_bl" else if clear then "_clear" else ""
+		room_style := styling.room_images
+		rm := is_room()
+		
+		if rm then (
+			if room_style == "one image" and input == "left"
+				then "rooms/image_mask{tag}.png"
+			else "rooms/image_mask_{input}{tag}.png"
+		)
+		else if bl and room_style == "one image" and input == "left"
+			then "normal/image_mask_bl.png"
+		else if bl and room_style == "one image"
+			then ""
+		else if bl
+			then "normal/image_mask_{input}_bl.png"
+		else if tb and clear and uses_fuse_arrows()
+			then "normal/image_mask_{input}_bl.png"
+		else if clear
+			then "normal/image_mask_{input}_clear.png"
+		else if tb and room_style == "one image" and input == "left"
+			then "normal/image_mask.png"
+		else if tb and room_style == "one image"
+			then "normal/image_mask.png"
+		else if tb
+			then "normal/image_mask_{input}.png"
+		else ""
+		
+	}
+
+	is_room := {
+		chosen(styling.frames, choice:"room") or lang_setting("is_room")(card.sub_type)
+	}
+	is_fuse := { card.rule_text_3 != "" and not is_room() }
+	is_arrows := { chosen(styling.frames, choice:"arrows") }
+	is_borderless := { chosen(styling.frames, choice:"borderless") }
+	borderless_frames := {
+		is_borderless() and not uses_fuse_arrows()
+	}
+	is_beyond := { chosen(styling.frames, choice:"universes beyond") or auto_beyond() }
+	left_nyx := {
+		chosen(styling.frames, choice:"nyx") or auto_nyx(card.super_type)
+	}
+	right_nyx := {
+		chosen(styling.frames, choice:"nyx") or (if is_room() then auto_nyx(card.super_type) else auto_nyx(card.super_type_2))
+	}
+	auto_beyond := {
+		chosen(styling.auto_frames, choice:"universes beyond") and (card.card_stamp == "universes beyond" or card.card_stamp == "flatstamped universes beyond")
+	}
+	left_clear := {
+		chosen(styling.frames, choice:"clear colorless") and card.card_color == "colorless" and (not is_room() or card.card_color_2 == "colorless")
+	}
+	right_clear := {
+		chosen(styling.frames, choice:"clear colorless") and card.card_color_2 == "colorless" and (not is_room() or card.card_color == "colorless")
+	}
+
+	floating_frame := {
+		bl := is_borderless()
+		rm := is_room()
+		clear := if side == "left" then left_clear() else if side == "right" then right_clear() else false
+
+		img := if clear
+			then clear_fuse(side)
+		else if bl
+			then borderless_card()
+		else  ""
+		
+		if rm and bl
+			then set_mask(image:img, mask:"normal/borderless/{side}_mask.png")
+		else if rm
+			then set_mask(image:img, mask:"fuse_{side}/clear_room_mask.png")
+		else img
+	}
+	clear_fuse := {
+		base := "fuse_{input}/xfuse.png"
+		normal := "normal/xcard.png"
+		if is_borderless() then (
+			base := set_mask(image:base, mask:"fuse_{input}/borderless_clear_mask.png")
+			normal := set_mask(image:normal, mask:"normal/borderless_clear_mask.png")
+		) 
+		fus := is_fuse()
+		arr := uses_fuse_arrows()
+		if fus and arr
+			then base
+		else if arr
+			then masked_blend(light:base, dark:normal, mask:"arrow_mask.png")
+		else if fus
+			then masked_blend(light:base, dark:normal, mask:"bar_mask.png")
+		else normal
+	}
+	
+	auto_nyx := { 
+		is_ench := lang_setting("is_enchantment")(input)
+		if not is_ench
+			then false ## not an enchantment
+		else if not set.auto_nyx
+			then false ## set auto disabled
+		else if not chosen(styling.auto_frames, choice:"nyx")
+			then false ## style auto disabled
+		else true      ## auto nyx
+	}
+	uses_fuse_arrows := { (is_fuse() and styling.use_fuse_arrows) or is_arrows() }
+
+	border_mask_script := {
+		if is_borderless()
+			then "borders/borderless.png"
+		else if is_room()
+			then "borders/room{if uses_fuse_arrows() and (left_clear() or right_clear()) then "_cfuse" else ""}.png"
+		else if not is_fuse() and not is_arrows()
+			then "borders/mask.png"
+		else (
+			lc := left_clear()
+			rc := right_clear()
+			if is_fuse() and not lc and not rc
+				then "borders/fuse_mask.png"		#### colors can layer over
+			else blend_clear_border_mask(lc:lc, rc:rc)
+		)
+	}
+	blend_clear_border_mask := {
+		canvas := "borders/canvas.png"
+		arr := uses_fuse_arrows()
+		bar := is_fuse()
+		base := if bar then "borders/fuse_mask.png" else "borders/mask.png"
+		adds := "borders/fuse_add.png"
+		
+		if lc and rc and arr and bar then "borders/clear_fuse.png" else (
+			if lc and not rc then
+				adds := masked_blend(light:adds, dark:canvas, mask:"borders/left_mask.png")
+			else if rc and not lc then
+				adds := masked_blend(dark:adds, light:canvas, mask:"borders/left_mask.png")
+			#else adds := adds
+			
+			if not bar then
+				adds := masked_blend(light:adds, dark:canvas, mask:"borders/top_mask.png")
+			else if not arr then
+				adds := masked_blend(dark:adds, light:canvas, mask:"borders/top_mask.png")
+			#else adds := adds
+			
+			masked_blend(light:base, dark:adds, mask:adds)
+		)
+		
+	}
 	watermark_include := "/magic-modules.mse-include/watermarks"
-	is_unsorted := {styling.remove_from_autocount}
-
-	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
-	un_png := replace@(match:".png", replace: "")
-	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
 
 	left_font_size := {to_number(pull_comma_array(styling.font_size_cap, end:false, cell:0, default:13))}
 	right_font_size := {to_number(pull_comma_array(styling.font_size_cap, end:false, cell:1, default:left_font_size()))}
@@ -210,7 +601,9 @@ init script:
 			]
 		]
 	}
-
+	harder_script := [
+		texture: texture_template
+	]
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -222,13 +615,34 @@ set info style:
 			border color: rgb(0,0,0)
 ############################################################## Extra style options
 styling field:
+	type: multiple choice
+	name: frames
+	choice: arrows
+	choice: borderless
+	choice: clear colorless
+	choice: nyx
+	choice: room
+	choice: universes beyond
+styling field:
+	type: multiple choice
+	name: auto frames
+	choice: nyx
+	choice: universes beyond
+	initial: nyx, universes beyond
+styling field:
+	type: choice
+	name: room images
+	choice: one image
+	choice: two images
+	choice: three images
+styling field:
 	type: boolean
 	name: use fuse arrows
 	description: disable this to only use the extra fuse textbox and not fuse arrows
 styling field:
 	type: text
 	name: font size cap
-	description: Maximum font size for both textboxes, or "X,Y" to set individual caps
+	description: Maximum font size for both textboxes, or "X,Y" to set individual caps. Default is 13.
 styling field:
 	type: multiple choice
 	name: other options
@@ -304,7 +718,25 @@ styling field:
 	description: Should there be an overlay applied, such as foil?
 	match: magic-overlay-*.mse-include
 	required: false
+styling field:
+	type: choice
+	name: room cover
+	script: card.card_color
+	editable: false
+	save value: false
+styling field:
+	type: choice
+	name: room cover 2
+	script: card.card_color
+	editable: false
+	save value: false
 styling style:
+	frames:
+		render style: checklist
+		direction: vertical
+	auto frames:
+		render style: checklist
+		direction: vertical
 	use guild mana symbols:
 		choice images:
 			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
@@ -346,199 +778,215 @@ card style:
 		top : 0
 		width:	523
 		height:	375
-		z index: -1
+		z index: 500
+		mask: { border_mask_script() }
 	card color:
 		left:	31
-		top:	14
+		top:	13
 		width:	241
 		height:	345
-		z index: 0
+		z index: 100
 		render style: image
 		popup style: in place
-		image: { if use_fuse() and styling.use_fuse_arrows then card_background() else card_background_3() }
+		image: { if left_clear() or borderless_frames() then "" else module_card() }
+		mask: { if is_room() then "normal/left_mask.png" else ""}
 	card color 2:
 		left:	272
-		top:	14
+		top:	13
 		width:	241
 		height:	345
-		z index: 0
+		z index: 100
 		render style: image
 		popup style: in place
-		image: { if use_fuse() and styling.use_fuse_arrows then card_background_2() else card_background_3() }
+		image: { if right_clear() or borderless_frames() then "" else module_card() }
+		mask: { if is_room() then "normal/right_mask.png" else ""}
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 48 else 63 }
-		top: 27
-		right:  { 242 - card_style.casting_cost.content_width }
-		height: 20
+		left: { if card.card_symbol == "none" then 52 else 68 }
+		top: { 17 + name_font_vertical() }
+		right:  { 248 - max(27,card_style.casting_cost.content_width) }
+		height: 25
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 1
+		z index: 900
 		font:
-			name: Beleren Bold
-			size: 15
-			color: black
+			name: { name_font() }
+			italic name: { name_font_italic() }
+			size: { name_font_size() }
+			color: { name_font_color() }
 	name 2:
-		left: { if card.card_symbol_2=="none" then 289 else 304 }
-		top: 27
-		right:  { 495 - card_style.casting_cost_2.content_width }
-		height: 20
+		left: { if card.card_symbol_2 == "none" then 293 else 309 }
+		top: { 17 + name_font_vertical() }
+		right:  { 487 - max(27,card_style.casting_cost_2.content_width) }
+		height: 25
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 1
+		z index: 900
 		font:
-			name: Beleren Bold
-			size: 15
-			color: black
+			name: { name2_font() }
+			italic name: { name2_font_italic() }
+			size: { name2_font_size() }
+			color: { name2_font_color() }
 	casting cost:
-		right: 256
-		top: 28
+		right: 254
+		top: 18
 		width: { max(24, card_style.casting_cost.content_width) + 3 }
-		height: 18
+		height: 23
 		alignment: middle right
 		font:
 			name: MPlantin
-			size: 18
+			size: { name_font_size() }
 		symbol font:
 			name: magic-mana-large
-			size: 18
+			size: { name_font_size() }
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 920
 		padding top: 0
 	casting cost 2:
-		right: 498
-		top: 28
+		right: 496
+		top: 18
 		width: { max(24, card_style.casting_cost_2.content_width) + 3 }
-		height: 18
+		height: 23
 		alignment: middle right
 		font:
 			name: MPlantin
-			size: 18
+			size: { name2_font_size() }
 		symbol font:
 			name: magic-mana-large
-			size: 15
+			size: { name2_font_size() }
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 920
 		padding top: 0
 	card symbol:
-		left: 42
-		top: {if card.card_symbol == "none" then 0 else 26}
+		left: 47
+		top: { if card.card_symbol == "none" then 0 else 20 }
 		height: 19
 		width: 21
-		z index: 1
+		z index: 830
 		render style: image
 		include file:		/magic.mse-game/card-symbols/menu_choice_images
 		image:				{ card_symbol_image(face: 1) }
 	card symbol 2:
-		left: 283
-		top: {if card.card_symbol_2 == "none" then 0 else 26}
+		left: 288
+		top: { if card.card_symbol_2 == "none" then 0 else 20 }
 		height: 19
 		width: 21
-		z index: 1
+		z index: 830
 		render style: image
 		include file:		/magic.mse-game/card-symbols/menu_choice_images
 		image:				{ card_symbol_image(face: 2) }
 	############################# Image
 	image:
-		left: 45
-		top: 53
-		width: 211
-		height:	154
-		z index: 1
+		left: { if is_borderless() or left_clear() then 35 else if is_room() then 46 else 50 }
+		top: { if is_borderless() then 0 else if left_clear() then 13 else 49 }
+		width: { image_width("left") }
+		height:	{ image_height("left") }
+		z index: 400
 		default: {default_image(card.card_color)}
+		mask: { image_mask("left") }
 	image 2:
-		left: 286
-		top: 53
-		width: 211
-		height:	154
-		z index: 1
+		left: { if is_borderless() then 258 else if right_clear() then (if is_room() then 258 else 272) else if not is_room() then 291 else 258 }
+		top: { if is_borderless() then 0 else if right_clear() then 13 else 49 }
+		width: { image_width("right") }
+		height:	{ image_height("right") }
+		z index: 401
 		default: {default_image(card.card_color_2)}
+		mask: { image_mask("right") }
 	mainframe image:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
 		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
 		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
-		z index: 8
+		z index: 1010
+	mainframe image 2:
+		left: 245
+		top: { if is_borderless() then 0 else 53 }
+		width: { if (is_room() or is_borderless()) and styling.room_images == "three images" then 50 else 0 }
+		height: { if is_borderless() then 375 else 209 }
+		z index: 410
+		mask: { "rooms/image_mask_middle" + (if not is_room() then "_fuse" else if is_borderless() then (if uses_fuse_arrows() then "_arrow" else "_bl") else "") + ".png" }
 	############################# Card type
 	indicator:
-		left: 44
-		top: 214.5
+		left: 50
+		top: 205
 		width: 12
 		height: 12
-		z index: 2
+		z index: 910
 		render style: image
 		visible: { has_identity() }
 		image: { module_identity() }
 	indicator 2:
-		left: 282
-		top: 214.5
+		left: 291
+		top: 205
 		width: 12
 		height: 12
-		z index: 2
+		z index: 910
 		render style: image
-		visible: { has_identity_2() }
+		visible: { not is_room() and has_identity_2() }
 		image: { module_identity() }
 	type:
-		left: { if has_identity() then "60" else "47" }
-		top: 211
-		width: { (if has_identity() then "204" else "217") - max(16,card_style.rarity.content_width) }
-		height: 15
+		left: { if has_identity() then 65 else 52 }
+		top: { (if is_room() then 204 else 203) + type_font_vertical() }
+		width: { if is_room() then (if has_identity() then 422 else 435) else (if has_identity() then 185 else 198) - max(16,card_style.rarity.content_width) }
+		height: 16
 		alignment: top shrink-overflow
-		z index: 1
+		z index: 900
 		padding top: 0
 		font:
-			name: Beleren Bold
-			size: 10
-			color: black
+			name: { type_font() }
+			italic name: { type_font_italic() }
+			size: { type_font_size() }
+			color: { type_font_color() }
 			separator color: red
 	type 2:
-		left: { if has_identity_2() then "301" else "288" }
-		top: 211
-		width: { (if has_identity_2() then "204" else "217") - max(16,card_style.rarity.content_width) }
-		height: 15
+		left: { if has_identity_2() then 306 else 293 }
+		top: { (if is_room() then 204 else 203) + type_font_vertical() }
+		width: { if is_room() then 0 else (if has_identity_2() then 185 else 198) - max(16,card_style.rarity.content_width) }
+		height: 16
 		alignment: top shrink-overflow
-		z index: 1
+		z index: 900
 		padding top: 0
 		font:
-			name: Beleren Bold
-			size: 10
-			color: black
+			name: { type2_font() }
+			italic name: { type2_font_italic() }
+			size: { type2_font_size() }
+			color: { type2_font_color() }
 			separator color: red
 	rarity:
-		right: 259
-		top: 212
-		width: 31
+		right: { if is_room() then 496 else 255 }
+		top: { if is_room() then 204 else 203 }
+		width: 24
 		height: 14
-		z index: 2
+		z index: 950
 		render style: image
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
 	rarity 2:
-		right: 500
-		top: 212
-		width: 31
+		right: 496
+		top: 203
+		width: { if is_room() then 0 else 24 }
 		height: 14
-		z index: 2
+		z index: 950
 		render style: image
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
-		left: 45
-		top: 234
-		width: 211
-		height: { if use_fuse() then 100 else 120 }
+		left: 50
+		top: { body_font_vertical() + if is_room() then 263 else 225 }
+		width: 204
+		bottom: { if is_fuse() then 332 else 353 }
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: { left_font_size() }
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: black
+			color: { body_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: { left_font_size() }
+			size: { body_font_size() }
 		alignment:
 			script:
 				if (styling.center_text_1 == "short text only" and
@@ -557,19 +1005,19 @@ card style:
 		line height hard max: 1.3
 		line height line max: 1.6
 	text 2:
-		left: 286
-		top: 234
-		width: 211
-		height: { if use_fuse() then 100 else 120 }
+		left: 291
+		top: { body2_font_vertical() + if is_room() then 263 else 225 }
+		width: 204
+		bottom: { if is_fuse() then 332 else 353 }
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: { right_font_size() }
+			name: { body2_font() }
+			italic name: { body2_font_italic() }
+			size: { body2_font_size() }
 			scale down to: 6
-			color: black
+			color: { body2_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: { right_font_size() }
+			size: { body2_font_size() }
 		alignment:
 			script:
 				if (styling.center_text_2 == "short text only" and
@@ -588,21 +1036,21 @@ card style:
 		line height hard max: 1.3
 		line height line max: 1.6
 	rule text 3:
-		left: 40
-		top : 338
-		width: 464
-		height: 19
+		left: { if is_room() then 60 else 50 }
+		top : { body3_font_vertical() + if is_room() then 224 else 337 }
+		width: { if is_room() then 424 else 444 }
+		height: { if is_room() then 36 else 16 }
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: 12
+			name: { body3_font() }
+			italic name: { body3_font_italic() }
+			size: { body3_font_size() }
 			scale down to: 6
-			color: black
+			color: { body3_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: 12
+			size: { body3_font_size() }
 		alignment: "middle center"
-		z index: 900
+		z index: 910
 		padding left:   2
 		padding right:  2
 		line height hard: 1.2
@@ -610,9 +1058,9 @@ card style:
 		line height soft: 0.9
 	watermark:
 		left: 40
-		top: { if use_fuse() then 235 else 238}
-		width: 222
-		height: { if use_fuse() then 85 else 103 }
+		top: { (if is_room() then 263 else 225)+2 }
+		width: 224
+		bottom: { (if is_fuse() then 334 else 355)-2 }
 		z index: 720
 		render style: image
 		popup style: in place
@@ -620,10 +1068,10 @@ card style:
 		include file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
 	watermark 2:
-		left: 274
-		top: { if use_fuse() then 235 else 238}
-		width: 232
-		height: { if use_fuse() then 85 else 103 }
+		left: 281
+		top: { (if is_room() then 263 else 225)+2 }
+		width: 224
+		bottom: { (if is_fuse() then 334 else 355)-2 }
 		z index: 720
 		render style: image
 		popup style: in place
@@ -693,50 +1141,83 @@ extra card field:
 	script: card.card_color
 	editable: false
 	save value: false
-
+extra card field:
+	type: choice
+	name: room cover
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: room cover 2
+	choice: bar
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: floating frame left
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: floating frame right
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: card texture
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: card texture 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: patch
+	choice: patch
+	editable: false
+	save value: false
+	
 extra card style:
 	fuse_bridge:
 		left: 265
-		top : 335
-		width: 13
+		top : 334
+		width: 14
 		height: 24
-		z index: 1
+		z index: 610
 		render style: image
-		image: { bridge_colored() }
-		visible: { use_fuse() }
-	foil layer:
-		left: 0
-		top : 0
-		width: 523
-		height: 375
-		z index: 1050
-		render style: image
-		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
-		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
+		image: { bridge_image() }
+		visible: { is_fuse() }
 	fusebox 1:
 		left:	31
-		top:	14
+		top:	13
 		width:	241
 		height:	345
-		z index: 0
+		z index: 600
 		render style: image
-		image: { card_background() }
-		mask: fusemask.png
-		visible: { use_fuse() and not styling.use_fuse_arrows }
+		image: { fuse_left_img() }
+		mask: { if is_arrows() and not is_fuse() then "{if is_room() then "top_" else ""}arrow_mask.png" else if uses_fuse_arrows() then "" else "bar_mask.png" }
+		visible: { is_fuse() or is_arrows() and not left_clear() }
 	fusebox 2:
 		left:	272
-		top:	14
+		top:	13
 		width:	241
 		height:	345
-		z index: 0
+		z index: 600
 		render style: image
-		image: { card_background_2() }
-		mask: fusemask.png
-		visible: { use_fuse() and not styling.use_fuse_arrows }
+		image: { fuse_right_img() }
+		mask: { if is_arrows() and not is_fuse() then "{if is_room() then "top_" else ""}arrow_mask.png" else if uses_fuse_arrows() then "" else "bar_mask.png" }
+		visible: { is_fuse() or is_arrows() and not right_clear() }
 	promo label:
-		left: 25
-		top: 190
-		width: {if contains(styling.other_options, match:"prerelease stamp") then 214 else 0}
+		left: 50
+		top: 177
+		width: {if contains(styling.other_options, match:"prerelease stamp") then (if is_room() then 440 else 199) else 0}
 		height: 20
 		alignment: middle right
 		z index: 1030
@@ -745,9 +1226,9 @@ extra card style:
 			size: 12
 			color: rgb(223,169,41)
 	promo label 2:
-		left: 278
-		top: 190
-		width: {if contains(styling.other_options, match:"prerelease stamp") then 214 else 0}
+		left: 291
+		top: 177
+		width: {if is_room() or not contains(styling.other_options, match:"prerelease stamp") then 0 else 199}
 		height: 20
 		alignment: middle right
 		z index: 1030
@@ -756,7 +1237,7 @@ extra card style:
 			size: 12
 			color: rgb(223,169,41)
 	stamp backing:
-		left: 45
+		left: { if stamp_shape() == "round" then 46 else 45 }
 		top: 165
 		width: 46
 		height: 26
@@ -764,5 +1245,73 @@ extra card style:
 		angle: -90
 		visible: { card.card_stamp != "none" }
 		render style: image
-		image: { "/magic-modules.mse-include/stamps/backs/" + (if stamp_shape(field:1) == "triangle" then "triangle_stamp.png" else "stamp.png") }
-
+		image: { recolor_image("/magic-modules.mse-include/stamps/backs/" + (if stamp_shape(field:1) == "triangle" then "triangle_stamp" else "stamp") + "_color.png", color: card.border_color) }
+	room cover:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 810
+		render style: image
+		visible: { is_room() }
+		image: { if card.card_color == card.card_color_2 then room_cover() else blend_room_cover() }
+		mask: { if is_borderless() then "rooms/cover_mask_bl.png" else "" }
+	room cover 2:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 810
+		render style: image
+		visible: { is_room() }
+		image: rooms/roombar.png
+		mask: { if is_borderless() then "rooms/cover_mask_bl.png" else "" }
+	card texture:
+		left:	31
+		top:	13
+		width:	241
+		height:	345
+		z index: 90
+		render style: image
+		popup style: in place
+		image: { if is_borderless() or left_clear() then "" else if left_nyx() then module_nyx() else if is_beyond() then beyond_background() else texture_background() }
+	card texture 2:
+		left:	272
+		top:	13
+		width:	241
+		height:	345
+		z index: 90
+		render style: image
+		popup style: in place
+		image: { if is_borderless() or right_clear() then "" else if right_nyx() then module_nyx() else if is_beyond() then beyond_background() else texture_background() }
+	floating frame left:
+		left:	31
+		top:	13
+		width:	241
+		height:	345
+		z index: 480
+		render style: image
+		popup style: in place
+		image: { floating_frame(side:"left") }
+		visible: { left_clear() or borderless_frames() }
+		mask: { if is_room() and left_clear() then "normal/left_mask.png" else ""}
+	floating frame right:
+		left:	272
+		top:	13
+		width:	241
+		height:	345
+		z index: 480
+		render style: image
+		popup style: in place
+		image: { floating_frame(side:"right") }
+		visible: { right_clear() or borderless_frames() }
+		mask: { if is_room() and right_clear() then "normal/left_mask.png" else ""}
+	patch:
+		left: 254
+		top: 224
+		width: 36
+		height: 36
+		z index: 480
+		render style: image
+		image: rooms/patch.png
+		visible: { borderless_frames() and is_room() and not left_clear() }
