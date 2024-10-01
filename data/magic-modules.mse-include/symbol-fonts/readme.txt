@@ -3,7 +3,7 @@
 #### To use this include in a template, add the following in the template headers:
 depends on:
 	package:			magic-modules.mse-include
-	version:			2024-05-20
+	version:			2024-10-01
 
 #### Also add this among the styling field section,
 #### (styling fields will appear in the order you place them).
