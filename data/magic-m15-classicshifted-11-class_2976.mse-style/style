@@ -3,7 +3,7 @@ game: magic
 short name: M15 CS Class
 full name: Classicshifted Class
 icon: card-sample.png
-position hint: 280
+position hint: 000
 
 version: 2024-08-01
 depends on:
@@ -32,17 +32,18 @@ card dpi: 1190
 ############################################################## Extra scripts
 init script:
 	card_shape := { "class" }
+	
 	separator_enable_level := { true }
 	separator_default := { if margin_code == "sep1" then "flavor bar" else if lang_setting("is_case")(card.sub_type) then "flavor bar" else "level" }
 	level_filter_default := { replace(margin_code, match: "lv", replace: "Level ") }
 	
-	class_chapter_text_offset_left_1 :=			{ 0 }
-	class_chapter_text_offset_top_1 :=			{ -72 }
-	class_chapter_text_offset_width_1 :=		{ 0 }
-	class_chapter_text_offset_height_1 :=		{ 0 }
+	class_reminder_text_offset_left_1 :=		{ 0 }
+	class_reminder_text_offset_top_1 :=			{ if is_crowned() then -42 else -72 }
+	class_reminder_text_offset_width_1 :=		{ 0 }
+	class_reminder_text_offset_height_1 :=		{ 0 }
 	
 	class_text_offset_left_1 :=					{ 8 }
-	class_text_offset_top_1 :=					{ -72 }
+	class_text_offset_top_1 :=					{ if is_crowned() then -42 else -72 }
 	class_text_offset_width_1 :=				{ -24 }
 	class_text_offset_height_1 :=				{ if styling.transformation_reminder or card.pt != "" then 0 else 72 }
 	
@@ -135,7 +136,7 @@ init script:
 	[
 		card:			{ "card/" }
 		transform:		{ "transform/" }
-		pt:				{ "/magic-m15-classicshifted-99-shared_2976.mse-include/pt_saga/" }
+		pt:				{ "/magic-m15-classicshifted-99-shared_2976.mse-include/pt/" }
 		identity:		{ "/magic-modules.mse-include/indicators/" }
 		crown:			{ "crown/" }
 	]
@@ -147,12 +148,34 @@ init script:
 		identity:		"identity.png"
 		crown:			"card.png"
 	]
-	template :=			{ template_prefix[type]() + input + template_suffix[type] }
-	land_template :=	{ template_prefix[type]() + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	template :=
+	{
+		if type == "pt" then crop(template_prefix[type]() + input + template_suffix[type], offset_x: 1631, offset_y: 754, width: 2976, height: 4152)
+		else template_prefix[type]() + input + template_suffix[type]
+	}
+	land_template :=
+	{
+		if type == "pt" then crop(template_prefix[type]() + (if input == "a" then "c" else input) + "l" + template_suffix[type], offset_x: 1631, offset_y: 754, width: 2976, height: 4152)
+		else template_prefix[type]() + (if input == "a" then "c" else input) + "l" + template_suffix[type]
+	}
 	
 	card_transform :=	{ color_background(type:"transform",	base_hybrid:card_hybrid) }
 	card_crown :=		{ color_background(type:"crown",		base_hybrid:card_hybrid) }
 	card_ptbox :=		{ color_background(type:"pt",			base_hybrid:card_hybrid) }
+	
+	pure_colors :=
+	{
+		sort_text(
+			order: if card_is_wedge(input) then "(wbgur)" else "(wubrg)",
+			(if chosen(card.card_color, choice:"white")	then "w") +
+			(if chosen(card.card_color, choice:"blue")	then "u") +
+			(if chosen(card.card_color, choice:"black")	then "b") +
+			(if chosen(card.card_color, choice:"red")	then "r") +
+			(if chosen(card.card_color, choice:"green")	then "g")
+		)
+	}
+	pt_colors := { if styling.PT_color_scheme == "canon" then pt_colors_canon() else styling.PT_color_scheme }
+	pt_colors_canon := { if is_hybrid_cost() then "land" else "gold" }
 	
 	is_clear :=
 	{
@@ -203,6 +226,16 @@ styling field:
 	name:			transformation reminder
 	description:	Add a transformation notch and p/t
 	initial:		no
+styling field:
+	type:			choice
+	name:			PT color scheme
+	description:	Use the selected color scheme for the PT box on two color cards. Canon is "land" on hybrid cards, "gold" otherwise.
+	choice:			canon
+	choice:			gold
+	choice:			hybrid
+	choice:			colored
+	choice:			land
+	initial:		canon
 styling field:
 	type:			choice
 	name:			legend crown
@@ -418,7 +451,20 @@ extra card style:
 		z index:			19
 		visible:			{ card.pt != "" }
 		render style:		image
-		image:				{ if is_clear() then "/magic-m15-classicshifted-99-shared_2976.mse-include/pt_saga/cpt.png" else card_ptbox() }
+		image:
+			script:
+				pure := pure_colors()
+				count := length(pure)
+				color := pt_colors()
+				if is_clear() then								template("c", type: "pt")
+				else if color == "gold" and count > 1 then		template("m", type: "pt")
+				else if color == "land" and count > 1 then		template("c", type: "pt")
+				else if color == "hybrid" and count == 2 then	masked_blend(
+																	mask: crop("/magic-m15-classicshifted-99-shared_2976.mse-include/pt/special_blend_pt.png", offset_x: 1631, offset_y: 754, width: 2976, height: 4152),
+																	dark: template(pure.0, type: "pt"),
+																	light: template(pure.1, type: "pt")
+																)
+				else											card_ptbox()
 	stamp border:
 		left:				0
 		top:				0
