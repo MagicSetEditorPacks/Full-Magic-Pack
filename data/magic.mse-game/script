@@ -33,7 +33,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2024-10-01 Template Pack 3.0.5: Magic Modules & Showcase Catchup - UBWalker fix"}
+version_date := {"2024-10-01 Template Pack 3.0.5: Magic Modules & Showcase Catchup - DFC & Exporter Fixes"}
 version := version_date
 ############################################################## Common filters
 ############################################################## Utility
@@ -63,6 +63,7 @@ remove_zwsp :=     replace@(match:"​", replace:"")
 #### Replace spaces by a spacer
 separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
 zwsp :=            "​" # this is a zero-width space not blank
+is_blank := { input == "" or input == zwsp }
 
 ############################################################## Type
 is_creature :=     lang_setting("is_creature")
@@ -396,14 +397,16 @@ corrected_card_number := { if exporter_num_grabber(exporter_num_filter(card.note
 
 crop_multi_image := {
 	image_map := hash_new()
-	m3in1 := card.stylesheet.full_name == "M15 Style Meld cards (3-in-1)"
+	sts := card.stylesheet
+	if sts == nil then sts := set.stylesheet
+	m3in1 := sts.full_name == "M15 Style Meld cards (3-in-1)"
 	three_cards := false
 	cs := get_card_styling(card)
 	if m3in1 and cs.three_cards or else false then three_cards := true
 	card_image := to_card_image(card)
-	len := length(card.stylesheet.card_regions)
+	len := length(sts.card_regions)
 	for i from 0 to len-1 do (
-		region_info := card.stylesheet.card_regions[i]
+		region_info := sts.card_regions[i]
 		if m3in1 and three_cards and (region_info.name == "front" or region_info.name == "meldback")
 			then ""
 		else if m3in1 and (not three_cards) and (region_info.name != "front" and region_info.name != "meldback")
@@ -3559,16 +3562,20 @@ loyalty_level_is_active :=
 {
 	number := to_int(replace(input, match: "lv", replace: "")) or else 999
 	if number > 24 then false else (
-	instance := if number < 9 then 1 else if number < 17 then 2 else 3
-	loyalty_abilities_count(active:true) >= (number mod 8))
+		instance := if number < 9 then 1 else if number < 17 then 2 else 3
+		mod_val := number mod 8
+		if mod_val == 0 then mod_val := 8
+		loyalty_abilities_count(active:true) >= mod_val
+	)
 }
 loyalty_abilities_count :=
 {
 	styling_field := if instance <= 1 then (styling.number_of_textboxes or else "0") else (styling["number_of_textboxes_" + instance] or else "0")
 	if styling_field == "automatic" then (
 		counter := 1
+		bumper := 8 * (instance-1)
 		for x from 1 to 8 do (
-			tf := card["level_" + (x*instance) + "_text"]
+			tf := card["level_" + (x+bumper) + "_text"]
 			if tf != "" and tf != zwsp then counter := x;
 		)
 		tf := card["level_" + counter + "_text"]
