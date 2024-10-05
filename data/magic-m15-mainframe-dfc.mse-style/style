@@ -286,7 +286,7 @@ init script:
 		if back_map()
 			then card_mapbox(card.card_color_2)
 		else if back_vehicle()
-			then template_prefix["pt2"] + "vpt.png"
+			then template_prefix["pt"] + "vpt.png"
 		else if back_clear()
 			then template_prefix["pt2"] + "cpt.png"
 		else module_ptbox2(card.card_color_2) 
@@ -324,6 +324,36 @@ init script:
 		else if back_class()
 			then "Gain the next level as a sorcery to add its ability."
 		else "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III."
+	}
+	margin_top := {
+		number := to_int(replace(input, match: "lv", replace: "")) or else 999
+		if not a_saga() and not b_saga() then 0 else (
+			if input == "lv1"
+				then lv_chop(styling.level_1_chop, cell:3)
+			else if input == "lv2" then (
+				if front_class() or front_case()
+					then 30
+				else lv_chop(styling.level_2_chop, cell:3)
+			)
+			else if number >= 3 and number <= 8 then (
+				if (front_class() or front_case()) and card["level_{number}_text"] != ""
+					then 30
+				else lv_chop(styling.level_3_chop, cell:3)
+			)
+			else if input == "lv9"
+				then lv_chop(styling.level_5_chop, cell:3)
+			else if input == "lv10" then (
+				if back_class() or back_case()
+					then 30
+				else lv_chop(styling.level_6_chop, cell:3)
+			)
+			else if number >= 11 and number <= 16 then (
+				if (back_class() or back_case()) and card["level_{number}_text"] != ""
+					then 30
+				else lv_chop(styling.level_7_chop, cell:3)
+			)
+			else 0
+		)
 	}
 	is_shifted := {false}
 	back_shifted := {false}
@@ -820,7 +850,7 @@ init script:
 	snapping_chaptersb := {
 		splits := split_comma(styling.snap_chapter_to_back_box)
 		len := length(splits)
-		if styling.snap_chapter_to_box == ""
+		if styling.snap_chapter_to_back_box == ""
 			then 0
 		else if splits[len-1] == ""
 			then len - 1
@@ -974,8 +1004,8 @@ init script:
 	alt_textb := {back_class() or back_case()}
 	alt_text_scriptb := {
 		if back_class()
-			then combined_editor(field1: card.chapter_text_2, separator1:"<line>\n</line>", field2: card.level_5_text, separator2: "<line>\n</line>", field3: card.level_6_text, separator3: "<line>\n</line>", field4: card.level_7_text, separator4: "<line>\n</line>", field5: card.level_8_text)
-		else combined_editor(field1: card.level_5_text, separator1:"<line>\n</line>", field2: card.level_6_text, separator2: "<line>\n</line>", field3: card.level_7_text)
+			then combined_editor(field1: card.chapter_text_2, separator1:"<line>\n</line>", field2: card.level_9_text, separator2: "<line>\n</line>", field3: card.level_10_text, separator3: "<line>\n</line>", field4: card.level_11_text, separator4: "<line>\n</line>", field5: card.level_12_text)
+		else combined_editor(field1: card.level_9_text, separator1:"<line>\n</line>", field2: card.level_10_text, separator2: "<line>\n</line>", field3: card.level_11_text)
 
 	}
 	lev0b := {
@@ -997,11 +1027,12 @@ init script:
 		styling_field := if instance <= 1 then styling.front_style else styling.back_style
 		if styling_field == "auto-sizing planeswalker" then (
 			counter := 1
+			bumper := 8 * (instance-1)
 			for x from 1 to 8 do (
-				tf := card["level_" + (x*instance) + "_text"]
+				tf := card["level_" + (x+bumper) + "_text"]
 				if tf != "" and tf != zwsp then counter := x;
 			)
-			tf := card["level_" + counter + "_text"]
+			tf := card["level_" + (counter+bumper) + "_text"]
 			if active then counter := counter - ( if tf == "" or tf == zwsp then 1 else 0)
 			else counter := counter + 1
 			styling_field := counter;
@@ -1396,7 +1427,9 @@ init script:
 					else if is_modal_dfc()
 						then "/magic-modules.mse-include/cards/375 m15 cut/"
 					else "/magic-modules.mse-include/cards/375 m15 cut/notched/"
-		color_background(
+		if front_clear() and not a_saga()
+			then front_card_img()
+		else color_background(
 			type: "card",
 			base_hybrid: card_hybrid,
 			folder: folder
@@ -1432,7 +1465,9 @@ init script:
 					else if back_map()
 						then "/magic-modules.mse-include/cards/746 maps/"
 					else "/magic-modules.mse-include/cards/375 m15 cut/" + (if not norm then "back/" else "")
-		color_background(
+		if back_clear() and not b_saga()
+			then back_card_img()
+		else color_background(
 			type: "card2",
 			base_hybrid: card_hybrid,
 			folder: folder,
@@ -1489,6 +1524,7 @@ init script:
 	}
 	flavor_bar_disabled_1 := { mainframe_walker() or a_saga() or not set.use_flavor_bar }
 	flavor_bar_disabled_2 := { mainframe_walkerb() or b_saga() or not set.use_flavor_bar }
+	
 	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
@@ -1700,10 +1736,12 @@ styling field:
 	type: text
 	name: custom symbol one
 	description: Uses a custom DFC symbol from data/magic-mainframe-extras.mse-include
+	script: verify_symbol_image(value)
 styling field:
 	type: text
 	name: custom symbol two
 	description: Uses a custom DFC symbol from data/magic-mainframe-extras.mse-include
+	script: verify_symbol_image(value)
 styling field:
 	type: text
 	name: card watermark
@@ -2553,7 +2591,7 @@ card style:
 		z index: 910
 		left: {if front_class() then 270 else if box_leveler() then 8 else if loy_leveler() then 14 else 21}
 		top: {if front_class() then lev2()+4 else l3_center() - (if aug_leveler(2) then 4 else 2) - (if center_label(2) then 6 else 0) + arrow_offset(2)}
-		width: {if front_class() and card.level_2_text == "​" then 0 else if front_class() then 70 else if front_leveler() or card.level_2 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if front_class() and is_blank(card.level_2_text) then 0 else if front_class() then 70 else if front_leveler() or card.level_2 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
 		height:	{if front_class() then 20 else 22}
 		alignment: {if front_class() then "center right" else "center middle shrink-overflow"}
 		font:
@@ -2570,7 +2608,7 @@ card style:
 		z index: 910
 		left: {if front_class() then 270 else if box_leveler() then 8 else if loy_leveler() then 14 else 21}
 		top: {if front_class() then lev3()+4 else l4_center() - (if aug_leveler(3) then 4 else 2) - (if center_label(3) then 6 else 0) + arrow_offset(3)}
-		width: {if front_class() and card.level_3_text == "​" then 0 else if front_class() then 70 else if front_leveler() or card.level_3 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if front_class() and is_blank(card.level_3_text) then 0 else if front_class() then 70 else if front_leveler() or card.level_3 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
 		height:	{if front_class() then 20 else 22}
 		alignment: {if front_class() then "center right" else "center middle shrink-overflow"}
 		font:
@@ -2585,7 +2623,7 @@ card style:
 			size: {if front_class() then 11 else 12 + if center_label(0) then 0.5 else 0}
 	level 4:
 		z index: 910
-		width: {if front_class() and card.level_4_text == "" then 0 else 70}
+		width: {if front_class() and is_blank(card.level_4_text) then 0 else 70}
 		top: {lev4()+4}
 		height: {if not front_class() then 0 else 20}
 		font:
@@ -2618,7 +2656,7 @@ card style:
 		left: {if back_class() then 647 else 377+ if box_leveler2() then 8 else if loy_leveler2() then 14 else 21}
 		top: {if back_class() then lev2b()+4 else l6_center() - (if aug_leveler2(0) then 4 else 2) - (if center_label2(1) then 6 else 0) + arrow_offset2(1)}
 		height: 22
-		width: {if back_class() and card.level_6_text == "​" then 0 else if back_class() then 70 else if back_leveler() or card.level_6 != "" then (34 + (if box_leveler2() then 30 else 0)) else 0}
+		width: {if back_class() and is_blank(card.level_10_text) then 0 else if back_class() then 70 else if back_leveler() or card.level_6 != "" then (34 + (if box_leveler2() then 30 else 0)) else 0}
 		alignment: {if back_class() then "center right" else "center middle shrink-overflow"}
 		font:
 			name: {if back_class() then "MPlantin" else "Beleren Bold"}
@@ -2634,7 +2672,7 @@ card style:
 		z index: 910
 		left: {if back_class() then 647 else 377+ if box_leveler2() then 8 else if loy_leveler2() then 14 else 21}
 		top: {if back_class() then lev3b()+4 else l7_center() - (if aug_leveler2(0) then 4 else 2) - (if center_label2(2) then 6 else 0) + arrow_offset2(2)}
-		width: {if back_class() and card.level_7_text == "​" then 0 else if back_class() then 70 else if back_leveler() or card.level_7 != "" then (34 + (if box_leveler2() then 30 else 0)) else 0}
+		width: {if back_class() and is_blank(card.level_11_text)  then 0 else if back_class() then 70 else if back_leveler() or card.level_7 != "" then (34 + (if box_leveler2() then 30 else 0)) else 0}
 		height:	22
 		alignment: {if back_class() then "center right" else "center middle shrink-overflow"}
 		font:
@@ -2651,7 +2689,7 @@ card style:
 		z index: 910
 		left: {if back_class() then 647 else 377+ if box_leveler2() then 8 else if loy_leveler2() then 14 else 21}
 		top: {if back_class() then lev4b()+4 else l8_center() - (if aug_leveler2(0) then 4 else 2) - (if center_label2(3) then 6 else 0) + arrow_offset2(3)}
-		width: {if back_class() and card.level_8_text == "" then 0 else if back_class() then 70 else if back_leveler() or card.level_8 != "" then (34 + (if box_leveler2() then 30 else 0)) else 0}
+		width: {if back_class() and is_blank(card.level_12_text) then 0 else if back_class() then 70 else if back_leveler() or card.level_8 != "" then (34 + (if box_leveler2() then 30 else 0)) else 0}
 		height:	22
 		alignment: {if back_class() then "center right" else "center middle shrink-overflow"}
 		font:
@@ -2665,9 +2703,9 @@ card style:
 			name: { styling.level_mana_symbols }
 			size: {if back_class() then 11 else 12 + if center_label2(0) then 0.5 else 0}
 	############################# Class costs
-	level 9 text:
+	level 17 text:
 		left: 190
-		width: {if not front_class() then 0 else if front_class() and card.level_2_text == "​" then 0 else 80}
+		width: {if not front_class() then 0 else if front_class() and is_blank(card.level_2_text) then 0 else 80}
 		top: {lev2()+4}
 		height: 20
 		z index: 910
@@ -2678,9 +2716,9 @@ card style:
 			name: magic-mana-small
 			size: 12
 		alignment: middle left
-	level 10 text:
+	level 18 text:
 		left: 190
-		width: {if not front_class() then 0 else if front_class() and card.level_3_text == "​" then 0 else 80}
+		width: {if not front_class() then 0 else if front_class() and is_blank(card.level_3_text) then 0 else 80}
 		top: {lev3()+4}
 		height: 20
 		z index: 910
@@ -2691,9 +2729,9 @@ card style:
 			name: magic-mana-small
 			size: 12
 			alignment: middle left
-	level 11 text:
+	level 19 text:
 		left: 190
-		width: {if not front_class() then 0 else if front_class() and card.level_4_text == "" then 0 else 80}
+		width: {if not front_class() then 0 else if front_class() and is_blank(card.level_4_text) then 0 else 80}
 		top: {lev4()+4}
 		height: 20
 		z index: 910
@@ -2704,9 +2742,9 @@ card style:
 			name: magic-mana-small
 			size: 12
 			alignment: middle left
-	level 12 text:
+	level 20 text:
 		left: 567
-		width: {if not back_class() then 0 else if back_class() and card.level_6_text == "​" then 0 else 80}
+		width: {if not back_class() then 0 else if back_class() and is_blank(card.level_10_text) then 0 else 80}
 		top: {lev2b()+4}
 		height: 20
 		z index: 910
@@ -2717,9 +2755,9 @@ card style:
 			name: magic-mana-small
 			size: 12
 		alignment: middle left
-	level 13 text:
+	level 21 text:
 		left: 567
-		width: {if not back_class() then 0 else if back_class() and card.level_7_text == "​" then 0 else 80}
+		width: {if not back_class() then 0 else if back_class() and is_blank(card.level_11_text) then 0 else 80}
 		top: {lev3b()+4}
 		height: 20
 		z index: 910
@@ -2730,9 +2768,9 @@ card style:
 			name: magic-mana-small
 			size: 12
 			alignment: middle left
-	level 14 text:
+	level 22 text:
 		left: 567
-		width: {if not back_class() then 0 else if back_class() and card.level_8_text == "" then 0 else 80}
+		width: {if not back_class() then 0 else if back_class() and is_blank(card.level_12_text)then 0 else 80}
 		top: {lev4b()+4}
 		height: 20
 		z index: 910
@@ -4092,7 +4130,7 @@ extra card style:
 	linebreak 2:
 		left: {if front_class() or front_case() then 188 else 30}
 		top: {if front_class() or front_case() then lev2() else if split_12() == "" then 248 else split_12()-1}
-		width: {if front_class() or front_case() and card.level_2_text == "​" then 0 else 156}
+		width: {if front_class() or front_case() and is_blank(card.level_2_text) then 0 else 156}
 		height: {if front_class() or front_case() then 25 else 3}
 		render style: image
 		z index: 820
@@ -4101,7 +4139,7 @@ extra card style:
 	linebreak 3:
 		left: {if front_class() then 188 else 30}
 		top: {if front_class() then lev3() else if split_23() == "" then 342 else split_23()-1}
-		width: {if front_class() and card.level_3_text == "​" then 0 else 156}
+		width: {if front_class() and is_blank(card.level_3_text) then 0 else 156}
 		height: {if front_class() then 25 else 3}
 		render style: image
 		z index: 820
@@ -4110,7 +4148,7 @@ extra card style:
 	linebreak 4:
 		left: {if front_class() then 188 else 30}
 		top: {if front_class() then lev4() else if split_34() == "" then 600 else split_34()-1}
-		width: {if front_class() and card.level_4_text == "" then 0 else 156}
+		width: {if front_class() and is_blank(card.level_4_text) then 0 else 156}
 		z index: 820
 		render style: image
 		height: {if front_class() then 25 else 3}
@@ -4191,7 +4229,7 @@ extra card style:
 	linebreak 2b:
 		left: {if back_class() or back_case() then 565 else 407}
 		top: {if back_class() or back_case() then lev2b() else if split_12b() == "" then 248 else split_12b()-1}
-		width: {if back_class() or back_case() and card.level_6_text == "​" then 0 else 156}
+		width: {if back_class() or back_case() and is_blank(card.level_10_text) then 0 else 156}
 		height: {if back_class() or back_case() then 25 else 3}
 		render style: image
 		z index: 820
@@ -4200,7 +4238,7 @@ extra card style:
 	linebreak 3b:
 		left: {if back_class() then 565 else 407}
 		top: {if back_class() then lev3b() else if split_23b() == "" then 342 else split_23b()-1}
-		width: {if back_class() and card.level_7_text == "​" then 0 else 156}
+		width: {if back_class() and is_blank(card.level_11_text) then 0 else 156}
 		height: {if back_class() then 25 else 3}
 		render style: image
 		z index: 820
@@ -4209,7 +4247,7 @@ extra card style:
 	linebreak 4b:
 		left: {if back_class() then 565 else 407}
 		top: {if back_class() then lev4b() else if split_34b() == "" then 600 else split_34b()-1}
-		width: {if back_class() and card.level_8_text == "" then 0 else 156}
+		width: {if back_class() and is_blank(card.level_12_text) then 0 else 156}
 		height: {if back_class() then 25 else 3}
 		render style: image
 		z index: 820
@@ -4301,7 +4339,7 @@ extra card style:
 	lvl label 1:
 		left: {if front_class() then 270 else if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {if front_class() then lev2()+4 else l2_center() - (if loy_leveler() then 2 else 10) + arrow_offset(1)}
-		width: {if front_class() and card.level_2_text != "​" then 70 else if front_leveler() or card.level_1 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if front_class() and not is_blank(card.level_2_text) then 70 else if front_leveler() or card.level_1 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
 		height: {if front_class() then 20 else if loy_leveler() then 10 else if center_label(1) then 0 else 10}
 		z index: 860
 		alignment: {if front_class() then "center right" else "center middle"}
@@ -4314,7 +4352,7 @@ extra card style:
 	lvl label 2:
 		left: {if front_class() then 270 else if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {if front_class() then lev3()+4 else l3_center() - (if loy_leveler() then 2 else 10) + arrow_offset(2)}
-		width: {if front_class() and card.level_3_text != "​" then 70 else if front_leveler() or card.level_2 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if front_class() and not is_blank(card.level_3_text) then 70 else if front_leveler() or card.level_2 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
 		height: {if front_class() then 20 else if loy_leveler() then 10 else if center_label(2) then 0 else 10}
 		z index: 860
 		alignment: {if front_class() then "center right" else "center middle"}
@@ -4327,7 +4365,7 @@ extra card style:
 	lvl label 3:
 		left: {if front_class() then 270 else if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {if front_class() then lev4()+4 else l4_center() - (if loy_leveler() then 2 else 10) + arrow_offset(3)}
-		width: {if front_class() and card.level_4_text != "" then 70 else if front_class() then 0 else if front_leveler() or card.level_2 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if front_class() and not is_blank(card.level_4_text) then 70 else if front_class() then 0 else if front_leveler() or card.level_2 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
 		height: {if front_class() then 20 else if loy_leveler() then 10 else if center_label(3) then 0 else 10}
 		z index: 860
 		alignment: {if front_class() then "center right" else "center middle"}
@@ -4415,7 +4453,7 @@ extra card style:
 	lvl label 6:
 		left: {if back_class() then 647 else if box_leveler2() then 385 else if loy_leveler2() then 425 else 398}
 		top: {if back_class() then lev2b()+4 else l6_center() - (if loy_leveler2() then 2 else 10) + arrow_offset2(1)}
-		width: {if back_class() and card.level_6_text != "​" then 70 else if back_leveler() or card.level_6 != "" then (if loy_leveler2() then 10 else 34 + (if box_leveler2() then 30 else 0)) else 0}
+		width: {if back_class() and not is_blank(card.level_10_text) then 70 else if back_leveler() or card.level_6 != "" then (if loy_leveler2() then 10 else 34 + (if box_leveler2() then 30 else 0)) else 0}
 		height: {if back_class() then 20 else if loy_leveler2() then 10 else if center_label2(1) then 0 else 10}
 		z index: 860
 		alignment: {if back_class() then "center right" else "center middle"}
@@ -4428,7 +4466,7 @@ extra card style:
 	lvl label 7:
 		left: {if back_class() then 647 else if box_leveler2() then 385 else if loy_leveler2() then 425 else 398}
 		top: {if back_class() then lev3b()+4 else l7_center() - (if loy_leveler2() then 2 else 10) + arrow_offset2(2)}
-		width: {if back_class() and card.level_7_text != "​" then 70 else if back_leveler() or card.level_7 != "" then (if loy_leveler2() then 10 else 34 + (if box_leveler2() then 30 else 0)) else 0}
+		width: {if back_class() and not is_blank(card.level_11_text) then 70 else if back_leveler() or card.level_7 != "" then (if loy_leveler2() then 10 else 34 + (if box_leveler2() then 30 else 0)) else 0}
 		height: {if back_class() then 20 else if loy_leveler2() then 10 else if center_label2(2) then 0 else 10}
 		z index: 860
 		alignment: {if back_class() then "center right" else "center middle"}
@@ -4441,7 +4479,7 @@ extra card style:
 	lvl label 8:
 		left: {if back_class() then 647 else if box_leveler2() then 385 else if loy_leveler2() then 425 else 398}
 		top: {if back_class() then lev4b()+4 else l8_center() - (if loy_leveler2() then 2 else 10) + arrow_offset2(3)}
-		width: {if back_class() and card.level_8_text != "" then 70 else if back_leveler() or card.level_8 != "" then (if loy_leveler2() then 10 else 34 + (if box_leveler2() then 30 else 0)) else 0}
+		width: {if back_class() and not is_blank(card.level_12_text) then 70 else if back_leveler() or card.level_8 != "" then (if loy_leveler2() then 10 else 34 + (if box_leveler2() then 30 else 0)) else 0}
 		height: {if back_class() then 20 else if loy_leveler2() then 10 else if center_label2(3) then 0 else 10}
 		z index: 860
 		alignment: {if back_class() then "center right" else "center middle"}
