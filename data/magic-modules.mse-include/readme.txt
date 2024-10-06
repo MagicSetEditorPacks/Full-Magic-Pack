@@ -70,12 +70,12 @@ Specific z indexes
 
 800 Indicators
 800 Legend crown
-810 Tombstone/alchemy symbol
 830 Loyalty boxes
 840 PT Box, Leveler arrows, Flash dot
 850 Color stamp
 860 Holofoil stamp
 870 Transform symbol
+880 Tombstone/alchemy symbol
 880 Alias box
 
 900 Loyalty cost colons
