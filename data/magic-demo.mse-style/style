@@ -1,0 +1,420 @@
+mse version: 2.0.0
+game: magic
+short name: Module Demo
+full name: Demo
+installer group: magic/m15 style/sagas
+position hint: 010
+
+version: 2024-10-02
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-10-01
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	#### Demo frame stuff
+	bookmark_background := { color_background(type:"bookmark", base_hybrid:card_hybrid) }
+	template_prefix := [
+		bookmark: "/magic-modules.mse-include/bookmarks/744x1039/m15/saga/base/bright/"
+	]
+	template_suffix := [
+		bookmark: "bookmark.png"
+	]
+	template := { 
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:false)
+		else template_prefix[type] + input + template_suffix[type]
+	}
+	land_template := {
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:true)
+		else template_prefix[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + template_suffix[type]
+	}
+	is_saga := {true}
+	
+	
+	#### module init_script
+	#### variables
+	## chapters
+	saga_chapter_left_1 := { 14 }
+	chapter_image_width := { 31 }
+	chapter_image_height := { 34 }
+	chapter_minimum_spacing := { 6 }
+	chapter_maximum_spacing := { 15 }
+	## normal top of textbox, may move
+	textbox_max_top := { 60 }
+	## max range for level_1_text etc
+	saga_max_height := { 282 }
+	
+	#### store data for managing the textbox margins
+	gv_margins_data -> hash_new()
+	#### store data for managing the chapter symbol placements
+	gv_chapter_data -> hash_new()
+
+	#### card_fields
+	text_filter := text_filter + { apply_margins(input, name: margin_code) }
+	alt_text := {true}
+	alt_text_script := {
+		combined_editor(
+			field1: card.chapter_text,
+			separator1:"<line>\n</line>",
+			field2: card.level_1_text,
+			separator2:"<line>\n</line>",
+			field3: card.level_2_text,
+			separator3: "<line>\n</line>",
+			field4: card.level_3_text,
+			separator4: "<line>\n</line>",
+			field5: card.level_4_text,
+			separator5: "<line>\n</line>",
+			field6: card.level_5_text,
+			separator6: "<line>\n</line>",
+			field7: card.level_6_text,
+			separator7: "<line>\n</line>",
+			field8: card.level_7_text,
+			separator8: "<line>\n</line>",
+			field9: card.level_8_text
+		)
+	}
+	
+	#### auto sagas
+	#### generate data for snap_chapter_to_box
+	chapter_snaps_1 := {
+		src := styling.snap_chapter_to_box
+		if src == "" then "1,1,2"
+		gv_chapter_data -> generate_snap_hash(src)
+	}
+	#### generate data for general snap array
+	generate_snap_hash := {
+		snaps := split_comma(src)
+		
+		#### track how many chapters per level
+		level_hash := hash_new()
+		#### track where each chapter goes
+		snap_hash := hash_new()
+		i := 1
+		for each s in snaps do (
+			#### s is the level this chapter goes to
+			#### increment the number of chapters on this level
+			level_hash := hash_increment(level_hash, key:s)
+			#### the number for this particular chapter
+			index := hash_read(level_hash, key:s)
+			#### save its level and its index
+			mini_hash := hash_new()
+			mini_hash := hash_update(mini_hash, key:"level", value:s)
+			mini_hash := hash_update(mini_hash, key:"index", value:index-1)
+			snap_hash := hash_create(snap_hash, key:to_string(i), value:mini_hash)
+			i := i + 1
+		)
+		meta_hash := hash_new()
+		meta_hash := hash_create(meta_hash, key:"levels", value:level_hash)
+		meta_hash := hash_create(meta_hash, key:"chapters", value:snap_hash)
+		meta_hash
+	}
+	#### generate the margin data if is_loaded()
+	calculate_level_margins := {
+		trace("calc")
+		text_field := card_style.text
+
+		margin_hash := hash_new()
+
+		#### cache the height of the text in each level
+		i := 0
+		for each p in text_field.layout.paragraphs do (
+			mini_hash := hash_new()
+			mini_hash := hash_update(mini_hash, key:"height", value:p.height)
+			margin_hash := hash_update(margin_hash, key:to_string(i), value:mini_hash)
+			i := i + 1
+		)
+		
+		#### max height including chapter text
+		entire_textbox_height := text_field.bottom - textbox_max_top()
+		#### height of just the chapter text box
+		chapter_box_size := entire_textbox_height - saga_max_height()
+		#### padding above and below the chapter text
+		chapter_box_padding := round_near((chapter_box_size - hash_read(margin_hash, keys:["0", "height"]))/2)
+		
+		#### determine minimum heights for each level
+		ch_height := chapter_image_height()
+		ch_min_sp := chapter_minimum_spacing()
+		#### make sure this is up to date
+		chapter_snaps_1()
+		
+		level_keys := hash_keys(margin_hash)
+		#### start with chapter padding, add the top/bottom padding for each level
+		wanted_padding := [chapter_box_padding, chapter_box_padding]
+		for x from 1 to length(level_keys)-1 do (
+			l := level_keys[x]
+			initial_height := hash_read(margin_hash, keys:[l, "height"])
+			number_of_chapters := hash_read(gv_chapter_data, keys:["levels", l]) + 1
+			chapter_minimum_height := (ch_height * number_of_chapters) + ch_min_sp * (number_of_chapters-1)
+			if chapter_minimum_height > initial_height then (
+				diff := chapter_minimum_height - initial_height
+				half := round_up(diff/2)
+				wanted_padding := wanted_padding + [half, diff-half]
+				margin_hash := hash_push(margin_hash, keys:[l, "min_height"], value:chapter_minimum_height)
+				"dummy return"
+			)
+			else (
+				margin_hash := hash_push(margin_hash, keys:[l, "min_height"], value:initial_height)
+				"dummy return"
+			
+			)
+		)
+		
+		#### now, starting from the last level, average the top padding of that level and total padding of next level
+		#### this will keep the same padding, but center the text
+		len := length(wanted_padding)
+		next := len-1
+		max_lv := len/2
+		for x from 1 to len-2 do (
+			index := len - x;
+			if index == next then (
+				bottom := wanted_padding[index];
+				top := wanted_padding[index-1] + wanted_padding[index-2];
+				bottom_margin := (bottom+top) div 2
+				margin_hash := hash_push(margin_hash, keys:[to_string(max_lv), "margin_top"], value:bottom_margin)
+				max_lv := max_lv - 1
+				next := index-2
+				if next < 2 then (
+					margin_hash := hash_push(margin_hash, keys:[to_string(max_lv), "margin_top"], value:round_up((bottom+top)/2))
+				) else (
+					wanted_padding := for n from 0 to len-1 do ( if n == x-2 then [round_up((bottom+top)/2)] else [wanted_padding[n]])
+				)
+				"dummy return"
+			)
+			else "dummy return"
+		)
+		#### chapter textbox top padding
+		margin_hash := hash_push(margin_hash, keys:["0", "margin_top"], value:wanted_padding[0])
+		
+		## get level tops
+		saga_boxes_start_at := text_field.bottom - saga_max_height()
+		for x from 1 to length(level_keys)-1 do (
+			height := hash_read(margin_hash, keys:[to_string(x), "min_height"])
+			if height > 0 then (
+				margin_hash := hash_push(margin_hash, keys:[to_string(x), "top"], value:saga_boxes_start_at)
+				saga_boxes_start_at := saga_boxes_start_at + height;
+				""
+			)
+			else ""
+		)
+		#### update gv
+		gv_margins_data -> margin_hash
+	}
+	
+	#### apply margins
+	margin_top := {
+		number := replace(input, match: "lv", replace: "")
+		v := hash_read(gv_margins_data, keys:[number, "margin_top"])
+		if v == nil then 0 else v
+	}
+	margin_left := { if input == "chapter_text" then 0 else 140 }
+	#### top of the textbox doesn't respect margin, move it instead
+	top_of_textbox := { 
+		normal := textbox_max_top() 
+		v := hash_read(gv_margins_data, keys:["0", "margin_top"])
+		if v == nil then normal else normal + to_number(v)
+	}
+	
+	#### place chapters
+	saga_chapter_top_x := {
+		ch_data := hash_read(gv_chapter_data, keys:["chapters",to_string(input)])
+		ch_height := chapter_image_height()
+		ch_max_s := chapter_maximum_spacing()
+		
+		lv := hash_read(ch_data, key:"level")
+		ix := hash_read(ch_data, key:"index")
+		
+		if lv == 0 or lv == ""
+			then -2 * ch_height
+		else (
+			ch_count := hash_read(gv_chapter_data, keys:["levels",lv]) + 1
+			
+			lv_top := hash_read(gv_margins_data, keys:[lv, "top"])
+			lv_height := hash_read(gv_margins_data, keys:[lv, "min_height"])
+			spacing_available := lv_height - (ch_count * ch_height)
+			expected_spacing := spacing_available div (ch_count-1)
+			if expected_spacing > ch_max_s then expected_spacing := ch_max_s
+			extra_spacing := spacing_available - ((ch_count-1) * expected_spacing)
+			
+			lv_top + (extra_spacing div 2) + ((to_int(ix)) * (ch_height + expected_spacing))
+		)
+	}
+
+	
+	
+	
+styling field:
+	type: text
+	name: snap chapter to box
+styling field:
+	type: text
+	name: class abstract
+styling field:
+	type: choice
+	name: center text
+	choice: never
+card style:
+	text:
+		left: { if is_saga() then 30 else 188 }
+		top: { top_of_textbox() }
+		width: 153
+		bottom: 437
+		z index: 900
+		font:
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
+			scale down to: 6
+			color: black
+		symbol font:
+			name: magic-mana-small
+			size: { body_font_size() }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		padding left:   3
+		padding right:  1
+		line height hard: {if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height line: 1.5
+		line height soft: 0.85
+		line height hard max: {if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height line max: 1.6
+
+extra card field:
+	type: choice
+	name: frame
+	choice: frame
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: paper
+	choice: paper
+	editable: false
+	save value: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: bookmark
+	choice: bookmark
+	editable: false
+	save value: false
+	
+extra card field:
+	type: choice
+	name: chapter symbol 1
+	choice: chapter
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: chapter symbol 2
+	choice: chapter
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: chapter symbol 3
+	choice: chapter
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: chapter symbol 4
+	choice: chapter
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: chapter symbol 5
+	choice: chapter
+	editable: false
+	save value: false
+
+extra card style:
+	frame:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: {"/magic-modules.mse-include/cards/375 m15 saga/ucard.jpg"}
+	paper:
+		left: {if is_saga() then 28 else 186}
+		top: 58
+		width: 160
+		height: 380
+		z index: 210
+		render style: image
+		image: /magic-modules.mse-include/cards/375 m15 saga/paper.png
+	bookmark:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: { bookmark_background() }
+		z index: 810
+		visible: { is_saga() }
+
+	chapter symbol 1:
+		left: { saga_chapter_left_1() }
+		top: { saga_chapter_top_x(1) }
+		width: { chapter_image_width() }
+		height: { chapter_image_height() }
+		z index: 820
+		render style: image
+		image: /magic-modules.mse-include/chapters/chapter1.png
+	chapter symbol 2:
+		left: { saga_chapter_left_1() }
+		top: { saga_chapter_top_x(2) }
+		width: { chapter_image_width() }
+		height: { chapter_image_height() }
+		z index: 820
+		render style: image
+		image: /magic-modules.mse-include/chapters/chapter2.png
+	chapter symbol 3:
+		left: { saga_chapter_left_1() }
+		top: { saga_chapter_top_x(3) }
+		width: { chapter_image_width() }
+		height: { chapter_image_height() }
+		z index: 820
+		render style: image
+		image: /magic-modules.mse-include/chapters/chapter3.png
+	chapter symbol 4:
+		left: { saga_chapter_left_1() }
+		top: { saga_chapter_top_x(4) }
+		width: { chapter_image_width() }
+		height: { chapter_image_height() }
+		z index: 820
+		render style: image
+		image: /magic-modules.mse-include/chapters/chapter4.png
+	chapter symbol 5:
+		left: { saga_chapter_left_1() }
+		top: { saga_chapter_top_x(5) }
+		width: { chapter_image_width() }
+		height: { chapter_image_height() }
+		z index: 820
+		render style: image
+		image: /magic-modules.mse-include/chapters/chapter5.png

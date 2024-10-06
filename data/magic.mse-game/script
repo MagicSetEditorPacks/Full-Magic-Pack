@@ -35,6 +35,30 @@ include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
 version_date := {"2024-10-01 Template Pack 3.0.2: Magic Modules & Showcase Catchup - DFC bugfixes"}
 version := version_date
+mse_version := 20506
+check_global_var := {
+	mse_version -> 20507
+}
+format_mse_version := {
+	v := get_mse_version()
+	v := "2.5.8"
+	mse_version -> to_number(replace(v, match:"[.]", replace:"0"))
+}
+check_global_var()
+if mse_version > 20506 then format_mse_version()
+global_var_enabled := mse_version >= 20507
+runner -> ""
+
+is_loaded := {
+	card_style.text.layout.paragraphs[0].top or else -1 >= 0
+}
+determine_level_margins := {
+	if is_loaded() then calculate_level_margins() else ""
+}
+calculate_level_margins := {
+	## this gets overwritten by frames that need this
+	0
+}
 ############################################################## Common filters
 ############################################################## Utility
 comma_count :=     filter_text@(match:",")
@@ -5667,132 +5691,146 @@ hash_new := {
 		values: values
 	]
 }@(keys:[], values:[])
-#### check if hash already has this key
-hash_includes := {
-	if value != nil then
-		key := value;
-	if keys != [] and key != nil then keys := keys + [key]
-	if input == nil
-		then false
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_includes, update:false, value:key)
-	else if position(of:[key] in:input.keys) < 0
-		then false 
-	else true
-}@(key:nil, keys:[], value:nil)
-#### add key:value to hash unless key exists
-hash_create := {
-	if input == [] then input := hash_new()
-	if keys != [] and key != nil then keys := keys + [key]
-	if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_create, value:value)
-	else if hash_includes(input, key:key)
-		then input
-	else hash_push(input, key:key, value:value)
-}@(input:[], keys:[], key:nil)
-#### add a key:value even if the key exists
-hash_push := {
-	if keys != [] and key != nil then keys := keys + [key]
-	if input == nil
-		then []
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_push, value:value)
-	else [
-		keys: input.keys + [[key]],
-		values: input.values + [[value]]
-	]
-}@(keys:[], key:nil)
 #### read value from a key
 hash_read := {
 	if value != nil then
 		key := value;
-	if keys != [] and key != nil then keys := keys + [key]
-	if input == nil
-		then []
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_read, value:value, update:false)
-	else (
-		posi := position(of:[key] in:input.keys)
-		if posi < 0
-			then nil
-		else input.values[posi][0]
+	if key != nil then keys := keys + [key]
+	res := input
+	for each k in keys do (
+		if res.keys or else nil == nil
+			then res := nil
+		else (
+			posi := position(of:[k] in:res.keys)
+			res := if posi < 0 then nil else res.values[posi][0]
+		)
+		"dummy return"
 	)
+	
+	res
 }@(keys:[], value:nil, key:nil)
-#### add key:value to hash. if key already exists, overwrite
+#### check if hash already has this key
+hash_includes := {
+	if input.keys or else nil == nil
+		then nil
+	else hash_read(input, key:key, keys:keys, value:value) == nil
+}@(key:nil, keys:[], value:nil)
+#### modify key:value in hash, return the modified hash
 hash_update := {
-	if keys != [] and key != nil then keys := keys + [key]
-	if input == nil
-		then []
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_update, value:value)
-	else (
-		posi := position(of:[key] in:input.keys)
-		if posi < 0 then hash_create(input, key:key, value:value)
-		else [
-			keys: (for k from 0 to length(input.keys)-1 do if k == posi then [[key]] else [input.keys[k]]),
-			values: (for v from 0 to length(input.values)-1 do if v == posi then [[value]] else [input.values[v]])
-		]
+	if key != nil then keys := keys + [key]
+	## first create the hash chain
+	hash_chain := [input]
+	broken := false
+	for i from 0 to length(keys)-2 do (
+		#### get the hashes in between
+		if hash_chain[i].keys or else nil == nil then
+			## failed chain
+			broken := true
+		else if not broken then (
+			posi := position(of:[keys[i]] in:hash_chain[i].keys)
+			if posi < 0 then (
+				#### mystery key
+				if delete #### we don't have this
+					then broken := true
+				#### initialize it with a hash
+				else hash_chain := hash_chain + [hash_new()]
+			) else (
+				#### add this to the end of the chain
+				hash_chain := hash_chain + [hash_chain[i].values[posi][0]]
+			)
+		)
+		"dummy return"
 	)
-}@(keys:[], key:nil)
+	#### update back up the chain
+	if not broken then (
+		master_hash := ""
+		len := length(keys)
+		for i from 1 to len do (
+			index := len - i
+			hsh := hash_chain[index]
+			k := keys[index]
+			v := value
+			if i != 1 then (
+				v := master_hash
+				#### disable options up the chain
+				overwrite := true
+				delete := false
+				increment := 0
+			)
+			posi := position(of:[k] in:hsh.keys)
+			if posi < 0 then (
+				## we don't have the key
+				if not delete then (
+					## create k:v
+					master_hash := [
+						keys: hsh.keys + [[k]],
+						values: hsh.values + [[v]]
+					]
+				)
+				else(
+					## passing a delete along
+					master_hash := hsh
+				)
+			) else (
+				## edit key
+				if delete then (
+					## delete k:v
+					master_hash := [
+						keys: (for ik from 0 to length(hsh.keys)-1 do if ik == posi then [] else [hsh.keys[ik]]),
+						values: (for iv from 0 to length(hsh.values)-1 do if iv == posi then [] else [hsh.values[iv]])
+					]
+				) else if overwrite then (
+					## push/increment k:v
+					if increment != 0 then v := hsh.values[posi][0] + (increment*v)
+					master_hash := [
+						keys: (for ik from 0 to length(hsh.keys)-1 do if ik == posi then [[k]] else [hsh.keys[ik]]),
+						values: (for iv from 0 to length(hsh.keys)-1 do if iv == posi then [[v]] else [hsh.values[iv]])
+					]
+				) else (
+					## pass a create along
+					master_hash := hsh
+				)
+			)
+			"dummy return"
+		)
+		master_hash
+	)
+	else input
+}@(keys:[], key:nil, overwrite:true, delete:false, increment:0)
+#### add key:value to hash unless key exists
+hash_create := hash_update@(keys:[], key:nil, overwrite:false, delete:false, increment:0)
+#### add key:value to hash even if key exists
+hash_push := hash_update@(keys:[], key:nil, overwrite:true, delete:false, increment:0)
 #### remove a key:value from the hash
-hash_delete := {
-	if keys != [] and key != nil then keys := keys + [key]
-	if input == nil
-		then []
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_delete, value:value)
-	else (
-		posi := position(of:[key] in:input.keys)
-		if posi < 0 then input
-		else [
-			keys: (for k from 0 to length(input.keys)-1 do if k == posi then [] else [input.keys[k]]),
-			values: (for v from 0 to length(input.values)-1 do if v == posi then [] else [input.values[v]])
-		]
-	)
-}@(keys:[], key:nil)
+hash_delete := hash_update@(keys:[], key:nil, value:"", overwrite:true, delete:true, increment:0)
+#### simple increment/decrement a hash value
+hash_increment := hash_update@(keys:[], key:nil, value:1, overwrite:true, delete:false, increment:1)
+hash_decrement := hash_update@(keys:[], key:nil, value:1, overwrite:true, delete:false, increment:-1)
 #### get keys of the hash, optionally only those with a particular value
 hash_keys := {
-	if keys != [] and key != nil then keys := keys + [key]
 	if value != nil then
-		of := value;
-	if input == nil
-		then []
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_keys, value:value, update:false)
-	else (
-		res := for i from 0 to length(input.keys)-1 do if of == nil or input.values[i] == [of] then input.keys[i] else nil
-		if res == nil then [] else res
-	)
-}@(of:nil, keys:[], key:nil, value:nil)
-hash_increment := {
-	if keys != [] and key != nil then keys := keys + [key]
-	if input == nil
-		then []
-	else if keys != []
-		then hash_nest(input, key_chain:keys, func:hash_increment, value:value)
-	else (
-		initial := hash_read(input, key:key)
-		if initial == nil then initial := 0
-		hash_update(input, key:key, value:initial+value)
-	)
-}@(value:1, keys:[], key:nil)
-hash_decrement := {
-	hash_increment(input, key:key, keys:keys, value:(-1*value))
-}@(value:1, keys:[], key:nil)
-#### update a nested hash
-hash_nest := {
-	hash_chain := [input]
-	for x from 0 to length(key_chain)-2 do (
-		hash_chain := hash_chain + [hash_read(hash_chain[x], key:key_chain[x])]
-	)
-	len := length(hash_chain)-1
-	value := func(hash_chain[length(hash_chain)-1], key:key_chain[length(key_chain)-1], value:value)
-	if update then (
-		len := len - 1
-		for x from 0 to len do (
-			ind := len - x
-			value := hash_update(hash_chain[ind], key:key_chain[ind])
+		key := value;
+	if key != nil then keys := keys + [key]
+	res := input
+	for each k in keys do (
+		if res.keys or else nil == nil
+			then res := nil
+		else (
+			posi := position(of:[k] in:res.keys)
+			res := if posi < 0 then nil else res.values[posi][0]
 		)
+		"dummy return"
 	)
-	value
-}@(key_chain:[], func:hash_update, update:true)
+	if res.keys or else nil == nil
+		then []
+	else for i from 0 to length(res.keys)-1 do if of == nil or res.values[i] == [of] then res.keys[i] else nil
+}@(of:nil, keys:[], key:nil, value:nil)
+
+hash_test := {
+	h := hash_new()
+	h2 := hash_new()
+	h3 := hash_new()
+	
+	h2 := hash_create(h2, key:"level", value:h3)
+	hash_create(h, key:"level", value:h2)
+}
