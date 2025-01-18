@@ -1675,6 +1675,12 @@ text_filter :=
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-cardname></atom-cardname>"
 	) +
+	#### step 3a : expand shortcut word THIS
+	replace@(
+		match: "THIS>?", #### >? is here so after replacement, the mouse snaps to the end of </atom>
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-printname></atom-printname>"
+	) +
 	#### step 3b : expand shortcut word LEGENDNAME
 	replace@(
 		match: "LEGENDNAME>?",
@@ -1692,18 +1698,22 @@ text_filter :=
 		tag: "<atom-cardname>",
 		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
 	) +
+	tag_contents@(
+		tag: "<atom-printname>",
+		contents: { "<nospellcheck>" + reverse_name_for(card_name, margin_code:margin_code) + "</nospellcheck>" }
+	) +
 	#### capitalize This type when appropriate
 	replace@(
-		match:"([•.]) <atom-cardname><nospellcheck>this",
-		replace:"\\1 <atom-cardname><nospellcheck>This"
+		match:"([•.:]) <atom-(card|print)name><nospellcheck>this",
+		replace:"\\1 <atom-\\2name><nospellcheck>This"
 	) +
 	replace@(
-		match:"([\"“'])<atom-cardname><nospellcheck>this",
-		replace:"\\1<atom-cardname><nospellcheck>This"
+		match:"([\"“'])<atom-(card|print)name><nospellcheck>this",
+		replace:"\\1<atom-\\2name><nospellcheck>This"
 	) +
 	replace@(
-		match:"^<atom-cardname><nospellcheck>this",
-		replace:"<atom-cardname><nospellcheck>This"
+		match:"^<atom-(card|print)name><nospellcheck>this",
+		replace:"<atom-\\2name><nospellcheck>This"
 	) +
 	tag_contents@(
 		tag: "<atom-legname>",
@@ -3020,19 +3030,7 @@ level_filter := { input }
 #### Correct the CARDNAME atom for levelers
 card_name_for_level := {
 	tag :=	name_tag_for_level()
-	if set.CARDNAME_replacement == "card's type"
-		then (
-			ty := to_lower(cardname_type(card["type"+tag]))
-			if ty == "" then "This"
-			else "This " + ty
-		)
-	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
-		then card["alias"+tag]
-	else card["name"+tag]
-}
-card_name_for_face := {
-	tag := if input == 1 then "" else "_" + input
-	if set.CARDNAME_replacement == "card's type"
+	if (set.CARDNAME_replacement == "card's type" xor reverse)
 		then (
 			ty := to_lower(cardname_type(card["type"+tag]))
 			if ty == "" then "this"
@@ -3041,7 +3039,19 @@ card_name_for_face := {
 	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
 		then card["alias"+tag]
 	else card["name"+tag]
-}
+}@(reverse:false)
+card_name_for_face := {
+	tag := if input == 1 then "" else "_" + input
+	if (set.CARDNAME_replacement == "card's type" xor reverse)
+		then (
+			ty := to_lower(cardname_type(card["type"+tag]))
+			if ty == "" then "this"
+			else "this " + ty
+		)
+	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
+		then card["alias"+tag]
+	else card["name"+tag]
+}@(reverse:false)
 cardname_type := {
 	if is_creature(input)
 		then lang_setting("creature")
@@ -3057,8 +3067,22 @@ cardname_type := {
 		then lang_setting("enchantment")
 	else if is_battle(input)
 		then lang_setting("battle")
+	else if is_plane(input)
+		then lang_setting("plane")
 	else ""
 	
+}
+reverse_name_for := {
+	lv := "1"
+	face := ""
+	if contains(margin_code, match:"lv") then
+		lv := filter_text(margin_code, match:"[0-9]+")
+	else face := filter_text(margin_code, match:"[0-9]+")
+	
+	card_name := if face != "" then card_name_for_face(face, reverse:true)
+					else card_name_for_level(lv, reverse:true)
+	
+	if card_name == "" then "CARDNAME" else strip_card_codes(card_name, atom:true)
 }
 #### This can be overwritten for more complicated levelers
 #### Dungeons for example will overwrite with just {""}
@@ -5155,8 +5179,30 @@ split_custom_directory := {
 	dir := filter_text(input, match:"^([^.]+/)+")
 	[directory:dir, filename:fn]
 }
+auto_custom_available := { set.auto_custom_border != "disabled" and has_png(set.auto_custom_border_source)}
+auto_custom_border := {
+	auto_custom_available() and active_custom_border()
+}
+active_custom_border := {
+	if set.auto_custom_border == "check typeline" then
+		contains(card.type, match:set.auto_custom_border_match)
+	else if set.auto_custom_border == "check rules text" then
+		contains(card.text, match:set.auto_custom_border_match)
+	else false
+}
+auto_custom_border_2 := {
+	auto_custom_available() and active_custom_border_2()
+}
+active_custom_border_2 := {
+	if set.auto_custom_border == "check typeline" then
+		contains(card.type_2, match:set.auto_custom_border_match)
+	else if set.auto_custom_border == "check rules text" then
+		contains(card.text_2, match:set.auto_custom_border_match)
+	else false
+}
 custom_border_image := {
 	src := styling.custom_border_source or else ""
+	if (not has_png(src)) and auto_custom_available() then src := set.auto_custom_border_source
 	ps := split_text(src, match:"-color-")
 	if length(ps) > 1 then
 		"/magic-mainframe-extras.mse-include/" + ps[0] + input + (if land then "l" else "") + ps[1]
