@@ -68,3 +68,13 @@ loyalty_textbox_mask_1 :=
 	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
 }
+
+#### To change the default transparency percentage for the stripes and textboxes:
+loyalty_stripe_alpha_default := { 40 }
+loyalty_textbox_background_alpha_default := { 70 }
+
+#### To change the folder from which the ability box images are taken:
+#### You must write the path of the folder starting from the data folder
+#### The image files must have the same names as the ones in the default folder (/magic-modules.mse-include/loyalty/)
+#### You can omit some images and it will use the default ones instead
+loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
