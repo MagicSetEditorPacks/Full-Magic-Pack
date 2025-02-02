@@ -42,6 +42,8 @@ init script:
 		italic: {""}
 	]
 	
+	nameline_offset_top_1 := { 1 }
+	casting_cost_offset_top_1 := { 1 }
 	transform_symbol_disabled_1 := { true }
 	card_symbol_disabled_1 := { true }
 	swap_fonts_name_default :=
@@ -53,22 +55,24 @@ init script:
 		italic: {""}
 	]
 	
+	no_types := { styling.land_type == "none" and styling.second_land_type == "none" }
 	two_types := { styling.land_type != "none" and styling.second_land_type != "none" }
 	
+	template := { type + "/" + input + ".png" }
+	land_template := { type + "/" + (if input == "a" then "c" else input) + ".png" }
+	
+	card_background :=	{ color_background(input: if no_types() then card.card_color else type_to_card_color_map[styling.land_type + "," + styling.second_land_type],	type: "card",	base_hybrid: card_hybrid) }
+	card_stamp :=		{ color_background(input: if no_types() then card.card_color else type_to_card_color_map[styling.land_type + "," + styling.second_land_type],	type: "stamp",	base_hybrid: card_hybrid) }
 	card_symbol :=
 	{
-		first := "symbol/" + type_to_letter_map[styling.land_type] + ".png"
-		if not two_types() then first else (
-		second := "symbol/" + type_to_letter_map[styling.second_land_type] + ".png"
-		linear_blend(
-			image1: first,
-			image2: second,
-			x1: 0.49,  y1: 0,
+		if two_types() then linear_blend(
+			image1: "symbol/" + type_to_letter_map[styling.land_type] + ".png",
+			image2: "symbol/" + type_to_letter_map[styling.second_land_type] + ".png",
+			x1: 0.50,  y1: 0,
 			x2: 0.51,  y2: 0
-		))
+		)
+		else "symbol/" + (if styling.land_type == "none" then type_to_letter_map[styling.second_land_type] else type_to_letter_map[styling.land_type]) + ".png"
 	}
-	
-	card_color := { type_to_color_map[styling.land_type + "," + styling.second_land_type] }
 	
 	card_full_name := { value }
 	card_full_name_default := { type_to_name_map[styling.land_type + "," + styling.second_land_type] }
@@ -78,17 +82,26 @@ init script:
 	sub_type_filter_default :=
 	{
 		base := to_title(styling.land_type) + (if two_types() then " " + to_title(styling.second_land_type) else "")
-		if base == "Wastes" then "" else base
+		if base == "Wastes" or base == "None" then "" else base
 	}
 	
-	type_to_color_map :=
+	type_to_card_color_map :=
 	[
+		"none,none":			"colorless",
+		
 		"plains,none":			"white",
 		"island,none":			"blue",
 		"swamp,none":			"black",
 		"mountain,none":		"red",
 		"forest,none":			"green",
 		"wastes,none":			"colorless",
+		
+		"none,plains":			"white",
+		"none,island":			"blue",
+		"none,swamp":			"black",
+		"none,mountain":		"red",
+		"none,forest":			"green",
+		"none,wastes":			"colorless",
 		
 		"plains,wastes":		"white",
 		"island,wastes":		"blue",
@@ -98,35 +111,35 @@ init script:
 		"wastes,wastes":		"colorless",
 		
 		"plains,plains":		"white",
-		"island,plains":		"white, blue, multicolor, horizontal",
-		"swamp,plains":			"white, black, multicolor, horizontal",
+		"island,plains":		"white, blue, multicolor, horizontal, reversed",
+		"swamp,plains":			"white, black, multicolor, horizontal, reversed",
 		"mountain,plains":		"white, red, multicolor, horizontal",
 		"forest,plains":		"white, green, multicolor, horizontal",
 		"wastes,plains":		"white",
 		
 		"plains,island":		"white, blue, multicolor, horizontal",
 		"island,island":		"blue",
-		"swamp,island":			"blue, black, multicolor, horizontal",
-		"mountain,island":		"blue, red, multicolor, horizontal",
+		"swamp,island":			"blue, black, multicolor, horizontal, reversed",
+		"mountain,island":		"blue, red, multicolor, horizontal, reversed",
 		"forest,island":		"blue, green, multicolor, horizontal",
 		"wastes,island":		"blue",
 		
 		"plains,swamp":			"white, black, multicolor, horizontal",
 		"island,swamp":			"blue, black, multicolor, horizontal",
 		"swamp,swamp":			"black",
-		"mountain,swamp":		"black, red, multicolor, horizontal",
-		"forest,swamp":			"black, green, multicolor, horizontal",
+		"mountain,swamp":		"black, red, multicolor, horizontal, reversed",
+		"forest,swamp":			"black, green, multicolor, horizontal, reversed",
 		"wastes,swamp":			"black",
 		
-		"plains,mountain":		"white, red, multicolor, horizontal",
+		"plains,mountain":		"white, red, multicolor, horizontal, reversed",
 		"island,mountain":		"blue, red, multicolor, horizontal",
 		"swamp,mountain":		"black, red, multicolor, horizontal",
 		"mountain,mountain":	"red",
-		"forest,mountain":		"red, green, multicolor, horizontal",
+		"forest,mountain":		"red, green, multicolor, horizontal, reversed",
 		"wastes,mountain":		"red",
 		
-		"plains,forest":		"white, green, multicolor, horizontal",
-		"island,forest":		"blue, green, multicolor, horizontal",
+		"plains,forest":		"white, green, multicolor, horizontal, reversed",
+		"island,forest":		"blue, green, multicolor, horizontal, reversed",
 		"swamp,forest":			"black, green, multicolor, horizontal",
 		"mountain,forest":		"red, green, multicolor, horizontal",
 		"forest,forest":		"green",
@@ -134,12 +147,21 @@ init script:
 	]
 	type_to_name_map :=
 	[
+		"none,none":			"",
+		
 		"plains,none":			"Plains",
 		"island,none":			"Island",
 		"swamp,none":			"Swamp",
 		"mountain,none":		"Mountain",
 		"forest,none":			"Forest",
 		"wastes,none":			"Wastes",
+		
+		"none,plains":			"Plains",
+		"none,island":			"Island",
+		"none,swamp":			"Swamp",
+		"none,mountain":		"Mountain",
+		"none,forest":			"Forest",
+		"none,wastes":			"Wastes",
 		
 		"plains,wastes":		"Wasted Plains",
 		"island,wastes":		"Wasted Island",
@@ -193,16 +215,6 @@ init script:
 		wastes:		"c",
 		none:		"none"
 	]
-	type_to_color_map :=
-	[
-		plains:		", white",
-		island:		", blue",
-		swamp:		", black",
-		mountain:	", red",
-		forest:		", green",
-		wastes:		"",
-		none:		", none"
-	]
 	
 	is_promo := { styling.promo }
 	
@@ -213,7 +225,16 @@ init script:
 	popout_width :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, minimum: 0,		maximum: 1500) else 0 }
 	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, minimum: 0,		maximum: 2000) else 0 }
 	
-	mountain_symbol_offset := { if styling.second_land_type == "mountain" or styling.land_type == "mountain" then -76 else 0 }
+	art_left :=		{ 0 }
+	art_top :=		{ 0 }
+	art_width :=	{ stylesheet.card_width }
+	art_height :=	{ if styling.stretch_art_to_whole_card then stylesheet.card_height + 1	else 955 }
+	
+	art_mask :=
+	{
+		base := if styling.land_type != "none" or styling.second_land_type != "none" then "image_mask_symbol.png" else "image_mask.png"
+		crop(base, offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_height())
+	}
 
 ############################################################## Extra style options
 
@@ -221,6 +242,9 @@ styling field:
 	type:			choice
 	name:			land type
 	description:	What type is this card?
+	choice:
+		name:			none
+		line below:		true
 	choice:			plains
 	choice:			island
 	choice:			swamp
@@ -252,10 +276,9 @@ styling field:
 	description:	Make the image span the whole card instead of just the visible part? Use this to help make popout effects.
 	initial:		no
 styling field:
-	type:			boolean
-	name:			hide name text
-	description:	Make the nameline visible to edit it, then turn it back invisible.
-	initial:		yes
+	type:			text
+	name:			namebox opacity percentage
+	description:	Set the opacity percentage for the namebox. Opaque is 100, transparent is 0, default is 80.
 styling field:
 	type:			boolean
 	name:			hide type text
@@ -268,14 +291,6 @@ styling field:
 	description:	Should there be an overlay applied, such as foil?
 	match:			magic-overlay-*.mse-include
 	required:		false
-styling field:
-	type:			choice
-	name:			border
-	description:	Use a border?
-	choice:			yes
-	choice:			only copyright
-	choice:			no
-	initial:		yes
 
 include file: /magic-modules.mse-include/information/styling_fields
 
@@ -299,15 +314,25 @@ card style:
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
 		z index:			100
-		visible:			{ styling.border != "no" }
-		mask:				{ "/magic-modules.mse-include/borders/744x1039/m15/full_art/" + (if styling.border == "yes" then "base.png" else "borderless.png") }
+		mask:				border_mask.png
+	card color:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			210
+		popup style:		in place
+		render style:		image
+		image:				{ card_background() }
+		mask:				card_mask.png
 	############################# Image
 	image:
-		left:				{ if styling.stretch_art_to_whole_card then 0							else if styling.border != "yes" then 0						else 30 }
-		top:				{ if styling.stretch_art_to_whole_card then 0							else if styling.border != "yes" then 0						else 30 }
-		width:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width		else if styling.border != "yes" then stylesheet.card_width	else 684 }
-		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height + 1	else if styling.border != "no"	then 954					else stylesheet.card_height + 1 }
+		left:				{ art_left() }
+		top:				{ art_top() }
+		width:				{ art_width() }
+		bottom:				{ art_height() }
 		z index:			0
+		mask:				{ art_mask() }
 	mainframe image:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
@@ -318,6 +343,13 @@ card style:
 ############################################################## Extra card fields
 
 extra card field:
+	type:				choice
+	name:				card stamp rim
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card stamp rim
+extra card field:
 	type:				color
 	name:				card stamp border
 	script:				card.border_color
@@ -325,19 +357,26 @@ extra card field:
 	save value:			false
 	show statistics:	false
 extra card field:
-	type:				choice
-	name:				first type
+	type:				color
+	name:				namebox border
+	script:				card.border_color
 	editable:			false
 	save value:			false
 	show statistics:	false
-	choice:				first type
 extra card field:
 	type:				choice
-	name:				second type
+	name:				namebox background
 	editable:			false
 	save value:			false
 	show statistics:	false
-	choice:				second type
+	choice:				namebox background
+extra card field:
+	type:				choice
+	name:				namebox shadow
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				namebox shadow
 extra card field:
 	type:				choice
 	name:				symbol
@@ -354,37 +393,55 @@ extra card field:
 	choice:				foil layer
 
 extra card style:
+	card stamp rim:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			230
+		visible:			{ is_stamped() }
+		render style:		image
+		image:				{ card_stamp() }
 	card stamp border:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
-		z index:			110
-		visible:			{ styling.border != "no" and is_stamped() }
+		z index:			220
+		visible:			{ is_stamped() }
 		mask:				border_mask_stamp.png
-	first type:
-		left:				101
-		top:				{ if two_types() and styling.second_land_type != "wastes" then 735 else 840 }
-		width:				543
-		height:				100
-		z index:			3000
+	namebox border:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			220
+		mask:				border_mask_namebox.png
+	namebox background:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			110
+		popup style:		in place
 		render style:		image
-		image:				{ "type/" + type_to_letter_map[styling.land_type] + ".png" }
-	second type:
-		left:				101
-		top:				840
-		width:				543
-		height:				100
-		z index:			3000
-		visible:			{ two_types() }
+		image:				{ set_alpha("namebox_background.png", alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 80)) }
+	namebox shadow:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			100
+		popup style:		in place
 		render style:		image
-		image:				{ "type/" + type_to_letter_map[styling.second_land_type] + ".png" }
+		image:				namebox_shadow.png
 	symbol:
 		left:				129
 		top:				732
 		width:				486
 		height:				186
 		z index:			3000
+		visible:			{ not no_types() }
 		render style:		image
 		image:				{ card_symbol() }
 	foil layer:
