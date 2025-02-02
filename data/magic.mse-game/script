@@ -33,7 +33,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2024-10-01 Template Pack 3.0.5: Magic Modules & Showcase Catchup - DFC & Exporter Fixes"}
+version_date := {"2025-02-01 Template Pack 3.1.a: Mainframe Battles"}
 version := version_date
 ############################################################## Common filters
 ############################################################## Utility
@@ -51,6 +51,7 @@ has_png :=         contains@(match:".png")
 has_none :=        contains@(match: "none")
 
 starts_vowel :=    match@(match:"[aâäàáeêëèéiîïìíoôöòóuûüùúAÂÄÀÁEÊËÈÉIÎÏÌÍOÔÖÒÓUÛÜÙÚ]")
+ends_dash :=       match@(match: "/$")
 
 remove_comma :=    replace@(match: ",", replace: "")
 long_dash :=       replace@(match:"-", replace:"—")
@@ -3430,11 +3431,17 @@ loyalty_cost_box_default :=
 	else if	contains(cost, match: "-") then	"-, shadow"
 	else									"0, shadow"
 }
+loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
 loyalty_cost_box_image :=
 {
 	shape := remove_comma(loyalty_cost_box_field(input + (instance-1)*8))
 	if contains(shape, match: "none") then ""
-	else "/magic-modules.mse-include/loyalty/loyalty cost " + shape + ".png"
+	else (
+	folder := loyalty_boxes_image_folder()
+	if not ends_dash(folder) then folder := folder + "/"
+	name := "loyalty cost " + shape + ".png"
+	path := folder + name
+	if exists_in_package(path) then path else "/magic-modules.mse-include/loyalty/" + name)
 }
 
 loyalty_field :=
@@ -3460,7 +3467,12 @@ loyalty_box_image :=
 {
 	shape := remove_comma(loyalty_box_field(instance))
 	if has_none(shape) then ""
-	else "/magic-modules.mse-include/loyalty/" + shape + ".png"
+	else (
+	folder := loyalty_boxes_image_folder()
+	if not ends_dash(folder) then folder := folder + "/"
+	name := shape + ".png"
+	path := folder + name
+	if exists_in_package(path) then path else "/magic-modules.mse-include/loyalty/" + name)
 }
 
 loyalty_face_1 := { 1 }
@@ -3747,10 +3759,11 @@ loyalty_stripe_mask :=
 		)
 	)
 }
+loyalty_stripe_alpha_default := { "40" }
 loyalty_stripe_separator_image :=
 {
 	color := if instance <= 1 then (styling.stripes_color or else rgb(255,255,255)) else (styling["stripes_color_" + instance] or else rgb(255,255,255))
-	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else "40") else (styling["stripes_opacity_percentage_" + instance] or else "40")
+	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else loyalty_stripe_alpha_default()) else (styling["stripes_opacity_percentage_" + instance] or else loyalty_stripe_alpha_default())
 	set_alpha(
 		recolor_image(
 			"/magic-modules.mse-include/loyalty/stripe_" + (if (input mod 2) == 0 then "top" else "bottom") + ".png",
@@ -3758,14 +3771,14 @@ loyalty_stripe_separator_image :=
 		),
 		alpha: get_alpha_percentage(
 			alpha,
-			default: 40
+			default: loyalty_stripe_alpha_default()
 		)
 	)
 }
 loyalty_stripe_image :=
 {
 	color := if instance <= 1 then (styling.stripes_color or else rgb(255,255,255)) else (styling["stripes_color_" + instance] or else rgb(255,255,255))
-	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else "40") else (styling["stripes_opacity_percentage_" + instance] or else "40")
+	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else loyalty_stripe_alpha_default()) else (styling["stripes_opacity_percentage_" + instance] or else loyalty_stripe_alpha_default())
 	set_alpha(
 		recolor_image(
 			"/magic-modules.mse-include/loyalty/color.png",
@@ -3773,14 +3786,15 @@ loyalty_stripe_image :=
 		),
 		alpha: get_alpha_percentage(
 			alpha,
-			default: 40
+			default: loyalty_stripe_alpha_default()
 		)
 	)
 }
+loyalty_textbox_background_alpha_default := { "70" }
 loyalty_textbox_background_image :=
 {
 	color := if instance <= 1 then (styling.textbox_color or else rgb(255,255,255)) else (styling["textbox_color_" + instance] or else rgb(255,255,255))
-	alpha := if instance <= 1 then (styling.textbox_opacity_percentage or else "70") else (styling["textbox_opacity_percentage_" + instance] or else "70")
+	alpha := if instance <= 1 then (styling.textbox_opacity_percentage or else loyalty_textbox_background_alpha_default()) else (styling["textbox_opacity_percentage_" + instance] or else loyalty_textbox_background_alpha_default())
 	set_alpha(
 		recolor_image(
 			"/magic-modules.mse-include/loyalty/color.png",
@@ -3788,7 +3802,7 @@ loyalty_textbox_background_image :=
 		),
 		alpha: get_alpha_percentage(
 			alpha,
-			default: 70
+			default: loyalty_textbox_background_alpha_default()
 		)
 	)
 }
@@ -4472,8 +4486,8 @@ popout_height_2 := { popout_coord(3, field:styling.popout_art_2_coordinates or e
 popout_angle_2  := { popout_coord(4, field:styling.popout_art_2_coordinates or else "", lim:4) }
 
 module_chop := {
-	split := split_comma(styling.chop_text_box)
-	if length(styling.chop_text_box or else "") > input
+	split := split_comma(styling.chop_text_box or else "")
+	if length(split) > input
 		then to_number_lax(split[input])
 	else 0
 }
@@ -4535,16 +4549,6 @@ popout_top_2	:= { popout_coord(1, field:styling.popout_art_2_coordinates or else
 popout_width_2  := { popout_coord(2, field:styling.popout_art_2_coordinates or else "") }
 popout_height_2 := { popout_coord(3, field:styling.popout_art_2_coordinates or else "") }
 popout_angle_2  := { popout_coord(4, field:styling.popout_art_2_coordinates or else "", lim:4) }
-
-module_chop := {
-	split := split_comma(styling.chop_text_box)
-	if length(styling.chop_text_box or else "") > input
-		then to_number_lax(split[input])
-	else 0
-}
-chop_top    := { module_chop(0) }
-chop_bottom := { module_chop(1) }
-chop_right  := { module_chop(2) }
 
 ############################################################## Custom corner symbols
 verify_symbol_image := {

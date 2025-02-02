@@ -1,0 +1,701 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Mainframe Battles
+full name: Battles
+icon: card-sample.png
+installer group: magic/m15 style
+position hint: 007
+
+version: 2025-01-21
+depends on:
+	package: magic.mse-game
+	version: 2014-06-25
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-10-01
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+
+card width: 523
+card height: 375
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_typeline }
+
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	template_prefix := [
+		card: "/magic-modules.mse-include/cards/375 m15 battle/"
+		namebar: "/magic-modules.mse-include/cards/375 m15 battle/namebar/"
+		notch: "/magic-modules.mse-include/cards/375 m15 battle/notch/"
+		texture: "/magic-modules.mse-include/cards/375 m15 battle/texture/"
+		snow: "/magic-modules.mse-include/trims/snow/"
+		nyx: "/magic-modules.mse-include/trims/nyx/"
+		pt:"/magic-modules.mse-include/pts/375 m15/"
+		stamp:"stamps/round/"
+		ubstamp:"stamps/ub/"
+		star: "/magic-modules.mse-include/trims/star/",
+	]
+	template_suffix := [
+		card: "card.png",
+		namebar: "card.png",
+		notch: "card.png",
+		texture: "card.png",
+		snow: "snow.png"
+		nyx: "nyx.png"
+		pt: "pt.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png",
+		snowbox: "card.jpg"
+		star: "star.png",
+	]
+	template      := {
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:false)
+		else template_prefix[type] 
+			+ (if is_beyond() and uses_ub(type) then "beyond/" else "")
+			+ input
+			+ template_suffix[type]
+	}
+	land_template := { 
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:true)
+		else template_prefix[type] 
+			+ (if is_beyond() and uses_ub(type) then "beyond/" else "")
+			+ input
+			+ template_suffix[type]
+	}
+	uses_ub := { ub_array[input] or else false }
+	ub_array := [
+		"card": true,
+		"notch": true,
+		"texture": true,
+		"namebar": true
+	]
+	landless := { true }
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+
+	is_promo := { styling.promo }
+	########## Frame styling
+	card_shape := { "battle" }
+	is_unsorted := {styling.remove_from_autocount}
+	is_vehicle :=	{ (auto_vehicle()	or contains(styling.frames, match:"vehicle")) }
+	is_nyx :=		{ (auto_nyx()		or contains(styling.frames, match:"nyx")) }
+	is_snow :=		{ (auto_snow()		or contains(styling.frames, match:"snow")) }
+	is_beyond := 	{ (auto_ub()		or contains(styling.frames, match:"universes beyond")) }
+	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
+	auto_nyx :=		{ contains(styling.auto_frames, match:"nyx")		and lang_setting("is_enchantment")(card.super_type) }
+	auto_snow :=	{ contains(styling.auto_frames, match:"snow")		and lang_setting("is_snow")(card.super_type) }
+	auto_ub :=		{ contains(styling.auto_frames, match:"universes beyond")		and (card.card_stamp == "universes beyond" or card.card_stamp == "flatstamped universes beyond") }
+
+	is_custom_border := {
+		if chosen(styling.frames, choice:"custom border")
+			then has_png(styling.custom_border_source)
+		else auto_custom_border()
+	}
+	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
+	namebar_background := { color_background(type:"namebar",     base_hybrid:card_hybrid, folder:template_prefix["namebar"], blend_type:"card", artifact_blend:"white") }
+	notch_background := { color_background(type:"notch",     base_hybrid:card_hybrid, folder:template_prefix["namebar"], blend_type:"card", artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	texture_background := { color_background(type:"texture",     base_hybrid:card_hybrid, folder:template_prefix["texture"], blend_type:"card") }
+	stamp_img := {
+		sh := stamp_shape()
+		"/magic-modules.mse-include/stamps/backs/" + (if sh == "triangle" then "triangle_stamp.png" else "stamp.png")
+	}
+	watermark_include := "/magic-modules.mse-include/watermarks"
+	
+	is_borderless := { styling.image_style == "borderless" }
+	is_boxed := { styling.image_style == "boxed" }
+	is_spillover := { styling.image_style == "spillover" }
+	
+	has_left_symbol := {
+		styling.transform_symbol_side == "left" and card.transformation != "none"
+	}
+	has_right_symbol := {
+		styling.transform_symbol_side == "right" and card.transformation != "none"
+	}
+	transform_symbol_offset_left_1 := {
+		if styling.transform_symbol_side == "right" then 401
+		else 0
+	}
+	
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		size: {15},
+		color: {"black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_pt_default := [
+		name: {"Beleren Bold"},
+		size: {15},
+		color: {if styling.defense_style == "pt" then "black" else "white"},
+		vertical: {0},
+		italic: {""}
+	]
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style
+styling field:
+	type: choice
+	name: image style
+	choice: fullart
+	choice: borderless
+	choice: boxed
+	choice: spillover
+	description: The type of image box to use
+styling field:
+	type: choice
+	name: defense style
+	choice: defense
+	choice: loyalty
+	choice: pt
+	description: Use an alternate symbol for the defense?
+styling field:
+	type: choice
+	name: transform symbol side
+	choice: left
+	choice: right
+	description: Should the Lesson/Transform symbol be on the left or right?
+styling field:
+	type: boolean
+	name: show transform notch
+	initial: no
+	description: Show the transform notch above defense?
+styling field:
+	type: multiple choice
+	name: frames
+	choice: nyx
+	choice: snow
+	choice: vehicle
+	choice: custom border
+styling field:
+	type: text
+	name: custom border source
+	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
+styling field:
+	type: multiple choice
+	name: auto frames
+	description: Automatically applies frames for multi-typed enchantments, snow, or Vehicles.
+	choice: nyx
+	choice: snow
+	choice: vehicle
+	choice: universes beyond
+	initial: nyx, vehicle, universes beyond
+styling field:
+	type: boolean
+	name: maintain black copyright area
+	initial: no
+styling field:
+	type: boolean
+	name: use ancestral mana symbols
+	initial: no
+include file: /magic-modules.mse-include/texts/styling_fields
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: text
+	name: alt rarity color
+	description: Use a custom color for the rarity symbol. Formatted as "R1,G1,B1:R2,G2,B2:...:X:" 1 and 2 are fill color, 3 and 4 border color, X is border thickness. For example, rare is 214,196,94:95,84,40:0,0,0:0,0,0:0.07
+include file: /magic-modules.mse-include/fonts/styling_fields
+styling field:
+	type: text
+	name: popout image style
+	description: The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
+styling field:
+	type: boolean
+	name: grey hybrid typeline
+	description: Use a grey background for the type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+	frames:
+		render style: checklist
+		direction: vertical
+	auto frames:
+		render style: checklist
+		direction: vertical
+############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/separators/card_fields
+include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/watermarks/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width:	523
+		height:	375
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 170
+		mask: { if is_borderless() then "borderless_mask.png" else "border_mask.png" }
+	card color:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 200
+		render style: image
+		popup style: in place
+		image: { module_card() }
+		mask: frame_mask.png
+	############################# Name line
+	name:
+		left: { if has_left_symbol() then 97 else 67 }
+		top: { 21 + name_font_vertical()}
+		width: { 410 - max(15,card_style.casting_cost.content_width) - (if card.transformation != "none" then 35 else 0) }
+		height: 22
+		alignment: bottom shrink-overflow
+		padding bottom: -2
+		padding top: 2
+		z index: 900
+		font:
+			name: { name_font() }
+			italic name: { name_font_italic() }
+			size: { name_font_size() }
+			color: { name_font_color() }
+	casting cost:
+		right: { if has_right_symbol() then 449 else 484 }
+		top: 20
+		width: { max(20, card_style.casting_cost.content_width) + 10 }
+		height: 23
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: { name_font_size() }
+		symbol font:
+			name: magic-mana-large
+			size: { name_font_size() }
+			alignment: middle right
+		always symbol: true
+		z index: 920
+		padding top: 0
+	############################# Image
+	image:
+		left: { if is_boxed() then 63 else 41 }
+		top: { if is_borderless() then 0 else if is_boxed() then 51 else if is_spillover() then 30 else 15 }
+		width: { if is_borderless() then 482 else if is_boxed() then 422 else 467 }
+		height: { if is_borderless() then 375 else if is_boxed() then 162 else if is_spillover() then 210 else 345 }
+		z index: 100
+		default: { default_image(card.card_color)}
+		mask: { if is_spillover() then "image_mask.png" else "" }
+	mainframe image:
+		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
+		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
+		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
+		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
+		z index: 1010
+	############################# Card type
+	type:
+		left: 67
+		top: { 219 + type_font_vertical() }
+		width: { 400 - rare_width() }
+		height: 22
+		alignment: top shrink-overflow
+		z index: 900
+		padding top: 2
+		padding bottom: 4
+		padding right: 2
+		font:
+			name: { type_font() }
+			italic name: { type_font_italic() }
+			size: { type_font_size() }
+			color: { type_font_color() }
+			separator color: red
+	rarity:
+		right: 485
+		top: 220
+		width: 44
+		height: 22
+		z index: 950
+		alignment: middle right
+		render style: image
+		include file: /magic-modules.mse-include/rarities/choice_images
+	############################# Text box
+	text:
+		left: 63
+		top: { 252 + body_font_vertical() + chop_top() }
+		width: { (if styling.show_transform_notch and card.pt_2 != "" then 400 else 410) - chop_right() }
+		bottom: { 356 - chop_bottom() }
+		font:
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
+			scale down to: 6
+			color: { body_font_color() }
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { body_font_size() }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 900
+		padding left:   6
+		padding top:    2
+		padding right:  4
+		padding bottom: 2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	############################# PT
+	loyalty:
+		z index: 910
+		left: 480
+		top: 336
+		width:	{ if styling.defense_style == "pt" then 0 else 22 }
+		height:	24
+		alignment: center middle shrink-overflow
+		font:
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {pt_font_size()}
+			color: {pt_font_color()}
+			separator color: red
+	pt:
+		z index: 910
+		left: 452
+		top: 336
+		width:	{ if styling.defense_style == "pt" then 60 else 0 }
+		height:	24
+		alignment: center middle shrink-overflow
+		font:
+			name: {pt_font()}
+			italic name: {pt_font_italic()}
+			size: {pt_font_size()}
+			color: {pt_font_color()}
+			separator color: red
+	pt 2:
+		z index: 910
+		right: 485
+		top: 309
+		width: 30
+		height:	12
+		alignment: bottom right
+		visible: { styling.show_transform_notch }
+		font:
+			name: Beleren Bold
+			size: 11
+			weight: bold
+			color: {rgb(45,45,45)}
+			separator color: red
+
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: pt box
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: defense box
+	choice: defense
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: loyalty box
+	choice: defense
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: namebar
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: notch
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: texture
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: land overlay
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: nyx overlay
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: snow overlay
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: vehicle overlay
+	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: custom overlay
+	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: stamp backing
+	choice: stamp
+	editable: false
+	save value: false
+	script: card.card_color
+extra card field:
+	type: color
+	name: art outline
+	script: rgb(0,0,0)
+extra card field:
+	type: color
+	name: backup border
+	script: rgb(0,0,0)
+extra card style:
+	defense box:
+		left: 459
+		top: 322
+		height: 52
+		width: 64
+		render style: image
+		z index: 720
+		image: /magic-modules.mse-include/loyalty/defense.png
+		visible: {card.loyalty != "" and styling.defense_style == "defense" }
+	loyalty box:
+		left: 459
+		top: 322
+		height: 52
+		width: 64
+		render style: image
+		z index: 720
+		image: /magic-modules.mse-include/loyalty/loyalty.png
+		visible: {card.loyalty != "" and styling.defense_style == "loyalty" }
+	pt box:
+		left: 438
+		top: 330
+		width:	81
+		height:	42
+		z index: 720
+		visible: { card.pt != "" and styling.defense_style == "pt" }
+		render style: image
+		image: { module_ptbox(vehicle:is_vehicle()) }
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 1050
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	namebar:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 210
+		render style: image
+		image: { namebar_background() }
+		mask: { if card.transformation == "none" then "" else template_prefix["namebar"] + styling.transform_symbol_side + "_symbol.png" }
+	notch:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 210
+		render style: image
+		image: { notch_background() }
+		visible: { styling.show_transform_notch }
+	texture:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 80
+		render style: image
+		image: { texture_background() }
+	land overlay:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		z index: 81
+		render style: image
+		image: { template_prefix["texture"] + (if is_beyond() and uses_ub(type) then "beyond/" else "") + "lcard.png" }
+		visible: { contains(card.card_color, match:"land") }
+	stamp backing:
+		left: 52
+		top: 159
+		width: 56
+		height: 26
+		z index: 850
+		angle: 270
+		visible: { card.card_stamp != "none" }
+		render style: image
+		image: { stamp_img() }
+	art outline:
+		left: 62
+		top: 50
+		width: 424
+		height: 164
+		z index: 90
+	custom overlay:
+		left: 523
+		top: 0
+		width: 375
+		height: 523
+		angle: 270
+		render style: image
+		image: { custom_border_blend() }
+		mask: trim_mask.png
+		z index: 95
+		visible: {is_custom_border()}
+	nyx overlay:
+		left: 523
+		top: 0
+		width: 375
+		height: 523
+		angle: 270
+		render style: image
+		image: { module_nyx() }
+		mask: trim_mask.png
+		z index: 93
+		visible: { is_nyx() }
+	snow overlay:
+		left: 523
+		top: 0
+		width: 375
+		height: 523
+		angle: 270
+		render style: image
+		image: { module_snow() }
+		mask: trim_mask.png
+		visible: { is_snow() }
+		z index: 92
+	vehicle overlay:
+		left: 0
+		top: 0
+		width: 523
+		height: 375
+		render style: image
+		image: vehicle.png
+		z index: 91
+		visible: { is_vehicle() }
+	backup border:
+		left: 0
+		top : 0
+		width:	523
+		height:	375
+		left width:   17
+		right width:  17
+		top width:    17
+		bottom width: 18
+		z index: 171
+		mask: borderless_mask.png
+		visible: { styling.maintain_black_copyright_area }

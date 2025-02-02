@@ -77,10 +77,12 @@ init script:
 		template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type]
 	}
 	
+	two_types := { styling.second_land_type != "none" }
+	
 	card_background :=
 	{
 		first_color := "card/" + type_to_letter_map[styling.land_type] + "card.png"
-		if styling.second_land_type == "none" then first_color else (
+		if not two_types() then first_color else (
 		second_color := "card/" + type_to_letter_map[styling.second_land_type] + "card.png"
 		linear_blend(
 			image1: first_color,
@@ -91,17 +93,26 @@ init script:
 	}
 	card_color :=
 	{
-		if styling.second_land_type == "none" then substring(type_to_color_map[styling.land_type] + ", land", begin: 2)
+		if not two_types() then substring(type_to_color_map[styling.land_type] + ", land", begin: 2)
 		else substring(type_to_color_map[styling.land_type] + type_to_color_map[styling.second_land_type] + ", land, horizontal", begin: 2)
 	}
 	card_color_filter :=
 	{
-		if styling.second_land_type == "none" then substring(type_to_color_map[styling.land_type] + ", land", begin: 2)
+		if not two_types() then substring(type_to_color_map[styling.land_type] + ", land", begin: 2)
 		else substring(type_to_color_map[styling.land_type] + type_to_color_map[styling.second_land_type] + ", land, horizontal", begin: 2)
 	}
 	
 	card_full_name := { value }
 	card_full_name_default := { type_to_name_map[styling.land_type + "," + styling.second_land_type] }
+	name_default := { type_to_name_map[styling.land_type + "," + styling.second_land_type] }
+	
+	super_type_filter_default := { (if two_types() then "" else "Basic ") + "Land" }
+	sub_type_filter_default :=
+	{
+		base := to_title(styling.land_type) + (if two_types() then " " + to_title(styling.second_land_type) else "")
+		if base == "Wastes" then "" else base
+	}
+	
 	type_to_name_map :=
 	[
 		"plains,none":			"Plains",
@@ -186,13 +197,13 @@ init script:
 	name_mask :=
 	{
 		"mask_name" +
-		(if styling.second_land_type != "none" then "_dual" else "") +
+		(if two_types() then "_dual" else "") +
 		(if styling.second_land_type == "plains" or styling.second_land_type == "wastes" or styling.land_type == "plains" or styling.land_type == "wastes" then "_plains" else "") +
 		".png"
 	}
 	
 	plains_symbol_offset := { if styling.second_land_type == "plains" or styling.second_land_type == "wastes" or styling.land_type == "plains" or styling.land_type == "wastes" then 150 else 0 }
-	symbol_offset := { if styling.second_land_type != "none" then 180 else 0 }
+	symbol_offset := { if two_types() then 180 else 0 }
 	two_two :=
 	{
 		(styling.second_land_type == "plains" or styling.second_land_type == "wastes") and (styling.land_type == "plains" or styling.land_type == "wastes")
@@ -263,8 +274,6 @@ styling field:
 		name:			use card color
 		color:			rgb(255,255,254)
 	initial:		rgb(255,255,254)
-
-include file: /magic-modules.mse-include/rarities/styling_fields
 
 styling field:
 	type:			package choice
@@ -414,7 +423,7 @@ extra card style:
 		width:				{ if two_two() then 130 else 160 }
 		height:				{ if two_two() then 225 else 295 }
 		z index:			3000
-		visible:			{ styling.second_land_type != "none" }
+		visible:			{ two_types() }
 		render style:		image
 		image:				{  recolor_image("type_" + styling.second_land_type + ".png", color: styling.text_color) }
 	type separator:
@@ -423,7 +432,7 @@ extra card style:
 		width:				160
 		height:				30
 		z index:			3000
-		visible:			{ styling.second_land_type != "none" }
+		visible:			{ two_types() }
 		render style:		image
 		image:				{  recolor_image("type_sep.png", color: styling.text_color) }
 	first symbol:
@@ -440,7 +449,7 @@ extra card style:
 		width:				160
 		height:				164
 		z index:			3000
-		visible:			{ styling.second_land_type != "none" }
+		visible:			{ two_types() }
 		render style:		image
 		image:				{  recolor_image("symbol_" + styling.second_land_type + ".png", color: styling.text_color) }
 	foil layer:
