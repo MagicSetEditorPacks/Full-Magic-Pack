@@ -874,108 +874,114 @@ color_background := {
 color_combination := {
 	# does this have an override blend_type?
 	if blend_type == "" then blend_type := type
-	# The base hybrid between colors, without the outer frame blended over it
+	
+	# Basic gradient of the color frames
 	base := base_hybrid[shape][color_count]
-	# Do we need to blend an additional gold, colorless or artifact outer frame?
-	if land and not colored_lands then
-	conditional_masked_blend(
-		mode:			"multicolor",
-		light:			base,
-		light_input:	input,
-		dark:			land_template,
-		dark_input:		"c"
+	
+	# This next step adds additional blending from artifact, hybrid, and multicolor cards
+	# Usually, the basic gradient is used on the "light" parts of the mask
+	# And one of those three are used on the "dark" parts
+	# artifact mode is expected to add a trim effect, but leave the plates and pinlines alone
+	# hybrid mode is expected to add a plate effect, but leave the trim and pinline alone
+	# multicolor mode is expted to add a trim and plate effect, but leave the pinline alone
+	# when in conflict, artifact > multicolor > hybrid
+	# an artifact that costs (W)(W/U)(U) has artifact trim, gold plates, and WU gradient pinlines
+	# this finds the parameters needed for the script at the end
+	# but may need an intermediate blend step when modes are chained
+	mode := ""				# by default we don't blend at all
+	light := base			# our base gradient script
+	light_input := input	# the color we've been given
+	dark := template		# the template script for this type
+	dark_input := "c"		# the color of the secondary blend image
+	
+	if land and not colored_lands then (
+		## blend with land via multi mode
+		mode := "multicolor"
+		dark := land_template
 	)
-	else if land and multi and mask_hybrid_with_gold() then
-	conditional_masked_blend(
-		mode:			"hybrid",
-		light:			base,
-		light_input:	input,
-		dark:			land_template,
-		dark_input:		"m"
+	else if land and multi then (
+		## blend with land via hybrid mode
+		## mask_hybrid decides the dark input
+		mode := "hybrid"
+		dark := land_template
+		if mask_hybrid_with_gold() then (
+			## Add mland internals to the gradient
+			dark_input := "m"
+		)
+		else if mask_multi_land_with_color() then (
+			## Use gradient's internals on mland
+			light := land_template
+			light_input := "m"
+			dark := base
+			dark_input := input
+		)
+		else (
+			## cland with gradient pinlines
+			mode := "multicolor"
+		)
 	)
-	else if land and multi and mask_multi_land_with_color() then
-	conditional_masked_blend(
-		mode:			"hybrid",
-		light:			land_template,
-		light_input:	"m",
-		dark:			base,
-		dark_input:		input
+	else if artifact then (
+		## blend via artifact mode
+		## multi and hybrid need to chain blends
+		## otherwise just use artifact as dark input
+		mode := "artifact"
+		dark_input := "a"
+		if multi then (
+			## first blend multicolor internals onto the gradient
+			## then artifact will overwrite the outer portion
+			light := { conditional_masked_blend(
+				mode: 			"multicolor",
+				light: 			base,
+				light_input: 	input,
+				dark: 			template,
+				dark_input : 	"m"
+			)}
+		)
+		else if color_count <= 1 then (
+			## blend artifact outside
+		)
+		else if mask_hybrid_with_land() then (
+			## first blend cland internals, artifact happens later 
+			light := { conditional_masked_blend(
+				mode: 			"multicolor",
+				light: 			base,
+				light_input: 	input,
+				dark: 			template,
+				dark_input : 	"c"
+			)}
+		)
+		else if mask_hybrid_with_gold() then (
+			## first blend mland internals, artifact happens later 
+			light := { conditional_masked_blend(
+				mode: 			"multicolor",
+				light: 			base,
+				light_input: 	input,
+				dark: 			template,
+				dark_input : 	"m"
+			)}
+		)
+		else (
+			## shouldn't get here, but if we do, blend artifact outside
+		)
 	)
-	else if multi and artifact then
-	conditional_masked_blend(
-		mode:			"artifact",
-		light:			{ conditional_masked_blend(
-			mode:			"multicolor",
-			light:			base,
-			light_input:	input,
-			dark:			template,
-			dark_input:		"m"
-		) },
-		light_input:	input,
-		dark:			template,
-		dark_input:		"a"
+	else if multi then (
+		## complex forms already handled
+		## just blend multicolor over the gradient
+		mode := "multicolor"
+		dark_input := "m"
 	)
-	else if multi then
-	conditional_masked_blend(
-		mode:			"multicolor",
-		light:			base,
-		light_input:	input,
-		dark:			template,
-		dark_input:		"m"
+	else if color_count > 1 then (
+		## blend hybrid internals over the gradient
+		## settings change which template we blend with
+		mode := "hybrid"
+		dark := land_template
+		if mask_hybrid_with_gold() then (
+			dark_input := "m"
+		)
 	)
-	else if artifact and color_count > 1 and mask_hybrid_with_land() then
-	conditional_masked_blend(
-		mode:			"artifact",
-		light:			{ conditional_masked_blend(
-			mode:			"multicolor",
-			light:			base,
-			light_input:	input,
-			dark:			template,
-			dark_input:		"c"
-		) },
-		light_input:	input,
-		dark:			template,
-		dark_input:		"a"
-	)
-	else if artifact and color_count > 1 and mask_hybrid_with_gold() then
-	conditional_masked_blend(
-		mode:			"artifact",
-		light:			{ conditional_masked_blend(
-			mode:			"multicolor",
-			light:			base,
-			light_input:	input,
-			dark:			template,
-			dark_input:		"m"
-		) },
-		light_input:	input,
-		dark:			template,
-		dark_input:		"a"
-	)
-	else if artifact then
-	conditional_masked_blend(
-		mode:			"artifact",
-		light:			base,
-		light_input:	input,
-		dark:			template,
-		dark_input:		"a"
-	)
-	else if color_count > 1 and mask_hybrid_with_land() then
-	conditional_masked_blend(
-		mode:			"hybrid",
-		light:			base,
-		light_input:	input,
-		dark:			land_template,
-		dark_input:		"c"
-	)
-	else if color_count > 1 and mask_hybrid_with_gold() then
-	conditional_masked_blend(
-		mode:			"hybrid",
-		light:			base,
-		light_input:	input,
-		dark:			land_template,
-		dark_input:		"m"
-	)
-	else base()
+	## if we have a mode, blend that, otherwise use our base gradient
+	if mode == "" then base() else conditional_masked_blend()
+	
 }@(folder: "", blend_type:"")
 
 conditional_masked_blend :=
