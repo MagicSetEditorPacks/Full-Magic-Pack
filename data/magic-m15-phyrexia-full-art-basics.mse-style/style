@@ -54,83 +54,85 @@ init script:
 		italic: {""}
 	]
 	
-	two_types := { styling.second_land_type != "none" }
-	
-	card_symbol :=
-	{
-		first := "symbol/" + type_to_letter_map[styling.land_type] + ".png"
-		if not two_types() then first else (
-		second := "symbol/" + type_to_letter_map[styling.second_land_type] + ".png"
-		linear_blend(
-			image1: first,
-			image2: second,
-			x1: 0.49,  y1: 0,
-			x2: 0.51,  y2: 0
-		))
+	land_types := [["plains"], ["island"], ["swamp"], ["mountain"], ["forest"], ["wastes"]]
+	land_type_of := {
+		result := "none"
+		option := if input == 2 then styling.second_land_type else styling.land_type
+		if option == "auto" then (
+			ar := break_text(card.sub_type, match:"<word-list-land>[^<]+</word-list-land>")
+			given := if length(ar) >= input then to_lower(remove_tags(ar[input-1])) else "none"
+			if input == 1 and position(of:[to_lower(card.name)], in:land_types) >= 0 then result := to_lower(card.name)
+			else if include_types and position(of:[given], in:land_types) >= 0 then result := given
+		)
+		else result := option
+		result
+	}@(include_types:true)
+	land_type_1 := { land_type_of(1, include_types:include_types) }@(include_types:true)
+	land_type_2 := { land_type_of(2, include_types:include_types) }@(include_types:true)
+	land_type_count := { 
+		count := 0
+		lt1 := land_type_1()
+		lt2 := land_type_2()
+		if lt1 != "none" then count := count + 1
+		if lt2 != "none" and lt2 != lt1 then count := count + 1
+		count
 	}
+	no_types := { land_type_count() == 0 }
+	two_types := { land_type_count() == 2 }
 	
-	card_full_name := { value }
-	card_full_name_default := { type_to_name_map[styling.land_type + "," + styling.second_land_type] }
-	name_default := { type_to_name_map[styling.land_type + "," + styling.second_land_type] }
-	
-	super_type_filter_default := { (if two_types() then "" else "Basic ") + "Land" }
+	modified_color := {
+		t1 := land_type_1()
+		t2 := land_type_2()
+		t3 := if t1 == "none" then t2 else t1
+		
+		if t3 == "none"
+			then card.card_color		## double none, revert to real card color
+		else if t1 == "none" or t2 == "none"
+			then type_to_word_map[t3]	## single none, use that
+		else (
+			c1 := type_to_word_map[t1]
+			c2 := type_to_word_map[t2]
+			c3 := if c1 == "colorless" then c2 else c1
+			if c3 == "colorless"
+				then "colorless"		## double colorless, use that
+			else if c1 == "colorless" or c2 == "colorless" or c1 == c2
+				then c3					## color + colorless or double color, use the color
+			else (						## combine colors, multi, reverse if needed
+				normal_order := normal_order_map["{c1},{c2}"] or else false
+				"{c1}, {c2}, multicolor, horizontal" + (if not normal_order then ", reversed" else "")
+			)
+		)
+	}
+	normal_order_map := [
+		"white,blue": true,
+		"white,black": true,
+		"blue,black": true,
+		"blue,red": true,
+		"black,red": true,
+		"black,green": true,
+		"red,green": true,
+		"red,white": true,
+		"green,white": true,
+		"green,blue": true
+	]
+	super_type_filter_default := { 
+		if two_types() then "Land" else "Basic Land"
+	}
 	sub_type_filter_default :=
 	{
-		base := to_title(styling.land_type) + (if two_types() then " " + to_title(styling.second_land_type) else "")
-		if base == "Wastes" then "" else base
+		t1 := land_type_1(include_types:false)
+		t2 := land_type_2(include_types:false)
+		if t1 == "wastes" or t1 == "none" then t1 := ""
+		if t2 == "wastes" or t2 == "none" then t2 := ""
+		c1 := type_to_word_map[t1]
+		c2 := type_to_word_map[t2]
+		normal_order := normal_order_map["{c1},{c2}"] or else false
+		
+		lower_type := 	if normal_order then t1 + (if t1 != "" then " " else "") + t2
+						else t2 + (if t2 != "" then " " else "") + t1
+		to_title(lower_type)
 	}
 	
-	type_to_name_map :=
-	[
-		"plains,none":			"Plains",
-		"island,none":			"Island",
-		"swamp,none":			"Swamp",
-		"mountain,none":		"Mountain",
-		"forest,none":			"Forest",
-		"wastes,none":			"Wastes",
-		
-		"plains,wastes":		"Wasted Plains",
-		"island,wastes":		"Wasted Island",
-		"swamp,wastes":			"Wasted Swamp",
-		"mountain,wastes":		"Wasted Mountain",
-		"forest,wastes":		"Wasted Forest",
-		"wastes,wastes":		"Wastes",
-		
-		"plains,plains":		"Plains",
-		"island,plains":		"Tundra",
-		"swamp,plains":			"Scrubland",
-		"mountain,plains":		"Plateau",
-		"forest,plains":		"Savannah",
-		"wastes,plains":		"Wasted Plains",
-		
-		"plains,island":		"Tundra",
-		"island,island":		"Island",
-		"swamp,island":			"Underground Sea",
-		"mountain,island":		"Volcanic Island",
-		"forest,island":		"Tropical Island",
-		"wastes,island":		"Wasted Island",
-		
-		"plains,swamp":			"Scrubland",
-		"island,swamp":			"Underground Sea",
-		"swamp,swamp":			"Swamp",
-		"mountain,swamp":		"Badlands",
-		"forest,swamp":			"Bayou",
-		"wastes,swamp":			"Wasted Swamp",
-		
-		"plains,mountain":		"Plateau",
-		"island,mountain":		"Volcanic Island",
-		"swamp,mountain":		"Badlands",
-		"mountain,mountain":	"Mountain",
-		"forest,mountain":		"Taiga",
-		"wastes,mountain":		"Wasted Mountain",
-		
-		"plains,forest":		"Savannah",
-		"island,forest":		"Tropical Island",
-		"swamp,forest":			"Bayou",
-		"mountain,forest":		"Taiga",
-		"forest,forest":		"Forest",
-		"wastes,forest":		"Wasted Forest"
-	]
 	type_to_letter_map :=
 	[
 		plains:		"w",
@@ -141,16 +143,31 @@ init script:
 		wastes:		"c",
 		none:		"none"
 	]
-	type_to_color_map :=
-	[
-		plains:		", white",
-		island:		", blue",
-		swamp:		", black",
-		mountain:	", red",
-		forest:		", green",
-		wastes:		"",
-		none:		", none"
+	type_to_word_map := [
+		plains: 	"white",
+		island:		"blue",
+		swamp:		"black",
+		mountain:	"red",
+		forest:		"green",
+		wastes:		"colorless",
+		none:		"",
+		"": 		""
 	]
+	card_symbol :=
+	{
+		t1 := land_type_1()
+		t2 := land_type_2()
+		t3 := if t1 == "none" then t2 else t1
+		if t1 != "none" and t2 != "none" then linear_blend(
+			image1: "symbol/" + type_to_letter_map[t1] + ".png",
+			image2: "symbol/" + type_to_letter_map[t2] + ".png",
+			x1: 0.49,  y1: 0,
+			x2: 0.51,  y2: 0
+		)
+		else if t3 == "none" then ""
+		else "symbol/" + type_to_letter_map[t3] + ".png"
+	}
+	
 	
 	is_promo := { styling.promo }
 	
@@ -169,19 +186,8 @@ styling field:
 	type:			choice
 	name:			land type
 	description:	What type is this card?
-	choice:			plains
-	choice:			island
-	choice:			swamp
-	choice:			mountain
-	choice:			forest
-	choice:			wastes
-	initial:		plains
-styling field:
-	type:			choice
-	name:			second land type
-	description:	What type is this card?
 	choice:
-		name:			none
+		name:			auto
 		line below:		true
 	choice:			plains
 	choice:			island
@@ -189,7 +195,23 @@ styling field:
 	choice:			mountain
 	choice:			forest
 	choice:			wastes
-	initial:		none
+	choice:			none
+	initial:		auto
+styling field:
+	type:			choice
+	name:			second land type
+	description:	What type is this card?
+	choice:
+		name:			auto
+		line below:		true
+	choice:			plains
+	choice:			island
+	choice:			swamp
+	choice:			mountain
+	choice:			forest
+	choice:			wastes
+	choice:			none
+	initial:		auto
 styling field:
 	type:			text
 	name:			popout art coordinates
@@ -312,21 +334,22 @@ extra card style:
 		mask:				{ if card.card_stamp == "universes beyond" then "mask_stamp_background_border_triangle.png" else "mask_stamp_background_border.png" }
 	first type:
 		left:				101
-		top:				{ if two_types() and styling.second_land_type != "wastes" then 735 else 840 }
+		top:				{ if two_types() and land_type_2() != "wastes" then 735 else 840 }
 		width:				543
 		height:				100
 		z index:			3000
 		render style:		image
-		image:				{ "type/" + type_to_letter_map[styling.land_type] + ".png" }
+		visible:			{ land_type_1() != "none" }
+		image:				{ "type/" + type_to_letter_map[land_type_1()] + ".png" }
 	second type:
 		left:				101
 		top:				840
 		width:				543
 		height:				100
 		z index:			3000
-		visible:			{ two_types() }
+		visible:			{ land_type_2() != "none" }
 		render style:		image
-		image:				{ "type/" + type_to_letter_map[styling.second_land_type] + ".png" }
+		image:				{ "type/" + type_to_letter_map[land_type_2()] + ".png" }
 	symbol:
 		left:				175
 		top:				255

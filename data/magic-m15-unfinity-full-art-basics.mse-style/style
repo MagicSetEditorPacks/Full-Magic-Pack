@@ -1,7 +1,7 @@
 ﻿mse version:		2.1.2
 game:				magic
-short name:			LCI Basics
-full name:			Ixalan Full Art
+short name:			UNF Basics
+full name:			Unfinity Full Art
 icon:				card_sample.png
 position hint:		099
 
@@ -42,14 +42,15 @@ init script:
 		italic: {""}
 	]
 	
-	nameline_disabled_1 := { styling.hide_name_text }
+	nameline_offset_top_1 := { 1 }
+	casting_cost_offset_top_1 := { 1 }
 	transform_symbol_disabled_1 := { true }
 	card_symbol_disabled_1 := { true }
 	swap_fonts_name_default :=
 	[
 		name: {"Beleren Bold"},
 		size: {30.0},
-		color: { if styling.hide_name_text then rgba(0,0,0,0) else rgb(0,0,0) },
+		color: {"white"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -115,6 +116,26 @@ init script:
 		"green,white": true,
 		"green,blue": true
 	]
+	
+	template := { type + "/" + input + ".png" }
+	land_template := { type + "/" + (if input == "a" then "c" else input) + ".png" }
+	
+	card_background :=	{ color_background(input: modified_color(), type: "card",	base_hybrid: card_hybrid, multicolor_blend: "white", hybrid_blend: "white", artifact_blend: "white") }
+	card_stamp :=		{ color_background(input: modified_color(), type: "stamp",	base_hybrid: card_hybrid, multicolor_blend: "white", hybrid_blend: "white", artifact_blend: "white") }
+	card_symbol :=
+	{
+		t1 := land_type_1()
+		t2 := land_type_2()
+		t3 := if t1 == "none" then t2 else t1
+		if t1 != "none" and t2 != "none" then linear_blend(
+			image1: "symbol/" + type_to_letter_map[t1] + ".png",
+			image2: "symbol/" + type_to_letter_map[t2] + ".png",
+			x1: 0.50,  y1: 0,
+			x2: 0.51,  y2: 0
+		)
+		else "symbol/" + type_to_letter_map[t3] + ".png"
+	}
+	
 	super_type_filter_default := { 
 		if two_types() then "Land" else "Basic Land"
 	}
@@ -153,20 +174,6 @@ init script:
 		none:		"",
 		"": 		""
 	]
-	card_symbol :=
-	{
-		t1 := land_type_1()
-		t2 := land_type_2()
-		t3 := if t1 == "none" then t2 else t1
-		if t1 != "none" and t2 != "none" then linear_blend(
-			image1: "symbol/" + type_to_letter_map[t1] + ".png",
-			image2: "symbol/" + type_to_letter_map[t2] + ".png",
-			x1: 0.49,  y1: 0,
-			x2: 0.51,  y2: 0
-		)
-		else "symbol/" + type_to_letter_map[t3] + ".png"
-	}
-
 	
 	is_promo := { styling.promo }
 	
@@ -177,7 +184,18 @@ init script:
 	popout_width :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, minimum: 0,		maximum: 1500) else 0 }
 	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, minimum: 0,		maximum: 2000) else 0 }
 	
-	mountain_symbol_offset := { if land_type_1() == "mountain" or land_type_2() == "mountain" then -76 else 0 }
+	art_left :=		{ 0 }
+	art_top :=		{ 0 }
+	art_width :=	{ stylesheet.card_width }
+	art_height :=	{ if styling.stretch_art_to_whole_card then stylesheet.card_height + 1	else 955 }
+	
+	art_mask :=
+	{
+		t1 := land_type_1()
+		t2 := land_type_2()
+		base := if t1 == "none" and t2 == "none" then "image_mask.png" else "image_mask_symbol.png"
+		crop(base, offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_height())
+	}
 
 ############################################################## Extra style options
 
@@ -221,20 +239,14 @@ styling field:
 	description:	Make the image span the whole card instead of just the visible part? Use this to help make popout effects.
 	initial:		no
 styling field:
-	type:			boolean
-	name:			hide name text
-	description:	Make the nameline visible to edit it, then turn it back invisible.
-	initial:		yes
+	type:			text
+	name:			namebox opacity percentage
+	description:	Set the opacity percentage for the namebox. Opaque is 100, transparent is 0, default is 80.
 styling field:
 	type:			boolean
 	name:			hide type text
 	description:	Make the typeline visible to edit it, then turn it back invisible.
 	initial:		yes
-styling field:
-	type:			boolean
-	name:			hide basic land text
-	description:	Make the basic land text visible or invisible.
-	initial:		no
 
 styling field:
 	type:			package choice
@@ -242,14 +254,6 @@ styling field:
 	description:	Should there be an overlay applied, such as foil?
 	match:			magic-overlay-*.mse-include
 	required:		false
-styling field:
-	type:			choice
-	name:			border
-	description:	Use a border?
-	choice:			yes
-	choice:			only copyright
-	choice:			no
-	initial:		yes
 
 include file: /magic-modules.mse-include/information/styling_fields
 
@@ -273,15 +277,25 @@ card style:
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
 		z index:			100
-		visible:			{ styling.border != "no" }
-		mask:				{ "/magic-modules.mse-include/borders/744x1039/m15/full_art/" + (if styling.border == "yes" then "base.png" else "borderless.png") }
+		mask:				border_mask.png
+	card color:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			210
+		popup style:		in place
+		render style:		image
+		image:				{ card_background() }
+		mask:				card_mask.png
 	############################# Image
 	image:
-		left:				{ if styling.stretch_art_to_whole_card then 0							else if styling.border != "yes" then 0						else 30 }
-		top:				{ if styling.stretch_art_to_whole_card then 0							else if styling.border != "yes" then 0						else 30 }
-		width:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width		else if styling.border != "yes" then stylesheet.card_width	else 684 }
-		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height + 1	else if styling.border != "no"	then 954					else stylesheet.card_height + 1 }
+		left:				{ art_left() }
+		top:				{ art_top() }
+		width:				{ art_width() }
+		bottom:				{ art_height() }
 		z index:			0
+		mask:				{ art_mask() }
 	mainframe image:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
@@ -292,6 +306,13 @@ card style:
 ############################################################## Extra card fields
 
 extra card field:
+	type:				choice
+	name:				card stamp rim
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card stamp rim
+extra card field:
 	type:				color
 	name:				card stamp border
 	script:				card.border_color
@@ -299,19 +320,26 @@ extra card field:
 	save value:			false
 	show statistics:	false
 extra card field:
-	type:				choice
-	name:				first type
+	type:				color
+	name:				namebox border
+	script:				card.border_color
 	editable:			false
 	save value:			false
 	show statistics:	false
-	choice:				first type
 extra card field:
 	type:				choice
-	name:				second type
+	name:				namebox background
 	editable:			false
 	save value:			false
 	show statistics:	false
-	choice:				second type
+	choice:				namebox background
+extra card field:
+	type:				choice
+	name:				namebox shadow
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				namebox shadow
 extra card field:
 	type:				choice
 	name:				symbol
@@ -321,13 +349,6 @@ extra card field:
 	choice:				symbol
 extra card field:
 	type:				choice
-	name:				basic land
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				basic land
-extra card field:
-	type:				choice
 	name:				foil layer
 	editable:			false
 	save value:			false
@@ -335,49 +356,57 @@ extra card field:
 	choice:				foil layer
 
 extra card style:
+	card stamp rim:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			230
+		visible:			{ is_stamped() }
+		render style:		image
+		image:				{ card_stamp() }
 	card stamp border:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
+		z index:			220
+		visible:			{ is_stamped() }
+		mask:				border_mask_stamp.png
+	namebox border:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			220
+		mask:				border_mask_namebox.png
+	namebox background:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
 		z index:			110
-		visible:			{ styling.border != "no" and is_stamped() }
-		mask:				{ if card.card_stamp == "universes beyond" then "mask_stamp_background_border_triangle.png" else "mask_stamp_background_border.png" }
-	first type:
-		left:				244
-		top:				{ if two_types() then 799 else if styling.hide_basic_land_text then 827 else 810 }
-		width:				420
-		height:				49
-		z index:			3000
+		popup style:		in place
 		render style:		image
-		visible:			{ land_type_1() != "none" }
-		image:				{ "type/" + type_to_letter_map[land_type_1()] + ".png" }
-	second type:
-		left:				244
-		top:				857
-		width:				420
-		height:				49
-		z index:			3000
-		visible:			{ land_type_2() != "none" }
+		image:				{ set_alpha("namebox_background.png", alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 80)) }
+	namebox shadow:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			100
+		popup style:		in place
 		render style:		image
-		image:				{ "type/" + type_to_letter_map[land_type_2()] + ".png" }
+		image:				namebox_shadow.png
 	symbol:
-		left:				{ 156 + mountain_symbol_offset() }
-		top:				779
-		width:				146
-		height:				146
+		left:				129
+		top:				732
+		width:				486
+		height:				186
 		z index:			3000
+		visible:			{ not no_types() }
 		render style:		image
 		image:				{ card_symbol() }
-	basic land:
-		left:				{ 318 + mountain_symbol_offset() }
-		top:				874
-		width:				211
-		height:				24
-		z index:			3000
-		visible:			{ not two_types() and not styling.hide_basic_land_text }
-		render style:		image
-		image:				{ "basic_land/" + type_to_letter_map[land_type_1()] + ".png" }
 	foil layer:
 		left:				0
 		top:				0
