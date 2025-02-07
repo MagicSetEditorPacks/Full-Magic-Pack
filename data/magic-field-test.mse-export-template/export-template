@@ -1,0 +1,286 @@
+﻿mse version: 2.0.0
+short name: Field Test
+full name: version 0.4
+position hint: 120
+icon: icon.png
+version: 2018-02-09
+installer group: magic/Export/lackeyccg
+
+depends on:
+	package: magic.mse-game
+	version: 2009-07-23
+
+game: magic
+create directory: true
+file type: *.txt|*.txt|*.*|*.*
+
+# By Cajun
+option field:
+	type: text
+	name: set code
+	description: The set code for the set
+option field:
+	type: text
+	name: v mana replacement
+	description: exports V mana as a replacement text string
+script:
+	# replace shenanigans
+	fix_tm := replace@(match:"™", replace:"TM")
+	fixed_set_code := {
+		trim(fix_tm(if options.set_code != "" then options.set_code else set.set_code))
+	}
+	v_rep := {
+		if input != "V"
+			then input
+		else if options.v_mana_replacement == ""
+			then input
+		else
+			options.v_mana_replacement
+	}
+	apos_fix := replace@(match:"’", replace:"'")
+	type_trim := replace@(match:"Basic ", replace:"")+
+		replace@(match:"Legendary", replace:"")+
+		replace@(match:"Snow ", replace:"")+
+		replace@(match:"World ", replace:"")+
+		replace@(match:"Token ", replace:"")
+	
+	# process the name
+	exporter_name_filter := filter_text@(match:"!subname [^\n!]+")
+	exporter_name_grabber := replace@(match:"!subname ", replace:"")
+	card_name := { if exporter_name_grabber(exporter_name_filter(card.notes)) != "" then exporter_name_grabber(exporter_name_filter(card.notes)) else remove_tags(card.name) }
+	database_name := { 
+		if exporter_name_grabber(exporter_name_filter(card.notes)) != ""
+			then exporter_name_grabber(exporter_name_filter(card.notes))
+		else if card.name_2 != "" and match(card.shape, match:"(double|adventure|split|aftermath)")
+			then remove_tags(card.name) + "//" + remove_tags(card.name_2)
+		else remove_tags(card.name)		
+	}
+
+	# process type
+	token_export := {contains(card.shape, match:"token") or contains(card.shape, match:"emblem") or contains(card.shape, match:"rulestip")}
+	
+	# process rarity
+	use_promo := match@(match:"!promo\\b")
+	use_bonus := { card.rarity == "special" and not use_promo(card.notes) }
+	rarity_name := { if use_bonus() then "Bonus" else if card.rarity == "special" then "Promo" else if token_export() then "Token" else if card.rarity == "mythic rare" then "M" else if card.rarity == "rare" then "R" else if card.rarity == "uncommon" then "U" else if card.rarity == "common" then "C" else "L" }
+	lb_rarity_code := { "*" + fixed_set_code() + " " + rarity_name() + "*" }
+	
+	# !addtoken !replacetoken !tokentag !addconjure
+	add_token_filter := filter_text@(match:"!addtoken [^\n!]+")
+	add_token_grabber := replace@(match:"!addtoken ", replace:"")
+	replace_token_filter := filter_text@(match:"!replacetoken [^\n!]+")
+	replace_token_grabber := replace@(match:"!replacetoken ", replace:"")
+	token_tag_filter := filter_text@(match:"!tokentag [^\n!]+")
+	token_tag_grabber := replace@(match:"!tokentag ", replace:"")
+	add_spellbook_filter := filter_text@(match:"!spellbook [^\n!]+")
+	add_spellbook_grabber := replace@(match:"!spellbook ", replace:"")
+	token_scripts := {
+		add_token_argument := add_token_grabber(add_token_filter(card.notes))
+		replace_token_argument := replace_token_grabber(replace_token_filter(card.notes))
+		token_tag_argument := token_tag_grabber(token_tag_filter(card.notes))
+		spellbook_tag_argument := add_spellbook_grabber(add_spellbook_filter(card.notes))
+		output := ""
+		if add_token_argument != "" then output := output + "\"aa\": \"" + add_token_argument + "\"" + (if replace_token_argument != "" or token_tag_argument != "" then ", " else "")
+		if replace_token_argument != "" then output := output + "\"rr\": \"" + replace_token_argument + "\"" + (if token_tag_argument != "" then ", " else "")
+		if token_tag_argument != "" then output := output + "\"t\": \"" + token_tag_argument + "\""
+		if spellbook_tag_argument != "" then output := output + "\"c\": \"" + spellbook_tag_argument + "\""
+		if output != "" then output := "\"tokenscripts\": \{" + output + "\}, "
+		output		
+	}
+
+	# !notes tag
+	notes_filter := filter_text@(match:"!notes? [^\n!]+")
+	notes_grabber := replace@(match:"!notes? ", replace:"")
+		+replace@(match:"([^,]+)", replace:{"\"" + _1 + "\""})
+		+replace@(match:"italics", replace:"italic")
+	card_note_array := { "[" + (if notes_grabber(notes_filter(card.notes)) != "" then notes_grabber(notes_filter(card.notes)) else "") + "]" }
+	
+	# process text for LackeyBot
+	lackey_bot_rule_filter := replace@(match:"’", replace:"'")+
+		replace@(match:"\n", replace:"\\\\n")+
+		replace@(match:"[(]", replace:"*(")+
+		replace@(match:"[)]", replace: ")*")+
+		replace@(match:"\"", replace:"”")
+	quote_replace := replace@(match:"\"", replace:"\\\\\"")
+	break_cleaner := replace@(match:"\n", replace:"")
+	mana_script := 	replace@(match:"(2|H|W|U|B|R|G|S|C|I)/(W|U|B|R|G|S|C|I)", replace:{"\{"+_1+"/"+_2+"\}"})+
+		replace@(match:"(X|Y|Z|W|U|B|R|G|S|C|I)", in_context:"(?<!\{)(?<!/)<match>", replace:{"\{"+_1+"\}"})+
+		replace@(match:"([1-9][0-9])", in_context:"(?<!\{)(?<!\\/)<match>", replace:{"\{"+_1+"\}"})+
+		replace@(match:"([0-9])", in_context:"(?<!\{)(?<!\\/)<match>(?!})", replace:{"\{"+_1+"\}"})+
+		replace@(match:"V", replace:{"\{"+v_rep("V")+"\}"})
+
+	lackey_bot_mana_filter := replace@(match:"<sym(-auto)?>([0-9WUBRGCSHEQTXYZEDVI/]+)</sym(-auto)?>", replace:{"\{"+_2+"}"})+
+		replace@(match:"([0-9HSCWUBRGXYZEDV/])", in_context:"\{[0-9HSCWUBRGXYZEDVI/]*<match>[0-9HSCWUBRGXYZEDVI/]*}", replace:{"\{"+v_rep(_1)+"}"})+
+		replace@(match:"}\{/}\{", replace:"/")+
+		replace@(match:"\{([0-9])}\{([0-9])}", replace:{"\{"+_1+_2+"}"})+
+		replace@(match:"\{\{", replace:"\{")+
+		replace@(match:"}}", replace:"}")
+	
+	color_condense := replace@(match:"(, )?(artifact|multicolor|land|hybrid|horizontal|vertical|radial|overlay)", replace: "")
+	indicator_color_name := {
+		cond := color_condense(input)
+		if cond == "white" then "\{White\} "
+		else if cond == "blue" then "\{Blue\} "
+		else if cond == "black" then "\{Black\} "
+		else if cond == "red" then "\{Red\} "
+		else if cond == "green" then "\{Green\} "
+		else if cond == "white, blue" then "\{White/Blue\} "
+		else if cond == "blue, black" then "\{Blue/Black\} "
+		else if cond == "black, red" then "\{Black/Red\} "
+		else if cond == "red, green" then "\{Red/Green\} "
+		else if cond == "white, green" then "\{Green/White\} "
+		else if cond == "white, black" then "\{White/Black\} "
+		else if cond == "blue, red" then "\{Blue/Red\} "
+		else if cond == "black, green" then "\{Black/Green\} "
+		else if cond == "white, red" then "\{Red/White\} "
+		else if cond == "blue, green" then "\{Green/Blue\} "
+		else if cond == "white, black, red" then "\{White/Black/Red\} "
+		else if cond == "blue, red, green" then "\{Blue/Red/Green\} "
+		else if cond == "white, black, green" then "\{Black/Green/White\} "
+		else if cond == "white, blue, red" then "\{Red/White/Blue\} "
+		else if cond == "blue, black, green" then "\{Green/Blue/Black\} "
+		else if cond == "white, blue, black" then "\{White/Blue/Black\} "
+		else if cond == "blue, black, red" then "\{Blue/Black/Red\} "
+		else if cond == "black, red, green" then "\{Black/Red/Green\} "
+		else if cond == "white, red, green" then "\{Red/Green/White\} "
+		else if cond == "white, blue, green" then "\{Green/White/Blue\} "
+		else ""
+	}
+	silver_patch := {
+		is_silver := contains(card.casting_cost, match:"I")
+		if not is_silver then input
+		else if input == "" then "\{Silver\} "
+		else replace(input, match:"\{", replace:"\{Silver/")
+	}
+	trim_zeroes := replace@(match: "^00?", replace: "")+
+		replace@(match: "a?/[0-9b]+", replace: "")
+	corrected_card_number := { 
+		(if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number())
+		+ (if card.rarity == "special" and set.sort_special_rarity == "separate numbering" then "s" else "")
+	}
+	lackey_bot_flavor := {"*" + input + "*" }
+	apos_filter := replace@(match:"’", replace:"'")
+	paragraph_count := replace@(match:"\n", replace:"~")+
+		filter_text@(match:"~")
+	text_script := {
+		replace(
+			remove_tags(input) + (if card.rule_text_3 != "" then "\\n" + card.rule_text_3 else ""),
+			match:"[ ][ ]+•",
+			replace: "\\n•"
+		)
+	}
+	leveler_text := {
+		card.rule_text + "\\n" +
+		"[LEVEL " + card.level_1 + "] " + card.rule_text_2 + "\\n" +
+		"[LEVEL " + card.level_2 + "] " + card.rule_text_3 + "\\n"
+	}
+	flavor_script := { if input == "<i-flavor></i-flavor>" then ""
+			else replace(italic_filter(input), match:"\n", replace:"\\\\n") + "\\n"
+	}
+	italic_filter := replace@(match:"<i-flavor>", replace:"*")+
+		replace@(match:" *</i-flavor>", replace:"*")+
+		replace@(match:" </i>", replace:"* ")+
+		replace@(match:" </i>", replace:"* ")+
+		replace@(match:" </i>", replace:"* ")+
+		replace@(match:"</i>", replace:"*")+
+		replace@(match:"</i>", replace:"*")+
+		replace@(match:"</i>", replace:"*")+
+		replace@(match:"<i> ", replace:" *")+
+		replace@(match:"<i> ", replace:" *")+
+		replace@(match:"<i> ", replace:" *")+
+		replace@(match:"<i>", replace:"*")+
+		replace@(match:"<i>", replace:"*")+
+		replace@(match:"<i>", replace:"*")+
+		replace@(match:"\\*\\*+", replace:"")
+
+	walker_text := {
+			lackey_bot_mana_filter(
+				lackey_bot_rule_filter(
+					  (if card.loyalty_cost_1 != "" then "[" + card.loyalty_cost_1 + "]: ")
+					+ (if card.level_1_text != "" then card.level_1_text else split_text(match:"\n", card.rule_text).0)
+					+ "\\n"
+					+ "[" + card.loyalty_cost_2 + "]" + (if card.loyalty_cost_2 !="" then ": ") + (if card.level_2_text != "" then card.level_2_text+"\\n" else if contains(paragraph_count(card.rule_text), match:"~") then split_text(match:"\n", card.rule_text).1+"\\n")
+					+ "[" + card.loyalty_cost_3 + "]" + (if card.loyalty_cost_3 !="" then ": ") + (if card.level_3_text != "" then card.level_3_text+"\\n" else if contains(paragraph_count(card.rule_text), match:"~~") then split_text(match:"\n", card.rule_text).2+"\\n")
+					+ ( if card.loyalty_cost_4 != "" then "[" + card.loyalty_cost_4 + "]" +": ") + (if card.level_4_text != "" then card.level_4_text+"\\n" else if contains(paragraph_count(card.rule_text), match:"~~~") then split_text(match:"\n", card.rule_text).3+"\\n")
+					+ ( if card.loyalty_cost_5 != "" then "[" + card.loyalty_cost_5 + "]" +": ") + (if card.level_5_text != "" then card.level_5_text+"\\n" else if contains(paragraph_count(card.rule_text), match:"~~~~") then split_text(match:"\n", card.rule_text).4+"\\n")
+					+ ( if card.loyalty_cost_6 != "" then "[" + card.loyalty_cost_6 + "]" +": ") + (if card.level_6_text != "" then card.level_6_text+"\\n" else if contains(paragraph_count(card.rule_text), match:"~~~~") then split_text(match:"\n", card.rule_text).5+"\\n")
+				)
+			)
+	}
+	walker_text_2 := {
+			lackey_bot_mana_filter(
+				lackey_bot_rule_filter(
+					(if card.loyalty_cost_9 != "" then "[" + card.loyalty_cost_9 + "]: ") +(if card.level_9_text != "" then card.level_9_text else split_text(match:"\n", card.rule_text_2).0)+"\\n"
+					+ "[" + card.loyalty_cost_10 + "]" +(if card.loyalty_cost_10 !="" then ": ") +(if card.level_10_text != "" then card.level_10_text+"\\n" else if contains(paragraph_count(card.rule_text_2), match:"~") then split_text(match:"\n", card.rule_text_2).1+"\\n")
+					+ "[" + card.loyalty_cost_11 + "]" +(if card.loyalty_cost_11 !="" then ": ") +(if card.level_11_text != "" then card.level_11_text+"\\n" else if contains(paragraph_count(card.rule_text_2), match:"~~") then split_text(match:"\n", card.rule_text_2).2+"\\n")
+					+ ( if card.loyalty_cost_12 != "" then "[" + card.loyalty_cost_12 + "]" +": ") +(if card.level_12_text != "" then card.level_12_text+"\\n" else if contains(paragraph_count(card.rule_text_2), match:"~~~") then split_text(match:"\n", card.rule_text_2).3+"\\n")
+					+ ( if card.loyalty_cost_13 != "" then "[" + card.loyalty_cost_13 + "]" +": ") +(if card.level_13_text != "" then card.level_13_text+"\\n" else if contains(paragraph_count(card.rule_text_2), match:"~~~~") then split_text(match:"\n", card.rule_text_2).4+"\\n")
+					+ ( if card.loyalty_cost_14 != "" then "[" + card.loyalty_cost_14 + "]" +": ") +(if card.level_14_text != "" then card.level_14_text+"\\n" else if contains(paragraph_count(card.rule_text_2), match:"~~~~") then split_text(match:"\n", card.rule_text_2).5+"\\n")
+				)
+			)
+	}
+
+	write_normal:= {
+		"	\{"
+		+ "\"fullName\": \"" + break_cleaner(apos_fix(database_name())) + "\", "
+		+ "\"cardName\": \"" + break_cleaner(remove_tags(card.name)) + "\", "
+		+ "\"manaCost\": \"" + mana_script(card.casting_cost) + "\", "
+		+ "\"typeLine\": \"" + break_cleaner(card.type) + "\", "
+		+ "\"rarityLine\": \"" + lb_rarity_code() + "\", "
+		+ "\"rulesText\": \"" + (if card.special_text != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text))) else if card.shape == "leveler" then lackey_bot_mana_filter(lackey_bot_rule_filter(leveler_text())) else if card.loyalty != "" then walker_text() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text)))) + "\", "
+		+ "\"flavorText\": \"" + flavor_script(card.flavor_text) + "\", "
+		+ "\"power\": " + (if card.power == "*" then "\"★\"" else if card.power == "" then "\"\"" else if (to_number(card.power) or else false != card.power) then "\"" + card.power + "\"" else card.power) + ", "
+		+ "\"toughness\": " + (if card.toughness == "*" then "\"★\"" else if card.toughness == "" then "\"\"" else if (to_number(card.toughness) or else false != card.toughness) then "\"" + card.toughness + "\"" else card.toughness) + ", "
+		+ "\"loyalty\": " + (if (to_number(card.loyalty) or else false != card.loyalty) then "\"" + card.loyalty + "\""  else card.loyalty) + ", "
+		+ "\"color\": \"" + (if contains(card.super_type, match:"Land") then "" else silver_patch(indicator_color_name(card.card_color))) + "\", "
+		+ "\"cmc\": " + cmc(card.casting_cost) + ", "
+		+ "\"cardType\": \"" + type_trim(card.super_type) + "\", "
+		+ (if contains(card.shape, match: "split") or contains(card.shape, match:"double") or contains(card.shape, match:"adventure") or contains(card.shape, match:"aftermath") then secondCard())
+		+ "\"rarity\": \"" + (if rarity_name() == "Token" then "token" else if rarity_name() == "Bonus" then "bonus" else if rarity_name() == "Masterpiece" then "masterpiece" else card.rarity) + "\", "
+		+ "\"shape\": \"" + (if contains(card.shape, match: "adventure") then "adventure" else if contains(card.shape, match: "aftermath") or contains(card.shape, match: "split") then "split" else if contains(card.shape, match:"double") then "doubleface" else "normal") + "\", "
+		+ "\"setID\": \"" + (if token_export() then "tokens" else fixed_set_code()) + "\", "
+		+ "\"cardID\": \"" + (if token_export() then fixed_set_code() else "") + position(of:card, in:set) + "\", "
+		+ (if token_export() then "\"parentSet\": \"" + fixed_set_code() + "\", " else "")
+		+ "\"notes\": " + card_note_array() + ", "
+		+ token_scripts()
+		+ "\"artist\": \"" + break_cleaner(quote_replace(card.illustrator))
+		+ (if contains(card.shape, match: "split") or contains(card.shape, match:"double") and card.illustrator != card.illustrator_2 and card.illustrator_2 != "" then
+			"\", \"artist2\": \"" + quote_replace(break_cleaner(card.illustrator_2)))
+		+ "\"\},\n"
+	}
+	secondCard := {
+		(
+			if card.alias_2 != "" then
+				"\"cardName2\": \"" + break_cleaner(card.alias_2) + "\", "
+				+ "\"alias2\": \"" + break_cleaner(remove_tags(card.name_2)) + "\", "
+			else "\"cardName2\": \"" + break_cleaner(remove_tags(card.name_2)) + "\", "
+		)
+		+ "\"manaCost2\": \"" + mana_script(card.casting_cost_2) + "\", "
+		+ "\"typeLine2\": \"" + break_cleaner(card.type_2) + "\", "
+		+ "\"rarityLine2\": \"" + lb_rarity_code() + "\", "
+		+ "\"rulesText2\": \"" + (if card.special_text_2 != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text_2))) else if card.loyalty_2 != "" then walker_text_2() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text_2)))) + "\", "
+		+ "\"flavorText2\": \"" + flavor_script(card.flavor_text_2) + "\", "
+		+ "\"power2\": " + (if card.power_2 == "*" then "\"★\"" else if card.power_2 == "" then "\"\"" else if (to_number(card.power_2) or else false != card.power_2) then "\"" + card.power_2 + "\"" else card.power_2) + ", "
+		+ "\"toughness2\": " + (if card.toughness_2 == "*" then "\"★\"" else if card.toughness_2 == "" then "\"\"" else if (to_number(card.toughness_2) or else false != card.toughness_2) then "\"" + card.toughness_2 + "\"" else card.toughness_2) + ", "
+		+ "\"loyalty2\": " + (if (to_number(card.loyalty_2) or else false != card.loyalty_2) then "\"" + card.loyalty_2 + "\""  else card.loyalty_2) + ", "
+		+ "\"color2\": \"" + (if contains(card.super_type, match:"Land") then "" else silver_patch(indicator_color_name(card.card_color_2))) + "\", "
+		+ "\"cmc2\": " + cmc(card.casting_cost_2) + ", "
+		+ "\"cardType2\": \"" + type_trim(card.super_type_2) + "\", "
+	}
+
+	write_update := {write_normal()}
+	write_cards := to_text(for each card in cards do write_update())
+	clean_cards := replace@(match:",\n$", replace: "\n")
+		+replace@(match:"’", replace:"'")
+	write_set := "\"meta\":\{\"setID\": \"{fixed_set_code()}\", \"title\": \"{quote_replace(set.title)}\"\},"
+	####################################
+	file_name := {
+		(
+			if token_export() then fixed_set_code()+corrected_card_number()
+			else corrected_card_number()
+		)
+		+".jpg"
+	}
+	write_images := for each card in cards do write_image_file(card, directory: "{fixed_set_code()}", file:(if token_export() then fixed_set_code() else "") + position(of:card, in:set)+".jpg")
+
+	to_string("\{" + write_set + "\n\"cards\":[\n"+clean_cards(write_cards) +"]\n\}")
