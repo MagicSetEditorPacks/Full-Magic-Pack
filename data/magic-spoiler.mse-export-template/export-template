@@ -132,6 +132,12 @@ script:
 		       else code
 		     }</span>
 		     <span class='rule-text'    >{  to_html(card.rule_text) }</span>
+			{if contains(card.shape, match:"saga") then 
+				print_saga_text()
+			}
+			{if contains(card.shape, match:"planeswalker") then 
+				print_saga_text()
+			}
 		     <span class='flavor-text'  >{  to_html(remove_tag(tag: "<i-flavor>", card.flavor_text)) }</span>
 		     <span class='pt'           >{  to_html(card.pt) }</span>
 		     <span class='card-number'  >{  to_html(card.card_number) }</span>
@@ -165,6 +171,25 @@ script:
 		   "<h2>{title} ({count} {if count == 1 then "card" else "cards"})</h2>" +
 		   write_cards()
 	}
+	# Used by print_cards() to format saga text, since those have unique boxes.
+	print_saga_text :=
+	{
+		"<span class='rule-text'    > {to_html(card.chapter_text)} </span>
+		 <span class='rule-text'    > {to_html(card.level_1_text)} </span>
+		 <span class='rule-text'    > {to_html(card.level_2_text)} </span>
+		 <span class='rule-text'    > {to_html(card.level_3_text)} </span>
+		 <span class='rule-text'    > {to_html(card.level_4_text)} </span>"
+	}
+	# Used by print_cards() to format planeswalker text, since those have unique boxes.
+	print_walker_text :=
+	{
+		"<span class='rule-text'    > {to_html(card.level_1_text)} </span>" +
+		"<span class='rule-text'    > {to_html(card.level_2_text)} </span>" +
+		"<span class='rule-text'    > {to_html(card.level_3_text)} </span>" +
+		"<span class='rule-text'    > {to_html(card.level_4_text)} </span>"
+	}
+
+	# Actual export-ey bit starts here.
 	copy_file("blank.gif")
 	write_image_file(
 		file:  "set-symbol.png",
@@ -177,7 +202,8 @@ script:
 		heght: 16
 		symbol_variation(symbol: set.symbol, variation: "rare")
 	)
-	# the html page
+
+	# Generate html largely by string interpolation.
 	html := "<!DOCTYPE HTML>
 	<html lang='en'>
 	 <head>
@@ -229,6 +255,7 @@ script:
 	  --></script>
 	 </body>
 	</html>"
+
 	write_text_file(html, file:"index.html")
 	# make sure the urls are relative to the right directory
 	replace(html, match:"<[^<>]*(href|src)='", replace:"&{directory}/")
