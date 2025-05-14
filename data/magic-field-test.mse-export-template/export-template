@@ -1,6 +1,6 @@
 ﻿mse version: 2.0.0
 short name: Field Test
-full name: version 0.4
+full name: version 0.5
 position hint: 120
 icon: icon.png
 version: 2018-02-09
@@ -29,6 +29,25 @@ script:
 	fixed_set_code := {
 		trim(fix_tm(if options.set_code != "" then options.set_code else set.set_code))
 	}
+	## clean up strays that will mess up the json
+	escape_backslash := replace@(match:"\\\\", replace:"\\\\\\\\")
+	escape_quotes := replace@(match:"\"", replace:"\\\\\"")
+	escape_breaks := replace@(match:"\n", replace:"\\\\n")
+	apos_fix := replace@(match:"’", replace:"'")
+	remove_tabs := replace@(match:"\t", replace:"") +
+		replace@(match:"	", replace:"") +
+		replace@(match:"  +", replace:" ")
+	remove_controls := replace@(match:"\r", replace:"")
+
+	sanitize := to_text +
+				escape_backslash +
+				escape_breaks +
+				escape_quotes + 
+				remove_controls + 
+				remove_tabs +
+				apos_fix +
+				trim
+
 	v_rep := {
 		if input != "V"
 			then input
@@ -93,7 +112,7 @@ script:
 	notes_grabber := replace@(match:"!notes? ", replace:"")
 		+replace@(match:"([^,]+)", replace:{"\"" + _1 + "\""})
 		+replace@(match:"italics", replace:"italic")
-	card_note_array := { "[" + (if notes_grabber(notes_filter(card.notes)) != "" then notes_grabber(notes_filter(card.notes)) else "") + "]" }
+	card_note_array := { "[" + (if notes_grabber(notes_filter(card.notes)) != "" then sanitize(notes_grabber(notes_filter(card.notes))) else "") + "]" }
 	
 	# process text for LackeyBot
 	lackey_bot_rule_filter := replace@(match:"’", replace:"'")+
@@ -222,13 +241,13 @@ script:
 
 	write_normal:= {
 		"	\{"
-		+ "\"fullName\": \"" + break_cleaner(apos_fix(database_name())) + "\", "
-		+ "\"cardName\": \"" + break_cleaner(remove_tags(card.name)) + "\", "
+		+ "\"fullName\": \"" + sanitize(apos_fix(database_name())) + "\", "
+		+ "\"cardName\": \"" + sanitize(remove_tags(card.name)) + "\", "
 		+ "\"manaCost\": \"" + mana_script(card.casting_cost) + "\", "
-		+ "\"typeLine\": \"" + break_cleaner(card.type) + "\", "
+		+ "\"typeLine\": \"" + sanitize(card.type) + "\", "
 		+ "\"rarityLine\": \"" + lb_rarity_code() + "\", "
-		+ "\"rulesText\": \"" + (if card.special_text != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text))) else if card.shape == "leveler" then lackey_bot_mana_filter(lackey_bot_rule_filter(leveler_text())) else if card.loyalty != "" then walker_text() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text)))) + "\", "
-		+ "\"flavorText\": \"" + flavor_script(card.flavor_text) + "\", "
+		+ "\"rulesText\": \"" + sanitize(if card.special_text != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text))) else if card.shape == "leveler" then lackey_bot_mana_filter(lackey_bot_rule_filter(leveler_text())) else if card.loyalty != "" then walker_text() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text)))) + "\", "
+		+ "\"flavorText\": \"" + sanitize(flavor_script(card.flavor_text)) + "\", "
 		+ "\"power\": " + (if card.power == "*" then "\"★\"" else if card.power == "" then "\"\"" else if (to_number(card.power) or else false != card.power) then "\"" + card.power + "\"" else card.power) + ", "
 		+ "\"toughness\": " + (if card.toughness == "*" then "\"★\"" else if card.toughness == "" then "\"\"" else if (to_number(card.toughness) or else false != card.toughness) then "\"" + card.toughness + "\"" else card.toughness) + ", "
 		+ "\"loyalty\": " + (if (to_number(card.loyalty) or else false != card.loyalty) then "\"" + card.loyalty + "\""  else card.loyalty) + ", "
@@ -243,23 +262,23 @@ script:
 		+ (if token_export() then "\"parentSet\": \"" + fixed_set_code() + "\", " else "")
 		+ "\"notes\": " + card_note_array() + ", "
 		+ token_scripts()
-		+ "\"artist\": \"" + break_cleaner(quote_replace(card.illustrator))
+		+ "\"artist\": \"" + sanitize(card.illustrator)
 		+ (if contains(card.shape, match: "split") or contains(card.shape, match:"double") and card.illustrator != card.illustrator_2 and card.illustrator_2 != "" then
-			"\", \"artist2\": \"" + quote_replace(break_cleaner(card.illustrator_2)))
+			"\", \"artist2\": \"" + sanitize(card.illustrator_2))
 		+ "\"\},\n"
 	}
 	secondCard := {
 		(
 			if card.alias_2 != "" then
-				"\"cardName2\": \"" + break_cleaner(card.alias_2) + "\", "
-				+ "\"alias2\": \"" + break_cleaner(remove_tags(card.name_2)) + "\", "
-			else "\"cardName2\": \"" + break_cleaner(remove_tags(card.name_2)) + "\", "
+				"\"cardName2\": \"" + sanitize(card.alias_2) + "\", "
+				+ "\"alias2\": \"" + sanitize(remove_tags(card.name_2)) + "\", "
+			else "\"cardName2\": \"" + sanitize(remove_tags(card.name_2)) + "\", "
 		)
 		+ "\"manaCost2\": \"" + mana_script(card.casting_cost_2) + "\", "
-		+ "\"typeLine2\": \"" + break_cleaner(card.type_2) + "\", "
+		+ "\"typeLine2\": \"" + sanitize(card.type_2) + "\", "
 		+ "\"rarityLine2\": \"" + lb_rarity_code() + "\", "
-		+ "\"rulesText2\": \"" + (if card.special_text_2 != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text_2))) else if card.loyalty_2 != "" then walker_text_2() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text_2)))) + "\", "
-		+ "\"flavorText2\": \"" + flavor_script(card.flavor_text_2) + "\", "
+		+ "\"rulesText2\": \"" + sanitize(if card.special_text_2 != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text_2))) else if card.loyalty_2 != "" then walker_text_2() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text_2)))) + "\", "
+		+ "\"flavorText2\": \"" + sanitize(flavor_script(card.flavor_text_2)) + "\", "
 		+ "\"power2\": " + (if card.power_2 == "*" then "\"★\"" else if card.power_2 == "" then "\"\"" else if (to_number(card.power_2) or else false != card.power_2) then "\"" + card.power_2 + "\"" else card.power_2) + ", "
 		+ "\"toughness2\": " + (if card.toughness_2 == "*" then "\"★\"" else if card.toughness_2 == "" then "\"\"" else if (to_number(card.toughness_2) or else false != card.toughness_2) then "\"" + card.toughness_2 + "\"" else card.toughness_2) + ", "
 		+ "\"loyalty2\": " + (if (to_number(card.loyalty_2) or else false != card.loyalty_2) then "\"" + card.loyalty_2 + "\""  else card.loyalty_2) + ", "
