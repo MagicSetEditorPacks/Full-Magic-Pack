@@ -1,0 +1,876 @@
+﻿mse version: 2.0.0
+game: magic
+short name: Old style saga
+full name: Sagas (Before 8th edition)
+installer group: magic/old style/normal cards
+icon: card-sample.png
+position hint: 310
+
+version: 2025-05-12
+depends on:
+	package: magic.mse-game
+	version: 2020-04-25
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-10-01
+
+card width: 375
+card height: 523
+card dpi: 150
+#### Images by Grapple
+############################################################## Extra scripts
+init script:
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	
+	template_prefix := [
+		card: "card/"
+	]
+	template_suffix := [
+		card: "card.jpg"
+	]
+	template := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { template_prefix[type] + "l" + template_suffix[type] }
+	
+	# Only white cards use a black font
+	#font_colors_white := { input != "w" }
+	b_text := {styling.black_text_on_white_cards}
+		
+	replace_symbols_testing := {
+		vairable := replace(match:"<sym-auto>([A-Za-z])</sym-auto>", replace:{"\{"+_1+"\}"})
+	}
+	
+	# Check to decide if the card is a basic land.
+	
+	#chop/shrink functions
+	chop_top := {if styling.chop_top == "" then 0 else if comma_count(styling.chop_top) == "," or comma_count(styling.chop_top) == ",," then split_text(match:",", styling.chop_top).0 else styling.chop_top}
+	chop_bot := {if comma_count(styling.chop_top) == ",," then split_text(match:",", styling.chop_top).1 else if styling.chop_bottom == "" then 0 else styling.chop_bottom}
+	top_of_textbox := {318 + chop_top() }
+	bottom_of_textbox := {461 - chop_bot() }
+	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else if length(remove_tags(card.type)) > 41 then 2 else if length(remove_tags(card.type)) > 38 then 1 else 0 }
+	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
+	
+	# Check if the artifact frame is set to look good or look shit
+	is_bolas := {styling.promo_style_artifact_colors}
+	
+	is_basic := { card.rarity == "basic land" or contains(card.super_type, match:"Basic") or card.name == "Plains" or card.name == "Island" or card.name == "Swamp" or card.name == "Mountain" or card.name == "Forest" or card.name == "Snow-Covered Plains" or card.name == "Snow-Covered Island" or card.name == "Snow-Covered Swamp" or card.name == "Snow-Covered Mountain" or card.name == "Snow-Covered Forest" }
+	# checks if the card has color or not
+	has_color := {
+		if contains(card.card_color, match:"white") then true
+		else if contains(card.card_color, match:"blue") then true
+		else if contains(card.card_color, match:"black") then true
+		else if contains(card.card_color, match:"red") then true
+		else if contains(card.card_color, match:"green") then true
+		else if contains(card.card_color, match:"multi") then true
+		else false
+	}
+	
+	#bolas-promo-style overlay blending
+	
+	bp_card_hybrid_2 := {
+		linear_blend(
+			image1: land_template(bp_colors[0])
+			image2: land_template(bp_colors[1])
+			x1: 0.4,  y1: 0
+			x2: 0.6,  y2: 0
+		)
+	}
+	
+	bp_vertical_card_hybrid := {
+		do_linear_blend := linear_blend
+		linear_blend := { do_linear_blend(x1: 0, x2: 0, y1: x1, y2: x2) }
+		card_hybrid.horizontal[bp_color_count]()
+	}
+	
+	bp_horizontal_card_hybrid := [
+		1: { land_template(bp_colors[0]) }
+		2: bp_card_hybrid_2
+		3: {linear_blend(
+			image1: land_template(bp_colors[0])
+			x1: 0.22,  y1: 0
+			x2: 0.4,   y2: 0
+			image2: linear_blend(
+			image1: land_template(bp_colors[1])
+			x1: 0.6,   y1: 0
+			x2: 0.78,  y2: 0
+			image2: land_template(bp_colors[2])
+		))}
+		4: {linear_blend(
+			# blend = 0.16
+			image1: land_template(bp_colors[0])
+			x1: 0.15,  y1: 0
+			x2: 0.31,  y2: 0
+			image2: linear_blend(
+			image1: land_template(bp_colors[1])
+			x1: 0.42,  y1: 0
+			x2: 0.58,  y2: 0
+			image2: linear_blend(
+				image1: land_template(bp_colors[2])
+				x1: 0.69, y1: 0
+				x2: 0.85, y2: 0
+				image2: land_template(bp_colors[3])
+		)))}
+		5: {linear_blend(
+			image1: land_template(bp_colors[0])
+			x1: 2.0 / 15,  y1: 0
+			x2: 4.0 / 15,  y2: 0
+			image2: linear_blend(
+			image1: land_template(bp_colors[1])
+			x1: 5.0 / 15,  y1: 0
+			x2: 7.0 / 15,  y2: 0
+			image2: linear_blend(
+				image1: land_template(bp_colors[2])
+				x1:  8.0 / 15,  y1: 0
+				x2: 10.0 / 15,  y2: 0
+				image2: linear_blend(
+				image1: land_template(bp_colors[3])
+				x1: 11.0 / 15,  y1: 0
+				x2: 13.0 / 15,  y2: 0
+				image2: land_template(bp_colors[4])
+		))))}
+		6: {linear_blend(
+			image1: land_template(bp_colors[0])
+			x1: 1.5 / 15,  y1: 0
+			x2: 3.1 / 15,  y2: 0
+			image2: linear_blend(
+			image1: land_template(bp_colors[1])
+			x1: 4.1 / 15,  y1: 0
+			x2: 5.7 / 15,  y2: 0
+			image2: linear_blend(
+				image1: land_template(bp_colors[2])
+				x1: 6.7 / 15,  y1: 0
+				x2: 8.3 / 15,  y2: 0
+				image2: linear_blend(
+				image1: land_template(bp_colors[3])
+				x1: 9.3 / 15,  y1: 0
+				x2: 10.9 / 15,  y2: 0
+				image2: linear_blend(
+					image1: land_template(bp_colors[4])
+					x1: 11.9 / 15, y1: 0
+					x2: 13.5 / 15, y2: 0
+					image2: land_template(bp_colors[5])
+		)))))}
+		#how this works:
+		7: {linear_blend(
+			#this whole thing is a linear blend (lb1)
+			#and a linear blend can only blend 2 images
+			image1: land_template(bp_colors[0])
+			#the first image of the lb1 is your first color
+			x1: 1.3 / 15,  y1: 0
+			x2: 2.7 / 15,  y2: 0
+			image2: linear_blend(
+			#the second image of the lb1 is a second linear blend (lb2)
+				image1: land_template(bp_colors[1])
+				#the first image of lb2 is your second color
+				x1: 3.5 / 15,  y1: 0
+				x2: 4.9 / 15,  y2: 0
+				image2: linear_blend(
+				#the second image of lb2 is lb3
+					image1: land_template(bp_colors[2])
+					#the first image of lb3 is your third color
+					x1: 5.7 / 15,  y1: 0
+					x2: 7.1 / 15,  y2: 0
+					image2: linear_blend(
+					#the second image of lb3 is lb4
+						image1: land_template(bp_colors[3])
+						#the first image of lb4 is your fourth color
+						x1: 7.9 / 15,  y1: 0
+						x2: 9.3 / 15,  y2: 0
+						image2: linear_blend(
+						#etc
+							image1: land_template(bp_colors[4])
+							x1: 10.1 / 15, y1: 0
+							x2: 11.5 / 15, y2: 0
+							image2: linear_blend(
+								image1: land_template(bp_colors[5])
+								x1: 12.3 / 15, y1: 0
+								x2: 13.7 / 15, y2: 0
+								image2: land_template(bp_colors[6])
+		))))))}
+	]
+	bp_card_hybrid := [
+		radial: [
+			0: { land_template("c") }
+			1: { land_template(bp_colors[0]) }
+			2: bp_card_hybrid_2
+			3: {linear_blend(
+				image1: bp_card_hybrid_2(bp_colors: bp_colors[0] + bp_colors[1]),
+				image2: land_template(bp_colors[2]),
+				x1: 0,  y1: 0.55
+				x2: 0,  y2: 0.77
+				)}
+			4: {linear_blend(
+				image1: bp_card_hybrid_2(bp_colors: bp_colors[0] + bp_colors[1])
+				image2: bp_card_hybrid_2(bp_colors: bp_colors[3] + bp_colors[2])
+				x1: 0,  y1: 0.4
+				x2: 0,  y2: 0.62
+				)}
+			5: {linear_blend(
+				image1: linear_blend(
+					image1: bp_card_hybrid_2(bp_colors: bp_colors[0] + bp_colors[1]),
+					image2: bp_card_hybrid_2(bp_colors: bp_colors[4] + bp_colors[2]),
+					x1: 0,  y1: 0.19
+					x2: 0,  y2: 0.35
+				),
+				image2: land_template(bp_colors[3]),
+				x1: 0,  y1: 0.777
+				x2: 0,  y2: 0.937
+				)}
+			6: {linear_blend(
+				image1: linear_blend(
+					image1: bp_card_hybrid_2(bp_colors: bp_colors[0] + bp_colors[1]),
+					image2: bp_card_hybrid_2(bp_colors: bp_colors[5] + bp_colors[2]),
+					x1: 0,  y1: 0.19
+					x2: 0,  y2: 0.35
+				),
+				image2: bp_card_hybrid_2(bp_colors: bp_colors[4] + bp_colors[3]),
+				x1: 0,  y1: 0.777
+				x2: 0,  y2: 0.937
+				)}
+			7: {linear_blend(
+				image1: linear_blend(
+					image1: linear_blend(
+						image1: bp_card_hybrid_2(bp_colors: bp_colors[0] + bp_colors[1]),
+						image2: bp_card_hybrid_2(bp_colors: bp_colors[6] + bp_colors[3]),
+						x1: 0,  y1: 0.34
+						x2: 0,  y2: 0.50
+					),
+					image2: bp_card_hybrid_2(bp_colors: bp_colors[5] + bp_colors[3]),
+					x1: 0,  y1: 0.877
+					x2: 0,  y2: 0.937
+				),
+				image2: land_template(bp_colors[4]),
+				x1: 0,  y1: 1.140
+				x2: 0,  y2: 1.300
+				)}
+		]
+		horizontal: bp_horizontal_card_hybrid
+		vertical: [
+			1: { land_template(bp_colors[0]) }
+			2: { linear_blend(
+				image1: land_template(bp_colors[0])
+				image2: land_template(bp_colors[1])
+				x1: 0,  y1: 0.4
+				x2: 0,  y2: 0.6
+				)}
+			3: bp_vertical_card_hybrid
+			4: bp_vertical_card_hybrid
+			5: bp_vertical_card_hybrid
+			6: bp_vertical_card_hybrid
+			7: bp_vertical_card_hybrid
+		]	
+	]
+	
+	bp_color_background := {
+		
+		# What type of 'hybrid'?
+		land     := chosen(choice:"land")
+		multi    := chosen(choice:"multicolor")
+		hybrid   := chosen(choice:"hybrid")
+		artifact := false
+		template := land_template 
+		
+		# The selected colors
+		bp_colors := sort_text( order: if card_is_wedge(input) then "(wbgur)" else "(wubrg)"
+						, (if chosen(choice:"white") then "w")
+						+ (if chosen(choice:"blue")  then "u")
+						+ (if chosen(choice:"black") then "b")
+						+ (if chosen(choice:"red")   then "r")
+						+ (if chosen(choice:"green") then "g"))
+		if multi and (hybrid or bp_colors == "") then (
+			bp_colors := bp_colors + "m"
+			multi := false
+		)
+		if chosen(choice:"reversed") then bp_colors := reverse(bp_colors)
+		bp_color_count := number_of_items(in: bp_colors)
+	
+		# 'shape' / type of hybrid
+		shape := if      chosen(choice:"horizontal") then "horizontal"
+				else if chosen(choice:"vertical")   then "vertical"
+				else if chosen(choice:"overlay")    then "overlay"
+				else                                     "radial"
+	
+		# Determine background (allows styles to hook something else here)
+		color_combination(color_count: bp_color_count, colors: bp_colors)
+	}
+	
+	# Alpha style lands?  Different blending for multicolored lands.
+	#Did it this way because was getting longer other way, due to redefining color_background parts.
+	color_combination := {
+		# The base hybrid, without the outer frame blended over it
+		base := base_hybrid[shape][color_count]()
+		
+		# Put a frame around it?
+		if type == "card" and land and color_count == 2 and shape != "overlay" and styling.alpha_style_blending then
+			masked_blend(
+				mask:  "alpha_blend.png",
+				dark:  land_template(colors[0]),
+				light: land_template(colors[1]),
+			)
+		else if land and not is_basic() and styling.colored_nonbasic_land_trim == "trim, textbox" then
+			masked_blend(
+				mask: "land_blend_{type}.png" ##trim
+				dark: land_template("c"),
+				light: base,
+			)
+		else if land and not is_basic() and styling.colored_nonbasic_land_trim == "textbox" then
+			masked_blend(
+				mask: "land_blend_{type}.png"
+				dark: land_template("c"),
+				light: base,
+			)
+		else if land and not is_basic() and styling.colored_nonbasic_land_trim == "trim" then
+			masked_blend(
+				mask: "land_blend_{type}.png"
+				dark: base,
+				light: land_template("c"),
+			)
+		else if multi and not is_bolas() then 
+			masked_blend(
+				mask: ( if styling.type_of_gradient_multicolor == "full card" then "multicolor_blend_{type}.png"
+					else if styling.type_of_gradient_multicolor == "trim only" then "multicolor_blend_{type}.png" ##trim
+					else "multicolor_blend_{type}.png" ),
+				dark:  template("m"),
+				light: base,
+			)
+		else if artifact and not is_bolas() then 
+			masked_blend(
+				mask: ( if styling.type_of_gradient_artifact == "full card" then "multicolor_blend_{type}.png"
+					else if styling.type_of_gradient_artifact == "trim only" then "multicolor_blend_{type}.png" ##trim
+					else "multicolor_blend_{type}.png" ),
+				dark:  template("a"),
+				light: base,
+			)
+		else if artifact then
+			masked_blend(
+				mask: ( if styling.type_of_gradient_artifact == "full card" then "multicolor_blend_{type}.png"
+					else if styling.type_of_gradient_artifact == "trim only" then "multicolor_blend_{type}.png" ##trim
+					else "multicolor_blend_{type}.png" ),
+				dark: template("a"),
+				light: template("a"),
+			)
+		else base
+	}
+	
+	custom_watermark_a := {if styling.card_watermark == "" or not contains(styling.card_watermark, match:".png") then "/magic-watermarks.mse-include/planeswalker.png" else "/magic-watermarks.mse-include/" + styling.card_watermark}
+
+	watermark_include := "/magic-modules.mse-include/watermarks"
+	information_codes_offset_left_1 := {4}
+	information_offset_top_1 := {-1}
+	
+	alt_text := { true }
+	alt_text_script :=  {
+		combined_editor(
+			field1: card.chapter_text,
+			separator1: "<line>\n</line>",
+			field2: card.level_1_text,
+			separator2: "<line>\n</line>",
+			field3: card.level_2_text,
+			separator3: "<line>\n</line>",
+			field4: card.level_3_text
+			separator4: "<line>\n</line>",
+			field5: card.level_4_text
+		)
+	}
+	
+	swap_fonts_name_default := [
+		name: {"MagicMedieval"},
+		size: {15.5},
+		color: { if card.card_color == "white" and b_text() then rgb(0,0,0) else rgb(255,255,255) },
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type_default := [
+		name: {"MPlantin"},
+		size: {12},
+		color: { if card.card_color == "white" and b_text() then rgb(0,0,0) else rgb(255,255,255) },
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {14},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_pt_default := [
+		name: {styling.pt_font},
+		size: {17},
+		color: { if card.card_color == "white" and b_text() then rgb(0,0,0) else rgb(255,255,255) },
+		vertical: {0},
+		italic: {""}
+	]
+	
+	divider_position := {
+		if card_style.text.layout.blocks[1].bottom or else 0 <= 0
+			then 0
+		else (
+			boxes := [card.chapter_text, card.level_1_text, card.level_2_text, card.level_3_text, card.level_4_text]
+			top_box := boxes[input]
+			bot_box := boxes[input+1]
+			if top_box != "" and bot_box != ""
+				then card_style.text.top + card_style.text.layout.separators[input]
+			else 0
+		)
+	}
+	
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: olduncommon
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1:   rgb(224,224,224)
+			fill color 2:   rgb(84, 84, 84)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+		variation:
+			name: oldrare
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1:   rgb(214,196,94)
+			fill color 2:   rgb(95, 84, 40)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+		variation:
+			name: oldmythic
+			border radius: 0.10
+			fill type: linear gradient
+			fill color 1: 	rgb(247,151,29)
+			fill color 2: 	rgb(187,44,38)
+			border color 1: rgb(255,255,255)
+			border color 2: rgb(255,255,255)
+############################################################## Extra style options
+styling field:
+	type: text
+	name: chop top
+	description: Shrinks the textbox X pixels from the top OR shrinks "top,bottom,"
+styling field:
+	type: text
+	name: chop bottom
+	description: Shrinks the textbox X pixels from the bottom.
+styling field:
+	type: text
+	name: shrink name text
+	description: Reduces the name text N points.
+styling field:
+	type: text
+	name: shrink typeline text
+	description: Reduces the typeline text N points.
+styling field:
+	type: boolean
+	name: black text on white cards
+	description: Use black text on white cards.
+	initial: no
+styling field:
+	type: text
+	name: card watermark
+	description: Filename in magic-watermarks to use for standalone card watermark
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: package choice
+	name: casting cost mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: boolean
+	name: alpha style blending
+	description: Use Alpha-style dual blending
+	initial: no
+styling field:
+	type: choice
+	name: type of gradient multicolor
+	description: What parts of the card should be blended for gradient multicolor?
+	choice: full card
+	choice: trim only
+	initial: full card
+styling field:
+	type: choice
+	name: type of gradient artifact
+	description: What parts of the card should be blended for gradient artifact?
+	choice: full card
+	choice: trim only
+	initial: full card
+styling field:
+	type: boolean
+	name: promo style artifact colors
+	description: Artifact blending like the old frame Bolas's Citadel
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: old
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: colored rarities
+	description: Should rarity symbols be different colors, such as gold, silver, and purple?
+	initial: yes
+styling field:
+	type: boolean
+	name: left align artist
+	description: Should the artist and copyright lines be left aligned, as seen in Tempest?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling field:
+	type: choice
+	name: pt font
+	description: Should the font used for p/t be MPlantin or MPlantin-Bold?  MPlantin was used until Mirage.
+	initial: MPlantin-Bold
+	choice: MPlantin
+	choice: MPlantin-Bold
+styling field:
+	type: multiple choice
+	name: colored nonbasic land trim
+	description: Which parts of the frame should be colored on nonbasic lands? (Real cards have both colored trim and colored textboxes.)
+	initial: trim, textbox
+	choice: trim
+	choice: textbox
+styling field:
+	type: color
+	name: copyright font
+	description: What color should the copyright line be?
+	choice:
+		name: white
+		color: rgb(255,255,255)
+	choice:
+		name: black
+		color: rgb(0,0,0)
+include file: /magic-modules.mse-include/fonts/styling_fields
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	colored rarities:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "rare") }
+############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/the_list_old
+card style:
+	############################# Background stuff
+	border color:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		radius: 18
+		left width:   19
+		right width:  19
+		top width:    19
+		bottom width: 19
+		z index: 500
+	card color:
+		left: 0
+		top: 0
+		width: 	375
+		height: 523
+		z index: 200
+		render style: image
+		popup style: in place
+		image: { card_background() }
+	############################# Name line
+	name:
+		left: 42
+		top: { 24 + name_font_vertical() }
+		right: { 341 - card_style.casting_cost.content_width }
+		height: { 23 - (0.5 * shrink_name()) }
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 900
+		font:
+			name: { name_font() }
+			italic name: { name_font_italic() }
+			size: { name_font_size() }
+			color: {name_font_color() }
+			shadow color: { if name_font_color() == to_color("black") then rgb(255,255,255) else rgb(0,0,0) }
+			shadow displacement x: 1
+			shadow displacement y: 1
+	casting cost:
+		right: 341
+		top : 22
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 24
+		alignment: middle right
+		symbol font:
+			name: {styling.casting_cost_mana_symbols}
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 910
+		padding top: 0
+	card symbol:
+		left: 24
+		top : 24
+		height: 20
+		width: 14
+		z index: 700
+		render style: image
+		image: { card_symbol_image(face: 1) }
+	############################# Image
+	image:
+		left:	200
+		top:	51
+		width:	130
+		height:	388
+		z index: 400
+	############################# Card type
+	type:
+		left: 39
+		top : 445
+		width: { 298 - max(22,card_style.rarity.content_width) }
+		height: {20 - (0.5 * shrink_type())}
+		alignment: middle shrink-overflow
+		z index: 900
+		padding top: 2
+		font:
+			name: { type_font() }
+			italic name: { type_font_italic() }
+			size: { type_font_size() }
+			color: { type_font_color() }
+			shadow color: { if type_font_color() == to_color("black") then rgb(255,255,255) else rgb(0,0,0) }
+			shadow displacement x: 1
+			shadow displacement y: 1
+			separator color: rgb(128,128,128)
+	rarity:
+		left: 293
+		top : 445
+		width: 44
+		height: 22
+		z index: 920
+		alignment: middle right
+		render style: image
+		include file: /magic-modules.mse-include/rarities/choice_images_old
+	############################# Text box
+	text:
+		left: 43
+		top : {(50 - (-chop_top()))}
+		width: 141
+		bottom: {(436 - chop_bot())}
+		font:
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
+			scale down to: 6
+			color: { body_font_color() }
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: { body_font_size() }
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 900
+		padding left: 6
+		padding top: 4
+		padding right: 4
+		padding bottom: 4
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height line max: 2.5
+	watermark:
+		left: 120
+		top : 313
+		width: 138
+		height: 150
+		z index: 1
+		render style: image
+		alignment: middle center
+		image:			{ watermark_image_1() }
+	############################# PT
+	pt:
+		z index: 910
+		left: 295
+		top: 470
+		width: 47
+		height: 27
+		alignment: right middle
+		font:
+			name: { pt_font() }
+			italic name: { pt_font_italic() }
+			size: { pt_font_size() }
+			color: { pt_font_color() }
+			shadow color: { if pt_font_color() == to_color("black") then rgb(255,255,255) else rgb(0,0,0) }
+			shadow displacement x: 1
+			shadow displacement y: 1
+			separator color: rgb(200,0,0)
+	############################# Card sorting / numbering
+	############################# Copyright stuff
+	illustrator:
+		left: 40
+		top : 470
+		width: 297
+		height: 16
+		z index: 900
+		alignment: { if styling.left_align_artist then "middle left" else "middle center" }
+		font:
+			name: MPlantin
+			size: 10
+			color: {if card.card_color == "white" and b_text() then rgb(0,0,0) else rgb(255,255,255)}
+			shadow color: {if card.card_color == "white" and b_text() then rgb(255,255,255) else rgb(0,0,0)}
+			shadow displacement x: 1
+			shadow displacement y: 1
+	copyright line:
+		left: 40
+		top : 486
+		width: 297
+		height: 12
+		z index: 900
+		alignment: { if styling.left_align_artist then "middle left" else "middle center" }
+		font:
+			name: MPlantin
+			size: 6.5
+			color: {if card.card_color == "white" and b_text() then rgb(0,0,0) else rgb(255,255,255)}
+			shadow color: {if card.card_color == "white" and b_text() then rgb(255,255,255) else rgb(0,0,0)}
+			shadow displacement x: 1
+			shadow displacement y: 1
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: foil layer
+	choice: foil
+	save value: false
+	editable: false
+extra card field: 
+	type: choice
+	name: land color overlay
+	choice: yes
+	save value: false
+	editable: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: divider 0
+	choice: divider
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: divider 1
+	choice: divider
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: divider 2
+	choice: divider
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: divider 3
+	choice: divider
+	editable: false
+	save value: false
+extra card style:
+	foil layer:
+		left: 0
+		top : 0
+		width: 375
+		height: 523
+		z index: 1010
+		render style: image
+		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
+	land color overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 300
+		visible: {is_bolas() and contains(card.type, match:"Artifact") and has_color()}
+		render style: image
+		#and card.card_color() != "colorless"}
+		image: {bp_color_background(type:"card", base_hybrid:bp_card_hybrid)}
+		mask: land_artifact_blend.png
+	divider 0:
+		left: 50
+		top: { divider_position(0) - 4 }
+		width: 135
+		height: 8
+		render style: image
+		image: divide.png
+		z index: 600
+	divider 1:
+		left: 50
+		top: { divider_position(1) - 4 }
+		width: 135
+		height: 8
+		render style: image
+		image: divide.png
+		z index: 600
+	divider 2:
+		left: 50
+		top: { divider_position(2) - 4 }
+		width: 135
+		height: 8
+		render style: image
+		image: divide.png
+		z index: 600
+	divider 3:
+		left: 50
+		top: { divider_position(3) - 4 }
+		width: 135
+		height: 8
+		render style: image
+		image: divide.png
+		z index: 600
