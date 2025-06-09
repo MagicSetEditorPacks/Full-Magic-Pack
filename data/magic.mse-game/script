@@ -515,6 +515,10 @@ colorless_color := {
 	else "c"
 }
 
+convert_phy_hybrid_mana := replace@(match:"(.)/(.)/P", replace:"H/\\1/\\2")
+convert_phy_normal_mana := replace@(match:"(.)/P", replace:"H/\\1")
+convert_phy_mana := convert_phy_hybrid_mana + convert_phy_normal_mana
+
 ############################################################## Mainframe mana
 use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
 use_large_v_mana := { use_v_mana() and chosen(set.mana_symbol_options, choice:"enable in casting costs")}
@@ -5267,6 +5271,37 @@ rarity_sort_script :=
 	else if	input == "mythic rare"	then	"4"
 	else if	input == "masterpiece"	then	"5"
 	else									"6"
+}
+############################################################## New card construction
+pt_construction_script :=
+{
+	values := split_text(value, match: lang_setting("pt_separator"))
+	if length(values) != 2 then [] else (
+	suffix := if margin_code == "pt1" then "" else replace(margin_code, match: "pt", replace: "_")
+	keys := ["power" + suffix, "toughness" + suffix]
+	make_map(keys:keys, values:values))
+}
+type_construction_script :=
+{
+	values := split_text(value, match: "( ?- ?|" + lang_setting("type_separator") + ")")
+	suffix := if margin_code == "type1" then "" else replace(margin_code, match: "type", replace: "_")
+	keys := ["super_type" + suffix]
+	if length(values) > 1 then keys := keys + ["sub_type" + suffix]
+	make_map(keys:keys, values:values)
+}
+text_construction_script :=
+{
+	suffix := if margin_code == "text1" then "" else replace(margin_code, match: "text", replace: "_")
+	keys := ["rule_text" + suffix]
+	values := [value]
+	make_map(keys:keys, values:values)
+}
+cc_construction_script :=
+{
+	suffix := if margin_code == "cc1" then "" else replace(margin_code, match: "cc", replace: "_")
+	keys := ["casting_cost" + suffix]
+	values := [convert_phy_mana(value)]
+	make_map(keys:keys, values:values)
 }
 ############################################################## Custom index
 search_pull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
