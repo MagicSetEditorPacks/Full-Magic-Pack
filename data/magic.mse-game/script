@@ -42,6 +42,7 @@ semicolon_count := filter_text@(match:";")
 
 split_comma :=     split_text@(match: " *, *")
 split_semicolon := split_text@(match: " *; *")
+split_line :=      split_text@(match:"\n")
 line_count :=      split_text@(match:"\n+",include_empty:false) + length
 px_split :=        split_text@(match:"p?x",include_empty:false)
 
@@ -1978,8 +1979,8 @@ apply_margins := {
 }
 
 bump_text := {
-	blocks := split_text(input, match:"\n");
-	new_text := blocks[0];
+	blocks := split_line(input)
+	new_text := blocks[0]
 	for x from 1 to length(blocks)-1 do new_text := new_text + "\n" + bumper(blocks[x])
 	new_text
 }
@@ -2332,7 +2333,7 @@ lines_of_text := {												#### estimate lines in break blocks
 			lines := lines + calc_lines(word_split(input[x]), char:char)
 	lines
 }
-flavor_text := {split_text(match:"\n", remove_tags(card.flavor_text+"\n"))}						#### remove tags, add \n so .1 doesn't explode
+flavor_text := {split_line(remove_tags(card.flavor_text+"\n"))}						#### remove tags, add \n so .1 doesn't explode
 hard_flavor_break := { if not contains(card.flavor_text, match:"\n") then 0 else if contains(card.flavor_text, match:"<soft-line>\n") then 0 else if lines_of_rules() >= 3 then -3 else -2}
 font_size := {min(14,round_near(card_style.text.content_height / card_style.text.content_lines) - 8)}	#### approximate font size
 adj_char_width := {7.35 * min(14, font_size()+0.95) / 14}										#### average char width, adjusted for font size
@@ -2348,7 +2349,7 @@ uneven_correction := { if lines_of_flavor() == 1 then max(4, (card_style.text.co
 #### old_bar_equation is compatibilty for 2.0.0
 old_bar_equation := { top_of_textbox() + padding_height() + card_style.text.content_height - line_height()*(lines_of_flavor() + offset_lines()) + linebreak_height() - uneven_correction() + front_corr() + bar_offset() + hard_flavor_break() +1 }
 	
-flavor_text2 := {split_text(match:"\n", remove_tags(card.flavor_text_2+"\n"))}						#### remove tags, add \n so .1 doesn't explode
+flavor_text2 := {split_line(remove_tags(card.flavor_text_2+"\n"))}						#### remove tags, add \n so .1 doesn't explode
 hard_flavor_break2 := { if not contains(card.flavor_text_2, match:"\n") then 0 else if contains(card.flavor_text_2, match:"<soft-line>\n") then 0 else if lines_of_rules2() >= 3 then -3 else -2}
 font_size2 := {min(14,round_near(card_style.text_2.content_height / card_style.text_2.content_lines) - 8)}	#### approximate font size
 adj_char_width2 := {7.35 * min(14, font_size2()+0.95) / 14}										#### average char width, adjusted for font size
@@ -2363,7 +2364,7 @@ uneven_correction2 := { if lines_of_flavor2() == 1 then max(4, (card_style.text_
 #### add it all up
 old_bar_equation2 := { top_of_textbox2() + padding_height2() + card_style.text_2.content_height - line_height2()*(lines_of_flavor2() + offset_lines2()) + linebreak_height2() - uneven_correction2() + back_corr() + bar_offset2() + hard_flavor_break2() +1 }
 
-flavor_text3 := {split_text(match:"\n", remove_tags(card.flavor_text_3+"\n"))}						#### remove tags, add \n so .1 doesn't explode
+flavor_text3 := {split_line(remove_tags(card.flavor_text_3+"\n"))}						#### remove tags, add \n so .1 doesn't explode
 hard_flavor_break3 := { if not contains(card.flavor_text_3, match:"\n") then 0 else if contains(card.flavor_text_3, match:"<soft-line>\n") then 0 else if lines_of_rules3() >= 3 then -3 else -2}
 font_size3 := {min(14,round_near(card_style.text_3.content_height / card_style.text_3.content_lines) - 8)}	#### approximate font size
 adj_char_width3 := {7.35 * min(14, font_size3()+0.95) / 14}										#### average char width, adjusted for font size
@@ -5301,6 +5302,16 @@ cc_construction_script :=
 	suffix := if margin_code == "cc1" then "" else replace(margin_code, match: "cc", replace: "_")
 	keys := ["casting_cost" + suffix]
 	values := [convert_phy_mana(value)]
+	make_map(keys:keys, values:values)
+}
+rule_text_to_level_text :=
+{
+	suffix := if input <= 1 then "" else "_" + input
+	values := split_line(card["rule_text" + suffix])
+	count := length(values)
+	keys := for x from 1 to count do ["level_" + x + "_text"]
+	values := values + [""]
+	keys := keys + ["rule_text" + suffix]
 	make_map(keys:keys, values:values)
 }
 ############################################################## Custom index
