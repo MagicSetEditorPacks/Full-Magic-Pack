@@ -5273,43 +5273,66 @@ rarity_sort_script :=
 	else if	input == "masterpiece"	then	"5"
 	else									"6"
 }
-############################################################## New card construction
-pt_construction_script :=
+############################################################## Card import
+dfc_split_import_script :=
+{
+	face_values := split_text(value, match: " ?// ?")
+	for x from 1 to length(face_values) do
+	(
+		suffix := if x <= 1 then "" else "_" + x
+		import_script(value:face_values[x-1], suffix:suffix)
+	)
+}
+name_import_script :=
+{
+	make_map(keys:["name" + suffix], values:[value])
+}
+pt_import_script :=
 {
 	values := split_text(value, match: lang_setting("pt_separator"))
 	if length(values) != 2 then [] else (
-	suffix := if margin_code == "pt1" then "" else replace(margin_code, match: "pt", replace: "_")
 	keys := ["power" + suffix, "toughness" + suffix]
 	make_map(keys:keys, values:values))
 }
-type_construction_script :=
+type_import_script :=
 {
 	values := split_text(value, match: "( ?- ?|" + lang_setting("type_separator") + ")")
-	suffix := if margin_code == "type1" then "" else replace(margin_code, match: "type", replace: "_")
 	keys := ["super_type" + suffix]
 	if length(values) > 1 then keys := keys + ["sub_type" + suffix]
 	make_map(keys:keys, values:values)
 }
-text_construction_script :=
+text_import_script :=
 {
 	suffix := if margin_code == "text1" then "" else replace(margin_code, match: "text", replace: "_")
 	keys := ["rule_text" + suffix]
 	values := [value]
 	make_map(keys:keys, values:values)
 }
-cc_construction_script :=
+cc_import_script :=
 {
-	suffix := if margin_code == "cc1" then "" else replace(margin_code, match: "cc", replace: "_")
 	keys := ["casting_cost" + suffix]
 	values := [convert_phy_mana(value)]
+	make_map(keys:keys, values:values)
+}
+rarity_import_script :=
+{
+	keys := ["rarity" + suffix]
+	values := [if value == "mythic" then "mythic rare" else if value == "bonus" then "special" else value]
+	make_map(keys:keys, values:values)
+}
+border_import_script :=
+{
+	keys := ["border_color"]
+	values := [if value == "borderless" then rgba(0,0,0,0) else value]
 	make_map(keys:keys, values:values)
 }
 rule_text_to_level_text :=
 {
 	suffix := if input <= 1 then "" else "_" + input
+	offset := if suffix == "" then 0 else to_int(substring(suffix, begin:1))
 	values := split_line(card["rule_text" + suffix])
 	count := length(values)
-	keys := for x from 1 to count do ["level_" + x + "_text"]
+	keys := for x from 1 to count do ["level_" + (x+offset) + "_text"]
 	values := values + [""]
 	keys := keys + ["rule_text" + suffix]
 	make_map(keys:keys, values:values)
