@@ -516,9 +516,15 @@ colorless_color := {
 	else "c"
 }
 
-convert_phy_hybrid_mana := replace@(match:"(.)/(.)/P", replace:"H/\\1/\\2")
-convert_phy_normal_mana := replace@(match:"(.)/P", replace:"H/\\1")
-convert_phy_mana := convert_phy_hybrid_mana + convert_phy_normal_mana
+convert_scryfall_phy_hybrid_mana := replace@(match:"\{(.)/(.)/P\}", replace:"\{H/\\1/\\2\}")
+convert_scryfall_phy_normal_mana := replace@(match:"\{(.)/P\}", replace:"\{H/\\1\}")
+convert_scryfall_pawprint_symbol := replace@(match:"\{P\}", replace:"\{J\}")
+convert_scryfall_chaos_symbol := replace@(match:"\{CHAOS\}", replace:"\{A\}")
+convert_scryfall_braces := replace@(match:"\{([A-Z0-9/]+)\}", replace:"<sym>\\1</sym>") + replace@(match:"</sym><sym>", replace:"")
+convert_scryfall_mana :=	convert_scryfall_phy_hybrid_mana +
+							convert_scryfall_phy_normal_mana +
+							convert_scryfall_pawprint_symbol +
+							convert_scryfall_chaos_symbol
 
 ############################################################## Mainframe mana
 use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
@@ -5303,15 +5309,15 @@ type_import_script :=
 }
 text_import_script :=
 {
-	suffix := if margin_code == "text1" then "" else replace(margin_code, match: "text", replace: "_")
+	suffix := if margin_code == "text" then "" else replace(margin_code, match: "text", replace: "_")
 	keys := ["rule_text" + suffix]
-	values := [value]
+	values := [convert_scryfall_braces(convert_scryfall_mana(value))]
 	make_map(keys:keys, values:values)
 }
 cc_import_script :=
 {
 	keys := ["casting_cost" + suffix]
-	values := [convert_phy_mana(value)]
+	values := [convert_scryfall_mana(value)]
 	make_map(keys:keys, values:values)
 }
 rarity_import_script :=
