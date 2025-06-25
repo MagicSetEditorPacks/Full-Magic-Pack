@@ -9,7 +9,7 @@ Pack containing nearly all public Magic templates for MSE, except outdated ones.
     * `magicseteditor.exe` and `mse.exe`, the regular version of the app. The files are identical.
     * `magicseteditor.com`, a command-line version of MSE for advanced users.
     * `Template Creation Tutorial.odt`, a guide on how to make your own templates.
-3. If you already had a previous version of MSE, move or copy all other subfolders into your existing MSE folder. Otherwise, this folder acts as a stand alone installation.
+3. If you already had a previous version of MSE, move or copy everything into your existing MSE folder, and allow overwrite. Otherwise, this folder acts as a stand alone installation.
 
 # Change Language
 1. Launch MSE.
