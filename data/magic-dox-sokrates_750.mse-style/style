@@ -28,10 +28,10 @@ card dpi: 300
 
 ############################################################## Extra scripts
 init script:
-	nameline_offset_left_1 := { 4 }
-	nameline_offset_top_1 := { 4 }
-	casting_cost_offset_left_1 := { -8 }
-	casting_cost_offset_top_1 := { 2 }
+	nameline_offset_left_1 := { -8 }
+	nameline_offset_top_1 := { 62 }
+	casting_cost_offset_left_1 := { 16 }
+	casting_cost_offset_top_1 := { 3 }
 	transform_symbol_offset_left_1 := { 20 }
 	transform_symbol_offset_top_1 := { 14 }
 	transform_symbol_offset_width_1 := { -28 }
@@ -42,24 +42,32 @@ init script:
 	card_symbol_offset_width_1 := { -6 }
 	card_symbol_offset_height_1 := { -6 }
 	name_card_symbol_offset_left_1 := { 12 }
+	name_shadow_color :=			{ rgb(0,0,0) }
+	name_shadow_displacement_x :=	{ -2 }
+	name_shadow_displacement_y :=	{ 2 }
 	
-	typeline_offset_top_1 := { 5 }
-	typeline_offset_left_1 := { 8 }
+	typeline_offset_top_1 := { 13 }
+	typeline_offset_left_1 := { 4 }
 	type_offset_top_1 := { 2 }
-	rarity_offset_left_1 := { -10 }
+	rarity_offset_left_1 := { 8 }
 	indicator_offset_left_1 := { -5 }
-	indicator_offset_top_1 := { -4 }
+	indicator_offset_top_1 := { -3 }
+	type_shadow_color :=			{ rgb(0,0,0) }
+	type_shadow_displacement_x :=	{ -2 }
+	type_shadow_displacement_y :=	{ 2 }
 	
-	information_offset_top_1 := { 8 }
+	invert_watermark_1 := { true }
+	
+	information_offset_top_1 := { 3 }
 	information_secondary_offset_pt_left_1 := { 16 }
 	
 	swap_fonts_pt_default :=
 	[
-		name: {"Beleren Bold"},
-		size: {36.0},
+		name: {"Caesar Dressing"},
+		size: {31.0},
 		color: {"white"},
 		vertical: {0},
-		italic: {"Beleren Bold"}
+		italic: {""}
 	]
 	swap_fonts_body_default :=
 	[
@@ -71,19 +79,27 @@ init script:
 	]
 	swap_fonts_type_default :=
 	[
-		name: {"Beleren Bold"},
-		size: {26.0},
+		name: {"Caesar Dressing"},
+		size: {30.0},
 		color: {"white"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_name_default :=
 	[
-		name: {"Beleren Bold"},
-		size: {30.0},
+		name: {"Caesar Dressing"},
+		size: {33.0},
 		color: {"white"},
 		vertical: {0},
 		italic: {""}
+	]
+	swap_fonts_casting_cost_default :=
+	[
+		name: {"MPlantin"},
+		size: {31.0},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
 	]
 	
 	template_prefix :=
@@ -119,6 +135,20 @@ init script:
 	
 	is_crowned :=		{ styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
 	
+	pure_colors :=
+	{
+		sort_text(
+			order: if card_is_wedge(input) then "(wbgur)" else "(wubrg)",
+			(if chosen(card.card_color, choice:"white")	then "w") +
+			(if chosen(card.card_color, choice:"blue")	then "u") +
+			(if chosen(card.card_color, choice:"black")	then "b") +
+			(if chosen(card.card_color, choice:"red")	then "r") +
+			(if chosen(card.card_color, choice:"green")	then "g")
+		)
+	}
+	pt_colors := { if styling.PT_color_scheme == "canon" then pt_colors_canon() else styling.PT_color_scheme }
+	pt_colors_canon := { if is_hybrid_cost() then "land" else "gold" }
+	
 	chop_top :=			{ split := split_comma(styling.chop_text_box); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 500, minimum: -500) else 0 }
 	chop_bot :=			{ split := split_comma(styling.chop_text_box); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 500, minimum: -500) else 0 }
 	
@@ -127,17 +157,15 @@ init script:
 	popout_width :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.2 != "" and split.2 != "-" then clamp(split.2, maximum:1500, minimum:0) else 0 }
 	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" and split.3 != "-" then clamp(split.3, maximum:2000, minimum:0) else 0 }
 	
-	art_left :=			{ 0 }
-	art_right :=		{ stylesheet.card_width }
-	art_top :=			{ if styling.stretch_art_to_whole_card then 0															else 103 }
-	art_bottom :=		{ if styling.stretch_art_to_whole_card then stylesheet.card_height	else if is_textboxed()	then 970	else 606 }
+	art_left :=			{ if styling.stretch_art_to_whole_card or styling.border != "yes" then 0						else 30 }
+	art_width :=		{ if styling.stretch_art_to_whole_card or styling.border != "yes" then stylesheet.card_width	else 690 }
+	art_top :=			{ if styling.stretch_art_to_whole_card or styling.border != "yes" then 0						else 30 }
+	art_bottom :=		{ if styling.stretch_art_to_whole_card or styling.border == "no" then stylesheet.card_height	else 967 }
 	art_mask :=
 	{
-		mask := "image_mask" + (if is_aliased() then "_alias" else "") + (if is_textboxed() then "_textbox" else "") + ".png"
-		crop(mask, offset_x: art_left(), offset_y: art_top(), width: art_right() - art_left(), height: art_bottom() - art_top())
+		mask := "image_mask.png"
+		crop(mask, offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_bottom() - art_top())
 	}
-	
-	card_stamp_image :=	{ if is_stamped() then "stamp.png" else "" }
 
 ############################################################## Extra style options
 styling field:
@@ -149,14 +177,19 @@ styling field:
 	name:			stretch art to whole card
 	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
 	initial:		no
-styling field:
-	type:			boolean
-	name:			textbox art
-	description:	Make the image appear behind the textbox.
-	initial:		yes
 
 include file: /magic-modules.mse-include/texts/styling_fields
 
+styling field:
+	type:			choice
+	name:			PT color scheme
+	description:	Use the selected color scheme for the PT box on two color cards. Canon is "land" on hybrid cards, "gold" otherwise.
+	choice:			canon
+	choice:			gold
+	choice:			hybrid
+	choice:			colored
+	choice:			land
+	initial:		canon
 styling field:
 	type:			choice
 	name:			legend crown
@@ -165,21 +198,6 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
-styling field:
-	type:			choice
-	name:			land frame
-	description:	Use a land frame variant?
-	choice:			yes
-	choice:			if land
-	choice:			no
-	initial:		if land
-styling field:
-	type:			choice
-	name:			PT type
-	description:	Use which pt box variant?
-	choice:			solid
-	choice:			symbol
-	initial:		solid
 
 include file: /magic-modules.mse-include/rarities/styling_fields
 
@@ -191,6 +209,14 @@ styling field:
 	description:	Should there be an overlay applied, such as foil?
 	match:			magic-overlay-*.mse-include
 	required:		false
+styling field:
+	type:			choice
+	name:			border
+	description:	Use a border?
+	choice:			yes
+	choice:			only copyright
+	choice:			no
+	initial:		only copyright
 
 include file: /magic-modules.mse-include/information/styling_fields
 
@@ -215,25 +241,15 @@ include file: /magic-modules.mse-include/namelines/card_fields
 include file: /magic-modules.mse-include/typelines/card_fields
 
 card style:
-	############################# Nameline
-	alias:
-		left:				117
-		top:				{ 120 + body_font_vertical() }
-		width:				516
-		height:				28
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ body_font_italic() }
-			italic name:		{ body_font_italic() }
-			size:				{ 15 }
-			scale down to:		7
-			color:				{ name_font_color() }
-		symbol font:
-			name:				{ styling.casting_cost_mana_symbols }
-			size:				{ 15 }
-			scale down to:		7
 	############################# Background stuff
+	border color:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			150
+		visible:			{ styling.border != "no" }
+		mask:				{ "border_" + (if styling.border == "only copyright" then "borderless_" else "") + "mask.png" }
 	card color:
 		left:				0
 		top:				0
@@ -249,7 +265,7 @@ card style:
 	image:
 		left:				{ art_left() }
 		top:				{ art_top() }
-		right:				{ art_right() }
+		width:				{ art_width() }
 		bottom:				{ art_bottom() }
 		z index:			100
 		mask:				{ art_mask() }
@@ -262,10 +278,10 @@ card style:
 	
 	############################# Text box
 	text:
-		left:				76
-		top:				{ 666 + chop_top() + body_font_vertical() }
-		right:				674
-		bottom:				{ 940 - chop_bot() }
+		left:				72
+		top:				{ 670 + chop_top() + body_font_vertical() }
+		right:				678
+		bottom:				{ 950 - chop_bot() + (if is_stamped() then - 9 else 0) }
 		z index:			900
 		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
 		line height line:	1.5
@@ -296,30 +312,21 @@ card style:
 			scale down to:		7
 	
 	############################# PT
-	power:
-		left:				656
-		top:				{ 866 + pt_font_vertical() }
-		width:				40
-		height:				61
-		z index:			910
+	pt:
+		left:				600
+		top:				{ 940 + pt_font_vertical() }
+		width:				87
+		height:				46
+		z index:			900
 		alignment:			center middle shrink-overflow
 		font:
 			name:				{ pt_font() }
 			size:				{ pt_font_size() }
 			color:				{ pt_font_color() }
 			separator color:	red
-	toughness:
-		left:				605
-		top:				{ 931 + pt_font_vertical() }
-		width:				40
-		height:				60
-		z index:			910
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ pt_font() }
-			size:				{ pt_font_size() }
-			color:				{ pt_font_color() }
-			separator color:	red
+			shadow color:		{ rgb(0,0,0) }
+			shadow displacement x:	-2
+			shadow displacement y:	2
 
 ############################################################## Extra card fields
 extra card field:
@@ -336,24 +343,22 @@ extra card field:
 	script:				card.card_color
 extra card field:
 	type:				choice
-	name:				crown overlay
+	name:				crown
 	editable:			false
 	save value:			false
 	script:				card.card_color
 extra card field:
 	type:				choice
-	name:				pearl
-	choice:				common
-	choice:				uncommon
-	choice:				rare
-	choice:				mythic
-	default:			if card.rarity == "common" or card.rarity == "basic land" then "common" else if card.rarity == "uncommon" then "uncommon" else if card.rarity == "rare" then "rare" else "mythic"
-extra card field:
-	type:				choice
-	name:				land overlay
+	name:				stamp
 	editable:			false
 	save value:			false
-	script:				card.rarity
+	script:				card.card_color
+extra card field:
+	type:				color
+	name:				stamp border
+	editable:			false
+	save value:			false
+	script:				card.border_color
 extra card style:
 	textbox:
 		left:				0
@@ -369,10 +374,18 @@ extra card style:
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
 		z index:			800
-		visible:			{ card.power != "" or card.toughness != "" }
+		visible:			{ card.pt != "" }
 		render style:		image
-		image:				{ if styling.PT_type == "solid" then "pt.png" else "pt_symbol.png" }
-	crown overlay:
+		image:
+			script:
+				pure := pure_colors()
+				count := length(pure)
+				color := pt_colors()
+				if color == "gold" and count > 1 then template("m", type: "pt")
+				else if color == "land" and count > 1 then template("c", type: "pt")
+				else if color == "hybrid" and count == 2 then masked_blend(mask: "special_blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
+				else card_ptbox()
+	crown:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
@@ -381,27 +394,20 @@ extra card style:
 		visible:			{ is_crowned() }
 		render style:		image
 		image:				{ card_crown() }
-	pearl:
+	stamp:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
-		z index:			310
-		visible:			{ is_crowned() }
+		z index:			200
 		popup style:		in place
 		render style:		image
-		choice images:
-			common:				pearl/common.png
-			uncommon:			pearl/uncommon.png
-			rare:				pearl/rare.png
-			mythic:				pearl/mythic.png
-		mask:				pearl_mask.png
-	land overlay:
+		image:				{ if is_stamped() then card_stamp() else card_nonstamp() }
+	stamp border:
 		left:				0
 		top:				0
 		width:				{ stylesheet.card_width }
 		height:				{ stylesheet.card_height }
-		z index:			320
-		visible:			{ is_land_framed() }
-		render style:		image
-		image:				{ if is_aliased() then "land_alias_overlay.png" else "land_overlay.png" }
+		z index:			200
+		visible:			{ styling.border != "no" and is_stamped() }
+		mask:				border_stamp_mask.png
