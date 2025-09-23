@@ -1,15 +1,17 @@
-mse version: 2.0.0
+mse version: 2.1.2
 game: magic
 full name: Checklist
 short name: Checklist
-installer group: magic/checklist
 icon: card-sample.png
 position hint: 999
 
-version: 2014-06-28
+version: 2025-07-29
 depends on:
 	package: magic.mse-game
 	version: 2008-06-02
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-10-01
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -20,39 +22,52 @@ depends on:
 card width: 375
 card height: 523
 card dpi: 150
+
+
 ############################################################## Extra scripts
 init script:
+	transform_symbol_left_1 :=		{ 15 }
+	transform_symbol_top_1 :=		{ 19 }
+	transform_symbol_width_1 :=		{ 44 }
+	transform_symbol_height_1 :=	{ 44 }
+	transform_symbol_default :=		{ "day" }
 	
-	template      := { input + "card.jpg" }
-	land_template := { input + "card.jpg" }
+	rarity_right_1 :=				{ 303 + if styling.visible_pt then 0 else 52 }
+	rarity_top_1 :=					{ 481 }
+	rarity_width_1 :=				{ 44 }
+	rarity_height_1 :=				{ 22 }
+	rarity_disabled_1 :=			{ not styling.visible_rarity }
 	
-	card_shape := { "checklist" }
+	template :=			{ input + "card.jpg" }
+	land_template :=	{ input + "card.jpg" }
 	
-	mana_t := {
-		if      styling.tap_symbol == "old"        then "old"
-		else if styling.tap_symbol == "diagonal T" then "older"
-		else                                            "new"
-	}
+	card_background :=	{ color_background(type:"card", base_hybrid:card_hybrid, hybrid_blend: "white", artifact_blend: "black", multicolor_blend: "black") }@(offset:0 )
 	
-	# Use guild mana symbols?
-	guild_mana := { styling.use_guild_mana_symbols }
+	card_full_name := { value }
+	card_full_name_default := { "Checklist" }
+	
+	card_shape :=		{ "checklist" }
 	
 	number_of_boxes := { if styling.number_of_boxes == "" then "100" else styling.number_of_boxes }
-	
-############################################################## Set info fields
-set info style:
-	symbol:
-		variation:
-			name: invertedcommon
-			border radius: 0.10
-			fill type: solid
-			fill color:   rgb(255,255,255)
-			border color: rgb(0,0,0)
+
 ############################################################## Extra style options
 styling field:
 	type: text
 	name: number of boxes
 	description: How many boxes should there be?  The default is 20.
+styling field:
+	type: boolean
+	name: visible pt
+	description: Should there be a pt box?
+styling field:
+	type: boolean
+	name: visible rarity
+	description: Should there be a rarity symbol?
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
 styling field:
 	type: boolean
 	name: use guild mana symbols
@@ -72,24 +87,14 @@ styling field:
 	description: The default artist and copyright line font color for cards
 	choice: black
 	choice: white
-styling field:
-	type: boolean
-	name: inverted common symbol
-	description: Should the common rarity symbol be inverted, like in Coldsnap?
-	initial: no
 ############################################################## Card fields
+
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/rarities/card_fields
+
 card style:
 	############################# Background stuff
-	transformation:
-		left: 21
-		top: 25
-		height: 32
-		width: 32
-		z index: 2
-		render style: image
-		choice images:
-			day: sun_circle.png
-			night: night_circle.png
 	image:
 		left: 17
 		top: 17
@@ -97,9 +102,9 @@ card style:
 		height:	488
 		z index: 0
 	rule text:
-		left: 65
+		left: { if card.transformation == "none" then 23 else 65 }
 		top: 27
-		width: 287
+		right: 352
 		height: 26
 		alignment: middle center
 		z index: 2
@@ -108,32 +113,10 @@ card style:
 			size: 11
 			weight: bold
 			color: black
-	rarity:
-		right: 303
-		top: 481
-		width: 44
-		height: 22
-		z index: 2
-		render style: image
-		alignment: middle right
-		choice images:
-			# Images based on the set symbol
-			basic land:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			common:
-				script:
-					if styling.inverted_common_symbol then symbol_variation(symbol: set.symbol, variation: "invertedcommon")
-					else symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "uncommon")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "rare")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "mythic rare")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "special")
 	############################# Copyright stuff
 	illustrator:
-		left: 56
-		top : 478
+		left: 57
+		top : 479
 		width: 217
 		height: 16
 		z index: 2
@@ -152,6 +135,18 @@ card style:
 			name: MPlantin
 			size: 6.5
 			color: { styling.artist_font_color }
+	pt:
+		z index: 900
+		left: 313
+		top: 484
+		width: { if styling.visible_pt then 36 else 0 }
+		height:	17
+		alignment: center middle shrink-overflow
+		font:
+			name: Beleren Bold
+			size: 15
+			color: black
+			separator color: red
 ############################################################## Extra card fields
 extra card field:
 	type: choice
@@ -210,6 +205,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_1, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -255,6 +251,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_2, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -300,6 +297,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_3, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -345,6 +343,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_4, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -390,6 +389,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_5, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -435,6 +435,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_6, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -480,6 +481,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_7, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -525,6 +527,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_8, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -570,6 +573,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_9, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -615,6 +619,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_10, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -660,6 +665,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_11, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -705,6 +711,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_12, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -750,6 +757,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_13, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -795,6 +803,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_14, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -840,6 +849,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_15, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -885,6 +895,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_16, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -930,6 +941,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_17, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -975,6 +987,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_18, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -1020,6 +1033,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_19, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -1065,6 +1079,7 @@ extra card field:
 		type: radio
 	choice:
 		name: reversed
+	default: stylesheet; card_color(casting_cost: extra_card.cost_20, rules_text: card.rule_text, type: card.super_type, watermark: card.watermark, card_name: card.name, default: "colorless", margin_code: "color1")
 	script: card_color_filter(value)
 extra card field:
 	type: text
@@ -1084,6 +1099,7 @@ extra card style:
 		width: 46
 		height: 22
 		z index: 2
+		visible: { styling.visible_pt }
 		render style: image
 		image: pt.png
 	paintbrush:
@@ -1111,7 +1127,7 @@ extra card style:
 		height: 523
 		z index: 1
 		render style: image
-		image: title.png
+		image: { "title" + (if card.transformation == "none" then "_full" else "") + ".png" }
 	box 1:
 		left: 20
 		top: 63
