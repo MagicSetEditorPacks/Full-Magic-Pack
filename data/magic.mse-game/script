@@ -42,6 +42,8 @@ semicolon_count := filter_text@(match:";")
 
 split_comma :=     split_text@(match: " *, *")
 split_semicolon := split_text@(match: " *; *")
+split_line :=      split_text@(match: "\n")
+split_face :=      split_text@(match: " ?// ?")
 line_count :=      split_text@(match:"\n+",include_empty:false) + length
 px_split :=        split_text@(match:"p?x",include_empty:false)
 
@@ -375,15 +377,16 @@ has_identity_general := {
 		color_field 	:= card["card_color"+tag]
 		cost_field 		:= card["casting_cost"+tag]
 		culled_color	:= cull_directions(cull_noncolors(color_field))
+		default_land	:= lang_setting("is_land")(card["super_type"]+tag)
 
 		default_from_casting_cost := colors_from_mana_symbols(cost_field)
 		default_from_card_color := if chosen(color_field, choice:"colorless")
-				then ""							## colorless
+				then ""												## colorless
 			else if default_from_casting_cost == "" and chosen(color_field, choice:"land")
-				then ""							## land
+				then (if default_land then "" else culled_color)	## land
 			else if chosen(color_field, choice:"multicolor") and culled_color == ""
-				then default_from_casting_cost	## 3+ multicolor
-			else culled_color					## normal color
+				then default_from_casting_cost						## 3+ multicolor
+			else culled_color										## normal color
 		
 		color_cost_disagree := default_from_card_color != default_from_casting_cost
 		color_indicator_disagree := default_from_card_color != culled_indicator and indicator_field != color_field
@@ -514,6 +517,16 @@ colorless_color := {
 	else if cc == "green" then "g"
 	else "c"
 }
+
+convert_scryfall_phy_hybrid_mana := replace@(match:"\{(.)/(.)/P\}", replace:"\{H/\\1/\\2\}")
+convert_scryfall_phy_normal_mana := replace@(match:"\{(.)/P\}", replace:"\{H/\\1\}")
+convert_scryfall_pawprint_symbol := replace@(match:"\{P\}", replace:"\{J\}")
+convert_scryfall_chaos_symbol := replace@(match:"\{CHAOS\}", replace:"\{A\}")
+convert_scryfall_braces := replace@(match:"\{([A-Z0-9/]+)\}", replace:"<sym>\\1</sym>") + replace@(match:"</sym><sym>", replace:"")
+convert_scryfall_mana :=	convert_scryfall_phy_hybrid_mana +
+							convert_scryfall_phy_normal_mana +
+							convert_scryfall_pawprint_symbol +
+							convert_scryfall_chaos_symbol
 
 ############################################################## Mainframe mana
 use_v_mana := {contains(set.custom_mana_symbol_name, match:".png")}
@@ -1133,12 +1146,15 @@ for_mana_costs := {
 			else "<param-cost>{alternative_cost(input.param, trim:long_nomana_cost, s:action)}</param-cost>{non}"				#### else cost "non" with long formatting
 		) else
 			"<param-cost>{alternative_cost(input.param, s:action, trim:lower_first)}{non}</param-cost>"						#### one, nonmana, part
-	) else if match(match: "^[VLHSCAIETKQ\\?XYZIWUBRG0-9/|]+$", input.param) then											#### one word
+	) else if is_mana_cost(input) then																						#### one word
 		"{add}<param-mana>{input.param}</param-mana>"																		#### mana
 	else
 		"<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"						#### nonmana
 }@(non:" in addition to any other costs", action:false, add:"")
-
+#### return bool; is the input is a simple mana cost?
+is_mana_cost := {
+	match(match: "^[VLHSCAIETKQ\\?XYZIWUBRG0-9/|]+$", input.param)
+}
 #### Convert extra costs
 long_cost := replace@(match:", [A-Z]", replace: { to_lower() } )
 long_nomana_cost := replace@(match:"[A-Z]", replace: { to_lower() })
@@ -1243,6 +1259,25 @@ phy_reminder := {
 	else
 		reminder_text := ""
 	reminder_text
+}
+#### What number does the station/planet become a creature?
+station_number := {
+	tag := if card.pt != ""
+			then ""
+		else if card.pt_2 != ""
+			then "_1"
+		else if card.pt_3 != ""
+			then "_2"
+		else if card.pt_4 != ""
+			then "_2"
+		else ""
+	sn := 0
+	if tag != "" then (
+		level_circle := card["level"+tag]
+		sn := replace(level_circle, match:"[-+][0-9]*", replace:"");
+		if sn == 0 then sn := 0
+	)
+	sn
 }
 #### includes localization ability
 craft_code := {
@@ -1983,8 +2018,8 @@ apply_margins := {
 }
 
 bump_text := {
-	blocks := split_text(input, match:"\n");
-	new_text := blocks[0];
+	blocks := split_line(input)
+	new_text := blocks[0]
 	for x from 1 to length(blocks)-1 do new_text := new_text + "\n" + bumper(blocks[x])
 	new_text
 }
@@ -2337,7 +2372,7 @@ lines_of_text := {												#### estimate lines in break blocks
 			lines := lines + calc_lines(word_split(input[x]), char:char)
 	lines
 }
-flavor_text := {split_text(match:"\n", remove_tags(card.flavor_text+"\n"))}						#### remove tags, add \n so .1 doesn't explode
+flavor_text := {split_line(remove_tags(card.flavor_text+"\n"))}						#### remove tags, add \n so .1 doesn't explode
 hard_flavor_break := { if not contains(card.flavor_text, match:"\n") then 0 else if contains(card.flavor_text, match:"<soft-line>\n") then 0 else if lines_of_rules() >= 3 then -3 else -2}
 font_size := {min(14,round_near(card_style.text.content_height / card_style.text.content_lines) - 8)}	#### approximate font size
 adj_char_width := {7.35 * min(14, font_size()+0.95) / 14}										#### average char width, adjusted for font size
@@ -2353,7 +2388,7 @@ uneven_correction := { if lines_of_flavor() == 1 then max(4, (card_style.text.co
 #### old_bar_equation is compatibilty for 2.0.0
 old_bar_equation := { top_of_textbox() + padding_height() + card_style.text.content_height - line_height()*(lines_of_flavor() + offset_lines()) + linebreak_height() - uneven_correction() + front_corr() + bar_offset() + hard_flavor_break() +1 }
 	
-flavor_text2 := {split_text(match:"\n", remove_tags(card.flavor_text_2+"\n"))}						#### remove tags, add \n so .1 doesn't explode
+flavor_text2 := {split_line(remove_tags(card.flavor_text_2+"\n"))}						#### remove tags, add \n so .1 doesn't explode
 hard_flavor_break2 := { if not contains(card.flavor_text_2, match:"\n") then 0 else if contains(card.flavor_text_2, match:"<soft-line>\n") then 0 else if lines_of_rules2() >= 3 then -3 else -2}
 font_size2 := {min(14,round_near(card_style.text_2.content_height / card_style.text_2.content_lines) - 8)}	#### approximate font size
 adj_char_width2 := {7.35 * min(14, font_size2()+0.95) / 14}										#### average char width, adjusted for font size
@@ -2368,7 +2403,7 @@ uneven_correction2 := { if lines_of_flavor2() == 1 then max(4, (card_style.text_
 #### add it all up
 old_bar_equation2 := { top_of_textbox2() + padding_height2() + card_style.text_2.content_height - line_height2()*(lines_of_flavor2() + offset_lines2()) + linebreak_height2() - uneven_correction2() + back_corr() + bar_offset2() + hard_flavor_break2() +1 }
 
-flavor_text3 := {split_text(match:"\n", remove_tags(card.flavor_text_3+"\n"))}						#### remove tags, add \n so .1 doesn't explode
+flavor_text3 := {split_line(remove_tags(card.flavor_text_3+"\n"))}						#### remove tags, add \n so .1 doesn't explode
 hard_flavor_break3 := { if not contains(card.flavor_text_3, match:"\n") then 0 else if contains(card.flavor_text_3, match:"<soft-line>\n") then 0 else if lines_of_rules3() >= 3 then -3 else -2}
 font_size3 := {min(14,round_near(card_style.text_3.content_height / card_style.text_3.content_lines) - 8)}	#### approximate font size
 adj_char_width3 := {7.35 * min(14, font_size3()+0.95) / 14}										#### average char width, adjusted for font size
@@ -5411,6 +5446,70 @@ rarity_sort_script :=
 	else if	input == "mythic rare"	then	"4"
 	else if	input == "masterpiece"	then	"5"
 	else									"6"
+}
+############################################################## Card import
+dfc_split_import_script :=
+{
+	face_values := split_face(value)
+	for x from 1 to length(face_values) do
+	(
+		suffix := if x <= 1 then "" else "_" + x
+		import_script(value:face_values[x-1], suffix:suffix)
+	)
+}
+name_import_script :=
+{
+	make_map(keys:["name" + suffix], values:[value])
+}
+pt_import_script :=
+{
+	values := split_text(value, match: lang_setting("pt_separator"))
+	if length(values) != 2 then [] else (
+	keys := ["power" + suffix, "toughness" + suffix]
+	make_map(keys:keys, values:values))
+}
+type_import_script :=
+{
+	values := split_text(value, match: "( ?- ?|" + lang_setting("type_separator") + ")")
+	keys := ["super_type" + suffix]
+	if length(values) > 1 then keys := keys + ["sub_type" + suffix]
+	make_map(keys:keys, values:values)
+}
+text_import_script :=
+{
+	suffix := if margin_code == "text" then "" else replace(margin_code, match: "text", replace: "_")
+	keys := ["rule_text" + suffix]
+	values := [convert_scryfall_braces(convert_scryfall_mana(value))]
+	make_map(keys:keys, values:values)
+}
+cc_import_script :=
+{
+	keys := ["casting_cost" + suffix]
+	values := [convert_scryfall_mana(value)]
+	make_map(keys:keys, values:values)
+}
+rarity_import_script :=
+{
+	keys := ["rarity" + suffix]
+	values := [if value == "mythic" then "mythic rare" else if value == "bonus" then "special" else value]
+	make_map(keys:keys, values:values)
+}
+border_import_script :=
+{
+	keys := ["border_color"]
+	values := [if value == "borderless" then rgba(0,0,0,0) else value]
+	make_map(keys:keys, values:values)
+}
+rule_text_to_level_text :=
+{
+	suffix := if input <= 1 then "" else "_" + input
+	offset := if suffix == "" then 0 else (to_int(substring(suffix, begin:1))-1)*8
+	values := split_line(card["rule_text" + suffix])
+	count := length(values)
+	keys := for x from 1 to count do ["level_" + (x+offset) + "_text"]
+	values := values + [""]
+	keys := keys + ["rule_text" + suffix]
+	make_map(keys:keys, values:values)
 }
 ############################################################## Custom index
 search_pull := filter_text@(match:"search(name|mana|type|rules|flavor|text|notes)")
