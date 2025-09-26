@@ -38,6 +38,7 @@ card dpi: 150
 ##### Companion crowns, nyx extensions, DOM FNM frame, THB fullart lands, snow frames by silverback_ape
 ##### Updated PUMA by Cardists
 ##### Inverted by VerumCH
+##### Station by Aanginer
 ############################################################## Extra scripts
 init script:
 	#### Load scripts
@@ -75,6 +76,7 @@ init script:
 		fnm_pt: "/magic-modules.mse-include/pts/375 m15/paradox/",
 		inv_pt: "/magic-modules.mse-include/pts/375 m15/inverted/",
 		shifted_pt: "/magic-modules.mse-include/pts/375 m15/shifted/",
+		spacept: "/magic-modules.mse-include/pts/375 m15/station/"
 
 		alias: "/magic-modules.mse-include/extras/alias/",
 		snow: "/magic-modules.mse-include/trims/snow/",
@@ -90,12 +92,14 @@ init script:
 		arrow: "/magic-modules.mse-include/levels/arrows/1/"
 		arrow2: "/magic-modules.mse-include/levels/arrows/2/"
 		arrow3: "/magic-modules.mse-include/levels/arrows/3/"
+		slide0: "/magic-modules.mse-include/levels/slides/0/"
 		slide: "/magic-modules.mse-include/levels/slides/1/"
 		slide2: "/magic-modules.mse-include/levels/slides/2/"
 		slide3: "/magic-modules.mse-include/levels/slides/3/"
 		slide_shifted: "/magic-modules.mse-include/levels/slides/1/shifted/"
 		slide2_shifted: "/magic-modules.mse-include/levels/slides/2/shifted/"
 		slide3_shifted: "/magic-modules.mse-include/levels/slides/3/shifted/"
+		circle: "/magic-modules.mse-include/levels/circles/station/"
 		
 		devoid: "devoid/"
 		map: "/magic-modules.mse-include/cards/746 maps/"
@@ -114,6 +118,7 @@ init script:
 		puma_shift: "puma/shifted/"
 		curtains: "curtains/"
 		season: "season/"
+		
 		
 	]
 	template_suffix := [
@@ -148,6 +153,7 @@ init script:
 		curtains: "card.png"
 		beyond:"beyond.png"
 		
+		slide0: "slide.png"
 		slide: "slide.png"
 		slide2: "slide.png"
 		slide3: "slide.png"
@@ -157,10 +163,14 @@ init script:
 		arrow: "arrow.png"
 		arrow2: "arrow.png"
 		arrow3: "arrow.png"
+
+		circle: "circle.png"
+		spacept: "pt.png"
 		
 		season: "flag.png"
 		puma: "puma.png"
 		puma_shift: "puma.png"
+		
 		
 	]
 	template := { 
@@ -200,7 +210,9 @@ init script:
 		arrow3: true,
 		crown: true,
 		draft: true,
-		curtains: true
+		curtains: true,
+		spacept: true,
+		circle: true
 	]
 	
 	#### Map is a very different frame that usurps basically everything
@@ -224,8 +236,15 @@ init script:
 	is_frameless := {
 		chosen(styling.frames, choice:"frameless art")
 	}
+	auto_station := {
+		chosen(styling.other_options, choice:"auto spacecraft") and (lang_setting("is_spacecraft")(card.sub_type) or lang_setting("is_planet")(card.sub_type))
+		or (chosen(styling.frames, choice:"leveler") and sta_leveler())
+	}
+	mini_arts := {
+		chosen(styling.other_options, choice:"de-fullart special frames")
+	}
 	uses_expanded_art := {
-		is_borderless() or is_frameless()
+		is_borderless() or is_frameless() or (auto_station() and not mini_arts())
 	}
 	#### except THBLand is a special kind of frameless
 	is_thbland := {
@@ -288,7 +307,7 @@ init script:
 		or (lang_setting("is_enchantment")(card.super_type) and set.auto_nyx and not auto_custom_border())
 	}
 	is_leveler := {
-		chosen(styling.frames, choice:"leveler")
+		chosen(styling.frames, choice:"leveler") or auto_station()
 	}
 
 	is_custom_border := {
@@ -296,7 +315,6 @@ init script:
 			then has_png(styling.custom_border_source)
 		else auto_custom_border()
 	}
-	is_leveler := {chosen(styling.frames, choice:"leveler")}
 	is_legend := {
 		chosen(styling.frames, choice:"legend")
 		or (lang_setting("is_legendary")(card.super_type) and set.auto_legends)
@@ -411,7 +429,8 @@ init script:
 	level_img_1_s := { color_background(type:"slide_shifted", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/slides/") }
 	level_img_2_s := { color_background(type:"slide2_shifted", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/slides/", blend_type:"slide") }
 	level_img_3_s := { color_background(type:"slide3_shifted", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/slides/", blend_type:"slide") }
-	
+	level_bl := { color_background(type:"slide0", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
+
 	background_slide := {
 		if is_planeshifted() then level_img_1_s()
 		else level_img_1()
@@ -424,14 +443,24 @@ init script:
 		if is_planeshifted() then level_img_3_s()
 		else level_img_3()
 	}
+	
+	circle_background :=  { color_background(type: "circle",  base_hybrid: flip_pt_hybrid2, folder: template_prefix["circle"], artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
+
 	#### ptbox
 	choose_ptbox := {
+		### Map overrules everything
 		if is_map()
 			then mappt_background()
+		### Station overrules Vehicle
+		else if auto_station()
+			then color_background(type:"spacept", base_hybrid:pt_hybrid, folder:template_prefix["spacept"], blend_type:"pt", artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white")
+		### Vehicle overrules clear
 		else if is_vehicle()
 			then template_prefix["pt"] + "vpt.png"
+		### Clear overrules colored
 		else if uses_clear_frame()
 			then template_prefix["pt"] + "cpt.png"
+		### FNM, Inverted, Planeshifted, Standard
 		else if is_fnm()
 			then color_background(type:"fnm_pt", base_hybrid:pt_hybrid, folder:template_prefix["fnm_pt"], blend_type:"pt")
 		else if is_inverted()
@@ -452,7 +481,7 @@ init script:
 		else module_crown()
 	}
 	module_crown_template_patch := {
-		module_crown_template(override: if is_devoid() or uses_expanded_art() or is_puma() then "borderless" else if is_nyx() and chosen(styling.other_options, choice:"auto nyx crowns") then "nyx" else "")
+		module_crown_template(override: if is_devoid() or is_borderless() or is_frameless() or is_puma() then "borderless" else if is_nyx() and chosen(styling.other_options, choice:"auto nyx crowns") then "nyx" else "")
 	}
 	crown_img := {
 		img := crown_main()
@@ -511,6 +540,8 @@ init script:
 	frame_mask_script := {
 		if is_map()
 			then "frame_masks/map_mask.png"
+		else if auto_station() and not mini_arts()
+			then "frame_masks/spacecraft" + (if uses_clear_frame() then "_clear" else if is_borderless() then "_borderless" else "") + ".png"
 		else if is_clear() or is_devoid()
 			then "frame_masks/clear_frame_mask.png"
 		else if is_thbland()
@@ -687,25 +718,57 @@ init script:
 	#### levelers
 	box_leveler := { styling.level_containers == "pt boxes" }
 	loy_leveler := { styling.level_containers == "loyalty boxes" }
+	cir_leveler := { styling.level_containers == "circles" or auto_station() }
+	sta_leveler := { styling.level_containers == "station" }
 	center_label := { loy_leveler() or level_label(input) == " " }
 	aug_leveler := { box_leveler() and level_label(input) == " " }
 	starting_loyalty := { chosen(styling.other_options, choice:"use starting loyalty") }
 	arrow_left := {
-		if box_leveler() then -3
+		if cir_leveler() then 12
+		else if box_leveler() then -3
 		else if loy_leveler() then 10
 		else 18
 	}
 	arrow_width := {
-		if box_leveler() then 84
+		if cir_leveler() then 30
+		else if box_leveler() then 84
 		else if loy_leveler() then 42
 		else 56
 	}
 	arrow_height := {
-		if aug_leveler(input) then 42
+		if cir_leveler() then 30
+		else if aug_leveler(input) then 42
 		else if box_leveler() then 50
 		else if loy_leveler() then 40
 		else 40
 	}
+
+	leveler_ptbox_height := {
+		if auto_station() then 32 else 42
+	}
+	leveler_ptbox_width := {
+		if auto_station() then 62 else if is_leveler() then 70 else 81
+	}
+	leveler_ptbox_left := {
+		if auto_station() then 294 else 278
+	}
+	leveler_ptbox_top_offset := {
+		if auto_station() then 6 else 0
+	}
+
+	leveler_pt_height := {
+		if auto_station() then 21.5 else 28
+	}
+	leveler_pt_width := {
+		if auto_station() then 52 else 60
+	}
+	leveler_pt_left := {
+		if auto_station() then 301 else 286
+	}
+	leveler_pt_top_offset := {
+		if auto_station() then 4 else 0
+	}
+
 	arrow_offset := {
 		to_number(pull_comma_array(styling.arrow_or_bullet_offsets, cell:input, end: 0))
 		+ (if box_leveler() then -5 else 0)
@@ -745,42 +808,63 @@ init script:
 	l2_center := {327 + lv_2_coordinate() + 0.5*lv_2_height()}
 	l3_center := {327 + lv_3_coordinate() + 0.5*lv_3_height()}
 	l4_center := {327 + lv_4_coordinate() + 0.5*lv_4_height()}
-	overlay1 := {
+
+	overlay_main := {
+
 		if is_d20()
 			then "/magic-modules.mse-include/levels/d20slice.png"
-		else if is_clear()
-			then ""
-		else slice_crop(
-			background_slide(),
-			height: lv_2_height(),
-			width: 314,
-			distance:(152-lv_2_coordinate())
+		else (
+			trans_slides := false
+			trans_shift := false
+			if auto_station() and not mini_arts()
+				then trans_slides := true
+			else if is_clear()
+				then trans_slides := true
+			else if is_borderless() and is_frameless()
+				then (
+					if is_planeshifted() then trans_shift := true
+					else trans_slides := true
+				)
+			base := if is_clear() then slice_crop(level_bl("artifact"), height: h, width: w, distance: d)
+					else if trans_slides then slice_crop(level_bl(), height: h, width: w, distance: d)
+					else slice_crop(img, height: h, width: w, distance: d)
+			alpha := if trans_slides
+				then [1, 0.15, 0.5, 0.85][lv]
+			else if trans_shift
+				then 0.65
+			else 1
+			if alpha != 1 then base := set_alpha(base, alpha:alpha)
+			base
+		)
+	}
+	overlay1 := {
+		overlay_main(
+			img: background_slide(),
+			h: lv_2_height(),
+			w: 314,
+			d: (152-lv_2_coordinate()),
+			lv: 1
 		)
 	}
 	overlay2 := {
-		if is_d20()
-			then "/magic-modules.mse-include/levels/d20slice.png"
-		else if is_clear()
-			then ""
-		else slice_crop(
-			background_slide_2(),
-			height: lv_3_height(),
-			width: 314,
-			distance:lv_3_height()
+		overlay_main(
+			img: background_slide_2(),
+			h: lv_3_height(),
+			w: 314,
+			d: lv_3_height(),
+			lv: 2
 		)
 	}
 	overlay3 := {
-		if is_d20()
-			then "/magic-modules.mse-include/levels/d20slice.png"
-		else if is_clear()
-			then ""
-		else slice_crop(
-			background_slide_3(),
-			height: lv_4_height(),
-			width: 314,
-			distance:lv_4_height()
+		overlay_main(
+			img: background_slide_3(),
+			h: lv_4_height(),
+			w: 314,
+			d: lv_4_height(),
+			lv: 3
 		)
 	}
+
 	mask_height := {
 		if input == "one" then lv_1_height()
 		else if input == "two" then lv_2_height()
@@ -813,11 +897,11 @@ init script:
 	]
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
-		size: {if is_map() then 14 else 16},
+		size: {if is_map() then 14 else if auto_station() then 13 else 16},
 		color: {
 			if is_map() then "black" 
 			else if is_planeshifted() or is_fnm() or is_inverted() then "white"
-			else if is_vehicle() then "white"
+			else if is_vehicle() or auto_station() then "white"
 			else "black"
 		},
 		vertical: {0},
@@ -959,13 +1043,15 @@ styling field:
 	choice: auto snow
 	choice: auto nyx crowns
 	choice: auto ub
+	choice: auto spacecraft
 	choice: text watermarks
 	choice: clear tops
 	choice: vorthos box
 	choice: pride pinlines
 	choice: inverted d20
+	choice: de-fullart special frames
 	choice: popunder art
-	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns, auto ub
+	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns, auto ub, auto spacecraft
 styling field:
 	type: text
 	name: custom symbol
@@ -996,8 +1082,10 @@ styling field:
 	type: choice
 	name: level containers
 	choice: arrows
+	choice: station
 	choice: pt boxes
 	choice: loyalty boxes
+	choice: circles
 styling field:
 	type: text
 	name: level label
@@ -1353,9 +1441,9 @@ card style:
 		line height line max: 1.6
 	############################# leveler
 	level 1 text:
-		left: { if is_leveler() and card.level_0 != "" then (if loy_leveler() then 57 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
+		left: { if is_leveler() and card.level_0 != "" then (if loy_leveler() then 57 else if cir_leveler() then 43 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
 		top: { if is_dka() and is_mutate() then 359 else if is_mutate() then 329 else top_of_textbox() }
-		right: { if is_leveler() then (if lone_pt() or card.pt == "" then 342 else 287) else if is_mutate() then 342 else if is_map() then 40 else 29}
+		right: { if is_leveler() then (if lone_pt() or card.pt == "" then 342 else (if cir_leveler() then 291 else 287)) else if is_mutate() then 342 else if is_map() then 40 else 29}
 		bottom: { if is_mutate() then 392 else if is_leveler() then (327+lv_1_height()) else bottom_of_textbox() }
 		font:
 		font:
@@ -1387,9 +1475,9 @@ card style:
 		line height hard max: {if is_modal(card.level_1_text) then 1.0 else 1.3 }
 		line height line max: 1.6
 	level 2 text:
-		left: { if is_leveler() then (if card.level_1 != "" then (if loy_leveler() then 57 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29) else 0}
+		left: { if is_leveler() then (if card.level_1 != "" then (if loy_leveler() then 57 else if cir_leveler() then 43 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29) else 0}
 		top: { if is_leveler() then (329 + lv_2_coordinate()) else 0 }
-		right: { if is_leveler() then (if card.pt_2 != "" then 287 else 342) else 0 }
+		right: { if is_leveler() then (if card.pt_2 != "" then (if cir_leveler() then 291 else 287) else 342) else 0 }
 		bottom: { if is_leveler() then (329 + lv_2_coordinate()) + lv_2_height()-2 else 0 }
 		font:
 			name: { body_font() }
@@ -1420,9 +1508,9 @@ card style:
 		line height hard max: {if is_modal(card.level_2_text) then 1.0 else 1.3 }
 		line height line max: 1.6
 	level 3 text:
-		left: {if card.level_2 != "" then (if loy_leveler() then 57 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
+		left: {if card.level_2 != "" then (if loy_leveler() then 57 else if cir_leveler() then 43 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
 		top: {331 + lv_3_coordinate()}
-		right: {if card.pt_3 != "" then 287 else 342}
+		right: {if card.pt_3 != "" then (if cir_leveler() then 291 else 287) else 342}
 		height: {if not is_leveler()then 0 else lv_3_height()-2}
 		font:
 			name: { body_font() }
@@ -1453,9 +1541,9 @@ card style:
 		line height hard max: {if is_modal(card.level_3_text) then 1.0 else 1.3 }
 		line height line max: 1.6
 	level 4 text:
-		left: {if card.level_3 != "" then (if loy_leveler() then 57 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
+		left: {if card.level_3 != "" then (if loy_leveler() then 57 else if cir_leveler() then 43 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
 		top: {331 + lv_4_coordinate()}
-		right: {if card.pt_7 != "" then 287 else 342}
+		right: {if card.pt_7 != "" then (if cir_leveler() then 291 else 287) else 342}
 		height: {if not is_leveler() then 0 else lv_4_height()-2}
 		font:
 			name: { body_font() }
@@ -1499,68 +1587,68 @@ card style:
 	############################# Levels
 	level 0:
 		z index: 910
-		left: {if box_leveler() then 8 else if loy_leveler() then 14 else 21}
-		top: {l1_center() - (if aug_leveler(0) then 4 else 2) - (if center_label(0) then 6 else 0) + arrow_offset(0)}
-		width: {if is_leveler() or card.level_0 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
+		left: {if box_leveler() then 8 else if loy_leveler() then 14 else if cir_leveler() then 16 else 21}
+		top: {l1_center() - (if aug_leveler(0) then 4 else 2) - (if center_label(0) then 6 else 0) - (if cir_leveler() then 10 else 0) + arrow_offset(0)}
+		width: {if is_leveler() or card.level_0 != "" then (34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height:	22
 		alignment: center middle shrink-overflow
 		font:
 			name: Beleren Bold
-			size: {if loy_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
+			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() then "white" else "black"}
-			shadow color: { if loy_leveler() then rgba(0,0,0,0) else "white"}
+			color: {if loy_leveler() or cir_leveler() then "white" else "black"}
+			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
 			name: { styling.level_mana_symbols }
 			size: {12 + if center_label(0) then 0.5 else 0}
 	level 1:
 		z index: 910
-		left: {if box_leveler() then 8 else if loy_leveler() then 14 else 21}
-		top: {l2_center() - (if aug_leveler(1) then 4 else 2) - (if center_label(1) then 6 else 0) + arrow_offset(1)}
+		left: {if box_leveler() then 8 else if loy_leveler() then 14 else if cir_leveler() then 16 else 21}
+		top: {l2_center() - (if aug_leveler(1) then 4 else 2) - (if center_label(1) then 6 else 0) - (if cir_leveler() then 10 else 0) + arrow_offset(1)}
 		height: 22
-		width: {if is_leveler() or card.level_1 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if is_leveler() or card.level_1 != "" then (34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		alignment: center middle shrink-overflow
 		font:
 			name: Beleren Bold
-			size: {if loy_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
+			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() then "white" else "black"}
-			shadow color: { if loy_leveler() then rgba(0,0,0,0) else "white"}
+			color: {if loy_leveler() or cir_leveler() then "white" else "black"}
+			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
 			name: { styling.level_mana_symbols }
 			size: {12 + if center_label(0) then 0.5 else 0}
 	level 2:
 		z index: 910
-		left: {if box_leveler() then 8 else if loy_leveler() then 14 else 21}
-		top: {l3_center() - (if aug_leveler(2) then 4 else 2) - (if center_label(2) then 6 else 0) + arrow_offset(2)}
-		width: {if is_leveler() or card.level_2 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
+		left: {if box_leveler() then 8 else if loy_leveler() then 14 else if cir_leveler() then 16 else 21}
+		top: {l3_center() - (if aug_leveler(2) then 4 else 2) - (if center_label(2) then 6 else 0) - (if cir_leveler() then 10 else 0) + arrow_offset(2)}
+		width: {if is_leveler() or card.level_2 != "" then (34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height:	22
 		alignment: center middle shrink-overflow
 		font:
 			name: Beleren Bold
-			size: {if loy_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
+			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() then "white" else "black"}
-			shadow color: { if loy_leveler() then rgba(0,0,0,0) else "white"}
+			color: {if loy_leveler() or cir_leveler() then "white" else "black"}
+			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
 			name: { styling.level_mana_symbols }
 			size: {12 + if center_label(0) then 0.5 else 0}
 	level 3:
 		z index: 910
-		left: {if box_leveler() then 8 else if loy_leveler() then 14 else 21}
-		top: {l4_center() - (if aug_leveler(3) then 4 else 2) - (if center_label(3) then 6 else 0) + arrow_offset(3)}
-		width: {if is_leveler() or card.level_2 != "" then (34 + (if box_leveler() then 30 else 0)) else 0}
+		left: {if box_leveler() then 8 else if loy_leveler() then 14 else if cir_leveler() then 16 else 21}
+		top: {l4_center() - (if aug_leveler(3) then 4 else 2) - (if center_label(3) then 6 else 0) - (if cir_leveler() then 10 else 0) + arrow_offset(3)}
+		width: {if is_leveler() or card.level_2 != "" then (34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height:	{ if card_style.level_4_text.height < 10 and card.level_3 == "" then 0 else 22}
 		alignment: center middle shrink-overflow
 		font:
 			name: Beleren Bold
-			size: {if loy_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
+			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() then "white" else "black"}
-			shadow color: { if loy_leveler() then rgba(0,0,0,0) else "white"}
+			color: {if loy_leveler() or cir_leveler() then "white" else "black"}
+			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
 			name: { styling.level_mana_symbols }
@@ -1568,10 +1656,10 @@ card style:
 	############################# PT
 	pt:
 		z index: 900
-		left: {if is_leveler() and not lone_pt() then 301 else 286}
-		top: { (if is_leveler() and not lone_pt() then (l1_center() - 14) else if is_map() then 467 else 469)+(pt_font_vertical())}
-		width: {if starting_loyalty() and not is_leveler() then 0 else if is_leveler() then 50 else 60}
-		height:	28
+		left: {if is_leveler() and not lone_pt() then leveler_pt_left() else 286}
+		top: { (if is_leveler() and not lone_pt() then (l1_center() - 14 + leveler_pt_top_offset()) else if is_map() then 467 else 469)+(pt_font_vertical())}
+		width: {if starting_loyalty() and not is_leveler() then 0 else if is_leveler() then leveler_pt_width() else 60}
+		height:	{leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
 			name: {pt_font()}
@@ -1584,10 +1672,10 @@ card style:
 			shadow displacement y: 1
 	pt 2:
 		z index: 900
-		left: 301
-		top: {(l2_center() - 12)+(if is_map() then -1 else 0)+(pt_font_vertical())}
-		width: {if is_leveler() and not lone_pt() or card.pt_2 != "" then 50 else 0}
-		height: 28
+		left: {leveler_pt_left()}
+		top: {(l2_center() - 12 + leveler_pt_top_offset())+(if is_map() then -1 else 0)+(pt_font_vertical())}
+		width: {if is_leveler() and not lone_pt() or card.pt_2 != "" then leveler_pt_width() else 0}
+		height: {leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
 			name: {pt_font()}
@@ -1600,10 +1688,10 @@ card style:
 			shadow displacement y: 1
 	pt 3:
 		z index: 900
-		left: 301
-		top: {(l3_center() - 12)+(if is_map() then -1 else 0)+(pt_font_vertical())}
-		width: {if is_leveler() and not lone_pt() or card.pt_3 != "" then 50 else 0}
-		height: 28
+		left: {leveler_pt_left()}
+		top: {(l3_center() - 12 + leveler_pt_top_offset())+(if is_map() then -1 else 0)+(pt_font_vertical())}
+		width: {if is_leveler() and not lone_pt() or card.pt_3 != "" then leveler_pt_width() else 0}
+		height: {leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
 			name: {pt_font()}
@@ -1616,10 +1704,10 @@ card style:
 			shadow displacement y: 1
 	pt 7:
 		z index: 900
-		left: 301
-		top: {(l4_center() - 12)+(if is_map() then -1 else 0)+(pt_font_vertical())}
-		width: {if is_leveler() and not lone_pt() or card.pt_7 != "" then 50 else 0}
-		height: {if card_style.level_4_text.height < 10 and card.pt_7 == "" then 0 else 28}
+		left: {leveler_pt_left()}
+		top: {(l4_center() - 12 + leveler_pt_top_offset())+(if is_map() then -1 else 0)+(pt_font_vertical())}
+		width: {if is_leveler() and not lone_pt() or card.pt_7 != "" then leveler_pt_width() else 0}
+		height: {if card_style.level_4_text.height < 10 and card.pt_7 == "" then 0 else leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
 			name: {pt_font()}
@@ -1926,37 +2014,37 @@ extra card field:
 
 extra card style:
 	pt box:
-		left: { if is_leveler() and not lone_pt() then 288 else if is_map() then 270 else 273 }
-		top: { if is_leveler() and not lone_pt() then (l1_center() - (if is_map() then 26 else 18)) else if is_map() then 453 else 466}
-		width: { if starting_loyalty() and not is_leveler() then 0 else if is_map() then 90 else if is_leveler() then 70 else 81}
-		height:	{ if is_map() then 54 else 42}
+		left: { if is_leveler() and not lone_pt() then leveler_ptbox_left() else if is_map() then 270 else 273 }
+		top: { if is_leveler() and not lone_pt() then (l1_center() - (if is_map() then 26 else 18)) + leveler_ptbox_top_offset() else if is_map() then 453 else 466}
+		width: { if starting_loyalty() and not is_leveler() then 0 else if is_map() then 90 else leveler_ptbox_width()}
+		height:	{ if is_map() then 54 else leveler_ptbox_height()}
 		z index: 840
 		visible: { card.pt != "" }
 		render style: image
 		image: { choose_ptbox() }
 	pt box 2:
-		left: 288
-		top: { l2_center() - (if is_map() then 26 else 15)}
-		width: { if (is_leveler() and not lone_pt()) or card.pt_2 != "" then (if is_map() then 90 else 70) else 0}
-		height:	{ if (is_leveler() and not lone_pt()) or card.pt_2 != "" then (if is_map() then 54 else 42) else 0}
+		left: {leveler_ptbox_left()}
+		top: { l2_center() - (if is_map() then 26 else 15) + leveler_ptbox_top_offset()}
+		width: { if (is_leveler() and not lone_pt()) or card.pt_2 != "" then (if is_map() then 90 else leveler_ptbox_width()) else 0}
+		height:	{ if (is_leveler() and not lone_pt()) or card.pt_2 != "" then (if is_map() then 54 else leveler_ptbox_height()) else 0}
 		z index: 840
 		visible: { card.pt_2 != "" }
 		render style: image
 		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_1.png", combine: "multiply")}
 	pt box 3:
-		left: 288
-		top: { l3_center() - (if is_map() then 26 else 15)}
-		width: { if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 90 else 70) else 0}
-		height:	{ if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 54 else 42) else 0}
+		left: {leveler_ptbox_left()}
+		top: { l3_center() - (if is_map() then 26 else 15) + leveler_ptbox_top_offset()}
+		width: { if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 90 else leveler_ptbox_width()) else 0}
+		height:	{ if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 54 else leveler_ptbox_height()) else 0}
 		z index: 840
 		visible: { card.pt_3 != "" }
 		render style: image
 		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_2.png", combine: "multiply")}
 	pt box 4:
-		left: 298
-		top: { l4_center() - (if is_map() then 26 else 15)}
-		width: { if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 90 else 60) else 0}
-		height:	{ if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 54 else 42) else 0}
+		left: {leveler_ptbox_left()}
+		top: { l4_center() - (if is_map() then 26 else 15) + leveler_ptbox_top_offset()}
+		width: { if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 90 else leveler_ptbox_width()) else 0}
+		height:	{ if (is_leveler() and not lone_pt()) or card.pt_3 != "" then (if is_map() then 54 else leveler_ptbox_height()) else 0}
 		z index: 840
 		visible: { card.pt_7 != "" }
 		render style: image
@@ -2125,7 +2213,7 @@ extra card style:
 	lvl label 0:
 		left: {if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {l1_center() - (if loy_leveler() then 2 else 10) + arrow_offset(0)}
-		width: {if is_leveler() or card.level_0 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if is_leveler() or card.level_0 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height: {if loy_leveler() then 10 else if center_label(0) then 0 else 10}
 		z index: 860
 		alignment: middle center
@@ -2134,11 +2222,11 @@ extra card style:
 			size: {if loy_leveler() then 15 else if length(level_label(0)) < 8 or box_leveler() then 7 else 6}
 			color: black
 			weight: {if loy_leveler() then "" else "bold"}
-		visible: {card.level_0 != ""}
+		visible: {card.level_0 != "" and not cir_leveler()}
 	lvl label 1:
 		left: {if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {l2_center() - (if loy_leveler() then 2 else 10) + arrow_offset(1)}
-		width: {if is_leveler() or card.level_1 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if is_leveler() or card.level_1 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height: {if loy_leveler() then 10 else if center_label(1) then 0 else 10}
 		z index: 860
 		alignment: middle center
@@ -2147,11 +2235,11 @@ extra card style:
 			size: {if loy_leveler() then 15 else if length(level_label(1)) < 8 or box_leveler() then 7 else 6}
 			color: black
 			weight: {if loy_leveler() then "" else "bold"}
-		visible: {card.level_1 != ""}
+		visible: {card.level_1 != "" and not cir_leveler()}
 	lvl label 2:
 		left: {if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {l3_center() - (if loy_leveler() then 2 else 10) + arrow_offset(2)}
-		width: {if is_leveler() or card.level_2 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if is_leveler() or card.level_2 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height: {if loy_leveler() then 10 else if center_label(2) then 0 else 10}
 		z index: 860
 		alignment: middle center
@@ -2160,11 +2248,11 @@ extra card style:
 			size: {if loy_leveler() then 15 else if length(level_label(2)) < 8 or box_leveler() then 7 else 6}
 			color: black
 			weight: {if loy_leveler() then "" else "bold"}
-		visible: {card.level_2 != ""}
+		visible: {card.level_2 != "" and not cir_leveler()}
 	lvl label 3:
 		left: {if box_leveler() then 8 else if loy_leveler() then 48 else 21}
 		top: {l4_center() - (if loy_leveler() then 2 else 10) + arrow_offset(3)}
-		width: {if is_leveler() or card.level_3 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0)) else 0}
+		width: {if is_leveler() or card.level_3 != "" then (if loy_leveler() then 10 else 34 + (if box_leveler() then 30 else 0) - (if cir_leveler() then 10 else 0)) else 0}
 		height: {if loy_leveler() then 10 else if center_label(3) then 0 else 10}
 		z index: 860
 		alignment: middle center
@@ -2173,7 +2261,7 @@ extra card style:
 			size: {if loy_leveler() then 15 else if length(level_label(2)) < 8 or box_leveler() then 7 else 6}
 			color: black
 			weight: {if loy_leveler() then "" else "bold"}
-		visible: {card.level_3 != ""}
+		visible: {card.level_3 != "" and not cir_leveler()}
 	level 2 overlay:
 		left: 29
 		top: { if is_d20() then top_of_para(rolls_start(card.text)-invert_rolls()) else 329 + lv_2_coordinate()}
@@ -2209,7 +2297,7 @@ extra card style:
 		width: {if card.level_0 != "" then arrow_width() else 0}
 		height:	{arrow_height(0)}
 		render style: image
-		image: {if loy_leveler() then loyalty_image(card.level_0) else if box_leveler() then choose_ptbox() else arrow_img_1()}
+		image: {if loy_leveler() then loyalty_image(card.level_0) else if box_leveler() then choose_ptbox() else if cir_leveler() then circle_background() else arrow_img_1()}
 	arrow 2:
 		z index: 840
 		left: {arrow_left()}
@@ -2217,7 +2305,7 @@ extra card style:
 		width: {if card.level_1 != "" then arrow_width() else 0}
 		height:	{arrow_height(1)}
 		render style: image
-		image: {if loy_leveler() then loyalty_image(card.level_1) else if box_leveler() then choose_ptbox() else arrow_img_1()}
+		image: {if loy_leveler() then loyalty_image(card.level_1) else if box_leveler() then choose_ptbox() else if cir_leveler() then circle_background() else arrow_img_1()}
 	arrow 3:
 		z index: 840
 		left: {arrow_left()}
@@ -2225,7 +2313,7 @@ extra card style:
 		width: {if card.level_2 != "" then arrow_width() else 0}
 		height:	{arrow_height(2)}
 		render style: image
-		image: {if loy_leveler() then loyalty_image(card.level_2) else if box_leveler() then choose_ptbox() else arrow_img_2()}
+		image: {if loy_leveler() then loyalty_image(card.level_2) else if box_leveler() then choose_ptbox() else if cir_leveler() then circle_background() else arrow_img_2()}
 	arrow 4:
 		z index: 840
 		left: {arrow_left()}
@@ -2233,7 +2321,7 @@ extra card style:
 		width: {if card.level_3 != "" then arrow_width() else 0}
 		height:	{arrow_height(3)}
 		render style: image
-		image: {if loy_leveler() then loyalty_image(card.level_3) else if box_leveler() then choose_ptbox() else arrow_img_3()}
+		image: {if loy_leveler() then loyalty_image(card.level_3) else if box_leveler() then choose_ptbox() else if cir_leveler() then circle_background() else arrow_img_3()}
 
 	ascend:
 		left: 37
