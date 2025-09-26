@@ -70,11 +70,6 @@ option style:
 		render style: both
 		choice images:
 			no:    { built_in_image("bool_no") }
-	font style:
-		render style: both
-		choice images:
-			serif:       /magic-spoiler.mse-export-template/serif.png
-			sans-serif:  /magic-spoiler.mse-export-template/sans-serif.png
 
 script:
 	if options.mana_symbols then (
@@ -83,6 +78,7 @@ script:
 	) else (
 		symbols_to_html  := to_html
 	)
+	include file: workaround
 	write_card := {
 		if contains(options.images, match:"full card image") then
 			card_image_file := write_image_file(card, file:"card{position(of:card,in:set)}.jpg")
@@ -129,13 +125,7 @@ script:
 			   else "(" + card.rarity + ")"
 		     }
 			 </span></div>
-		     <span class='rule-text'    >{  to_html(card.rule_text) }</span>
-			{if contains(card.shape, match:"saga") then 
-				print_saga_text()
-			}
-			{if contains(card.shape, match:"planeswalker") then 
-				print_walker_text()
-			}
+		     <span class='rule-text'    >{  to_html(if card.special_text != "" then card.special_text else card.rule_text) }</span>
 		     <span class='flavor-text'  >{  to_html(remove_tag(tag: "<i-flavor>", card.flavor_text)) }</span>
 		     <span class='pt'           >{  card.pt + card.loyalty }</span>
 		     <span class='card-number'  >{  to_html(card.card_number) }</span>
@@ -170,6 +160,7 @@ script:
 		if count > 0 then
 		   "<h2>{title} ({count} {if count == 1 then "card" else "cards"})</h2>" +
 		   write_cards()
+		else ""
 	}
 	# Used by print_cards() to format saga text, since those have unique boxes.
 	print_saga_text :=
@@ -190,7 +181,7 @@ script:
 	}
 
 	# Actual export-ey bit starts here.
-	copy_file("blank.gif")
+	file_path := replace(copy_file("blank.gif"), match:"blank.gif", replace:"")
 	write_image_file(
 		file:  "set-symbol.png",
 		width: 200,
@@ -202,15 +193,23 @@ script:
 		heght: 16
 		symbol_variation(symbol: set.symbol, variation: "rare")
 	)
+	write_text_file(
+		script_string,
+		file: "script.js",
+	)
+	write_text_file(
+		css_string,
+		file: "style.css"
+	)
 
 	# Generate html largely by string interpolation.
 	html := "<!DOCTYPE HTML>
 	<html lang='en'>
 	 <head>
 	  <title>{set.title}</title>
-	  <link rel='stylesheet' type='text/css' href='{copy_file("style.css")}'>
+	  <link rel='stylesheet' type='text/css' href='{file_path}style.css'>
 	  <link rel='shortcut icon' type='image/png' href='set-icon.png'>
-	  <script type='text/javascript' src='{copy_file("script.js")}'></script>
+	  <script type='text/javascript' src='{file_path}script.js'></script>
 	  <style type='text/css'>
 	   body \{
 		 # This is here vs the css so the user can control text colors.
