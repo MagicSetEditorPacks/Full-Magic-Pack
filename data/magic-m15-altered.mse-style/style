@@ -91,6 +91,7 @@ init script:
 		arrow: "/magic-modules.mse-include/levels/arrows/1/"
 		arrow2: "/magic-modules.mse-include/levels/arrows/2/"
 		arrow3: "/magic-modules.mse-include/levels/arrows/3/"
+		slide0: "/magic-modules.mse-include/levels/slides/0/"
 		slide: "/magic-modules.mse-include/levels/slides/1/"
 		slide2: "/magic-modules.mse-include/levels/slides/2/"
 		slide3: "/magic-modules.mse-include/levels/slides/3/"
@@ -116,6 +117,7 @@ init script:
 		puma_shift: "puma/shifted/"
 		curtains: "curtains/"
 		season: "season/"
+		
 		
 	]
 	template_suffix := [
@@ -150,6 +152,7 @@ init script:
 		curtains: "card.png"
 		beyond:"beyond.png"
 		
+		slide0: "slide.png"
 		slide: "slide.png"
 		slide2: "slide.png"
 		slide3: "slide.png"
@@ -166,6 +169,7 @@ init script:
 		season: "flag.png"
 		puma: "puma.png"
 		puma_shift: "puma.png"
+		
 		
 	]
 	template := { 
@@ -235,8 +239,11 @@ init script:
 		chosen(styling.other_options, choice:"auto spacecraft") and (lang_setting("is_spacecraft")(card.sub_type) or lang_setting("is_planet")(card.sub_type))
 		or (chosen(styling.frames, choice:"leveler") and sta_leveler())
 	}
+	mini_arts := {
+		chosen(styling.other_options, choice:"de-fullart special frames")
+	}
 	uses_expanded_art := {
-		is_borderless() or is_frameless() or auto_station()
+		is_borderless() or is_frameless() or (auto_station() and not mini_arts())
 	}
 	#### except THBLand is a special kind of frameless
 	is_thbland := {
@@ -421,7 +428,8 @@ init script:
 	level_img_1_s := { color_background(type:"slide_shifted", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/slides/") }
 	level_img_2_s := { color_background(type:"slide2_shifted", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/slides/", blend_type:"slide") }
 	level_img_3_s := { color_background(type:"slide3_shifted", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/slides/", blend_type:"slide") }
-	
+	level_bl := { color_background(type:"slide0", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
+
 	background_slide := {
 		if is_planeshifted() then level_img_1_s()
 		else level_img_1()
@@ -531,7 +539,7 @@ init script:
 	frame_mask_script := {
 		if is_map()
 			then "frame_masks/map_mask.png"
-		else if auto_station()
+		else if auto_station() and not mini_arts()
 			then "frame_masks/spacecraft" + (if is_borderless() then "_borderless.png" else ".png")
 		else if is_clear() or is_devoid()
 			then "frame_masks/clear_frame_mask.png"
@@ -799,42 +807,62 @@ init script:
 	l2_center := {327 + lv_2_coordinate() + 0.5*lv_2_height()}
 	l3_center := {327 + lv_3_coordinate() + 0.5*lv_3_height()}
 	l4_center := {327 + lv_4_coordinate() + 0.5*lv_4_height()}
-	overlay1 := {
+
+	overlay_main := {
+		trans_slides := false
+		trans_shift := false
+		if auto_station() and not mini_arts()
+			then trans_slides := true
+		else if is_borderless() and is_frameless()
+			then (
+				if is_planeshifted() then trans_shift := true
+				else trans_slides := true
+			)
+
 		if is_d20()
 			then "/magic-modules.mse-include/levels/d20slice.png"
 		else if is_clear()
 			then ""
-		else slice_crop(
-			background_slide(),
-			height: lv_2_height(),
-			width: 314,
-			distance:(152-lv_2_coordinate())
+		else (
+			base := if trans_slides then slice_crop(level_bl(), height: h, width: w, distance: d)
+					else slice_crop(img, height: h, width: w, distance: d)
+			alpha := if trans_slides
+				then [1, 0.15, 0.5, 0.85][lv]
+			else if trans_shift
+				then 0.65
+			else 1
+			if alpha != 1 then base := set_alpha(base, alpha:alpha)
+			base
+		)
+	}
+	overlay1 := {
+		overlay_main(
+			img: background_slide(),
+			h: lv_2_height(),
+			w: 314,
+			d: (152-lv_2_coordinate()),
+			lv: 1
 		)
 	}
 	overlay2 := {
-		if is_d20()
-			then "/magic-modules.mse-include/levels/d20slice.png"
-		else if is_clear()
-			then ""
-		else slice_crop(
-			background_slide_2(),
-			height: lv_3_height(),
-			width: 314,
-			distance:lv_3_height()
+		overlay_main(
+			img: background_slide_2(),
+			h: lv_3_height(),
+			w: 314,
+			d: lv_3_height(),
+			lv: 2
 		)
 	}
 	overlay3 := {
-		if is_d20()
-			then "/magic-modules.mse-include/levels/d20slice.png"
-		else if is_clear()
-			then ""
-		else slice_crop(
-			background_slide_3(),
-			height: lv_4_height(),
-			width: 314,
-			distance:lv_4_height()
+		overlay_main(
+			img: background_slide_3(),
+			h: lv_4_height(),
+			w: 314,
+			d: lv_4_height(),
+			lv: 3
 		)
 	}
+
 	mask_height := {
 		if input == "one" then lv_1_height()
 		else if input == "two" then lv_2_height()
@@ -1019,6 +1047,7 @@ styling field:
 	choice: vorthos box
 	choice: pride pinlines
 	choice: inverted d20
+	choice: de-fullart special frames
 	choice: popunder art
 	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns, auto ub, auto spacecraft
 styling field:
