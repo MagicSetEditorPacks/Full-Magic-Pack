@@ -398,10 +398,11 @@ init script:
 	image_width := {
 		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
 		bl := is_borderless()
+		sr := is_short_room()
 		room_style := styling.room_images
 		if is_room() then (
 			if room_style == "one image" and input == "left"
-				then if bl then 488 else if clear then 474 else 452
+				then if bl then 488 else if clear then 474 else if sr then 444 else 452
 			else if room_style == "one image"
 				then 0
 			else if bl and input == "left"
@@ -410,6 +411,8 @@ init script:
 				then 265
 			else if clear
 				then 251
+			else if sr
+				then 236
 			else 240
 		)
 		else if bl and input == "left" and room_style == "one image"
@@ -422,6 +425,8 @@ init script:
 			then 265
 		else if clear
 			then 237
+		else if contains(styling.other_options, match:"spillover image")
+			then if input == "left" then 444 else 0
 		else 203
 	}
 	image_height := {
@@ -430,6 +435,8 @@ init script:
 			then 375
 		else if clear
 			then 345
+		else if is_short_room()
+			then 149
 		else if is_room()
 			then 211
 		else 148
@@ -442,7 +449,8 @@ init script:
 		room_style := styling.room_images
 		rm := is_room()
 		
-		if rm then (
+		if is_short_room() then if input == "right" then "rooms/image_mask_right_short.png" else ""
+		else if rm then (
 			if room_style == "one image" and input == "left"
 				then "rooms/image_mask{tag}.png"
 			else "rooms/image_mask_{input}{tag}.png"
@@ -470,6 +478,7 @@ init script:
 	is_room := {
 		chosen(styling.frames, choice:"room") or lang_setting("is_room")(card.sub_type)
 	}
+	is_short_room := { chosen(styling.other_options, choice:"short room image") and is_room() }
 	is_fuse := { card.rule_text_3 != "" and not is_room() }
 	is_arrows := { chosen(styling.frames, choice:"arrows") }
 	is_borderless := { chosen(styling.frames, choice:"borderless") }
@@ -601,6 +610,9 @@ init script:
 			]
 		]
 	}
+	flavor_bar_width := { 251 }
+	flavor_bar_offset_left_1 := { 25 }
+	flavor_bar_offset_left_2 := { 268 }
 	harder_script := [
 		alt_nyx: alt_nyx_template,
 		texture: texture_template
@@ -650,7 +662,14 @@ styling field:
 	choice: ancestral generic mana
 	choice: prerelease stamp
 	choice: two illustrators
+	choice: spillover image
+	choice: short room image
 	initial: two illustrators
+styling field:
+	type: color
+	name: room backfill
+	default: rgb(0,0,0)
+	description: Sets the color of the room textbox on short rooms
 styling field:
 	type: text
 	name: popout image style
@@ -880,11 +899,11 @@ card style:
 		image:				{ card_symbol_image(face: 2) }
 	############################# Image
 	image:
-		left: { if is_borderless() or left_clear() then 35 else if is_room() then 46 else 50 }
+		left: { if is_borderless() or left_clear() then 35 else if is_short_room() then 50 else if is_room() then 46 else 50 }
 		top: { if is_borderless() then 0 else if left_clear() then 13 else 49 }
 		width: { image_width("left") }
 		height:	{ image_height("left") }
-		z index: 400
+		z index: 510
 		default: {default_image(card.card_color)}
 		mask: { image_mask("left") }
 	image 2:
@@ -892,7 +911,7 @@ card style:
 		top: { if is_borderless() then 0 else if right_clear() then 13 else 49 }
 		width: { image_width("right") }
 		height:	{ image_height("right") }
-		z index: 401
+		z index: 511
 		default: {default_image(card.card_color_2)}
 		mask: { image_mask("right") }
 	mainframe image:
@@ -903,11 +922,11 @@ card style:
 		z index: 1010
 	mainframe image 2:
 		left: 245
-		top: { if is_borderless() then 0 else 53 }
+		top: { if is_borderless() then 0 else 49 }
 		width: { if (is_room() or is_borderless()) and styling.room_images == "three images" then 50 else 0 }
-		height: { if is_borderless() then 375 else 209 }
-		z index: 410
-		mask: { "rooms/image_mask_middle" + (if not is_room() then "_fuse" else if is_borderless() then (if uses_fuse_arrows() then "_arrow" else "_bl") else "") + ".png" }
+		height: { if is_borderless() then 375 else if is_short_room() then 149 else 211 }
+		z index: 520
+		mask: { if is_short_room() then "" else "rooms/image_mask_middle" + (if not is_room() then "_fuse" else if is_borderless() then (if uses_fuse_arrows() then "_arrow" else "_bl") else "") + ".png" }
 	############################# Card type
 	indicator:
 		left: 50
@@ -1184,7 +1203,13 @@ extra card field:
 	choice: patch
 	editable: false
 	save value: false
-	
+extra card field:
+	type: color
+	name: spillblock
+	script: styling.room_backfill
+	editable: false
+	save value: false
+
 extra card style:
 	fuse_bridge:
 		left: 265
@@ -1316,3 +1341,11 @@ extra card style:
 		render style: image
 		image: rooms/patch.png
 		visible: { borderless_frames() and is_room() and not left_clear() }
+	spillblock:
+		left: 46
+		top: 202
+		width: 452
+		height: 58
+		z index: 700
+		visible: { is_short_room() }
+		mask: rooms/bottom_mask.png

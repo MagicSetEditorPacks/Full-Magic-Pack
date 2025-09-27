@@ -266,6 +266,13 @@ init script:
 	is_snow := {chosen(styling.other_options, choice:"snow")}
 	is_vehicle := {chosen(styling.other_options, choice:"vehicle")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
+	is_custom_border := {
+		if chosen(styling.other_options, choice:"custom border")
+			then has_png(styling.custom_border_source)
+		else auto_custom_border()
+	}
+	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
+
 	paragraph_count := replace@(match:"\n", replace:"~")+
 		filter_text@(match:"~")
 	special_text := {
@@ -311,6 +318,7 @@ init script:
 	popout_height := { popout_coord(3, field:styling.popout_image_style or else "") }
 	popout_angle  := { popout_coord(4, field:styling.popout_image_style or else "", lim:4) }
 	use_popunder  := { chosen(styling.other_options, choice:"popunder art") }
+	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -375,11 +383,16 @@ styling field:
 	choice: nyx
 	choice: snow
 	choice: vehicle
+	choice: custom border
 	choice: adventure
 	choice: reversed adventure
 	choice: pride pinlines
 	choice: popunder art
 	initial: un-indent nonloyalty abilities
+styling field:
+	type: text
+	name: custom border source
+	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
 styling field:
 	type: text
 	name: custom mask
@@ -403,6 +416,11 @@ styling field:
 	name: use guild mana symbols
 	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
 	initial: no
+styling field:
+	type: package choice
+	name: casting cost mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-large.mse-symbol-font
 styling field:
 	type: package choice
 	name: text box mana symbols
@@ -531,14 +549,14 @@ card style:
 		height: 23
 		alignment: middle right
 		symbol font:
-			name: magic-mana-large
+			name: { styling.casting_cost_mana_symbols }
 			size: 15
 			alignment: middle right
 		always symbol: true
 		z index: 920
 		padding top: 0
 	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 29}
+		left: {if card.card_symbol=="none" then 20 else 25}
 		top: 21
 		height: 21
 		width: 23
@@ -742,7 +760,7 @@ card style:
 		height: {if use_adv() then 23 else 0}
 		alignment: middle right
 		symbol font:
-			name: magic-mana-large
+			name: { styling.casting_cost_mana_symbols }
 			size: 12
 			alignment: middle right
 		always symbol: true
@@ -973,6 +991,12 @@ extra card field:
 extra card field:
 	type: choice
 	name: vehicle overlay
+	choice: car door
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: custom overlay
 	choice: car door
 	save value: false
 	editable: false
@@ -1412,7 +1436,7 @@ extra card style:
 		image: {module_nyx()}
 		z index: 330
 		visible: {is_nyx()}
-		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw" + (if is_vehicle() then "_v") + "_mask.png"}
+		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw" + (if is_vehicle() or is_custom_border() then "_v") + "_mask.png"}
 	snow overlay:
 		left: 0
 		top: 0
@@ -1422,7 +1446,7 @@ extra card style:
 		image: {module_snow()}
 		z index: 320
 		visible: {is_snow()}
-		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw" + (if is_vehicle() then "_v") + "_mask.png"}
+		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw" + (if is_vehicle() or is_custom_border()  then "_v") + "_mask.png"}
 	vehicle overlay:
 		left: 0
 		top: 0
@@ -1431,8 +1455,18 @@ extra card style:
 		render style: image
 		image: full_voverlay.png
 		z index: 310
-		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw_mask.png"}
+		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw" + (if is_custom_border()  then "_v") + "_mask.png"}
 		visible: {is_vehicle()}
+	custom overlay:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: { custom_border_blend() }
+		z index: 317
+		mask: {"trim_masks/" + (if has_four_abilities() then "4") + "pw_mask.png"}
+		visible: { is_custom_border() }
 	pride pin:
 		left: { if not is_pinned() then 0 else 19}
 		top: { if not is_pinned() then 0 else 51}
@@ -1454,6 +1488,18 @@ extra card style:
 		image: { if stamp_shape() == "triangle" then (if is_clear() then template_prefix["ubstamp"]+"xstamp.png" else module_ubstamp()) else if is_clear() then template_prefix["stamp"]+"xstamp.png" else module_stamp() }
 		mask: {if stamp_shape() == "triangle" then (if use_full_art() then "mythicstamp_mask_triangle.png" else "") else (if use_full_art() then "mythic" else "") + "stamp_mask.png"}
 
+	vorthos box:
+		right: 275
+		top: 488
+		width: 65
+		height: 10
+		z index: 900
+		alignment: middle right
+		font:
+			name: Relay-Medium
+			size: 7
+			color: white
+			weight: bold
 	adventure cover:
 		left: 0
 		top: {if has_four_abilities() then 288 else 324}

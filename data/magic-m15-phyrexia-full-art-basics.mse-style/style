@@ -1,0 +1,369 @@
+﻿mse version:		2.1.2
+game:				magic
+short name:			ONE Basics
+full name:			Phyrexia Full Art
+icon:				card_sample.png
+position hint:		099
+
+version:			2024-05-20
+depends on:
+	package:			magic.mse-game
+	version:			2014-06-25
+depends on:
+	package:			magic-mana-large.mse-symbol-font
+	version:			2007-09-23
+depends on:
+	package:			magic-mana-small.mse-symbol-font
+	version:			2007-09-23
+depends on:
+	package:			magic-modules.mse-include
+	version:			2024-10-01
+depends on:
+	package:			magic-mainframe-extras.mse-include
+	version:			2007-09-23
+
+card width:			744
+card height:		1039
+card dpi:			297
+
+### blanks by GenevensiS
+### code by GenevensiS
+
+############################################################## Extra scripts
+
+init script:
+	typeline_disabled_1 := { styling.hide_type_text }
+	swap_fonts_type_default :=
+	[
+		name: {"Beleren Bold"},
+		size: {26.5},
+		color: { if styling.hide_type_text then rgba(0,0,0,0) else rgb(0,0,0) },
+		vertical: {0},
+		italic: {""}
+	]
+	
+	nameline_disabled_1 := { styling.hide_name_text }
+	transform_symbol_disabled_1 := { true }
+	card_symbol_disabled_1 := { true }
+	swap_fonts_name_default :=
+	[
+		name: {"Beleren Bold"},
+		size: {30.0},
+		color: { if styling.hide_name_text then rgba(0,0,0,0) else rgb(0,0,0) },
+		vertical: {0},
+		italic: {""}
+	]
+	
+	land_types := [["plains"], ["island"], ["swamp"], ["mountain"], ["forest"], ["wastes"]]
+	land_type_of := {
+		result := "none"
+		option := if input == 2 then styling.second_land_type else styling.land_type
+		if option == "auto" then (
+			ar := break_text(card.sub_type, match:"<word-list-land>[^<]+</word-list-land>")
+			given := if length(ar) >= input then to_lower(remove_tags(ar[input-1])) else "none"
+			if input == 1 and position(of:[to_lower(card.name)], in:land_types) >= 0 then result := to_lower(card.name)
+			else if include_types and position(of:[given], in:land_types) >= 0 then result := given
+		)
+		else result := option
+		result
+	}@(include_types:true)
+	land_type_1 := { land_type_of(1, include_types:include_types) }@(include_types:true)
+	land_type_2 := { land_type_of(2, include_types:include_types) }@(include_types:true)
+	land_type_count := { 
+		count := 0
+		lt1 := land_type_1()
+		lt2 := land_type_2()
+		if lt1 != "none" then count := count + 1
+		if lt2 != "none" and lt2 != lt1 then count := count + 1
+		count
+	}
+	no_types := { land_type_count() == 0 }
+	two_types := { land_type_count() == 2 }
+	
+	modified_color := {
+		t1 := land_type_1()
+		t2 := land_type_2()
+		t3 := if t1 == "none" then t2 else t1
+		
+		if t3 == "none"
+			then card.card_color		## double none, revert to real card color
+		else if t1 == "none" or t2 == "none"
+			then type_to_word_map[t3]	## single none, use that
+		else (
+			c1 := type_to_word_map[t1]
+			c2 := type_to_word_map[t2]
+			c3 := if c1 == "colorless" then c2 else c1
+			if c3 == "colorless"
+				then "colorless"		## double colorless, use that
+			else if c1 == "colorless" or c2 == "colorless" or c1 == c2
+				then c3					## color + colorless or double color, use the color
+			else (						## combine colors, multi, reverse if needed
+				normal_order := normal_order_map["{c1},{c2}"] or else false
+				"{c1}, {c2}, multicolor, horizontal" + (if not normal_order then ", reversed" else "")
+			)
+		)
+	}
+	normal_order_map := [
+		"white,blue": true,
+		"white,black": true,
+		"blue,black": true,
+		"blue,red": true,
+		"black,red": true,
+		"black,green": true,
+		"red,green": true,
+		"red,white": true,
+		"green,white": true,
+		"green,blue": true
+	]
+	super_type_filter_default := { 
+		if two_types() then "Land" else "Basic Land"
+	}
+	sub_type_filter_default :=
+	{
+		t1 := land_type_1(include_types:false)
+		t2 := land_type_2(include_types:false)
+		if t1 == "wastes" or t1 == "none" then t1 := ""
+		if t2 == "wastes" or t2 == "none" then t2 := ""
+		c1 := type_to_word_map[t1]
+		c2 := type_to_word_map[t2]
+		normal_order := normal_order_map["{c1},{c2}"] or else false
+		
+		lower_type := 	if normal_order then t1 + (if t1 != "" then " " else "") + t2
+						else t2 + (if t2 != "" then " " else "") + t1
+		to_title(lower_type)
+	}
+	
+	type_to_letter_map :=
+	[
+		plains:		"w",
+		island:		"u",
+		swamp:		"b",
+		mountain:	"r",
+		forest:		"g",
+		wastes:		"c",
+		none:		"none"
+	]
+	type_to_word_map := [
+		plains: 	"white",
+		island:		"blue",
+		swamp:		"black",
+		mountain:	"red",
+		forest:		"green",
+		wastes:		"colorless",
+		none:		"",
+		"": 		""
+	]
+	card_symbol :=
+	{
+		t1 := land_type_1()
+		t2 := land_type_2()
+		t3 := if t1 == "none" then t2 else t1
+		if t1 != "none" and t2 != "none" then linear_blend(
+			image1: "symbol/" + type_to_letter_map[t1] + ".png",
+			image2: "symbol/" + type_to_letter_map[t2] + ".png",
+			x1: 0.49,  y1: 0,
+			x2: 0.51,  y2: 0
+		)
+		else if t3 == "none" then ""
+		else "symbol/" + type_to_letter_map[t3] + ".png"
+	}
+	
+	
+	is_promo := { styling.promo }
+	
+	is_unsorted := { styling.remove_from_autocount }
+	
+	popout_left :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, minimum: -500,	maximum: 800) else 0 }
+	popout_top :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, minimum: -500,	maximum: 1100) else 0 }
+	popout_width :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, minimum: 0,		maximum: 1500) else 0 }
+	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, minimum: 0,		maximum: 2000) else 0 }
+	
+	mountain_symbol_offset := { if styling.second_land_type == "mountain" or styling.land_type == "mountain" then -76 else 0 }
+
+############################################################## Extra style options
+
+styling field:
+	type:			choice
+	name:			land type
+	description:	What type is this card?
+	choice:
+		name:			auto
+		line below:		true
+	choice:			plains
+	choice:			island
+	choice:			swamp
+	choice:			mountain
+	choice:			forest
+	choice:			wastes
+	choice:			none
+	initial:		auto
+styling field:
+	type:			choice
+	name:			second land type
+	description:	What type is this card?
+	choice:
+		name:			auto
+		line below:		true
+	choice:			plains
+	choice:			island
+	choice:			swamp
+	choice:			mountain
+	choice:			forest
+	choice:			wastes
+	choice:			none
+	initial:		auto
+styling field:
+	type:			text
+	name:			popout art coordinates
+	description:	The coordinates for the popout image field. Formatted as "left,top,width,height". Used to make the illustration jump in front of the frame.
+styling field:
+	type:			boolean
+	name:			stretch art to whole card
+	description:	Make the image span the whole card instead of just the visible part? Use this to help make popout effects.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			hide name text
+	description:	Make the nameline visible to edit it, then turn it back invisible.
+	initial:		yes
+styling field:
+	type:			boolean
+	name:			hide type text
+	description:	Make the typeline visible to edit it, then turn it back invisible.
+	initial:		yes
+
+styling field:
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+styling field:
+	type:			choice
+	name:			border
+	description:	Use a border?
+	choice:			yes
+	choice:			only copyright
+	choice:			no
+	initial:		yes
+
+include file: /magic-modules.mse-include/information/styling_fields
+
+############################################################## Card fields
+
+include file: /magic-modules.mse-include/information/card_fields
+
+include file: /magic-modules.mse-include/stamps/card_fields
+
+include file: /magic-modules.mse-include/corners/card_fields
+
+include file: /magic-modules.mse-include/namelines/card_fields
+
+include file: /magic-modules.mse-include/typelines/card_fields
+
+card style:
+	############################# Background stuff
+	border color:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			100
+		visible:			{ styling.border != "no" }
+		mask:				{ "/magic-modules.mse-include/borders/744x1039/m15/full_art/" + (if styling.border == "yes" then "base.png" else "borderless.png") }
+	############################# Image
+	image:
+		left:				{ if styling.stretch_art_to_whole_card then 0							else if styling.border != "yes" then 0						else 30 }
+		top:				{ if styling.stretch_art_to_whole_card then 0							else if styling.border != "yes" then 0						else 30 }
+		width:				{ if styling.stretch_art_to_whole_card then stylesheet.card_width		else if styling.border != "yes" then stylesheet.card_width	else 684 }
+		bottom:				{ if styling.stretch_art_to_whole_card then stylesheet.card_height + 1	else if styling.border != "no"	then 954					else stylesheet.card_height + 1 }
+		z index:			0
+	mainframe image:
+		left:				{ popout_left() }
+		top:				{ popout_top() }
+		width:				{ popout_width() }
+		height:				{ popout_height() }
+		z index:			1010
+
+############################################################## Extra card fields
+
+extra card field:
+	type:				color
+	name:				card stamp border
+	script:				card.border_color
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				choice
+	name:				first type
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				first type
+extra card field:
+	type:				choice
+	name:				second type
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				second type
+extra card field:
+	type:				choice
+	name:				symbol
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				symbol
+extra card field:
+	type:				choice
+	name:				foil layer
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				foil layer
+
+extra card style:
+	card stamp border:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			110
+		visible:			{ styling.border != "no" and is_stamped() }
+		mask:				{ if card.card_stamp == "universes beyond" then "mask_stamp_background_border_triangle.png" else "mask_stamp_background_border.png" }
+	first type:
+		left:				101
+		top:				{ if two_types() and land_type_2() != "wastes" then 735 else 840 }
+		width:				543
+		height:				100
+		z index:			3000
+		render style:		image
+		visible:			{ land_type_1() != "none" }
+		image:				{ "type/" + type_to_letter_map[land_type_1()] + ".png" }
+	second type:
+		left:				101
+		top:				840
+		width:				543
+		height:				100
+		z index:			3000
+		visible:			{ land_type_2() != "none" }
+		render style:		image
+		image:				{ "type/" + type_to_letter_map[land_type_2()] + ".png" }
+	symbol:
+		left:				175
+		top:				255
+		width:				395
+		height:				395
+		z index:			3000
+		render style:		image
+		image:				{ card_symbol() }
+	foil layer:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			1050
+		visible:			{ styling.overlay != "none" and styling.overlay != "" }
+		render style:		image
+		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }

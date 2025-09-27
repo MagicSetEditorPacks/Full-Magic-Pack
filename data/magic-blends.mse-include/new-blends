@@ -854,7 +854,7 @@ color_background := {
 	if contains(colors, match:"a") then artifact := false
 	if contains(colors, match:"m") then multi := false
 	color_count := if colors == "c" then 0 else number_of_items(in: colors)
-
+	
 	# 'shape' / type of hybrid
 	shape :=	if		chosen(choice:"horizontal"	)	then	"horizontal"
 				else if	chosen(choice:"vertical"	)	then	"vertical"
@@ -862,83 +862,142 @@ color_background := {
 				else											"radial"
 	
 	# Determine background (allows styles to hook something else here)
+	# This is implicitly passed the following parameters: type, shape, colors, color_count, base_hybrid, land, multi, hybrid, artifact, multicolor_blend, hybrid_blend, artifact_blend
 	color_combination(folder:folder, blend_type:blend_type)
-}@(folder: "", blend_type:"")
+}@(folder: "", blend_type: "", multicolor_blend: "mask", hybrid_blend: "mask", artifact_blend: "mask")
 
 color_combination := {
 	# does this have an override blend_type?
 	if blend_type == "" then blend_type := type
-	# The base hybrid, without the outer frame blended over it
-	base := base_hybrid[shape][color_count]()
-	# Put a frame around it?
-	if land and not colored_lands then
-		masked_blend(
-			mask:  "{folder}multicolor_blend_{blend_type}.png",
-			dark:  land_template("c"),
-			light: base,
+	
+	# Basic gradient of the color frames
+	base := base_hybrid[shape][color_count]
+	
+	# This next step adds additional blending from artifact, hybrid, and multicolor cards
+	# Usually, the basic gradient is used on the "light" parts of the mask
+	# And one of those three are used on the "dark" parts
+	# artifact mode is expected to add a trim effect, but leave the plates and pinlines alone
+	# hybrid mode is expected to add a plate effect, but leave the trim and pinline alone
+	# multicolor mode is expted to add a trim and plate effect, but leave the pinline alone
+	# when in conflict, artifact > multicolor > hybrid
+	# an artifact that costs (W)(W/U)(U) has artifact trim, gold plates, and WU gradient pinlines
+	# this finds the parameters needed for the script at the end
+	# but may need an intermediate blend step when modes are chained
+	mode := ""				# by default we don't blend at all
+	light := base			# our base gradient script
+	light_input := input	# the color we've been given
+	dark := template		# the template script for this type
+	dark_input := "c"		# the color of the secondary blend image
+	
+	if land and not colored_lands then (
+		## blend with land via multi mode
+		mode := "multicolor"
+		dark := land_template
+	)
+	else if land and multi then (
+		## blend with land via hybrid mode
+		## mask_hybrid decides the dark input
+		mode := "hybrid"
+		dark := land_template
+		if mask_hybrid_with_gold() then (
+			## Add mland internals to the gradient
+			dark_input := "m"
 		)
-	else if land and multi and mask_multi_land_with_color() then
-		masked_blend(
-			mask:  "{folder}hybrid_blend_{blend_type}.png",
-			dark:  base,
-			light:  land_template("m"),
+		else if mask_multi_land_with_color() then (
+			## Use gradient's internals on mland
+			light := land_template
+			light_input := "m"
+			dark := base
+			dark_input := input
 		)
-	else if multi and artifact then
-		masked_blend(
-			mask: "{folder}artifact_blend_{blend_type}.png",
-			dark: template("a"),
-			light: masked_blend(
-				mask: "{folder}multicolor_blend_{blend_type}.png",
-				dark: template("m"),
-				light: base
-			)
+		else (
+			## cland with gradient pinlines
+			mode := "multicolor"
 		)
-	else if multi then 
-		masked_blend(
-			mask:  "{folder}multicolor_blend_{blend_type}.png",
-			dark:  template("m"),
-			light: base,
+	)
+	else if artifact then (
+		## blend via artifact mode
+		## multi and hybrid need to chain blends
+		## otherwise just use artifact as dark input
+		mode := "artifact"
+		dark_input := "a"
+		if multi then (
+			## first blend multicolor internals onto the gradient
+			## then artifact will overwrite the outer portion
+			light := { conditional_masked_blend(
+				mode: 			"multicolor",
+				light: 			base,
+				light_input: 	input,
+				dark: 			template,
+				dark_input : 	"m"
+			)}
 		)
-	else if artifact and color_count > 1 and mask_hybrid_with_land() then 
-		masked_blend(
-			mask:  "{folder}artifact_blend_{blend_type}.png",
-			dark:  template("a"),
-			light: masked_blend(
-				mask: "{folder}multicolor_blend_{blend_type}.png",
-				dark: template("c"),
-				light: base
-			)
+		else if color_count <= 1 then (
+			## blend artifact outside
+			""
 		)
-	else if artifact and color_count > 1 and mask_hybrid_with_gold() then 
-		masked_blend(
-			mask:  "{folder}artifact_blend_{blend_type}.png",
-			dark:  template("a"),
-			light: masked_blend(
-				mask: "{folder}multicolor_blend_{blend_type}.png",
-				dark: template("m"),
-				light: base
-			)
+		else if mask_hybrid_with_land() then (
+			## first blend cland internals, artifact happens later 
+			light := { conditional_masked_blend(
+				mode: 			"multicolor",
+				light: 			base,
+				light_input: 	input,
+				dark: 			template,
+				dark_input : 	"c"
+			)}
 		)
-	else if artifact then 
-		masked_blend(
-			mask:  "{folder}artifact_blend_{blend_type}.png",
-			dark:  template("a"),
-			light: base,
+		else if mask_hybrid_with_gold() then (
+			## first blend mland internals, artifact happens later 
+			light := { conditional_masked_blend(
+				mode: 			"multicolor",
+				light: 			base,
+				light_input: 	input,
+				dark: 			template,
+				dark_input : 	"m"
+			)}
 		)
-	else if color_count > 1 and mask_hybrid_with_land() then
-		masked_blend(
-			mask:  "{folder}hybrid_blend_{blend_type}.png",
-			dark:  land_template("c"),
-			light: base,
+		else (
+			## shouldn't get here, but if we do, blend artifact outside
+			""
 		)
-	else if color_count > 1 and mask_hybrid_with_gold() then
-		masked_blend(
-			mask:  "{folder}hybrid_blend_{blend_type}.png",
-			dark:  land_template("m"),
-			light: base,
+	)
+	else if multi then (
+		## complex forms already handled
+		## just blend multicolor over the gradient
+		mode := "multicolor"
+		dark_input := "m"
+	)
+	else if color_count > 1 then (
+		## blend hybrid internals over the gradient
+		## settings change which template we blend with
+		mode := "hybrid"
+		dark := land_template
+		if mask_hybrid_with_gold() then (
+			dark_input := "m"
 		)
-	else base
+		else if not mask_hybrid_with_land() then (
+			mode := ""
+		)
+	)
+	## if we have a mode, blend that, otherwise use our base gradient
+	if mode == "" then base() else conditional_masked_blend()
+	
 }@(folder: "", blend_type:"")
+
+conditional_masked_blend :=
+{
+	mask := "{folder}{mode}_blend_{blend_type}.png"
+	mode :=	if		mode == "multicolor" then	multicolor_blend
+			else if	mode == "artifact" then		artifact_blend
+			else								hybrid_blend
+	if		mode == "black" then dark(dark_input)
+	else if	mode == "white" then light(light_input)
+	else masked_blend(
+			mask:	mask,
+			dark:	dark(dark_input),
+			light:	light(light_input),
+	)
+}
 
 ########################################################################
 # Specific types
@@ -1088,21 +1147,9 @@ set_watermark_blend := {
 			)
 	)
 }
+spotlight_folder := { watermark_include + "/spotlight/" }
 spotlight_watermark_blend := {
 	face := [1:card.card_color, 2:card.card_color_2, 3:card.card_color_3][face]
-	if type_of(input) == type_of("string") then (
-		array := split_comma(input)
-		input := array.0
-		if length(array) > 1 then (
-			px := px_split(array.2)
-			if length(px) > 2
-				then l := 0
-			else (
-				l := px.0
-				h := px.1
-			)
-		)
-	)
 	
 	if l < 1 or h < 1 or l > 1024 or h > 1024 then (
 		input
@@ -1110,7 +1157,7 @@ spotlight_watermark_blend := {
 		wmc := watermark_colors(face:face)
 		c1 := wmc.0 + (if contains(face, match:"land") then "l") + "spotlight.png"
 		c2 := wmc.1 + (if contains(face, match:"land") then "l") + "spotlight.png"
-		wmdir := watermark_include + "/spotlight/"
+		wmdir := spotlight_folder()
 		c1 := crop(wmdir+c1, height:h, width:l, offset_x:0, offset_y:0)
 		c2 := crop(wmdir+c2, height:h, width:l, offset_x:0, offset_y:0)
 
@@ -1189,6 +1236,9 @@ watermark_blend :=
 					or	(face == 3 and invert_watermark_3())
 	if option == "inverted" then dark_textbox := not dark_textbox
 	invert_base_image := false
+	if custom then (
+		alpha := spotlight_alpha
+	)
 	if dark_textbox then
 	(
 		alpha := dark_alpha

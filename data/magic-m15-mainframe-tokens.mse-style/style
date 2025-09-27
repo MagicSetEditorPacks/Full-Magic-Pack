@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/tokens
 position hint: 004
 
-version: 2024-09-03
+version: 2025-01-11
 depends on:
 	package: magic.mse-game
 	version: 2014-06-25
@@ -65,8 +65,10 @@ init script:
 		snow: "/magic-modules.mse-include/trims/snow/"
 		nyx: "/magic-modules.mse-include/trims/nyx/"
 		pt:"/magic-modules.mse-include/pts/375 m15/"
+		snowbox: "/magic-modules.mse-include/cards/375 m15 simple/snow/"
 		stamp:"stamps/round/"
 		ubstamp:"stamps/ub/"
+		star: "/magic-modules.mse-include/trims/star/",
 	]
 	template_suffix := [
 		alias: "alias.png",
@@ -84,17 +86,23 @@ init script:
 		nyx: "nyx.png"
 		pt: "pt.png"
 		stamp: "stamp.png"
-		ubstamp: "stamp.png"
+		ubstamp: "stamp.png",
+		snowbox: "card.jpg"
+		star: "star.png",
 	]
 	template      := {
-		template_prefix[type] 
-		+ input_mixer(input, type:type)
-		+ template_suffix[type]
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:false)
+		else template_prefix[type] 
+			+ input_mixer(input, type:type)
+			+ template_suffix[type]
 	}
 	land_template := { 
-		template_prefix[type] 
-		+ input_mixer(input, type:type)
-		+ template_suffix[type]
+		if type_name(harder_script[type] or else nil) != type_name(nil)
+			then harder_script[type](input, land:true)
+		else template_prefix[type] 
+			+ input_mixer(input, type:type)
+			+ template_suffix[type]
 	}
 	input_mixer := {
 		if input == "w" and (type == "card7" or type == "card8" or type == "card9") and (card.card_color != "white")
@@ -102,6 +110,14 @@ init script:
 		else input
 	}
 	
+	landless := {
+		landless_ar[input] or else false
+	}
+	landless_ar := [ star:true ]
+	harder_script := [
+		custom_border: custom_border_image,
+		alt_nyx: alt_nyx_template
+	]
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -123,8 +139,8 @@ init script:
 	mtgo_abil := {contains(styling.frames, match: "MTGO Ability") and not is_m20()}
 	is_legend :=	{  auto_legend() 	or contains(styling.frames, match:"legendary") }
 	is_vehicle :=	{ (auto_vehicle()	or contains(styling.frames, match:"vehicle"))	and not is_m20() }
-	is_nyx :=		{ (auto_nyx()		or contains(styling.frames, match:"nyx"))		and not is_m20() and not is_clear() }
-	is_snow :=		{ (auto_snow()		or contains(styling.frames, match:"snow"))		and not is_m20() }
+	is_nyx :=		{ (auto_nyx()		or contains(styling.frames, match:"nyx"))		and not is_clear() }
+	is_snow :=		{ (auto_snow()		or contains(styling.frames, match:"snow")) }
 	auto_legend :=	{ set.auto_legends									and lang_setting("is_legendary")(card.super_type) }
 	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
 	auto_nyx :=		{ contains(styling.auto_frames, match:"nyx")		and lang_setting("is_enchantment")(card.super_type) }
@@ -142,6 +158,7 @@ init script:
 	alias_bar := { color_background(type:"alias",     base_hybrid:card_hybrid) }
 	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar") and not is_skinned()}
 	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
+	snow_card_background := { color_background(type:"snowbox", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/cards/375 m15 simple/", blend_type:"card") }
 	########## Mainframe stuff
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
@@ -174,6 +191,7 @@ init script:
 		},
 		color: {
 			if is_weird_token() then "white"
+			else if is_m20() and is_snow() then "black"
 			else if is_m20() and card.card_color == "white" and not is_clear() then "black"
 			else if is_m20() then "white"
 			else rgb(255,239,128)
@@ -190,7 +208,7 @@ init script:
 	]
 	swap_fonts_body_default := [
 		name: {if is_archetype() then "Gotham Pro" else "MPlantin"},
-		size: {14},
+		size: {if styling.shrink_font_size != "" then 14 - to_number(styling.shrink_font_size) else 14},
 		color: {if white_state_font() then "white" else "black"},
 		vertical: {0},
 		italic: {"MPlantin-Italic"}
@@ -210,6 +228,12 @@ init script:
 			then module_stamp()
 		else "/magic-modules.mse-include/stamps/backs/" + (if sh == "triangle" then "triangle_stamp.png" else "stamp.png")
 	}
+	is_custom_border := {
+		if chosen(styling.frames, choice:"custom border")
+			then has_png(styling.custom_border_source)
+		else auto_custom_border()
+	}
+	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
 	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Set info fields
 set info style:
@@ -235,6 +259,11 @@ styling field:
 	choice: nyx
 	choice: snow
 	choice: vehicle
+	choice: custom border
+styling field:
+	type: text
+	name: custom border source
+	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
 styling field:
 	type: multiple choice
 	name: auto frames
@@ -468,7 +497,7 @@ card style:
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
 		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
 		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
-		z index: 8
+		z index: 1010
 	############################# Card type
 	type:
 		left: 32
@@ -543,7 +572,7 @@ card style:
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: { if styling.shrink_font_size != "" then 14 - to_number(styling.shrink_font_size) else 14}
+			size: { body_font_size() }
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
@@ -673,13 +702,31 @@ extra card field:
 extra card field:
 	type: choice
 	name: snow overlay
-	choice: plate
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: snow type overlay
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: snow box overlay
+	script: card.card_color
 	save value: false
 	editable: false
 extra card field:
 	type: choice
 	name: vehicle overlay
 	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: custom overlay
+	script: card.card_color
 	save value: false
 	editable: false
 extra card field:
@@ -777,25 +824,45 @@ extra card style:
 		image: plate.png
 		visible: { mtgo_abil() }
 	nyx overlay:
-		left: 15
-		top: 15
-		width: 345
-		height: 471
+		left: {if is_m20() then 0 else 15}
+		top: {if is_m20() then 0 else 15}
+		width: {if is_m20() then 375 else 345}
+		height: {if is_m20() then 523 else 471}
 		z index: 1
 		render style: image
 		image: {module_nyx()}
-		mask: {"v_" + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		mask: {if is_m20() then "m20/nyx_mask.png" else "v_" + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
 		visible: { is_nyx() }
 	snow overlay:
-		left: 15
-		top: 15
-		width: 345
-		height: 471
+		left: {if is_m20() then 0 else 15}
+		top: {if is_m20() then 0 else 15}
+		width: {if is_m20() then 375 else 345}
+		height: {if is_m20() then 523 else 471}
 		z index: 1
 		render style: image
 		image: {module_snow()}
-		mask: {"v_" + (if is_nyx() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		mask: {if is_m20() then "m20/nyx_mask.png" else "v_" + (if is_nyx() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
 		visible: { is_snow() }
+	snow type overlay:
+		left: 0
+		top: { if is_tall() then 0 else if is_textless() then 134 else 60 }
+		width: 375
+		height: 523
+		z index: 1
+		render style: image
+		image: {module_snow()}
+		mask: m20/type_mask.png
+		visible: { is_snow() and is_m20() }
+	snow box overlay:
+		left: 28
+		top: { if is_tall() then 327 else 387 }
+		width: { if is_textless() then 0 else 320 }
+		height: { if is_tall() then 156 else 96 }
+		z index: 1
+		render style: image
+		image: { crop(snow_card_background(), offset_x:28, offset_y:327, width:320, height:156) }
+		mask: m20/snowbox_mask.png
+		visible: { is_snow() and is_m20() }
 	vehicle overlay:
 		left: 15
 		top: 15
@@ -806,6 +873,16 @@ extra card style:
 		image: voverlay.png
 		mask: {"v_" + (if is_nyx() or is_snow() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
 		visible: { is_vehicle() }
+	custom overlay:
+		left: 15
+		top: 15
+		width: 345
+		height: 471
+		z index: 1
+		render style: image
+		image: {custom_border_blend()}
+		mask: {"v_" + (if is_nyx() or is_snow() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		visible: { is_custom_border() }
 	vorthos box:
 		right: { if card.pt != "" then 275 else 350 }
 		top: 488
@@ -853,7 +930,7 @@ extra card style:
 		z index: -2
 	stamp backing:
 		left: 159
-		top: 471
+		top: { if is_m20() then 471 else 474 }
 		width: 56
 		height: 26
 		z index: 850

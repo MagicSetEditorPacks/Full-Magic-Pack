@@ -2,6 +2,8 @@
 ############################################################## Statistics scripts 30-03-2023
 ############################################################## Blame GenevensiS for this
 
+## Enable showing of non-printing characters to edit this file
+
 ## Clean up text for processing
 remove_flavor_statistic := replace@(match: "<i-flavor>.*?</i-flavor>", replace: "")
 remove_reminder_statistic := replace@(match: "(<i>|<i-auto>).*?(</i>|</i-auto>)", replace: "")
@@ -582,8 +584,7 @@ n_choose_k_statistic :=
 # Average number of cards in an opening hand
 average_opening_hand_statistic :=
 {
-	averages := split_text(set.global_variable_average_opening_hand, match: ";")
-	if length(averages) != 9 then set.global_variable_average_opening_hand else (
+	if type_name(global_value) != "collection" then to_string(global_value) else (
 	types :=	[has_type_statistic("land")] +
 				(if has_type_statistic("artifact") then (if mana_production_list_statistic(check_type: "nonland") == "" then [false, true] else [true, false]) else [false, false]) +
 				[has_type_statistic("enchantment")] +
@@ -592,10 +593,10 @@ average_opening_hand_statistic :=
 				[has_type_statistic("creature")] +
 				[has_type_statistic("sorcery")] +
 				[has_type_statistic("instant")]
-	result := for x from 0 to 8 do (if types[x] then averages[x] else "")
+	result := for x from 0 to 8 do (if types[x] then global_value[x] else "")
 	substring(result, begin: 1))
 }
-global_variable_average_opening_hand_statistic :=
+average_opening_hand_global_statistic :=
 {
 	if length(set.cards) < 1 then "" else (
 	
@@ -640,15 +641,17 @@ global_variable_average_opening_hand_statistic :=
 	creatures_average := format_average_statistic(7.0 * to_number(creatures) / card_count_real)
 	sorceries_average := format_average_statistic(7.0 * to_number(sorceries) / card_count_real)
 	instants_average := format_average_statistic(7.0 * to_number(instants) / card_count_real)
-	",​" + lang_setting("land")				+ " — " + lands_average +					# There are zero width spaces in the "," and ",;" to impose ordering
-	";,​​" + lang_setting("mana_artifact")	+ " — " + manaartifacts_average +
-	";,​​​" + lang_setting("nonmana_artifact")	+ " — " + nonmanaartifacts_average +
-	";,​​​​" + lang_setting("enchantment")		+ " — " + enchantments_average +
-	";,​​​​​" + lang_setting("planeswalker")		+ " — " + planeswalkers_average +
-	";,​​​​​​" + lang_setting("battle")			+ " — " + battles_average +
-	";,​​​​​​​" + lang_setting("creature")			+ " — " + creatures_average +
-	";,​​​​​​​​" + lang_setting("sorcery")			+ " — " + sorceries_average +
-	";,​​​​​​​​​" + lang_setting("instant")			+ " — " + instants_average))
+	[
+		",​" + lang_setting("land")				+ " — " + lands_average,					# There are zero width spaces after the initial "," to impose ordering
+		",​​" + lang_setting("mana_artifact")	+ " — " + manaartifacts_average,
+		",​​​" + lang_setting("nonmana_artifact")	+ " — " + nonmanaartifacts_average,
+		",​​​​" + lang_setting("enchantment")		+ " — " + enchantments_average,
+		",​​​​​" + lang_setting("planeswalker")		+ " — " + planeswalkers_average,
+		",​​​​​​" + lang_setting("battle")			+ " — " + battles_average,
+		",​​​​​​​" + lang_setting("creature")			+ " — " + creatures_average,
+		",​​​​​​​​" + lang_setting("sorcery")			+ " — " + sorceries_average,
+		",​​​​​​​​​" + lang_setting("instant")			+ " — " + instants_average
+	]))
 }
 format_average_statistic :=
 {
@@ -1380,6 +1383,8 @@ filter_field_map_statistic :=
 	color_identity_count: {color_identity_count_statistic()},
 	mana_production: {mana_production_list_statistic(check_type: "all")},
 	"permanent/non": {replace_en_spaces_statistic(remove_zero_width_spaces_statistic(permanent_statistic()))},
+	"permanent/nonpermanent": {replace_en_spaces_statistic(remove_zero_width_spaces_statistic(permanent_statistic()))},
+	"permanent / nonpermanent": {replace_en_spaces_statistic(remove_zero_width_spaces_statistic(permanent_statistic()))},
 	mana_value: {cmc(card.casting_cost)},
 	mana_value_2: {cmc(card.casting_cost_2)},
 	supertype: {keep_only_supertypes_statistic(card.super_type)},
