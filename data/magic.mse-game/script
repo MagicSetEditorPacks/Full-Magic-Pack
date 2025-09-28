@@ -152,6 +152,82 @@ crop_safe :=
 	then ""
 	else crop(input, offset_x: offset_x, offset_y: offset_y, width: width, height: height)
 }
+#### Crop out the middle section of an image
+internal_crop:= {
+	# given input, image to crop
+	# given height, height of input
+	# given width, width of input
+	# given left/top, minimum left/top edge coordinate
+	# given right/bottom, maximum right/bottom edge coordinate
+	# option distance, adds to left/top edge
+	# option distance2, adds to right/bottom edge
+	
+	# crop 0 - left+length
+	# crop right-length_r - maximum
+	# use insert image to combine them
+	
+	# handle missing edge
+	cut_horiz := left != nil and right != nil
+	cut_verti := top != nil and bottom != nil
+	if not cut_horiz and not cut_verti then (
+		if left != nil then (
+			right := width
+			cut_horiz := true
+		)
+		else if right != nil then (
+			left := 0
+			cut_horiz := true
+		)
+		else if top != nil then (
+			bottom := height
+			cut_verti := true
+		)
+		else if bottom != nil then (
+			top := 0
+			cut_verti := true
+		)
+	)
+	
+	# rollover large distance
+	internal_space := if cut_horiz then right - left else if cut_verti then bottom - top else 0
+	excess_crop := 0
+	if distance > internal_space then (
+		diff := distance - internal_space
+		distance := internal_space
+		distance2 := distance2 + diff
+	)
+	if distance2 > internal_space then (
+		excess_crop := distance2 - internal_space
+		distance2 := internal_space
+		if distance < internal_space then (
+			diff := internal_space - distance
+			if diff < excess_crop then distance := distance + excess_crop
+			else (
+				distance := internal_space
+				excess_crop := excess_crop - diff
+			)
+		)
+	)
+	# maybe we insert excess_crop with more crops but idk if that's necessary
+	
+	if cut_horiz then (
+		img_left := crop_safe(img, offset_x:0, offset_y:0, width:left+distance, height:height, max_x:width, max_y:height)
+		r_offset := right - distance2
+		r_width := width - r_offset
+		img_right := crop_safe(img, offset_x:r_offset, offset_y:0, width:r_width, height:height, max_x:width, max_y:height)
+		
+		insert_image(base_image: img_left, inserted_image:img_right, offset_x:left+distance, offset_y:0)
+	)
+	else if cut_verti then (
+		img_top := crop_safe(img, offset_x:0, offset_y:0, width:width, height:top+distance, max_x:width, max_y:height)
+		b_offset := bottom - distance2
+		b_height := height - b_offset
+		img_bot := crop_safe(img, offset_x:0, offset_y:b_offset, width:width, height:b_height, max_x:width, max_y:height)
+		
+		insert_image(base_image: img_top, inserted_image:img_bot, offset_x:0, offset_y:top+distance)
+	)
+	else img
+}@(distance:0, distance2:0, left:nil, right:nil, top:nil, bottom:nil)
 #### pad a string from the front or back or both idk i'm not your dad
 fill_len := {
 	output := to_string(input)
