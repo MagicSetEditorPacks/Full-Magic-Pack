@@ -42,6 +42,7 @@ alias_src := "/magic-modules.mse-include/alias/"
 
 #### Alias expects to blend on pinlines. If you need to change that, redefine module_alias
 #### Changing "white" to "black" to blend as artifact, land, or gold
+#### If you change card_hybrid to use an image, make a copy and redefine this using the copy
 module_alias := {
 	template := alias_custom_template
 	land_template := alias_custom_land_template
