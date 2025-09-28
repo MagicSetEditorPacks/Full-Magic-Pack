@@ -63,11 +63,13 @@ alias_font_size(face:1)
 
 #### Show the Alias Bar
 alias_enabled := 			{ card.alias != "" }
+alias_enabled_2 := 			{ card.alias != "" }
 #### Move the bar and alias left
 alias_offset_top_1 := 		{ 0 }
 alias_offset_left_1 := 		{ 0 }
 alias_offset_height_1 := 	{ 0 }
 alias_offset_width_1 := 	{ 0 }
+alias_angle_1 :=			{ 0 }
 #### Move the text vertically. Positive moves down
 alias_offset_text_top_1 :=	{ 0 }
 
@@ -76,3 +78,4 @@ alias_offset_text_top_1 :=	{ 0 }
 #### masks/remove_outline.png	-> removes the black outline on the bottom
 #### masks/
 alias_mask :=				{ "" }
+alias_mask_2 :=				{ "" }
