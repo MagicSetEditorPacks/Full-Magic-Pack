@@ -159,7 +159,82 @@ enlarge_to_face_size :=
 	resized := resize_image(input, width: width, height: height)
 	crop(resized, offset_x: -offset_x, offset_y: -offset_y, width: face_width, height: face_height)
 }
-
+#### Crop out the middle section of an image
+internal_crop:= {
+	# given input, image to crop
+	# given height, height of input
+	# given width, width of input
+	# given left/top, minimum left/top edge coordinate
+	# given right/bottom, maximum right/bottom edge coordinate
+	# option distance, adds to left/top edge
+	# option distance2, adds to right/bottom edge
+	
+	# crop 0 - left+length
+	# crop right-length_r - maximum
+	# use insert image to combine them
+	
+	# handle missing edge
+	cut_horiz := left != nil and right != nil
+	cut_verti := top != nil and bottom != nil
+	if not cut_horiz and not cut_verti then (
+		if left != nil then (
+			right := width
+			cut_horiz := true
+		)
+		else if right != nil then (
+			left := 0
+			cut_horiz := true
+		)
+		else if top != nil then (
+			bottom := height
+			cut_verti := true
+		)
+		else if bottom != nil then (
+			top := 0
+			cut_verti := true
+		)
+	)
+	
+	# rollover large distance
+	internal_space := if cut_horiz then right - left else if cut_verti then bottom - top else 0
+	excess_crop := 0
+	if distance > internal_space then (
+		diff := distance - internal_space
+		distance := internal_space
+		distance2 := distance2 + diff
+	)
+	if distance2 > internal_space then (
+		excess_crop := distance2 - internal_space
+		distance2 := internal_space
+		if distance < internal_space then (
+			diff := internal_space - distance
+			if diff < excess_crop then distance := distance + excess_crop
+			else (
+				distance := internal_space
+				excess_crop := excess_crop - diff
+			)
+		)
+	)
+	# maybe we insert excess_crop with more crops but idk if that's necessary
+	
+	if cut_horiz then (
+		img_left := crop_safe(img, offset_x:0, offset_y:0, width:left+distance, height:height, max_x:width, max_y:height)
+		r_offset := right - distance2
+		r_width := width - r_offset
+		img_right := crop_safe(img, offset_x:r_offset, offset_y:0, width:r_width, height:height, max_x:width, max_y:height)
+		
+		insert_image(base_image: img_left, inserted_image:img_right, offset_x:left+distance, offset_y:0)
+	)
+	else if cut_verti then (
+		img_top := crop_safe(img, offset_x:0, offset_y:0, width:width, height:top+distance, max_x:width, max_y:height)
+		b_offset := bottom - distance2
+		b_height := height - b_offset
+		img_bot := crop_safe(img, offset_x:0, offset_y:b_offset, width:width, height:b_height, max_x:width, max_y:height)
+		
+		insert_image(base_image: img_top, inserted_image:img_bot, offset_x:0, offset_y:top+distance)
+	)
+	else img
+}@(distance:0, distance2:0, left:nil, right:nil, top:nil, bottom:nil)
 #### pad a string from the front or back or both idk i'm not your dad
 fill_len := {
 	output := to_string(input)
@@ -4663,6 +4738,66 @@ nameline_offset_left_3 := { 0 }
 nameline_offset_width_3 := { 0 }
 nameline_offset_height_3 := { 0 }
 
+############################################################## Alias
+alias_left :=
+{
+	map := face_coordinates_map(face)
+	off2 := if face == 2 then alias_offset_width_2() else alias_offset_width_1()
+	map.left + (map.width - (298 * min(map.width, map.height)/375) - off2)/2 + offset
+}
+alias_top :=
+{
+	map := face_coordinates_map(face)
+	57 * min(map.width, map.height)/375 + offset
+}
+alias_height :=
+{
+	map := face_coordinates_map(face)
+	20 * min(map.width, map.height)/375 + offset
+}
+alias_width :=
+{
+	map := face_coordinates_map(face)
+	298 * min(map.width, map.height)/375 + offset
+}
+alias_offset_text :=
+{
+	map := face_coordinates_map(face)
+	min(map.width, map.height)/375 * -1.5
+}
+alias_font_size :=
+{
+	map := face_coordinates_map(face)
+	9 * min(map.width, map.height)/375
+}
+
+alias_enabled := 			{ card.alias != "" }
+alias_offset_top_1 := 		{ 0 }
+alias_offset_left_1 := 		{ 0 }
+alias_offset_height_1 := 	{ 0 }
+alias_offset_width_1 := 	{ 0 }
+alias_offset_text_top_1 :=	{ 0 }
+alias_left_1 := 			{ alias_left(face: 1,		offset:alias_offset_left_1()) }
+alias_top_1 := 				{ alias_top(face: 1, 		offset:alias_offset_top_1()) }
+alias_height_1 := 			{ alias_height(face: 1, 	offset:alias_offset_height_1()) }
+alias_width_1 := 			{ alias_width(face: 1, 		offset:alias_offset_width_1()) }
+alias_mask :=				{ "" }
+alias_angle_1 :=			{ 0 }
+
+alias_enabled_2 := 			{ card.alias_2 != "" }
+alias_offset_top_2 := 		{ 0 }
+alias_offset_left_2 := 		{ 0 }
+alias_offset_height_2 := 	{ 0 }
+alias_offset_width_2 := 	{ 0 }
+alias_offset_text_top_2 :=	{ 0 }
+alias_left_2 := 			{ alias_left(face: 2,		offset:alias_offset_left_2()) }
+alias_top_2 := 				{ alias_top(face: 2, 		offset:alias_offset_top_2()) }
+alias_height_2 := 			{ alias_height(face: 2, 	offset:alias_offset_height_2()) }
+alias_width_2 := 			{ alias_width(face: 2, 		offset:alias_offset_width_2()) }
+alias_mask_2 :=				{ "" }
+alias_angle_2 :=			{ 0 }
+
+
 ############################################################## Stamps
 ### The stamp to use if the user hasn't overwritten it for this card
 card_stamp_default := {
@@ -5722,9 +5857,32 @@ alt_nyx_template := {
 	dir := filter_text(src, match:"^([^.]+/)+")
 	"/magic-mainframe-extras.mse-include/" + dir + input + (if land then "l" else "") + fs
 }
+#### Default colors for the alias
+alias_colors := {
+	[
+		w: rgb(255, 255, 255),
+		u: rgb(6, 115, 184),
+		b: rgb(39, 38, 36),
+		r: rgb(168, 88, 81),
+		g: rgb(6, 120, 69),
+		a: rgb(239, 238, 236),
+		m: rgb(243, 210, 105),
+		c: rgb(173, 151, 137)
+	][input]
+}
+#### Folder containing files
+alias_src := "/magic-modules.mse-include/alias/"
+#### Construct alias bar
+alias_custom_template := {
+	new_color := alias_colors(input, land:land)
+	color := recolor_image(alias_src+"color.png", color:new_color)
+	masked_blend(dark:color, light:alias_src+"base.png", mask:alias_src+"mask.png")
+}@(land:false)
+alias_custom_land_template := {alias_custom_template(input, land:true)}
 harder_script := [
 	alt_nyx: alt_nyx_template,
-	custom_border: custom_border_image
+	custom_border: custom_border_image,
+	alias: alias_custom_template
 ]
 ############################################################## Card column sorting
 type_sort_script :=
