@@ -82,6 +82,8 @@ leveler_level_box_land_image_folder_1 :=			{ "/magic-modules.mse-include/levelbo
 leveler_pt_box_image_folder_1 :=					{ "/magic-modules.mse-include/ptboxes/744x1039/m15/" + leveler_pt_box_field(input) + "/base/" }
 leveler_pt_box_land_image_folder_1 :=				{ "/magic-modules.mse-include/ptboxes/744x1039/m15/" + leveler_pt_box_field(input) + "/base/" }
 
+#### If you have further variants for each level, put them in subfolders named 1 to up to 6.
+
 #### You can also add to these folders a mask named "hybrid_blend_mask.png".
 #### It will be used to blend on two colors cards if the hybrid scheme is selected from the style tab.
 
