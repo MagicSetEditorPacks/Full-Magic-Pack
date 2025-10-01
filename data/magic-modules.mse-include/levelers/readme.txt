@@ -70,6 +70,14 @@ leveler_pt_offset_text_margin_1 :=					{ if leveler_pt_box_field(input) == "stat
 leveler_level_label_on_side_1 :=					{ false }
 leveler_level_label_disabled_1 :=					{ false }
 
+#### If something depends on there being a label or not, check that like so:
+leveler_level_offset_top_1 :=						{ if leveler_is_labeled_1(input) then 5 else 0 }
+
+#### To change the color of the pt and level text:
+leveler_pt_font_color_1 :=							{ if is_vehicle() or leveler_pt_box_field(input) == "station"		or leveler_pt_box_field(input) == "borderless"		then "white" else "black" }
+leveler_level_font_color_1 :=						{ if is_vehicle() or leveler_level_box_field(input) == "station"	or leveler_level_box_field(input) == "borderless"	then "white" else "black" }
+#### To change the size of the font, change the height of the field, the text will adapt to fit inside
+
 #### If you want to use a custom image for the pt box or level box, supply it's path:
 leveler_level_box_image_1 :=						{ "" }
 leveler_level_box_land_image_1 :=					{ "" }
