@@ -66,6 +66,10 @@ leveler_pt_offset_text_margin_1 :=					{ 0 }
 #### (You can for example make this dependent on the box being station:)
 leveler_pt_offset_text_margin_1 :=					{ if leveler_pt_box_field(input) == "station" then -10 else 0 }
 
+#### If you want the level label to be on the side instead of the top, or outright disabled:
+leveler_level_label_on_side_1 :=					{ false }
+leveler_level_label_disabled_1 :=					{ false }
+
 #### If you want to use a custom image for the pt box or level box, supply it's path:
 leveler_level_box_image_1 :=						{ "" }
 leveler_level_box_land_image_1 :=					{ "" }
@@ -84,9 +88,8 @@ leveler_pt_box_land_image_folder_1 :=				{ "/magic-modules.mse-include/ptboxes/7
 
 #### If you have further variants for each level, put them in subfolders named 1 to up to 6.
 
-#### You can also add to these folders a mask named "hybrid_blend_mask.png".
-#### It will be used to blend on two colors cards if the hybrid scheme is selected from the style tab.
+#### You can also add to these folders masks named "multicolor_blend_mask.png", "hybrid_blend_mask.png" and "artifact_blend_mask.png".
+#### They will be used to blend the gold, land and artifact frames respectively on top of the colored frames.
 
-#### If you want the level label to be on the side instead of the top, or outright disabled:
-leveler_level_label_on_side_1 :=					{ false }
-leveler_level_label_disabled_1 :=					{ false }
+#### You can also add to these folders a mask named "special_blend_mask.png".
+#### It will be used to blend on two colors cards if the special scheme is selected from the style tab.
