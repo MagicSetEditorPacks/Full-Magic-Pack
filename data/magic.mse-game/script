@@ -4020,11 +4020,11 @@ leveler_level_is_active_1 :=
 	number <= leveler_abilities_count_1()
 }
 
+leveler_textbox_separation_1 :=	{ style := leveler_style_field(leveler_text_field_1()); block := style.layout.blocks[input] or else nil;	if block == nil then stylesheet.card_height else style.top + (block.top + style.layout.blocks[input-1].bottom)/2 }
 leveler_textbox_middle_1 :=		{ style := leveler_style_field(leveler_text_field_1()); block := style.layout.blocks[input-1] or else nil;	if block == nil then stylesheet.card_height else style.top + block.middle }
 leveler_textbox_left_1 :=		{ style := leveler_style_field(leveler_text_field_1()); style.left }
 leveler_textbox_right_1 :=		{ style := leveler_style_field(leveler_text_field_1()); style.right }
 leveler_textbox_width_1 :=		{ style := leveler_style_field(leveler_text_field_1()); style.width }
-leveler_textbox_separation_1 :=	{ style := leveler_style_field(leveler_text_field_1()); block := style.layout.blocks[input] or else nil;	if block == nil then stylesheet.card_height else style.top + (style.layout.blocks[input-1].bottom + block.top)/2 }
 
 leveler_labeled_1 := { not leveler_level_label_disabled_1() and not styling.remove_level_labels }
 
@@ -4089,9 +4089,9 @@ leveler_level_label_height_1 :=	{											leveler_level_label_adjustment_heigh
 leveler_level_label_width_1 :=	{ leveler_level_width_1()				+	leveler_level_label_adjustment_width_1(input)	+	leveler_level_label_offset_width_1() * 2 }
 leveler_level_label_angle_1 :=	{ if leveler_level_label_on_side_1() then	90 else 0 }
 
-leveler_level_move_1 :=			{ split := split_comma(styling.move_level_arrows);	if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:800, minimum:-800) else 0 }
-leveler_pt_move_1 :=			{ split := split_comma(styling.move_PTs);			if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:800, minimum:-800) else 0 }
-leveler_separator_move_1 :=		{ split := split_comma(styling.move_separators);	if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:800, minimum:-800) else 0 }
+leveler_level_move_1 :=			{ split := split_comma(styling.move_level_arrows);	if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:1000, minimum:-1000) else 0 }
+leveler_pt_move_1 :=			{ split := split_comma(styling.move_PTs);			if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:1000, minimum:-1000) else 0 }
+leveler_separator_move_1 :=		{ split := split_comma(styling.move_separators);	if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:1000, minimum:-1000) else 0 }
 
 leveler_add_variant_1 :=
 {
@@ -4103,106 +4103,71 @@ leveler_add_variant_1 :=
 	)
 	folder + variant
 }
+leveler_blend_mask_1 :=
+{
+	path := folder + prefix + "_blend_mask.png"
+	if exists_in_package(path) then path else ""
+}
+leveler_blend_base_1 :=
+{
+	face_map :=	face_coordinates_map(face)
+	color_background(
+		input:				card_color_field(face),
+		folder:				folder,
+		type:				"mask",
+		base_hybrid:		moving_pt_hybrid,
+		multicolor_blend:	multicolor_blend
+		hybrid_blend:		hybrid_blend
+		artifact_blend:		artifact_blend
+		offset_x:			style.left,
+		offset_y:			style.top,
+		width:				style.width,
+		height:				style.height,
+		face_width:			face_map.width,
+		face_height:		face_map.height
+	)
+}
+leveler_box_image_blended_1 :=
+{
+	template :=			{ folder + input + suffix }
+	pure :=				pure_colors(card_color_field(face))
+	count :=			length(pure)
+	gold_mask :=		leveler_blend_mask_1(folder:folder, prefix:"multicolor")
+	land_mask :=		leveler_blend_mask_1(folder:folder, prefix:"hybrid")
+	artifact_mask :=	leveler_blend_mask_1(folder:folder, prefix:"artifact")
+	special_mask :=		leveler_blend_mask_1(folder:folder, prefix:"special")
+	if		count == 2	and	scheme == "special"	and	special_mask != ""	then	masked_blend(mask: special_mask, dark: template(pure.0), light: template(pure.1))
+	else if	count >= 2	and	scheme == "gold"							then	(if gold_mask		== "" then template("m") else masked_blend(mask: gold_mask,		dark: template("m"), light: leveler_blend_base_1(multicolor_blend:"white",hybrid_blend:"white",artifact_blend:"white")))
+	else if	count >= 2	and	scheme == "land"							then	(if land_mask		== "" then template("c") else masked_blend(mask: land_mask,		dark: template("c"), light: leveler_blend_base_1(multicolor_blend:"white",hybrid_blend:"white",artifact_blend:"white")))
+	else if					scheme == "artifact"						then	(if artifact_mask	== "" then template("a") else masked_blend(mask: artifact_mask,	dark: template("a"), light: leveler_blend_base_1(multicolor_blend:"white",hybrid_blend:"white",artifact_blend:"white")))
+	else if					scheme == "colored"							then	leveler_blend_base_1(multicolor_blend:"white",hybrid_blend:"white",artifact_blend:"white")
+	else																		leveler_blend_base_1(multicolor_blend:if gold_mask != "" then "mask" else "black",hybrid_blend:if land_mask != "" then "mask" else "black",artifact_blend:if artifact_mask != "" then "mask" else "black")
+}
 
-leveler_level_box_image_folder_variant_1 :=
-{
-	folder := leveler_level_box_image_folder_1()
-	leveler_add_variant_1(folder: folder, suffix: "levelbox.png")
-}
-leveler_level_box_land_image_folder_variant_1 :=
-{
-	folder := leveler_level_box_land_image_folder_1()
-	leveler_add_variant_1(folder: folder, suffix: "levelbox.png")
-}
-leveler_level_box_hybrid_mask_1 :=
-{
-	path := leveler_level_box_image_folder_variant_1(input) + "hybrid_blend_mask.png"
-	if exists_in_package(path) then path else ""
-}
-leveler_level_box_land_hybrid_mask_1 :=
-{
-	path := leveler_level_box_land_image_folder_variant_1(input) + "hybrid_blend_mask.png"
-	if exists_in_package(path) then path else ""
-}
 leveler_level_box_image_blended_1 :=
 {
-	image_path := leveler_level_box_image_1(input)
-	if image_path != "" then image_path else
-	(
-		face :=		leveler_face_1()
-		path :=		if lang_setting("is_land")(type_field(face)) then leveler_level_box_land_image_folder_variant_1(input) else leveler_level_box_image_folder_variant_1(input)
-		pure :=		pure_colors(card_color_field(face))
-		count :=	length(pure)
-		scheme :=	level_color_scheme()
-		if		scheme == "gold"	and count > 1	then path + "mlevelbox.png"
-		else if	scheme == "land"	and count > 1	then path + "clevelbox.png"
-		else if	scheme == "hybrid"	and count == 2	and leveler_level_box_hybrid_mask_1() != "" then masked_blend(mask: leveler_level_box_hybrid_mask_1(), dark: path + pure.0 + "levelbox.png", light: path + pure.1 + "levelbox.png")
-		else
-		(
-			style := leveler_level_box_style_field(input)
-			face_map := face_coordinates_map(face)
-			template := { path + input + "levelbox.png" }
-			color_background(
-				input:				card_color_field(face),
-				type:				"level",
-				base_hybrid:		moving_pt_hybrid,
-				multicolor_blend:	"white",
-				offset_x:			style.left,
-				offset_y:			style.top,
-				width:				style.width,
-				height:				style.height,
-				face_width:			face_map.width,
-				face_height:		face_map.height
-			)
-		)
-	)
+	image := leveler_level_box_image_1(input)
+	if image != "" then image else (
+	face :=		leveler_face_1()
+	suffix :=	"levelbox.png"
+	folder :=	leveler_add_variant_1(folder:if lang_setting("is_land")(type_field(face)) then leveler_level_box_land_image_folder_1(input) else leveler_level_box_image_folder_1(input))
+	style :=	leveler_level_box_style_field(input)
+	scheme :=	level_color_scheme()
+	leveler_box_image_blended_1())
 }
 
-leveler_pt_box_image_folder_variant_1 :=
-{
-	folder := leveler_pt_box_image_folder_1()
-	leveler_add_variant_1(folder: folder, suffix: "ptbox.png")
-}
-leveler_pt_box_land_image_folder_variant_1 :=
-{
-	folder := leveler_pt_box_land_image_folder_1()
-	leveler_add_variant_1(folder: folder, suffix: "ptbox.png")
-}
-leveler_pt_box_hybrid_mask_1 :=
-{
-	path := leveler_pt_box_image_folder_variant_1(input) + "hybrid_blend_mask.png"
-	if exists_in_package(path) then path else ""
-}
-leveler_pt_box_land_hybrid_mask_1 :=
-{
-	path := leveler_pt_box_land_image_folder_variant_1(input) + "hybrid_blend_mask.png"
-	if exists_in_package(path) then path else ""
-}
 leveler_pt_box_image_blended_1 :=
 {
-	image_path := leveler_pt_box_image_1(input)
-	if image_path != "" then image_path else
-	(
-		face :=		leveler_face_1()
-		path :=		if lang_setting("is_land")(type_field(face)) then leveler_pt_box_land_image_folder_variant_1(input) else leveler_pt_box_image_folder_variant_1(input)
-		pure :=		pure_colors(card_color_field(face))
-		count :=	length(pure)
-		scheme :=	pt_color_scheme()
-		if		scheme == "gold"	and count > 1	then path + "mptbox.png"
-		else if	scheme == "land"	and count > 1	then path + "cptbox.png"
-		else if	scheme == "hybrid"	and count == 2	and leveler_pt_box_hybrid_mask_1() != "" then masked_blend(mask: leveler_pt_box_hybrid_mask_1(), dark: path + pure.0 + "ptbox.png", light: path + pure.1 + "ptbox.png")
-		else
-		(
-			style := leveler_pt_box_style_field(input)
-			face_map := face_coordinates_map(face)
-			template :=
-			{
-				enlarge_to_face_size(path + input + "ptbox.png", offset_x: style.left, offset_y: style.top, width: style.width, height: style.height, face_width: face_map.width, face_height: face_map.height)
-			}
-			crop(color_background(card_color_field(face), type:"pt", base_hybrid: card_hybrid, multicolor_blend: "white"), offset_x: style.left, offset_y: style.top, width: style.width, height: style.height)
-		)
-	)
+	image := leveler_pt_box_image_1(input)
+	if image != "" then image else (
+	face :=		leveler_face_1()
+	suffix :=	"ptbox.png"
+	folder :=	leveler_add_variant_1(folder:if lang_setting("is_land")(type_field(face)) then leveler_pt_box_land_image_folder_1(input) else leveler_pt_box_image_folder_1(input))
+	style :=	leveler_pt_box_style_field(input)
+	scheme :=	pt_color_scheme()
+	leveler_box_image_blended_1())
 }
+
 
 ############################################################## Levelers API
 
