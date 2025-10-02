@@ -85,7 +85,8 @@ leveler_pt_box_image_1 :=							{ "" }
 leveler_pt_box_land_image_1 :=						{ "" }
 
 #### If you want to use custom images but you have variants for each color, instead put these variants in a folder.
-#### You must have 8 of them, for artifact, black, colorless, green, multicolor, red, blue and white.
+#### You must have eight of them, for artifact, colorless, multicolor, white, blue, black, red and green.
+#### You can optionally add a ninth one for vehicle
 #### The image file names must start with the first letter of the color, followed by "levelbox" or "ptbox",
 #### and end with ".png". Point to the folder with these functions:
 leveler_level_box_image_folder_1 :=					{ "/magic-modules.mse-include/levelboxes/744x1039/m15/" + leveler_pt_box_field(input) + "/base/" }
