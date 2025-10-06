@@ -59,6 +59,9 @@ init script:
 		star: "/magic-modules.mse-include/trims/star/",
 		ub: "/magic-modules.mse-include/trims/beyond/",
 		identity: "/magic-modules.mse-include/indicators/"
+		proto_box: "/magic-modules.mse-include/protoboxes/box/",
+		proto_cost: "/magic-modules.mse-include/protoboxes/cost/",
+		proto_pt: "/magic-modules.mse-include/protoboxes/pt/"
 	]
 	template_suffix := [
 		card: "card.png"
@@ -81,6 +84,9 @@ init script:
 		star: "star.png",
 		beyond: "beyond.png",
 		identity: "identity.png"
+		proto_box: "box.png",
+		proto_cost: "cost.png",
+		proto_pt: "pt.png"
 	]
 	template := { 
 		if type_name(harder_script[type] or else nil) != type_name(nil)
@@ -215,7 +221,7 @@ init script:
 			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
 	}
 	margin_left := {
-		if input == "lv1" then (if card.loyalty_cost_1 == "" and unindent() then 0 else 130)
+		if input == "lv1" then (if is_prototype() then 0 else if card.loyalty_cost_1 == "" and unindent() then 0 else 130)
 		else if input == "lv2" then (if card.loyalty_cost_2 == "" and unindent() then 0 else 130)
 		else if input == "lv3" then (if card.loyalty_cost_3 == "" and unindent() then 0 else 130)
 		else if input == "lv4" then (if card.loyalty_cost_4 == "" and unindent() then 0 else 130)
@@ -224,6 +230,14 @@ init script:
 		else 0
 	}
 	margin_top := {to_int(pull_comma_array(styling.combined_chop, cell:2, end:0, default:0))}
+	margin_right := { 
+		if input == "lv1" and is_prototype() then (
+			w := card_style.type_2.content_width or else 0
+			if w < 52 then w := 52
+			10*w
+		)
+		else 0
+	}
 	add_spacers := { if input == "" and inner_level(name) then "​" else input}
 	inner_level := {
 		if input == "lv5" and max_level() > 5 then true
@@ -262,9 +276,10 @@ init script:
 	is_nyx := {chosen(styling.other_options, choice:"nyx") or (set.auto_nyx and lang_setting("is_enchantment")(card.type))}
 	is_adventure := {chosen(styling.other_options, choice:"adventure") and not is_tale()}
 	is_tale := {chosen(styling.other_options, choice:"reversed adventure")}
-	use_adv := {is_tale() or is_adventure()}
+	use_adv := {(is_tale() or is_adventure()) and not is_prototype()}
 	is_snow := {chosen(styling.other_options, choice:"snow")}
 	is_vehicle := {chosen(styling.other_options, choice:"vehicle")}
+	is_prototype := {chosen(styling.other_options, choice:"prototype")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
 	is_custom_border := {
 		if chosen(styling.other_options, choice:"custom border")
@@ -275,8 +290,15 @@ init script:
 
 	paragraph_count := replace@(match:"\n", replace:"~")+
 		filter_text@(match:"~")
+	clean_type := replace@(match: " — $", replace:"")
+		+replace@(match: " $", replace:"")
+	prototype_special_text := {
+		inject := "<sym>" + card.casting_cost_2 + "</sym> — " + (if styling.prototype_secondary == "type" then clean_type(remove_tags(card.type_2)) else remove_tags(card.pt_2)) + " "
+		hold := replace(card.level_1_text, match:"(.*)(<i(?:-auto)?>[(].*)", replace:{_1 + inject + _2})
+		if hold == card.level_1_text then card.level_1_text + " " + inject else hold
+	}
 	special_text := {
-		out := (if card.loyalty_cost_1 != "" then "[" + card.loyalty_cost_1 + "]: " else "") + (if card.level_1_text != "" and card.level_1_text != card.rule_text then card.level_1_text+"\n" else split_text(match:"\n", card.rule_text).0+"\n")
+		out := (if is_prototype() then prototype_special_text() else if card.loyalty_cost_1 != "" then "[" + card.loyalty_cost_1 + "]: " else "") + (if card.level_1_text != "" and card.level_1_text != card.rule_text then card.level_1_text+"\n" else split_text(match:"\n", card.rule_text).0+"\n")
 			+ (if card.loyalty_cost_2 != "" then "[" + card.loyalty_cost_2 + "]" + ": " else "") + (if card.level_2_text != "" then card.level_2_text+"\n" else if contains(paragraph_count(card.rule_text), match:"~") then split_text(match:"\n", card.rule_text).1+"\n" else "")
 			+ (if card.loyalty_cost_3 != "" then "[" + card.loyalty_cost_3 + "]" + ": " else "") + (if card.level_3_text != "" then card.level_3_text+"\n" else if contains(paragraph_count(card.rule_text), match:"~~") then split_text(match:"\n", card.rule_text).2+"\n" else "")
 			+ (if card.loyalty_cost_4 != "" then "[" + card.loyalty_cost_4 + "]" + ": " else "") + (if card.level_4_text != "" then card.level_4_text+"\n" else if contains(paragraph_count(card.rule_text), match:"~~~") then split_text(match:"\n", card.rule_text).3+"\n" else "")
@@ -319,6 +341,75 @@ init script:
 	popout_angle  := { popout_coord(4, field:styling.popout_image_style or else "", lim:4) }
 	use_popunder  := { chosen(styling.other_options, choice:"popunder art") }
 	watermark_include := "/magic-modules.mse-include/watermarks"
+	
+	prototype_height := { card_style.text.layout.blocks[0].bottom or else 0 }
+	proto_primary_height := {
+		min(21, round_up(prototype_height()/2)+1)
+	}
+	proto_secondary_height := {
+		remain := round_up(prototype_height()) - proto_primary_height() + if styling.prototype_secondary == "pt" then 6 else 1
+		min((if styling.prototype_secondary == "type" then 21 else 28), remain)
+	}
+	protobox_template := {
+		base := template_prefix[type] + input + template_suffix[type]
+		internal_crop(img:base, height:162, width:324, top:4, bottom:156, distance:prototype_height())
+	}
+	protocost_template := {
+		base := template_prefix[type] + input + template_suffix[type]
+		## double sized
+		## 8 [cost min 5] 4; doubled
+		dist := 2*(max(8, card_style.casting_cost_2.content_width)-3)
+		internal_crop(img:base, height: 48, width: 130, left:16, right:122, distance:dist)
+	}
+	prototype_template := {
+		base := template_prefix[type] + input + template_suffix[type]
+		## double sized
+		## 8 [cost min 5] 4; doubled
+		dist := 2*(max(20, card_style.type_2.content_width))
+		internal_crop(img:base, height: 48, width: 130, left:16, right:122, distance:dist)
+	}
+	prototype_box_image := {
+		template := protobox_template
+		land_template := protobox_template
+		color_background(
+			type: "proto_box",
+			base_hybrid: card_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	prototype_cost_image := {
+		template := protocost_template
+		land_template := protocost_template
+		color_background(
+			type: "proto_cost",
+			base_hybrid: pt_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	prototype_type_image := {
+		template := prototype_template
+		land_template := prototype_template
+		color_background(
+			type: "proto_cost",
+			base_hybrid: pt_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	prototype_pt_image := {
+		color_background(
+			type: "proto_pt",
+			base_hybrid: pt_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -383,6 +474,7 @@ styling field:
 	choice: nyx
 	choice: snow
 	choice: vehicle
+	choice: prototype
 	choice: custom border
 	choice: adventure
 	choice: reversed adventure
@@ -401,6 +493,11 @@ styling field:
 	type: boolean
 	name: default image size
 	description: Use the default Planeswalker template image size, disable for easier popout art options.
+styling field:
+	type: choice
+	name: prototype secondary
+	choice: pt
+	choice: type
 include file: /magic-modules.mse-include/rarities/styling_fields
 styling field:
 	type: boolean
@@ -416,6 +513,11 @@ styling field:
 	name: use guild mana symbols
 	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
 	initial: no
+styling field:
+	type: package choice
+	name: casting cost mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-large.mse-symbol-font
 styling field:
 	type: package choice
 	name: text box mana symbols
@@ -544,12 +646,13 @@ card style:
 		height: 23
 		alignment: middle right
 		symbol font:
-			name: magic-mana-large
+			name: { styling.casting_cost_mana_symbols }
 			size: 15
 			alignment: middle right
 		always symbol: true
 		z index: 920
 		padding top: 0
+
 	card symbol:
 		left: {if card.card_symbol=="none" then 20 else 25}
 		top: 21
@@ -749,29 +852,42 @@ card style:
 			size: {12 - shrink_name2() }
 			color: white
 	casting cost 2:
-		right: {if is_tale() then 345 else 165}
-		top: {if has_four_abilities() then 288 else 323}
+		right: {if is_prototype() then 345 else if is_tale() then 345 else 165}
+		top: {if is_prototype() then top_of_textbox()-1 else if has_four_abilities() then 288 else 323}
 		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
-		height: {if use_adv() then 23 else 0}
+		height: {if use_adv() or is_prototype() then 23 else 0}
 		alignment: middle right
 		symbol font:
-			name: magic-mana-large
+			name: { styling.casting_cost_mana_symbols }
 			size: 12
 			alignment: middle right
 		always symbol: true
 		z index: 920
 		padding top: 0
 	type 2:
-		left: {if is_tale() then 202 else 22}
-		top: {348+ shrink_type2()-(if has_four_abilities() then 36 else 0)}
-		width: 151
-		height: {if use_adv() then 20 else 0}
-		alignment: top shrink-overflow
-		z index: 900
+		right: {if is_prototype() then 344 else if is_tale() then 353 else 173}
+		bottom: {if is_prototype() then top_of_textbox() + prototype_height() +1 else 368+ shrink_type2()-(if has_four_abilities() then 36 else 0)}
+		width: { if is_prototype() then max(20, card_style.type_2.content_width) else 151}
+		height: {if is_prototype() and styling.prototype_secondary == "type" then proto_secondary_height()-1 else if use_adv() then 20 else 0}
+		alignment: { if is_prototype() then "top right" else "top shrink-overflow" }
+		z index: 920
 		padding top: 2
 		font:
 			name: Beleren Bold
 			size: {11-- shrink_type2()}
+			color: white
+			separator color: red
+	pt 2:
+		right: 350
+		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) - 1 }
+		height: { if is_prototype() and styling.prototype_secondary == "pt" then proto_secondary_height()-12 else 0 }
+		width: { if is_prototype() and styling.prototype_secondary == "pt" then (2 * proto_secondary_height())-14 else 0 }
+		alignment: center middle shrink-overflow
+		z index: 920
+		padding top: 2
+		font:
+			name: Beleren Bold
+			size: 13
 			color: white
 			separator color: red
 	text 2:
@@ -1083,6 +1199,31 @@ extra card field:
 	choice: img
 	save value: false
 	editable: false
+extra card field:
+	type: choice
+	name: prototype box
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: prototype cost box
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: prototype type box
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: prototype pt box
+	script: card.card_color_2
+	save value: false
+	editable: false
+
 extra card style:
 	foil layer:
 		left: 0
@@ -1524,3 +1665,39 @@ extra card style:
 		mask: {if not use_full_art() or not is_stamped() then "black.png" else if stamp_shape() == "round" then "cut_round.png" else "cut_triangle.png"}
 		image: {card.image}
 		render style: image
+	prototype box:
+		left: 42
+		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) + 7 }
+		height: { prototype_height() + 10 }
+		width: 310
+		render style: image
+		z index: 650
+		image: { prototype_box_image() }
+		visible: { is_prototype() }
+	prototype cost box:
+		right: 348
+		top: { top_of_textbox() }
+		height: { proto_primary_height() }
+		width: {8 + max(8, card_style.casting_cost_2.content_width)-3 + 4}
+		render style: image
+		z index: 650
+		image: { prototype_cost_image() }
+		visible: { is_prototype() }
+	prototype type box:
+		right: 348
+		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) + 3 }
+		height: { proto_secondary_height() }
+		width: {8 + max(20, card_style.type_2.content_width) + 4}
+		render style: image
+		z index: 650
+		image: { prototype_type_image() }
+		visible: { is_prototype() and styling.prototype_secondary == "type" and remove_tags(card.type_2) != "" }
+	prototype pt box:
+		right: 357
+		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) + 6 }
+		height: { proto_secondary_height() }
+		width: { 2 * proto_secondary_height() }
+		render style: image
+		z index: 720
+		image: { prototype_pt_image() }
+		visible: { is_prototype() and styling.prototype_secondary == "pt" and card.pt_2 != "" }
