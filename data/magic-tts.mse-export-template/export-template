@@ -1,0 +1,73 @@
+mse version: 2.5.7
+short name: Tabletop Sim
+full name: Card Exporter
+position hint: 101
+icon: icon.png
+version: 2025-10-10
+installer group: magic/Export/text
+ 
+depends on: magic.mse-game 2008-08-08
+
+game: magic
+create directory: true
+file type: *.txt|*.txt|*.*|*.*
+
+option field:
+	type: choice
+	name: export images
+	choice: .jpg
+	choice: .png
+	choice: no
+	description: Also exports the images to a folder
+option field:
+	type: text
+	name: toggle add owner
+	description: A Steam username to add to the card.
+
+# By giantweevil: https://steamcommunity.com/sharedfiles/filedetails/?id=2551006084
+script:
+	escape_breaks := replace@(match:"\n", replace:"\\\\n")
+	remove_breaks := replace@(match:"\n", replace:"")
+	remove_controls := replace@(match:"\r", replace:"")
+	remove_tabs := replace@(match:"\t", replace:"") +
+		replace@(match:"	", replace:"") +
+		replace@(match:"  +", replace:" ")
+	remove_illegal_characters := replace@(match:"[\\/|*<>?\":]", replace:"")
+	convert_quote := replace@(match:"\"", replace:"''")
+	
+	sanitize := to_text +
+				escape_breaks +
+				remove_controls + 
+				remove_tabs +
+				trim
+	clean_name := 	remove_tags + remove_breaks + remove_controls + remove_tabs + convert_quote
+
+	alphabetized := sort_list( cards, order_by: {input.name} )
+	if options.export_images != "no" then (
+		last_name := ""
+		ticker := 1
+		for x from 0 to length(alphabetized)-1 do (
+			base_name := remove_illegal_characters(alphabetized[x].name)
+			if base_name == last_name
+				then ticker := ticker + 1
+			else ticker := 1
+			
+			last_name := base_name
+			if ticker > 1 then base_name := base_name + "_" + ticker + ""
+			
+			write_image_file(alphabetized[x], file: base_name+options.export_images)
+		)
+	)
+	
+	write_card := {
+		"\"" + input + "\":"
+		+ "\{ \"Nickname\":\"" + clean_name(card.name)
+		+ " | " + trim(remove_tags(card.type))
+		+ " | CMC" + card.cmc 
+		+ (if options.toggle_add_owner != "" then " | " + sanitize(options.toggle_add_owner) else "")
+		+ "\",\"Description\":\"" + sanitize(card.rule_text) + "\"\},"
+	}
+	write_cards := for x from 0 to length(alphabetized)-1 do to_text(write_card(x, card:alphabetized[x]))
+
+	to_string("\{" + substring(write_cards, end: length(write_cards) - 1 ) + "\}")
+ 
