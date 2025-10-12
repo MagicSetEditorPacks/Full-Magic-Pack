@@ -1999,11 +1999,10 @@ flavor_text_filter :=
 card_face := {
 	front := card[input]
 	back := if card[input+"_2"] or else "" != "" then card[input+"_2"] else card[input]
-	if match(margin_code, match:"(text[2456]|lv[5678])") then back else front
+	if match(margin_code, match:"(text[2456]|lv9|lv1[0-6])") then back else front
 }
 face_code := {
-	face := ""
-	if margin_code == "text2" or margin_code == "lv5" or margin_code == "lv6" or margin_code == "lv7" or margin_code == "lv8" then face := "_2"
+	face := if match_text(margin_code, match:"(text[2456]|lv9|lv1[0-6])") then "_2" else ""
 	output := face_scripts[input](face) or else if_parse(input, face:face) or else input
 	output
 }
@@ -2023,6 +2022,16 @@ face_scripts := [
 		contains(card[field+face], match:query)
 	},
 	notcontains: {not contains(card[field+face], match:query)},
+	flipthis: {
+		# always send back That/that
+		# send back This/this if (it|he|she|they|CARDNAME) keywords
+		# else flip to That/that
+		if t == f
+			then false
+		else if match_text(card[field+face], match:"(\\bit|\\b[Hh]e|\\b[Ss]he|\\b[Tt]hey|<atom-(card|print)name>.*?</atom-(card|print)name>) <kw[^>]+><nospellcheck><key>"+query)
+			then false
+		else true
+	},
 	name: {card["name"+face]},
 	cost: {card["casting_cost"+face]},
 	altname: {card["name"+flip_face(face)]},
@@ -2034,7 +2043,8 @@ face_scripts := [
 expand_facecodes := [
 	subtype: "sub_type",
 	castingcost: "casting_cost",
-	manacost: "casting_cost"
+	manacost: "casting_cost",
+	ruletext: "rule_text"
 ]
 if_parse := replace@(
 	match: "if_(.*)_then_(.*)_else_(.*)",
@@ -2051,7 +2061,7 @@ if_scripts := {
 		query := contCheck[2]
 	)
 	field := expand_facecodes[field] or else field
-	if face_scripts[func](face, field:field, query:query) or else false then t else f
+	if face_scripts[func](face, field:field, query:query, t:t, f:f) or else false then t else f
 }
 ############################################################## Level Margins
 #### these will be determined by the style affecting the margins and otherwise be 0
