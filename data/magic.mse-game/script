@@ -1536,18 +1536,18 @@ auto_reminder := {
 	level := filter_text(input, match:"[0-9]+")
 	if level == "" then level := "1"
 	tag := name_tag_for_level(to_number(level))
-	type_field := card["type"+tag]
+	type_field := remove_tags(card["type"+tag])
 	cost_field := card["casting_cost"+tag]
 	if custom_auto_reminder()
-		then custom_auto_reminder()
+		then custom_auto_reminder(input)
 	else if lang_setting("is_saga")(type_field)
 		then saga_reminder_script(tag:tag)
 	else if lang_setting("is_class")(type_field)
 		then "<i-auto>(Gain the next level as a sorcery to add its ability.)</i-auto>"
-	else if contains(cost_field, match:"/")
-		then hybrid_reminder(cost_field)
 	else if lang_setting("is_room")(type_field)
 		then "<i-auto>(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)</i-auto>"
+	else if contains(cost_field, match:"/")
+		then hybrid_reminder(cost_field)
 	else ""
 }
 saga_map := [
@@ -1590,21 +1590,26 @@ hybrid_reminder := {
 		input,
 		match:"(([^ ])/([^ ])(?:/([^ ]))?).*", ## _1 hybrid, _2 sym1, _3 sym2, _4 sym3
 		replace: {
-			if _4 != "" then (
-				if _2 == "2" then
-					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with any two mana, <sym-auto>{_3}</sym-auto>, or <sym-auto>{_4}</sym-auto>. This card's mana value is {english_number(cmc(input))}.)</i-auto>"
-				else if _2 == "H" then
-					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with <sym-auto>{_3}</sym-auto>, <sym-auto>{_4}</sym-auto>, or 2 life.)</i-auto>"
-				else "<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with either <sym-auto>{_2}</sym-auto>, <sym-auto>{3}</sym-auto>, or <sym-auto>{3}</sym-auto>.)</i-auto>"
-			)
-			else (
-				if _2 == "2" then
-					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with any two mana or with <sym-auto>{_3}</sym-auto>. This card's mana value is {english_number(cmc(input))}.)</i-auto>"
-				else if _2 == "H" then
-					"<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with either <sym-auto>{_3}</sym-auto> or 2 life.)</i-auto>"
-				else "<i-auto>(<sym-auto>{_1}</sym-auto> can be paid with either <sym-auto>{_2}</sym-auto> or <sym-auto>{_3}</sym-auto>.)</i-auto>"
-			)
+			hybrid_reminder_delooper(symbol:_1, hyb1:_2, hyb2:_3, hyb3:_4)
 		}
+	)
+}
+## split into its own function to avoid replace() loops with autoreminder
+## hybrid_reminder_delooper(symbol:"H/R/W", hyb1:"H", hyb2:"R", hyb3:"W")
+hybrid_reminder_delooper := {
+	if hyb3 != "" then (
+		if hyb1 == "2" then
+			"<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with any two mana, <sym-auto>{hyb2}</sym-auto>, or <sym-auto>{hyb3}</sym-auto>. This card's mana value is {english_number(cmc(input))}.)</i-auto>"
+		else if hyb1 == "H" then
+			"<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with <sym-auto>{hyb2}</sym-auto>, <sym-auto>{hyb3}</sym-auto>, or 2 life.)</i-auto>"
+		else "<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with either <sym-auto>{hyb1}</sym-auto>, <sym-auto>{3}</sym-auto>, or <sym-auto>{3}</sym-auto>.)</i-auto>"
+	)
+	else (
+		if hyb1 == "2" then
+			"<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with any two mana or with <sym-auto>{hyb2}</sym-auto>. This card's mana value is {english_number(cmc(input))}.)</i-auto>"
+		else if hyb1 == "H" then
+			"<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with either <sym-auto>{hyb2}</sym-auto> or 2 life.)</i-auto>"
+		else "<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with either <sym-auto>{hyb1}</sym-auto> or <sym-auto>{hyb2}</sym-auto>.)</i-auto>"
 	)
 }
 #### these are considered a correct 'word' for spellchecking in the text box:
@@ -1848,18 +1853,6 @@ text_filter :=
 		tag: "<atom-legname>",
 		contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name, atom:true))) + "</nospellcheck>" }
 	) +
-	tag_contents@(
-		tag: "<atom-autorem>"
-		contents: { auto_reminder(margin_code) }
-	) +
-	replace@(
-		match:"(E+)(</sym(-auto)?>)? <atom-autorem></atom-autorem>",
-		replace: {
-			num := english_number(length(_1))
-			str := if num == "one" then "an energy counter" else num + " energy counters"
-			_1 + _2 + " <atom-autorem><i-auto>({str})</i-auto></atom-autorem>"
-		}
-	) +
 	replace@(
 		match: "INS([1-9])",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>",
@@ -1910,7 +1903,33 @@ text_filter :=
 		match: "\\[[-+=]?[VHSCEKPLOTQ\\?XYZIWUBRG0-9/|]+\\]",
 		replace: {"<sym>" + mana_filter_t() + "</sym>"}
 	) +
-	#### step 6 : curly quotes
+	#### step 6a : auto reminder
+	#### default to subtype or mana cost rt
+	tag_contents@(
+		tag: "<atom-autorem>"
+		contents: { auto_reminder(margin_code) }
+	) +
+	#### overrule if immediately after a string of energy symbols
+	replace@(
+		match:"(E+)(</sym(-auto)?>)? <atom-autorem>[^\n]*?</atom-autorem>",
+		replace: {
+			num := english_number(length(_1))
+			str := if num == "one" then "an energy counter" else num + " energy counters"
+			_1 + _2 + " <atom-autorem><i-auto>({str})</i-auto></atom-autorem>"
+		}
+	) +
+	#### overrule if at the end of a paragraph with a hybrid mana symbol
+	replace@(
+		match:"(<sym(?:-auto)?>)([^</]*(([^ ])/([^ ])(?:/?([^ ])?))[^<]*)(</sym(?:-auto)?>[^\n]+) <atom-autorem>([^\n]*?)</atom-autorem>$",
+		replace: {
+			# _1 <sym, _2 mana string, _3 symbol, _4 hyb1, _5 hyb2, _6 hyb3, _7 </sym> remaining string, _8 eaten autorem
+			# eaten autorem may have legitimate strings, R/W: You get EE **. ** -> R/W: You get EE (R/W can be paid with either R or W.)
+			# <atom-autorem>(two energy counters)</atom-autorem>. <atom-autorem></atom-autorem>
+			extra := if contains(_8, match:"atom-autorem") then "<atom-autorem>" + substring(_8, end:length(_8)-length("<atom-autorem>")) else ""
+			_1 + _2 + _7 + extra + " <atom-autorem>{hybrid_reminder_delooper(symbol:_3, hyb1:_4, hyb2:_5, hyb3:_6)}</atom-autorem>"
+		}
+	) +
+	#### step 6b : curly quotes
 	{
 		if set.curly_quotes then curly_quotes(input) else input
 	} +
