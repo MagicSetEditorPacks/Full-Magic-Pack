@@ -6,7 +6,7 @@ icon: card-sample.png
 installer group: magic/m15 style/normal cards
 position hint: 001
 
-version: 2024-09-23
+version: 2025-10-05
 depends on:
 	package: magic.mse-game
 	version: 2020-04-25
@@ -119,7 +119,9 @@ init script:
 		curtains: "curtains/"
 		season: "season/"
 		
-		
+		proto_box: "/magic-modules.mse-include/protoboxes/box/",
+		proto_cost: "/magic-modules.mse-include/protoboxes/cost/",
+		proto_pt: "/magic-modules.mse-include/protoboxes/pt/"
 	]
 	template_suffix := [
 		card: "card.jpg",
@@ -171,7 +173,9 @@ init script:
 		puma: "puma.png"
 		puma_shift: "puma.png"
 		
-		
+		proto_box: "box.png",
+		proto_cost: "cost.png",
+		proto_pt: "pt.png"
 	]
 	template := { 
 		if type_name(harder_script[type] or else nil) != type_name(nil)
@@ -237,8 +241,11 @@ init script:
 		chosen(styling.frames, choice:"frameless art")
 	}
 	auto_station := {
-		chosen(styling.other_options, choice:"auto spacecraft") and (lang_setting("is_spacecraft")(card.sub_type) or lang_setting("is_planet")(card.sub_type))
-		or (chosen(styling.frames, choice:"leveler") and sta_leveler())
+		not is_prototype() and
+		(
+			chosen(styling.other_options, choice:"auto spacecraft") and (lang_setting("is_spacecraft")(card.sub_type) or lang_setting("is_planet")(card.sub_type))
+			or (chosen(styling.frames, choice:"leveler") and sta_leveler())
+		)
 	}
 	mini_arts := {
 		chosen(styling.other_options, choice:"de-fullart special frames")
@@ -255,12 +262,19 @@ init script:
 	is_dka := {
 		chosen(styling.frames, choice:"fullart") and not is_map() and not uses_clear_frame()
 	}
-	#### PUMA and Mutate add things on top
+	#### PUMA, Mutate, Prototype add things on top
 	is_puma := {
 		chosen(styling.frames, choice:"puma") and not is_map() and not uses_expanded_art() and not uses_clear_frame() and not is_dka()
 	}
+	is_prototype := {
+		chosen(styling.frames, choice:"prototype")
+	}
+	## use a separate box for prototype rather than adaptive
+	is_snap_prototype := { is_prototype() }
+	## using the pt box and not the typebar
+	prototype_pt := { styling.prototype_secondary == "pt" and is_prototype() }
 	is_mutate := {
-		chosen(styling.frames, choice:"mutate") and not is_map()
+		chosen(styling.frames, choice:"mutate") and not is_map() and not is_prototype()
 	}
 	mutate_image := {
 		is_mutate() and not uses_expanded_art() and not is_dka() and not uses_clear_frame() and not clear_tops()
@@ -307,7 +321,7 @@ init script:
 		or (lang_setting("is_enchantment")(card.super_type) and set.auto_nyx and not auto_custom_border())
 	}
 	is_leveler := {
-		chosen(styling.frames, choice:"leveler") or auto_station()
+		not is_prototype() and (chosen(styling.frames, choice:"leveler") or auto_station())
 	}
 
 	is_custom_border := {
@@ -629,10 +643,10 @@ init script:
 	}
 	top_of_textbox := {
 		(
-			if is_map() then 340
-			else if is_dka() and is_mutate() then 395
-			else if is_dka() then 359
+			if is_snap_prototype() then (if is_dka() then 359 else 329) + 8 + prototype_height()
+			else if is_map() then 340
 			else if is_mutate() then 395
+			else if is_dka() then 359
 			else 327
 		) - (-chop_top()) + body_font_vertical()
 	}
@@ -672,7 +686,18 @@ init script:
 		cw := if cw > 44 then (if set.print_fix != "" then set.print_fix else 22) else if cw < 22 then 22 else cw
 		if card_style.rarity.width == 0 then 0 else cw
 	}
-	special_text := {if is_leveler() then ((if card.level_0 != "" then "[" + level_label(0) + " " + card.level_0 + "] " else "") + card.level_1_text + (if card.pt != "" and not lone_pt() then " [" + card.pt + "]" else "") + "\n"
+	clean_type := replace@(match: " — $", replace:"")
+		+replace@(match: " $", replace:"")
+	prototype_special_text := {
+		# (card.level_1_text + " " + card.casting_cost_2 + " — " + card.pt_2 + "\n" + card.level_2_text)
+		inject := "<sym>" + card.casting_cost_2 + "</sym> — " + (if styling.prototype_secondary == "type" then clean_type(remove_tags(card.type_2)) else remove_tags(card.pt_2)) + " "
+		hold := replace(card.level_1_text, match:"(.*)(<i(?:-auto)?>[(].*)", replace:{_1 + inject + _2})
+		if hold == card.level_1_text then card.level_1_text + " " + inject else hold
+	}
+	special_text := {
+		if is_prototype()
+			then prototype_special_text() + "\n" + card.rule_text
+		else if is_leveler() then ((if card.level_0 != "" then "[" + level_label(0) + " " + card.level_0 + "] " else "") + card.level_1_text + (if card.pt != "" and not lone_pt() then " [" + card.pt + "]" else "") + "\n"
 			+ (if card.level_1 != "" then "[" + level_label(1) + " " + card.level_1 + "] " else "") + card.level_2_text + (if card.pt_2 != "" then " [" + card.pt_2 + "]" else "") + "\n"
 			+ (if card.level_2 != "" then "[" + level_label(2) + " " + card.level_2 + "] " else "") + card.level_3_text + (if card.pt_3 != "" then " [" + card.pt_3 + "]" else "") + (if card.level_4_text != "" then "\n" else "")
 			+ (if card.level_3 != "" then "[" + level_label(3) + " " + card.level_3 + "] " else "") + card.level_4_text + (if card.pt_7 != "" then " [" + card.pt_7 + "]" else "")
@@ -890,8 +915,15 @@ init script:
 	]
 	swap_fonts_body_default := [
 		name: {"MPlantin"},
-		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_mutate() then 12 else 14},
+		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_snap_prototype() then 11.5 else if is_mutate() then 12 else 14},
 		color: {if is_map() then "black" else if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_body2_default := [
+		name: {"MPlantin"},
+		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_snap_prototype() then 11.5 else if is_mutate() then 12 else 14},
+		color: {if is_map() or is_prototype() then "black" else if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
 		vertical: {0},
 		italic: {"MPlantin-Italic"}
 	]
@@ -900,6 +932,19 @@ init script:
 		size: {if is_map() then 14 else if auto_station() then 13 else 16},
 		color: {
 			if is_map() then "black" 
+			else if is_planeshifted() or is_fnm() or is_inverted() then "white"
+			else if is_vehicle() or auto_station() then "white"
+			else "black"
+		},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_pt2_default := [
+		name: {"Beleren Bold"},
+		size: {if is_prototype() then 15 else if is_map() then 14 else if auto_station() then 13 else 16},
+		color: {
+			if is_prototype() then "white"
+			else if is_map() then "black"
 			else if is_planeshifted() or is_fnm() or is_inverted() then "white"
 			else if is_vehicle() or auto_station() then "white"
 			else "black"
@@ -958,6 +1003,81 @@ init script:
 	override_filter := replace@(match:"\\[([^\\]]+)]", replace: "<code><b><color:black>[\\1]</color></b></code>")
 	text_filter := text_filter + override_clear + d20_filter + {if chosen(styling.other_options, choice:"override-style text") then override_filter(input) else input}
 
+	prototype_height := { 53 + to_number(pull_comma_array(styling.level_offset, cell:0, end:0)) }
+	protobox_template := {
+		base := template_prefix[type] + input + template_suffix[type]
+		internal_crop(img:base, height:162, width:324, top:4, bottom:156, distance:prototype_height())
+	}
+	protocost_template := {
+		base := template_prefix[type] + input + template_suffix[type]
+		## double sized
+		## 8 [cost min 5] 4; doubled
+		dist := 2*(max(8, card_style.casting_cost_2.content_width)-3)
+		internal_crop(img:base, height: 48, width: 130, left:16, right:122, distance:dist)
+	}
+	prototype_template := {
+		base := template_prefix[type] + input + template_suffix[type]
+		## double sized
+		## 8 [cost min 5] 4; doubled
+		dist := 2*(max(20, card_style.type_2.content_width))
+		internal_crop(img:base, height: 48, width: 130, left:16, right:122, distance:dist)
+	}
+	prototype_box_image := {
+		template := protobox_template
+		land_template := protobox_template
+		color_background(
+			type: "proto_box",
+			base_hybrid: card_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	prototype_cost_image := {
+		template := protocost_template
+		land_template := protocost_template
+		color_background(
+			type: "proto_cost",
+			base_hybrid: pt_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	prototype_type_image := {
+		template := prototype_template
+		land_template := prototype_template
+		color_background(
+			type: "proto_cost",
+			base_hybrid: pt_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	prototype_pt_image := {
+		color_background(
+			type: "proto_pt",
+			base_hybrid: pt_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "black"
+		)
+	}
+	
+	## once we combined_editor levelers
+	alt_text_script := {
+		if is_prototype()
+			then combined_editor(
+				field1: card.level_1_text,
+				separator1: "<line>\n</line>",
+				field2: card.rule_text,
+				separator2: "<line>\n</line>",
+				field3: card.flavor_text
+			)
+		else
+			combined_editor(field1: card.rule_text, separator: "<line>\n</line>", field2: card.flavor_text)
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1003,6 +1123,7 @@ styling field:
 	choice: frameless art
 	choice: fullart
 	choice: puma
+	choice: prototype
 	choice: mutate
 	choice: fnm promo
 	choice: inverted
@@ -1102,6 +1223,11 @@ styling field:
 	type: text
 	name: level offset
 	description: Formatted as 1,2,3,. Move the level boxes down X pixels. Use negative to move up. For 4 equal levels, use -14,-25,-38,
+styling field:
+	type: choice
+	name: prototype secondary
+	choice: pt
+	choice: type
 include file: /magic-modules.mse-include/rarities/styling_fields
 include file: /magic-modules.mse-include/fonts/styling_fields
 styling field:
@@ -1302,7 +1428,34 @@ card style:
 		always symbol: true
 		z index: 920
 		padding top: 0
-
+	casting cost 2:
+		right: 343
+		top: {(if is_dka() then 359 else 329)+3}
+		width: { max(30, card_style.casting_cost_2.content_width) }
+		height: { if is_prototype() then 20 else 0 }
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 13
+		symbol font:
+			name:  {styling.casting_cost_mana_symbols}
+			size: 13
+			alignment: middle right
+		always symbol: true
+		z index: 920
+		padding top: 0
+	type 2:
+		right: 341
+		bottom: { (if is_dka() then 359 else 329) + 3 + prototype_height() }
+		height: { if is_prototype() and styling.prototype_secondary == "type" then 24 else 0 }
+		width: { max(20, card_style.type_2.content_width) }
+		z index: 920
+		font:
+			name: { type_font() }
+			italic name: { type_font_italic() }
+			size: { type_font_size() }
+			color: { "white" }
+			separator color: red
 	############################# Image
 	image:
 		left:
@@ -1442,22 +1595,22 @@ card style:
 	############################# leveler
 	level 1 text:
 		left: { if is_leveler() and card.level_0 != "" then (if loy_leveler() then 57 else if cir_leveler() then 43 else if box_leveler() then 78 else 75) else if is_map() then 40 else 29}
-		top: { if is_dka() and is_mutate() then 359 else if is_mutate() then 329 else top_of_textbox() }
-		right: { if is_leveler() then (if lone_pt() or card.pt == "" then 342 else (if cir_leveler() then 291 else 287)) else if is_mutate() then 342 else if is_map() then 40 else 29}
-		bottom: { if is_mutate() then 392 else if is_leveler() then (327+lv_1_height()) else bottom_of_textbox() }
+		top: { if is_mutate() or is_snap_prototype() then (if is_dka() then 359 else 329) else top_of_textbox() }
+		right: { if is_leveler() then (if lone_pt() or card.pt == "" then 342 else (if cir_leveler() then 291 else 287)) else if is_snap_prototype() then 290 else if is_mutate() then 342 else if is_map() then 40 else 29}
+		bottom: { if is_snap_prototype() then (if is_dka() then 359+prototype_height() else 329+prototype_height()) else if is_mutate() then 392 else if is_leveler() then (327+lv_1_height()) else bottom_of_textbox() }
 		font:
 		font:
-			name: { body_font() }
-			italic name: { body_font_italic() }
-			size: { body_font_size() }
+			name: { body2_font() }
+			italic name: { body2_font_italic() }
+			size: { body2_font_size() }
 			scale down to: 6
-			color: { body_font_color() }
-			shadow color: {if is_map() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
+			color: { body2_font_color() }
+			shadow color: {if is_map() or is_prototype() then rgba(0,0,0,0) else if is_dka() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: {body_font_size()}
+			size: {body2_font_size()}
 			scale down to: 6
 		alignment:
 			script:
@@ -1672,16 +1825,16 @@ card style:
 			shadow displacement y: 1
 	pt 2:
 		z index: 900
-		left: {leveler_pt_left()}
-		top: {(l2_center() - 12 + leveler_pt_top_offset())+(if is_map() then -1 else 0)+(pt_font_vertical())}
-		width: {if is_leveler() and not lone_pt() or card.pt_2 != "" then leveler_pt_width() else 0}
-		height: {leveler_pt_height()}
+		left: {if prototype_pt() then 300 else leveler_pt_left()}
+		top: {if prototype_pt() then 307+prototype_height() else (l2_center() - 12 + leveler_pt_top_offset())+(if is_map() then -1 else 0)+(pt_font_vertical())}
+		width: {if prototype_pt() then 45 else if is_leveler() and (not lone_pt() or card.pt_2 != "") then leveler_pt_width() else 0}
+		height: {if prototype_pt() then 21 else leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
-			name: {pt_font()}
-			italic name: {pt_font_italic()}
-			size: {pt_font_size()}
-			color: {pt_font_color()}
+			name: {pt2_font()}
+			italic name: {pt2_font_italic()}
+			size: {pt2_font_size()}
+			color: {pt2_font_color()}
 			separator color: red
 			shadow color: {if is_map() then rgba(0,0,0,0) else if is_planeshifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -2010,7 +2163,30 @@ extra card field:
 	script: card.card_color
 	save value: false
 	editable: false
-
+extra card field:
+	type: choice
+	name: prototype box
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: prototype cost box
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: prototype type box
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: prototype pt box
+	script: card.card_color_2
+	save value: false
+	editable: false
 
 extra card style:
 	pt box:
@@ -2023,14 +2199,14 @@ extra card style:
 		render style: image
 		image: { choose_ptbox() }
 	pt box 2:
-		left: {leveler_ptbox_left()}
+		left: { leveler_ptbox_left()}
 		top: { l2_center() - (if is_map() then 26 else 15) + leveler_ptbox_top_offset()}
 		width: { if (is_leveler() and not lone_pt()) or card.pt_2 != "" then (if is_map() then 90 else leveler_ptbox_width()) else 0}
 		height:	{ if (is_leveler() and not lone_pt()) or card.pt_2 != "" then (if is_map() then 54 else leveler_ptbox_height()) else 0}
 		z index: 840
-		visible: { card.pt_2 != "" }
+		visible: { card.pt_2 != "" and not is_prototype() }
 		render style: image
-		image: {if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_1.png", combine: "multiply")}
+		image: { if is_map() then mappt_background() else combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_1.png", combine: "multiply")}
 	pt box 3:
 		left: {leveler_ptbox_left()}
 		top: { l3_center() - (if is_map() then 26 else 15) + leveler_ptbox_top_offset()}
@@ -2428,3 +2604,39 @@ extra card style:
 		render style:	image
 		image: { if stamp_shape() == "triangle" then tri_stamp() else round_stamp() }
 		z index:		850
+	prototype box:
+		left: 25
+		top: {(if is_dka() then 359 else 329)-3}
+		height: { prototype_height() + 10 }
+		width: 324
+		render style: image
+		z index: 650
+		image: { prototype_box_image() }
+		visible: { is_prototype() }
+	prototype cost box:
+		right: 346
+		top: {(if is_dka() then 359 else 329)}
+		height: 24
+		width: {8 + max(8, card_style.casting_cost_2.content_width)-3 + 4}
+		render style: image
+		z index: 650
+		image: { prototype_cost_image() }
+		visible: { is_prototype() }
+	prototype type box:
+		right: 346
+		bottom: { (if is_dka() then 359 else 329) + 2 + prototype_height() }
+		height: 24
+		width: {8 + max(20, card_style.type_2.content_width) + 4}
+		render style: image
+		z index: 650
+		image: { prototype_type_image() }
+		visible: { is_prototype() and styling.prototype_secondary == "type" and remove_tags(card.type_2) != "" }
+	prototype pt box:
+		left: 291
+		bottom: { 334 + prototype_height() }
+		height: 32
+		width: 64
+		render style: image
+		z index: 720
+		image: { prototype_pt_image() }
+		visible: { is_prototype() and styling.prototype_secondary == "pt" and card.pt_2 != "" }
