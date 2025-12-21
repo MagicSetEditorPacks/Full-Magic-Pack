@@ -38,6 +38,21 @@ swap_fonts_pt_default := [
 	vertical: {0},
 	italic: {""}
 ]
+#### And for some specific templates
+swap_fonts_casting_cost_default := [
+	name: {"MPlantin"},
+	size: {name_font_size()},
+	color: {"black"},
+	vertical: {0},
+	italic: {"MPlantin-Italic"}
+]
+swap_fonts_pt_default := [
+	name: {"Beleren Bold"},
+	size: {16},
+	color: {"black"},
+	vertical: {0},
+	italic: {""}
+]
 
 #### For DFC or TFC templates, or just templates with multiple text fields, use:
 swap_fonts_name2_default := []
@@ -48,3 +63,7 @@ swap_fonts_body2_default := []
 swap_fonts_body3_default := []
 swap_fonts_pt2_default := []
 swap_fonts_pt3_default := []
+swap_fonts_casting_cost2_default := []
+swap_fonts_casting_cost3_default := []
+swap_fonts_level2_default := []
+swap_fonts_level3_default := []
