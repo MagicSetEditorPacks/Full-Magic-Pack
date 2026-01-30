@@ -61,8 +61,9 @@ information_offset_top_1 := { 0 }
 #### To shift the card number, set code and artist credit left/right:
 information_codes_offset_left_1 := { 0 }
 
-#### To shift the actual copyright lines left/right:
+#### To shift the actual copyright lines left/right or up/down:
 information_copyright_offset_right_1 := { 0 }
+information_copyright_offset_top_1 := { 0 }
 
 #### To shift the copyright up/down on creatures/walkers, if the pt/loyalty box is very short/tall:
 information_copyright_offset_pt_top_1 := { 0 }
