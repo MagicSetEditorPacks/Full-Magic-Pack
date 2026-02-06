@@ -1,9 +1,9 @@
 ﻿mse version: 2.0.0
 short name: Field Test
-full name: version 0.6
+full name: version 1.1
 position hint: 120
 icon: icon.png
-version: 2018-02-09
+version: 2026-02-06
 installer group: magic/Export/lackeyccg
 
 depends on:
@@ -23,12 +23,17 @@ option field:
 	type: text
 	name: v mana replacement
 	description: exports V mana as a replacement text string
+option field:
+	type: boolean
+	name: export images
 script:
 	# replace shenanigans
+	template_vers := "1.1"
 	fix_tm := replace@(match:"™", replace:"TM")
 	fixed_set_code := {
 		trim(fix_tm(if options.set_code != "" then options.set_code else set.set_code))
 	}
+	apos_fix := replace@(match:"’", replace:"'")
 	## clean up strays that will mess up the json
 	escape_backslash := replace@(match:"\\\\", replace:"\\\\\\\\")
 	escape_quotes := replace@(match:"\"", replace:"\\\\\"")
@@ -56,13 +61,18 @@ script:
 		else
 			options.v_mana_replacement
 	}
-	apos_fix := replace@(match:"’", replace:"'")
 	type_trim := replace@(match:"Basic ", replace:"")+
 		replace@(match:"Legendary", replace:"")+
 		replace@(match:"Snow ", replace:"")+
 		replace@(match:"World ", replace:"")+
 		replace@(match:"Token ", replace:"")
-	
+
+	export_me := {
+		if contains(card.notes, match:"!noexport")
+			then false
+		else true
+	}
+
 	# process the name
 	exporter_name_filter := filter_text@(match:"!subname [^\n!]+")
 	exporter_name_grabber := replace@(match:"!subname ", replace:"")
@@ -74,9 +84,13 @@ script:
 			then remove_tags(card.name) + "//" + remove_tags(card.name_2)
 		else remove_tags(card.name)		
 	}
+	rename_filter := filter_text@(match:"!renameof [^\n!]+")
+	rename_grabber := replace@(match:"!renameof ", replace:"")
+	filter_rename := { rename_grabber(rename_filter(card.notes)) }
+
 
 	# process type
-	token_export := {contains(card.shape, match:"token") or contains(card.shape, match:"emblem") or contains(card.shape, match:"rulestip")}
+	token_export := { contains(card.shape, match:"token") or contains(card.shape, match:"emblem") or contains(card.shape, match:"rulestip") or contains(card.notes, match:"!tokenshape") }
 	
 	# process rarity
 	use_promo := match@(match:"!promo\\b")
@@ -110,17 +124,23 @@ script:
 	# !notes tag
 	notes_filter := filter_text@(match:"!notes? [^\n!]+")
 	notes_grabber := replace@(match:"!notes? ", replace:"")
-		+replace@(match:"([^,]+)", replace:{"\"" + _1 + "\""})
+		+replace@(match:"([^,]+)", replace:{"\"" + sanitize(_1) + "\""})
 		+replace@(match:"italics", replace:"italic")
-	card_note_array := { "[" + (if notes_grabber(notes_filter(card.notes)) != "" then sanitize(notes_grabber(notes_filter(card.notes))) else "") + "]" }
+	card_note_array := { "[" + (if notes_grabber(notes_filter(card.notes)) != "" then notes_grabber(notes_filter(card.notes)) else "") + "]" }
 	
 	# process text for LackeyBot
 	lackey_bot_rule_filter := replace@(match:"’", replace:"'")+
+		replace@(match:"\n", replace:"\\\\n")+
+		replace@(match:";;", replace:"\\\\n\\\\n")+
 		replace@(match:"[(]", replace:"*(")+
 		replace@(match:"[)]", replace: ")*")+
-		replace@(match:"\"", replace:"”")
-	quote_replace := replace@(match:"\"", replace:"\\\\\"")
+		replace@(match:"[*][(][)][*]", replace:"()")+
+		replace@(match:"\"", replace:"”")+
+		replace@(match:" ”", replace:" “")
 	break_cleaner := replace@(match:"\n", replace:"")
+		+ replace@(match:"\"", replace:"\\\\\"")
+		+ replace@(match:" — *$", replace:"")
+	quote_replace := replace@(match:"\"", replace:"\\\\\"")
 	mana_script := 	replace@(match:"(2|H|W|U|B|R|G|S|C|I)/(W|U|B|R|G|S|C|I)", replace:{"\{"+_1+"/"+_2+"\}"})+
 		replace@(match:"(X|Y|Z|W|U|B|R|G|S|C|I)", in_context:"(?<!\{)(?<!/)<match>", replace:{"\{"+_1+"\}"})+
 		replace@(match:"([1-9][0-9])", in_context:"(?<!\{)(?<!\\/)<match>", replace:{"\{"+_1+"\}"})+
@@ -170,7 +190,19 @@ script:
 		else if input == "" then "\{Silver\} "
 		else replace(input, match:"\{", replace:"\{Silver/")
 	}
-	trim_zeroes := replace@(match: "^00?", replace: "")+
+	lackey_shape := {
+		if contains(card.shape, match: "adventure")
+			then "adventure"
+		else if contains(card.shape, match: "aftermath") or contains(card.shape, match: "split")
+			then "split"
+		else if contains(card.shape, match:"double")
+			then "doubleface"
+		else if contains(card.shape, match:"plane card")
+			then "planar"
+		else "normal"
+	}
+
+	trim_zeroes := replace@(match: "^0+", replace: "")+
 		replace@(match: "a?/[0-9b]+", replace: "")
 	corrected_card_number := { 
 		(if card.custom_card_number != "" then trim_zeroes(card.custom_card_number) else card_number())
@@ -180,9 +212,19 @@ script:
 	apos_filter := replace@(match:"’", replace:"'")
 	paragraph_count := replace@(match:"\n", replace:"~")+
 		filter_text@(match:"~")
+
+	ftlv1 := { contains(card.notes, match:"!ftlv1") }
+	flavor_saga := filter_text@(match:"!flavorsaga")
+
 	text_script := {
+		## diverge
+		if ftlv1() then input := replace(input, match:"<i>[^\n]+</i>\n", replace:"");
+		## fuse
+		if contains(card.shape, match:"split") and card.rule_text_3 != ""
+			then input := input + "\\n" + card.rule_text_3
+		## upgrade
 		replace(
-			remove_tags(input) + (if card.rule_text_3 != "" then "\\n" + card.rule_text_3 else ""),
+			remove_tags(input),
 			match:"[ ][ ]+•",
 			replace: "\\n•"
 		)
@@ -195,21 +237,48 @@ script:
 	flavor_script := { if input == "<i-flavor></i-flavor>" then ""
 			else replace(italic_filter(input), match:"\n", replace:"\\n") + "\n"
 	}
-	italic_filter := replace@(match:"<i-flavor>", replace:"*")+
-		replace@(match:" *</i-flavor>", replace:"*")+
-		replace@(match:" </i>", replace:"* ")+
-		replace@(match:" </i>", replace:"* ")+
-		replace@(match:" </i>", replace:"* ")+
-		replace@(match:"</i>", replace:"*")+
-		replace@(match:"</i>", replace:"*")+
-		replace@(match:"</i>", replace:"*")+
-		replace@(match:"<i> ", replace:" *")+
-		replace@(match:"<i> ", replace:" *")+
-		replace@(match:"<i> ", replace:" *")+
-		replace@(match:"<i>", replace:"*")+
-		replace@(match:"<i>", replace:"*")+
-		replace@(match:"<i>", replace:"*")+
+	italic_filter := replace@(match:"<i(?:-flavor|-auto)?>( )?(.*?)( )?</i(?:-flavor|-auto)?>", replace:"\\1*\\2*\\3") +
 		replace@(match:"\\*\\*+", replace:"")
+
+	text_processing1 := {text_processing(input, box:"")}
+	text_processing2 := {text_processing(input, box:"2")}
+	textpends := "!(append|prepend|inpend|exitpend)"
+	text_processing := {
+		blocks := split_text(card.notes, match:textpends+box+" ")
+		cmds := break_text(card.notes, match:textpends+box+" ")
+		if length(cmds) > 0 then (
+			shift := if blocks[0] == "" or not contains(card.notes, match:cmds[0]+blocks[0]) then 1 else 0
+			
+			for x from 0 to length(cmds)-1 do (
+				cmd := replace(to_lower(cmds[x]), match:"2? $", replace:"");
+				inf := replace(blocks[x+shift], match:"\n.*", replace:"");
+				input := command_processing[cmd](input, info:inf);
+				""
+			)
+		)
+		input
+	}
+	command_processing := [
+		"!append": {
+			input + lackey_bot_rule_filter(info)
+		},
+		"!prepend": {
+			lackey_bot_rule_filter(info) + input
+		},
+		"!exitpend": {
+			input
+		},
+		"!inpend": {
+			swaps := split_text(info, match:"/replace/")
+			apps := split_text(info, match:"/add/")
+			if length(swaps) > 1 then
+				replace(input, match:swaps.0, replace:lackey_bot_rule_filter(swaps.1))
+			else if length(apps) > 1 then
+				replace(input, match:"(.*)({apps.0})(.*)", replace:"\\1\\2{lackey_bot_rule_filter(apps.1)}\\3")
+			else input
+		}
+	]
+
 
 	walker_text := {
 			lackey_bot_mana_filter(
@@ -240,12 +309,13 @@ script:
 
 	write_normal:= {
 		"	\{"
+		+ (if export_me() then "" else "\"skip\": true, ")
 		+ "\"fullName\": \"" + sanitize(apos_fix(database_name())) + "\", "
-		+ "\"cardName\": \"" + sanitize(remove_tags(card.name)) + "\", "
+		+ "\"cardName\": \"" + sanitize(remove_tags(card_name())) + "\", "
 		+ "\"manaCost\": \"" + mana_script(card.casting_cost) + "\", "
 		+ "\"typeLine\": \"" + sanitize(card.type) + "\", "
 		+ "\"rarityLine\": \"" + lb_rarity_code() + "\", "
-		+ "\"rulesText\": \"" + sanitize(if card.special_text != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text))) else if card.shape == "leveler" then lackey_bot_mana_filter(lackey_bot_rule_filter(leveler_text())) else if card.loyalty != "" then walker_text() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text)))) + "\", "
+		+ "\"rulesText\": \"" + text_processing1(if card.special_text != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text))) else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text))),) + "\", "
 		+ "\"flavorText\": \"" + sanitize(flavor_script(card.flavor_text)) + "\", "
 		+ "\"power\": " + (if card.power == "*" then "\"★\"" else if card.power == "" then "\"\"" else if (to_number(card.power) or else false != card.power) then "\"" + card.power + "\"" else card.power) + ", "
 		+ "\"toughness\": " + (if card.toughness == "*" then "\"★\"" else if card.toughness == "" then "\"\"" else if (to_number(card.toughness) or else false != card.toughness) then "\"" + card.toughness + "\"" else card.toughness) + ", "
@@ -255,11 +325,12 @@ script:
 		+ "\"cardType\": \"" + type_trim(card.super_type) + "\", "
 		+ (if contains(card.shape, match: "split") or contains(card.shape, match:"double") or contains(card.shape, match:"adventure") or contains(card.shape, match:"aftermath") then secondCard())
 		+ "\"rarity\": \"" + (if rarity_name() == "Token" then "token" else if rarity_name() == "Bonus" then "bonus" else if rarity_name() == "Masterpiece" then "masterpiece" else card.rarity) + "\", "
-		+ "\"shape\": \"" + (if contains(card.shape, match: "adventure") then "adventure" else if contains(card.shape, match: "aftermath") or contains(card.shape, match: "split") then "split" else if contains(card.shape, match:"double") then "doubleface" else "normal") + "\", "
+		+ "\"shape\": \"" + lackey_shape() + "\", "
 		+ "\"setID\": \"" + (if token_export() then "tokens" else fixed_set_code()) + "\", "
 		+ "\"cardID\": \"" + (if token_export() then fixed_set_code() else "") + position(of:card, in:set) + "\", "
 		+ (if token_export() then "\"parentSet\": \"" + fixed_set_code() + "\", " else "")
 		+ "\"notes\": " + card_note_array() + ", "
+		+ (if filter_rename() != "" then "\"rename\": \"" + filter_rename() + "\", " else "")
 		+ token_scripts()
 		+ "\"artist\": \"" + sanitize(card.illustrator)
 		+ (if contains(card.shape, match: "split") or contains(card.shape, match:"double") and card.illustrator != card.illustrator_2 and card.illustrator_2 != "" then
@@ -276,7 +347,7 @@ script:
 		+ "\"manaCost2\": \"" + mana_script(card.casting_cost_2) + "\", "
 		+ "\"typeLine2\": \"" + sanitize(card.type_2) + "\", "
 		+ "\"rarityLine2\": \"" + lb_rarity_code() + "\", "
-		+ "\"rulesText2\": \"" + sanitize(if card.special_text_2 != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text_2))) else if card.loyalty_2 != "" then walker_text_2() else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text_2)))) + "\", "
+		+ "\"rulesText2\": \"" + text_processing2(if card.special_text_2 != "" then lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.special_text_2))) else lackey_bot_rule_filter(text_script(lackey_bot_mana_filter(card.rule_text_2)))) + "\", "
 		+ "\"flavorText2\": \"" + sanitize(flavor_script(card.flavor_text_2)) + "\", "
 		+ "\"power2\": " + (if card.power_2 == "*" then "\"★\"" else if card.power_2 == "" then "\"\"" else if (to_number(card.power_2) or else false != card.power_2) then "\"" + card.power_2 + "\"" else card.power_2) + ", "
 		+ "\"toughness2\": " + (if card.toughness_2 == "*" then "\"★\"" else if card.toughness_2 == "" then "\"\"" else if (to_number(card.toughness_2) or else false != card.toughness_2) then "\"" + card.toughness_2 + "\"" else card.toughness_2) + ", "
@@ -290,7 +361,7 @@ script:
 	write_cards := to_text(for each card in cards do write_update())
 	clean_cards := replace@(match:",\n$", replace: "\n")
 		+replace@(match:"’", replace:"'")
-	write_set := "\"meta\":\{\"setID\": \"{fixed_set_code()}\", \"title\": \"{quote_replace(set.title)}\"\},"
+	write_set := "\"meta\":\{\"version\":\"{template_vers}\", \"setID\": \"{fixed_set_code()}\", \"title\": \"{quote_replace(set.title)}\"\},"
 	####################################
 	file_name := {
 		(
@@ -299,6 +370,7 @@ script:
 		)
 		+".jpg"
 	}
-	write_images := for each card in cards do write_image_file(card, directory: "{fixed_set_code()}", file:(if token_export() then fixed_set_code() else "") + position(of:card, in:set)+".jpg")
+	if options.export_images then
+		for each card in cards do if not export_me() then "" else write_image_file(card, directory: "{fixed_set_code()}", file:(if token_export() then fixed_set_code() else "") + position(of:card, in:set)+".jpg");""
 
 	to_string("\{" + write_set + "\n\"cards\":[\n"+clean_cards(write_cards) +"]\n\}")
