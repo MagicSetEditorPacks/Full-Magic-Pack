@@ -34,6 +34,7 @@ card dpi: 150
 ###### Spotlight blanks by Femme Fatale
 ###### Cleanup and coding by cajun
 ###### Reverse Adventures by BA Start
+###### Omen Styling by Nora3a
 ############################################################## Extra scripts
 init script:
 	# Load scripts for image box
@@ -49,7 +50,9 @@ init script:
 		card: "/magic-modules.mse-include/cards/375 m15 simple/",
 		ubcard: "/magic-modules.mse-include/cards/375 m15 simple/beyond/",
 		double_page: "/magic-modules.mse-include/pages/double_page/",
+		double_omen: "/magic-modules.mse-include/pages/double_omen/",
 		single_page: "/magic-modules.mse-include/pages/single_page/",
+		single_omen: "/magic-modules.mse-include/pages/single_omen/",
 		null_page: "/magic-modules.mse-include/pages/null_page/",
 		double_flat: "/magic-modules.mse-include/pages/double_flat/",
 		single_flat: "/magic-modules.mse-include/pages/single_flat/",
@@ -73,6 +76,8 @@ init script:
 		double_page: "page.png",
 		single_page: "page.png",
 		null_page: "page.png",
+		double_omen: "omen.png",
+		single_omen: "omen.png",
 		double_flat: "page.png",
 		single_flat: "page.png",
 		binding: "block.jpg",
@@ -108,9 +113,11 @@ init script:
 		double_flat: true,
 		double_page: true,
 		null_page: true,
+		double_omen: true,
 		nyx: true,
 		single_flat: true,
 		single_page: true,
+		single_omen: true,
 		spot: true,
 		spotpage: true,
 		spotpt: true
@@ -121,7 +128,9 @@ init script:
 
 	null_page_blend := { color_background(type:"null_page", base_hybrid:card_hybrid, folder:template_prefix["null_page"]) }
 	single_page_blend := { color_background(type:"single_page", base_hybrid:card_hybrid, folder:template_prefix["single_page"]) }
+	single_omen_blend := { color_background(type:"single_omen", base_hybrid:card_hybrid, folder:template_prefix["single_omen"]) }
 	double_page_blend := { color_background(type:"double_page", base_hybrid:card_hybrid, folder:template_prefix["double_page"]) }
+	double_omen_blend := { color_background(type:"double_omen", base_hybrid:card_hybrid, folder:template_prefix["double_omen"]) }
 	binding_background := { color_background(type:"binding", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	double_flat_page_blend := { color_background(type:"double_flat", base_hybrid:card_hybrid, folder:template_prefix["double_flat"]) }
 	single_flat_page_blend := { color_background(type:"single_flat", base_hybrid:card_hybrid, folder:template_prefix["single_flat"]) }
@@ -257,7 +266,9 @@ init script:
 
 		img := case input of
 			"name and type page": double_page_blend(adj_color),
+			"name and type omen": double_omen_blend(adj_color),
 			"name page": single_page_blend(adj_color),
+			"name omen": single_omen_blend(adj_color),
 			"blank page": null_page_blend(adj_color),
 			"name and type flat": mask_dblflat(double_flat_page_blend(adj_color)),
 			"name flat": mask_sngflat(single_flat_page_blend(adj_color)),
@@ -330,6 +341,16 @@ init script:
 			if is_reversed() then "left" else "right"
 		else "none"
 	}
+
+	is_omen := {
+		str := if input == "none" then ""
+			else if is_reversed() then styling[reverser[input] + "_style"]
+			else styling[input + "_style"]
+		
+		if contains(str, match:"omen") then
+			true
+		else false
+	}
 	
 	reverser := ["left":"right", "right":"left"]
 	page_style := {
@@ -339,10 +360,16 @@ init script:
 			
 		if is_spot() then
 			"double"
+		else if contains(str, match:"type") and is_omen() then
+			"omen_double"
 		else if contains(str, match:"type") then
 			"double"
+		else if contains(str, match:"name") and is_omen() then
+			"single"
 		else if contains(str, match:"name") then
 			"single"
+		else if is_omen() then
+			"null"
 		else "null"
 	}
 	page_flat := {
@@ -357,8 +384,10 @@ init script:
 	page_3_flat := {page_flat(page_3_side())}
 	page_top := [
 		"double": 375,
+		"omen_double": 375,
 		"single": 358,
-		"null": 332
+		"omen_single": 358,
+		"null": 332,
 	]
 	page_1_top := {page_top[page_style(page_1_side())]}
 	page_2_top := {page_top[page_style(page_2_side())]}
@@ -490,6 +519,8 @@ styling field:
 	choice: name and type page
 	choice: name page
 	choice: blank page
+	choice: name and type omen
+	choice: name omen
 	choice: name and type flat
 	choice: name flat
 	choice: none
@@ -501,6 +532,8 @@ styling field:
 	choice: name and type page
 	choice: name page
 	choice: blank page
+	choice: name and type omen
+	choice: name omen
 	choice: name and type flat
 	choice: name flat
 	choice: none
@@ -754,7 +787,7 @@ card style:
 		padding top: 0
 	casting cost 2:
 		right: {page_coords[page_2_side()]["cost"]}
-		top: { if is_spot() then 330 else if page_2_flat() then 328 else 329}
+		top: { if page_style(page_2_side()) == "omen_double" then 330 else if is_spot() then 330 else if page_2_flat() then 328 else 329}
 		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
 		height: 23
 		alignment: middle right
@@ -767,7 +800,7 @@ card style:
 		padding top: 0
 	casting cost 3:
 		right: {page_coords[page_3_side()]["cost"]}
-		top: { if is_spot() then 330 else if page_3_flat() then 328 else 329}
+		top: { if page_style(page_2_side()) == "omen_double" then 330 else if is_spot() then 330 else if page_2_flat() then 328 else 329}
 		width: { max(30, card_style.casting_cost_3.content_width) + 5 }
 		height: {if page_style(page_3_side()) == "null" then 0 else 23}
 		alignment: middle right
@@ -822,9 +855,9 @@ card style:
 		image: {module_identity()}
 	type 2:
 		left: {page_coords[page_2_side()]["type"] + (if has_identity_2() then 20 else 0)}
-		top: {shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352)}
+		top: { if page_style(page_2_side()) == "omen_double" then 3 + shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352) else shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352)}
 		width: {155 - (if has_identity_2() then 20 else 0)}
-		height: { if page_style(page_2_side()) == "double" then 20 - shrink_type2() else 0}
+		height: { if page_style(page_2_side()) == "double" then 20 - shrink_type2() else if page_style(page_2_side()) == "omen_double" then 20 - shrink_type2() else 0}
 		alignment: top shrink-overflow
 		z index: 1
 		padding top: 2
@@ -836,9 +869,9 @@ card style:
 			separator color: red
 	type 3:
 		left: {page_coords[page_3_side()]["type"] + (if has_identity_2() then 20 else 0)}
-		top: {shrink_type2() + (if is_spot() or not page_3_flat() then 353 else 352)}
+		top: { if page_style(page_2_side()) == "omen_double" then 3 + shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352) else shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352)}
 		width: {155 - (if has_identity_2() then 20 else 0)}
-		height: { if page_style(page_3_side()) == "double" then 20 - shrink_type2() else 0 }
+		height: { if page_style(page_2_side()) == "double" then 20 - shrink_type2() else if page_style(page_2_side()) == "omen_double" then 20 - shrink_type2() else 0}
 		alignment: top shrink-overflow
 		z index: 1
 		padding top: 2
@@ -891,7 +924,7 @@ card style:
 		line height line max: 1.6
 	text 2:
 		left: {page_coords[page_2_side()]["text"]}
-		top: { page_2_top() + to_int(back_chop_top()) + body_font_vertical()}
+		top: { if page_style(page_2_side()) == "omen_double" then 5 + page_2_top() + to_int(back_chop_top()) + body_font_vertical() else page_2_top() + to_int(back_chop_top()) + body_font_vertical()}
 		width: {if is_spot() then 157 else if page_style(page_1_side()) == "null" then 157 else 143}
 		bottom: { (if is_spot() then 464 else 481) - to_int(back_chop_bot()) }
 		font:
