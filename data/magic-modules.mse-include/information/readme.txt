@@ -71,6 +71,9 @@ information_copyright_offset_pt_top_1 := { 0 }
 #### To shift the secondary copyright left/right on creatures/walkers, if the pt/loyalty box is very narrow/wide:
 information_secondary_offset_pt_left_1 := { 0 }
 
+#### If the presence of pt/loyalty doesn't affect the secondary copyright position:
+information_secondary_shift_with_pt_1 := { false }
+
 #### For the other faces on DFC or TFC templates, use:
 information_offset_top_2 := { 0 }
 information_codes_offset_left_2 := { 0 }
