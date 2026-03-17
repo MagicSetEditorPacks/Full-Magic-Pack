@@ -152,8 +152,16 @@ init script:
 		crop(frame_type() + "image_mask.png", offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_height())
 	}
 	
-	is_hero :=		{ contains(extra_card.card_frame, match: "hero") }
-	is_creature :=	{ contains(extra_card.card_frame, match: "creature") }
+	is_hero :=
+	{
+		styling.frame_type == "hero" or
+		(styling.frame_type == "auto" and lang_setting("is_hero")(card.type))
+	}
+	is_creature :=
+	{
+		styling.frame_type == "creature" or
+		(styling.frame_type == "auto" and lang_setting("is_creature")(card.type))
+	}
 	frame_type :=
 	{
 		if		is_hero()		then	"hero/"
@@ -162,13 +170,21 @@ init script:
 	}
 	frame_color :=
 	{
-		if		contains(extra_card.card_frame, match: "green")		then	"g.png"
-		else if	contains(extra_card.card_frame, match: "red")		then	"r.png"
-		else																"p.png"
+		if		card.herospath_frame == "THS"	then	"g.png"
+		else if	card.herospath_frame == "BNG"	then	"r.png"
+		else											"p.png"
 	}
 
 ############################################################## Extra style options
 
+styling field:
+	type:			choice
+	name:			frame type
+	description:	Which version of the frame should be used?
+	choice:			auto
+	choice:			hero
+	choice:			creature
+	choice:			spell
 styling field:
 	type:			text
 	name:			popout art coordinates
@@ -245,6 +261,20 @@ card style:
 		height:				{ stylesheet.card_height }
 		z index:			200
 		mask:				border_mask.png
+	herospath frame:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			200
+		popup style:		in place
+		render style:		image
+		image:				{ frame_type() + frame_color() }
+		mask:				{ frame_type() + "card_mask.png" }
+		choice images:
+			THS:				spell/gchoice_image.png
+			BNG:				spell/rchoice_image.png
+			JOU:				spell/pchoice_image.png
 	############################# Nameline
 	name:
 		left:				{ if is_creature() then 55 else 66 }
@@ -372,35 +402,6 @@ card style:
 ############################################################## Extra card fields
 
 extra card field:
-	type:				multiple choice
-	name:				card frame
-	show statistics:	false
-	choice:
-		name:				hero
-		type:				radio
-	choice:
-		name:				creature
-		type:				radio
-	choice:
-		name:				spell
-		type:				radio
-		line below:			true
-	choice:
-		name:				green
-		type:				radio
-	choice:
-		name:				red
-		type:				radio
-	choice:
-		name:				purple
-		type:				radio
-	default:
-		if		lang_setting("is_hero")(card.type)		then	"hero, green"
-		else if	lang_setting("is_creature")(card.type)	then	"creature, green"
-		else													"spell, green"
-	script:
-		require_exclusive_choice(require_exclusive_choice(extra_card.card_frame, choices: "green, red, purple"), choices: "hero, creature, spell")
-extra card field:
 	type:				choice
 	name:				name box left
 	editable:			false
@@ -429,16 +430,6 @@ extra card field:
 	show statistics:	false
 	choice:				foil layer
 extra card style:
-	card frame:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			200
-		popup style:		in place
-		render style:		image
-		image:				{ frame_type() + frame_color() }
-		mask:				{ frame_type() + "card_mask.png" }
 	name box left:
 		left:				{ 150 - nameline_width_increase() }
 		top:				46
