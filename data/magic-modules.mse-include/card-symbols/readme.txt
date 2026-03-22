@@ -1,4 +1,5 @@
-#### Consider using the Namelines module instead of this one
+#### Consider using the Namelines module instead of this one.
+#### It encompasses transformation symbols, card symbols, names and casting costs, all at once.
 
 #### To use this include in a template, add the following in the template headers:
 depends on:
@@ -11,12 +12,16 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/card-symbols/card_fields_dfc
 include file: /magic-modules.mse-include/card-symbols/card_fields_tfc
 
-#### Default Field Placement (@375x523, w=1 h=1)
+#### Default Field Placement
+#### For 375x523 templates, w = h = 1
+#### For 750x1046 templates, w = h = 2
+#### etc...
 card symbol:
 	left:   (8, +18 if used, +28 with transform symbol)w
 	top:    21h
 	width:  23w
 	height: 21h
+
 #### Customization
 #### Optionally, you can adjust global alignment by defining the following functions in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift things by:
@@ -40,6 +45,7 @@ card_symbol_offset_top_3 := { 0 }
 card_symbol_offset_left_3 := { 0 }
 card_symbol_offset_width_3 := { 0 }
 card_symbol_offset_height_3 := { 0 }
+etc...
 
 #### You can disable the symbols on some of the faces,
 #### by adding the following functions in the init script:
