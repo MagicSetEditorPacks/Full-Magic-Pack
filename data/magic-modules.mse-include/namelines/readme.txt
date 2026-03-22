@@ -50,7 +50,6 @@ casting_cost_offset_width_1 := { 0 }
 casting_cost_offset_height_1 := { 0 }
 
 transform_symbol_disabled_1 := { true }
-transform_symbol_mirrored_1 := { true }
 transform_symbol_offset_top_1 := { 0 }
 transform_symbol_offset_left_1 := { 0 }
 transform_symbol_offset_width_1 := { 0 }
@@ -60,6 +59,20 @@ transform_symbol_offset_height_1 := { 0 }
 #### when a card symbol or a transformation symbol is present on the card:
 name_card_symbol_offset_left_1 := { 0 }
 name_transform_symbol_offset_left_1 := { 0 }
+
+#### By default, the transformation symbol moves to the right when the card is a back face
+#### (that is, when it is linked to a front face). To override this behavior:
+transform_symbol_mirrored_1 := { get_front_face(card) != nil }
+
+#### When the transformation symbol is on the right of the card,
+#### the casting cost needs to shift instead. To adjust that:
+casting_cost_transform_symbol_offset_left_1 := { 0 }
+
+#### To change the folder from which the transformation symbol images are taken:
+#### You must write the path of the folder starting from the data folder
+#### The image files must have the same names as the ones in the default folder (/magic-modules.mse-include/symbols/)
+#### You can omit some images and it will use the default ones instead
+transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
 
 #### For DFC or TFC templates, use:
 nameline_offset_top_2 := { 0 }
@@ -71,4 +84,3 @@ nameline_offset_left_3 := { 0 }
 nameline_offset_width_3 := { 0 }
 nameline_offset_height_3 := { 0 }
 etc...
-
