@@ -1,0 +1,919 @@
+﻿mse version:		2.5.7
+game:				magic
+short name:			Planechase
+full name:			Old and New
+icon:				card_sample.png
+position hint:		1100
+
+version:			2026-02-28
+depends on:
+	package:			magic.mse-game
+	version:			2014-06-25
+depends on:
+	package:			magic-mana-large.mse-symbol-font
+	version:			2007-09-23
+depends on:
+	package:			magic-mana-small.mse-symbol-font
+	version:			2007-09-23
+depends on:
+	package:			magic-modules.mse-include
+	version:			2024-10-01
+depends on:
+	package:			magic-mainframe-extras.mse-include
+	version:			2007-09-23
+
+card width:			1488
+card height:		1039
+card dpi:			297.6
+
+### blanks by Card Conjurer, Artfreakwiu and GenevensiS
+### code by GenevensiS
+
+############################################################## Extra scripts
+init script:
+	card_shape := { if styling.count_as == "normal card" then "normal" else styling.count_as }
+	
+	swap_fonts_pt_default :=
+	[
+		name: {if card.planechase_frame == "CBG" then "MatrixRegularSmallCaps" else "Beleren Bold"},
+		size: {if card.planechase_frame == "CBG" then 44.0 else 37.0},
+		color: {if card.planechase_frame == "CBG" then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	
+	swap_fonts_body_default :=
+	[
+		name: {"MPlantin"},
+		size: {28.0},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	
+	swap_fonts_type_default :=
+	[
+		name: {if card.planechase_frame == "CBG" then "Matrix" else "Beleren Bold"},
+		size: {29.0},
+		color: {if card.planechase_frame == "CBG" then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	
+	swap_fonts_name_default :=
+	[
+		name: {if card.planechase_frame == "CBG" then "MatrixRegularSmallCaps" else "Beleren Bold"},
+		size: {if card.planechase_frame == "CBG" then 42.0 else 36.0},
+		color: {if card.planechase_frame == "CBG" then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	
+	invert_watermark_1 := { false }
+	
+	is_unsorted := { styling.remove_from_autocount }
+	
+	abilities_count :=
+	{
+		to_int(styling.number_of_textboxes)
+	}
+	
+	alt_text := { true }
+	alt_text_script :=
+	{
+		count := abilities_count()
+		if		count == 4 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text)
+		else if	count == 3 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
+		else if	count == 2 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text)
+		else 					forward_editor(field: card.level_1_text)
+	}
+	
+	margin_left :=
+	{
+		if not styling.chaos_symbol or text_alignment() == "middle center" then 0 else (
+		count := abilities_count()
+		if		input == "lv1" then	(if count == 1 then 900 else 0)
+		else if	input == "lv2" then	(if count == 2 then 900 else 0)
+		else if	input == "lv3" then	(if count == 3 then 900 else 0)
+		else if	input == "lv4" then	(if count == 4 then 900 else 0)
+		else						0)
+	}
+	
+	text_filter := text_filter + {apply_margins(input, name:margin_code)}
+	
+	text_alignment :=
+	{
+		if		styling.center_text == "always" then "middle center"
+		else if	styling.center_text == "never" then "middle left"
+		else if	(not contains(match:"\n", card.rule_text) and
+				card.flavor_text == "<i-flavor></i-flavor>" and
+				card_style.text.content_lines <= 2)
+		then "middle center"
+		else "middle left"
+	}
+	
+	textbox_top :=
+	{
+		if input == 0 then 669 else textbox_bottom(input-1)
+	}
+	textbox_bottom :=
+	{
+		if card_style.text.layout.separators[input] or else 0 > 0 then (
+			if input == abilities_count()-1 then 995 else to_int(card_style.text.top + card_style.text.layout.separators[input])
+		)
+		else 1200
+	}
+	textbox_center :=
+	{
+		if card_style.text.layout.blocks[input].bottom or else 0 > 0 then card_style.text.top + card_style.text.layout.blocks[input].middle
+		else 1200
+	}
+	
+	chaos_symbol_height :=
+	{
+		if not styling.chaos_symbol then 0 else (
+		count := abilities_count()-1
+		if count == 0 then 60 else
+		clamp(card_style.text.bottom - textbox_top(count) - 10, minimum: 0, maximum: 60))
+	}
+	chaos_symbol_width :=
+	{
+		chaos_symbol_height() * 240 / 200
+	}
+	chaos_symbol_top :=
+	{
+		if not styling.chaos_symbol then 1200
+		else textbox_center(abilities_count()-1) - chaos_symbol_height()/2
+	}
+	
+	chop_top :=			{ split := split_comma(styling.chop_text_box); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -1500) else 0 }
+	chop_bot :=			{ split := split_comma(styling.chop_text_box); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: -1500) else 0 }
+	
+	popout_left :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -500) else 0 }
+	popout_top :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, maximum: 2000, minimum: -500) else 0 }
+	popout_width :=		{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
+	popout_height :=	{ split := split_comma(styling.popout_art_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
+	
+	art_left :=
+	{
+		if		styling.stretch_art_to_whole_card
+			or	styling.extended_art == "yes, without border"	then	0
+		else if	styling.extended_art == "yes"					then	41
+		else if	card.planechase_frame == "CBG"					then	125
+		else															50
+	}
+	art_top :=
+	{
+		if		styling.stretch_art_to_whole_card
+			or	styling.extended_art == "yes, without border"	then	0
+		else if	styling.extended_art == "yes"					then	41
+		else if	card.planechase_frame == "CBG"					then	153
+		else															47
+	}
+	art_width :=
+	{
+		if		styling.stretch_art_to_whole_card
+			or	styling.extended_art == "yes, without border"	then	stylesheet.card_width
+		else if	styling.extended_art == "yes"					then	1406
+		else if	card.planechase_frame == "CBG"					then	1240
+		else															1388
+	}
+	art_bottom :=
+	{
+		if		styling.stretch_art_to_whole_card				then	stylesheet.card_height
+		else if	contains(styling.extended_art, match: "yes")	then	1000
+		else if	card.planechase_frame == "CBG"					then	(if styling.typeline_opacity_percentage == "100" then 599 else 921)
+		else															994
+	}
+	
+	art_mask :=
+	{
+		mask :=	frame_type() + "image_mask.png"
+		crop(mask, offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_bottom() - art_top())
+	}
+	
+	frame_type :=
+	{
+		if card.planechase_frame == "original" then "mom/" else if card.planechase_frame == "CBG" then "cbg/" else "who/"
+	}
+	
+	card_code_left :=
+	{
+		if styling.flat_copyright then 152 else max(377, 744 - (card_style.card_code.content_width + 4 + card_style.set_code.content_width + 8 + card_style.copyright.content_width)/2)
+	}
+	
+	set_code_left :=
+	{
+		card_code_left() + card_style.card_code.content_width + 4
+	}
+	illustrator_brush_left :=
+	{
+		if styling.flat_copyright then set_code_left() + card_style.set_code.content_width + 6 else max(532, 744 - (card_style.illustrator_brush.width + card_style.illustrator.content_width + 4)/2)
+	}
+	rarity_code := { "" }
+
+############################################################## Extra style options
+styling field:
+	type:			choice
+	name:			extended art
+	description:	Remove the sides of the frame?
+	choice:			yes, without border
+	choice:			yes
+	choice:			no
+	initial:		no
+styling field:
+	type:			boolean
+	name:			flat copyright
+	description:	Should the bottom of the textbox be flat or rounded?
+styling field:
+	type:			text
+	name:			popout art coordinates
+	description:	The coordinates for the popout image field, formatted as "left,top,width,height". Used to make the illustration jump in front of the frame.
+styling field:
+	type:			boolean
+	name:			stretch art to whole card
+	description:	Make the image span the whole card instead of just the visible part. Use this to help make popout effects.
+	initial:		no
+styling field:
+	type:			slider
+	name:			nameline opacity percentage
+	description:	Set the opacity percentage for the nameline. Opaque is 100, transparent is 0. Default is 80.
+	initial:		80
+styling field:
+	type:			slider
+	name:			aliasline opacity percentage
+	description:	Set the opacity percentage for the aliasline. Opaque is 100, transparent is 0. Default is 80.
+	initial:		80
+styling field:
+	type:			slider
+	name:			typeline opacity percentage
+	description:	Set the opacity percentage for the typeline. Opaque is 100, transparent is 0. Default is 80.
+	initial:		80
+styling field:
+	type:			slider
+	name:			odd textbox opacity percentage
+	description:	Set the opacity percentage for the textboxes of the first and third abilities. Opaque is 100, transparent is 0. Default is 70.
+	initial:		70
+styling field:
+	type:			slider
+	name:			even textbox opacity percentage
+	description:	Set the opacity percentage for the textboxes of the second and fourth abilities. Opaque is 100, transparent is 0. Default is 40.
+	initial:		40
+styling field:
+	type:			choice
+	name:			number of textboxes
+	description:	How many abilities should be on the card, including the Chaos ability?
+	choice:			1
+	choice:			2
+	choice:			3
+	choice:			4
+	initial:		2
+styling field:
+	type:			boolean
+	name:			chaos symbol
+	description:	Should the last ability have a chaos symbol to it's left.
+	initial:		yes
+styling field:
+	type:			text
+	name:			custom chaos symbol
+	description:	Filename in magic-mainframe-extras to use instead of the normal chaos symbol.
+
+include file: /magic-modules.mse-include/texts/styling_fields
+
+include file: /magic-modules.mse-include/watermarks/styling_fields
+
+styling field:
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+styling field:
+	type:			choice
+	name:			count as
+	description:	What should this card be counted as by the autocount script and stats page?
+	choice:			normal card
+	choice:			token
+	choice:			emblem
+	choice:			designation
+	choice:			counter
+	choice:			rulestip
+	choice:			checklist
+	initial:		normal card
+styling field:
+	type:			boolean
+	name:			remove from autocount
+	description:	Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial:		yes
+styling field:
+	type:			color
+	name:			copyright text color
+	description:	Color of the copyright, illustrator, card number, and set code text.
+	choice:			white
+	choice:			black
+
+include file: /magic-modules.mse-include/symbol-fonts/styling_fields
+
+include file: /magic-modules.mse-include/fonts/styling_fields
+
+############################################################## Card fields
+
+include file: /magic-modules.mse-include/corners/card_fields
+
+include file: /magic-modules.mse-include/watermarks/card_fields
+
+card style:
+	############################# Frame
+	planechase frame:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			200
+		popup style:		in place
+		render style:		image
+		image:				{ frame_type() + "card" + (if styling.extended_art != "no" then "_extended.png" else ".png") }
+		mask:				{ frame_type() + "card_mask.png" }
+		choice images:
+			original:				mom/choice_image.png
+			doctor who:				who/choice_image.png
+			CBG:				cbg/choice_image.png
+	############################# Nameline
+	name:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	120
+				else if	card.planechase_frame == "CBG"	then	114
+				else											120
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	64 - (if card.casting_cost != "" then 8 else 0)
+				else if	card.planechase_frame == "CBG"	then	82
+				else											64 - (if card.casting_cost != "" then 9 else 0)
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	1248 - (if card_style.casting_cost.content_width > 0 then card_style.casting_cost.content_width+15 else 0)
+				else if	card.planechase_frame == "CBG"	then	1260 - (if card_style.casting_cost.content_width > 0 then card_style.casting_cost.content_width+15 else 0)
+				else											1248 - (if card_style.casting_cost.content_width > 0 then card_style.casting_cost.content_width+15 else 0)
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	54
+				else if	card.planechase_frame == "CBG"	then	53
+				else											51
+		z index:			900
+		alignment:			{ if card.casting_cost != "" then "middle left shrink-overflow" else "middle center shrink-overflow" }
+		font:
+			name:				{ name_font() }
+			italic name:		{ name_font_italic() }
+			size:				{ name_font_size() }
+			color:				{ name_font_color() }
+			shadow color:			{ name_shadow_color() }
+			shadow displacement x:	-2
+			shadow displacement y:	2
+			#shadow displacement x:	{ name_shadow_displacement_x() }
+			#shadow displacement y:	{ name_shadow_displacement_y() }
+	casting cost:
+		right:
+			script:
+				if		card.planechase_frame == "original"	then	1369
+				else if	card.planechase_frame == "CBG"	then	1374
+				else											1369
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	56
+				else if	card.planechase_frame == "CBG"	then	88
+				else											56
+		width:
+			script:
+				max(card_style.casting_cost.content_width, 120)
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	54
+				else if	card.planechase_frame == "CBG"	then	53
+				else											51
+		z index:			920
+		alignment:			middle right shrink-overflow
+		always symbol:		true
+		font:
+			name:				{ casting_cost_font() }
+			italic name:		{ casting_cost_font_italic() }
+			size:				{ casting_cost_font_size() - (if card.planechase_frame == "CBG" then 0 else 2) }
+			color:				{ casting_cost_font_color() }
+		symbol font:
+			name:				{ styling.casting_cost_mana_symbols or else "magic-mana-large" }
+			size:				{ casting_cost_font_size() - (if card.planechase_frame == "CBG" then 0 else 2) }
+	alias:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	510
+				else if	card.planechase_frame == "CBG"	then	435
+				else											510
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	144
+				else if	card.planechase_frame == "CBG"	then	156
+				else											143
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	468
+				else if	card.planechase_frame == "CBG"	then	618
+				else											468
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	27
+				else if	card.planechase_frame == "CBG"	then	25
+				else											25
+		alignment: 	center middle shrink-overflow
+		z index: 	900
+		font:
+			name:				MPlantin-Italic
+			size:
+				script:
+					if		card.planechase_frame == "original"	then	20
+					else if	card.planechase_frame == "CBG"	then	20
+					else											20
+			style:				bold
+			weight:				bold
+			color:
+				script:
+					if		card.planechase_frame == "original"	then	"black"
+					else if	card.planechase_frame == "CBG"	then	"white"
+					else											"black"
+	############################# Image
+	image:
+		left:				{ art_left() }
+		top:				{ art_top() }
+		width:				{ art_width() }
+		bottom:				{ art_bottom() }
+		z index:			100
+		mask:				{ art_mask() }
+	mainframe image:
+		left:				{ popout_left() }
+		top:				{ popout_top() }
+		width:				{ popout_width() }
+		height:				{ popout_height() }
+		z index:			1010
+	############################# Typeline
+	type:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	340
+				else if	card.planechase_frame == "CBG"	then	114
+				else											340
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	696
+				else if	card.planechase_frame == "CBG"	then	611
+				else											696
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	808
+				else if	card.planechase_frame == "CBG"	then	1260
+				else											808
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	41
+				else if	card.planechase_frame == "CBG"	then	50
+				else											38
+		z index:			900
+		alignment:			middle center shrink-overflow
+		font:
+			name:				{ type_font() }
+			italic name:		{ type_font_italic() }
+			size:				{ type_font_size() }
+			color:				{ type_font_color() }
+			separator color:	red
+	############################# Text box
+	text:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	175
+				else if	card.planechase_frame == "CBG"	then	135
+				else											170
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	754 + chop_top() + body_font_vertical()
+				else if	card.planechase_frame == "CBG"	then	685 + chop_top() + body_font_vertical()
+				else											759 + chop_top() + body_font_vertical()
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	1138
+				else if	card.planechase_frame == "CBG"	then	1217
+				else											1148
+		bottom:
+			script:
+				if		card.planechase_frame == "original"	then	(if styling.flat_copyright then 981 else 956) - chop_bot()
+				else if	card.planechase_frame == "CBG"	then	909 - chop_bot()
+				else											(if styling.flat_copyright then 977 else 960) - chop_bot()
+		z index:			900
+		line height soft:	0.9
+		line height hard:	1.2
+		line height line:	1.5
+		line height hard max:	1.3
+		line height line max:	2.0
+		alignment:			{ text_alignment() }
+		font:
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				{ body_font_size() }
+			scale down to:		7
+			color:				{ body_font_color() }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ body_font_size() }
+			scale down to:		7
+	############################# PT
+	pt:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	1265
+				else if	card.planechase_frame == "CBG"	then	1294
+				else											1283
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	941
+				else if	card.planechase_frame == "CBG"	then	910
+				else											940
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	121
+				else if	card.planechase_frame == "CBG"	then	128
+				else											111
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	58
+				else if	card.planechase_frame == "CBG"	then	65
+				else											54
+		z index:			900
+		alignment:			center middle shrink-overflow
+		font:
+			name:				{ pt_font() }
+			size:				{ pt_font_size() }
+			color:				{ pt_font_color() }
+			separator color:	red
+	############################# Information
+	illustrator:
+		left:				{ illustrator_brush_left() + (if card.illustrator_brush == "art old" then 30 else if contains(card.illustrator_brush, match: "wide") then 15 else 12) * 744/375 + 4 }
+		top:				{ if styling.flat_copyright then 1004 else (if card.planechase_frame == "original" then 977 else if card.planechase_frame == "CBG" then 947 else 985) + (if trim(to_text(card.card_code + card.set_code + card.copyright)) == "" then 10 else 0) }
+		right:				{ if styling.flat_copyright then 722 else 956 }
+		height:				20
+		z index:			900
+		alignment:			middle left shrink-overflow
+		font:
+			name:				Beleren Small Caps
+			size:				17
+			color:				{ styling.copyright_text_color }
+	illustrator brush:
+		left:				{ illustrator_brush_left() }
+		top:				{ if styling.flat_copyright then 1007 else (if card.planechase_frame == "original" then 981 else if card.planechase_frame == "CBG" then 951 else 989) + (if trim(to_text(card.card_code + card.set_code + card.copyright)) == "" then 10 else 0) }
+		width:				{ (if card.illustrator_brush == "art old" then 30 else if contains(card.illustrator_brush, match: "wide") then 15 else 12) * 744/375 }
+		height:				{ 7 * 1039/523 }
+		popup style:		in place
+		include dark file:	/magic.mse-game/information/menu_choice_images
+		render style:		image
+		image:				{ illustrator_brush_image(field: 1) }
+		z index:			900
+	card code:
+		left:				{ card_code_left() }
+		top:				{ if styling.flat_copyright then 1003 else if card.planechase_frame == "original" then 1003 else if card.planechase_frame == "CBG" then 973 else 1011 }
+		width:				{ max(30, card_style.card_code.content_width) }
+		height:				20
+		z index:			900
+		alignment:			middle left
+		font:
+			name:				Relay-Medium
+			size:				17
+			color:				{ styling.copyright_text_color }
+	set code:
+		left:				{ set_code_left() }
+		top:				{ if styling.flat_copyright then 1003 else if card.planechase_frame == "original" then 1003 else if card.planechase_frame == "CBG" then 973 else 1011 }
+		width:				{ max(30, card_style.set_code.content_width) }
+		height:				20
+		z index:			900
+		alignment:			middle left
+		font:
+			name:				Relay-Medium
+			size:				17
+			color:				{ styling.copyright_text_color }
+	copyright:
+		left:				{ if styling.flat_copyright then 766 else set_code_left() + card_style.set_code.content_width + 8 }
+		top:				{ if styling.flat_copyright then 1004 else if card.planechase_frame == "original" then 1003 else if card.planechase_frame == "CBG" then 973 else 1011 }
+		right:				{ if styling.flat_copyright then (if card.pt == "" then 1336 else 1254) else 1111 }
+		height:				20
+		z index:			900
+		alignment:			{ if styling.flat_copyright then "middle right shrink-overflow" else "middle left shrink-overflow" }
+		font:
+			name:				MPlantin
+			size:				17
+			color:				{ styling.copyright_text_color }
+############################################################## Extra card fields
+extra card field:
+	type:				choice
+	name:				border
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				border
+extra card field:
+	type:				choice
+	name:				girders
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				girders
+extra card field:
+	type:				choice
+	name:				ptbox
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				ptbox
+extra card field:
+	type:				choice
+	name:				namebox
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				namebox
+extra card field:
+	type:				choice
+	name:				aliasbar
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				aliasbar
+extra card field:
+	type:				choice
+	name:				aliasbox
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				aliasbox
+extra card field:
+	type:				choice
+	name:				typebox
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				typebox
+extra card field:
+	type:				choice
+	name:				textbox full
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox full
+extra card field:
+	type:				choice
+	name:				textbox 1
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox 1
+extra card field:
+	type:				choice
+	name:				textbox 2
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox 2
+extra card field:
+	type:				choice
+	name:				textbox 3
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox 3
+extra card field:
+	type:				choice
+	name:				textbox 4
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				textbox 4
+extra card field:
+	type:				choice
+	name:				chaos symbol
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				chaos symbol
+extra card field:
+	type:				choice
+	name:				copyright rim
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				copyright rim
+extra card field:
+	type:				choice
+	name:				foil layer
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				foil layer
+extra card style:
+	chaos symbol:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	179 + (72 - chaos_symbol_width())/2
+				else if	card.planechase_frame == "CBG"	then	136 + (72 - chaos_symbol_width())/2
+				else											174 + (72 - chaos_symbol_width())/2
+		top:				{ chaos_symbol_top() }
+		width:				{ chaos_symbol_width() }
+		height:				{ chaos_symbol_height() }
+		z index:			900
+		visible:			{ styling.chaos_symbol }
+		render style:		image
+		image:
+			script:
+				filename := "/magic-mainframe-extras.mse-include/" + styling.custom_chaos_symbol
+				if exists_in_package(filename) then filename
+				else recolor_image("chaos_symbol.png", color: body_font_color())
+	ptbox:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	1248
+				else if	card.planechase_frame == "CBG"	then	1277
+				else											1255
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	927
+				else if	card.planechase_frame == "CBG"	then	900
+				else											919
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	156
+				else if	card.planechase_frame == "CBG"	then	162
+				else											167
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	91
+				else if	card.planechase_frame == "CBG"	then	91
+				else											98
+		z index:			800
+		visible:			{ card.pt != "" }
+		render style:		image
+		image:				{ frame_type() + "pt.png" }
+	namebox:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	99
+				else											101
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	46
+				else											50
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	1290
+				else											1286
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	92
+				else											79
+		z index:			190
+		visible:			{ card.planechase_frame != "CBG" }
+		render style:		image
+		image:				{ set_alpha(frame_type() + "namebox.png", alpha: get_alpha_percentage(styling.nameline_opacity_percentage, default: 80)) }
+	aliasbar:
+		left:				245
+		top:				81
+		width:				998
+		height:				173
+		z index:			200
+		render style:		image
+		image:				{ frame_type() + "alias" + (if card.alias != "" then ".png" else "_none.png") }
+	aliasbox:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	398
+				else											397
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	131
+				else											128
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	692
+				else											694
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	48
+				else											50
+		z index:			190
+		visible:			{ card.alias != "" and card.planechase_frame != "CBG" }
+		render style:		image
+		image:				{ set_alpha(frame_type() + "aliasbox.png", alpha: get_alpha_percentage(styling.aliasline_opacity_percentage, default: 80)) }
+	typebox:
+		left:
+			script:
+				if		card.planechase_frame == "original"	then	308
+				else											306
+		top:
+			script:
+				if		card.planechase_frame == "original"	then	688
+				else											686
+		width:
+			script:
+				if		card.planechase_frame == "original"	then	872
+				else											876
+		height:
+			script:
+				if		card.planechase_frame == "original"	then	54
+				else											54
+		z index:			190
+		visible:			{ card.planechase_frame != "CBG" }
+		render style:		image
+		image:				{ set_alpha(frame_type() + "typebox.png", alpha: get_alpha_percentage(styling.typeline_opacity_percentage, default: 80)) }
+	textbox full:
+		left:				118
+		top:				669
+		width:				1252
+		height:				255
+		z index:			180
+		visible:			{ card.planechase_frame == "CBG" and styling.typeline_opacity_percentage == "100" }
+		render style:		image
+		image:				cbg/textbox_full.png
+	textbox 1:
+		left:				118
+		top:				{ textbox_top(0) }
+		width:				1252
+		bottom:				{ textbox_bottom(0) }
+		z index:			190
+		render style:		image
+		image:
+			script:
+				image := crop(frame_type() + "textbox.png", offset_x:0, offset_y: textbox_top(0)-669, width:1252, height: textbox_bottom(0) - textbox_top(0))
+				set_alpha(image, alpha: get_alpha_percentage(styling.odd_textbox_opacity_percentage, default: 70))
+	textbox 2:
+		left:				118
+		top:				{ textbox_top(1) }
+		width:				1252
+		bottom:				{ textbox_bottom(1) }
+		z index:			190
+		visible:			{ abilities_count() > 1 }
+		render style:		image
+		image:
+			script:
+				image := crop(frame_type() + "textbox.png", offset_x:0, offset_y: textbox_top(1)-669, width:1252, height: textbox_bottom(1) - textbox_top(1))
+				set_alpha(image, alpha: get_alpha_percentage(styling.even_textbox_opacity_percentage, default: 40))
+	textbox 3:
+		left:				118
+		top:				{ textbox_top(2) }
+		width:				1252
+		bottom:				{ textbox_bottom(2) }
+		z index:			190
+		visible:			{ abilities_count() > 2 }
+		render style:		image
+		image:
+			script:
+				image := crop(frame_type() + "textbox.png", offset_x:0, offset_y: textbox_top(2)-669, width:1252, height: textbox_bottom(2) - textbox_top(2))
+				set_alpha(image, alpha: get_alpha_percentage(styling.odd_textbox_opacity_percentage, default: 70))
+	textbox 4:
+		left:				118
+		top:				{ textbox_top(3) }
+		width:				1252
+		bottom:				{ textbox_bottom(3) }
+		z index:			190
+		visible:			{ abilities_count() > 3 }
+		render style:		image
+		image:
+			script:
+				image := crop(frame_type() + "textbox.png", offset_x:0, offset_y: textbox_top(3)-669, width:1252, height: textbox_bottom(3) - textbox_top(3))
+				set_alpha(image, alpha: get_alpha_percentage(styling.even_textbox_opacity_percentage, default: 40))
+	copyright rim:
+		left:				153
+		top:				883
+		width:				1182
+		height:				156
+		z index:			200
+		render style:		image
+		image:				{ frame_type() + "copyright" + (if card.planechase_frame == "CBG" and contains(styling.extended_art, match: "yes") then "_extended" else "") + (if styling.flat_copyright then ".png" else "_round.png") }
+	girders:
+		left:				142
+		top:				728
+		width:				1204
+		height:				108
+		z index:			180
+		visible:			{ card.planechase_frame == "original" and styling.extended_art == "no" }
+		render style:		image
+		image:				mom/girders.png
+	foil layer:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			1050
+		visible:			{ styling.overlay != "none" and styling.overlay != "" }
+		render style:		image
+		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
+	border:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			210
+		visible:			{ styling.extended_art == "yes" }
+		render style:		image
+		image:				border.png
