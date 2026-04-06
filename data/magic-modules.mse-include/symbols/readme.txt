@@ -98,6 +98,10 @@ transform_symbol_default_bevel :=
 #### You can omit some images and it will use the default ones instead
 transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
 
+#### If there is only one color for all the frames, then instead of
+#### making a folder containing the 8 variants (w u b r g m c a),
+#### make a single PNG image file with the same name as that folder.
+
 #### When a symbol is present on the card, the name or casting cost need to move.
 #### You can increase/decrease the amount by which they do:
 name_transform_symbol_offset_left_1 := { 0 }
