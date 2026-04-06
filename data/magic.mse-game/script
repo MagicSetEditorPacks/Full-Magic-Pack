@@ -3366,63 +3366,265 @@ typesymbol_type := { typesymbol_for(type) }
 ############################################################## Transform/Lesson symbols
 transform_symbol_default :=
 {
-	stylesheet
-	if		margin_code == "transform1" then	"none"
-	else if	margin_code == "transform2" then	"none"
-	else										"none"
+	"none"
 }
+transform_symbol_default_position :=
+{
+	if get_front_face(card) != nil
+	and not contains(input, match: "modal")
+	then "right" else "left"
+}
+transform_symbol_default_background :=
+{
+	if contains(input, match: "modal")
+	then "colored" else "black"
+}
+transform_symbol_default_rim :=
+{
+	"white"
+}
+transform_symbol_default_icon :=
+{
+	if contains(input, match: "modal front")
+	then "black" else "white"
+}
+transform_symbol_default_bevel :=
+{
+	"no"
+}
+transform_symbol_script :=
+{
+	input := transform_symbol_backwards_compatibility()
+	input := require_exclusive_choice(choices:	"position default, position left, position right")
+	input := require_exclusive_choice(choices:	"background default, background colored, background black, background white, background none")
+	input := require_exclusive_choice(choices:	"rim default, rim colored, rim black, rim white, rim none")
+	input := require_exclusive_choice(choices:	"icon default, icon colored, icon black, icon white")
+	input := require_exclusive_choice(choices:	"bevel default, bevel yes, bevel no")
+	input := require_exclusive_choice(choices:	"front triangle, " +
+												"day, " +
+												"moon, " +
+												"closed fan, " +
+												"meld, " +
+												"sparker, " +
+												"back triangle, " +
+												"night, " +
+												"eldrazi, " +
+												"compass, " +
+												"open fan, " +
+												"specialized, " +
+												"aetherprint, " +
+												"none, " +
+												"lesson, " +
+												"custom symbol one, " +
+												"custom symbol two, " +
+												"custom symbol three, " +
+												"custom symbol four, " +
+												"extra comedy, " +
+												"extra tragedy, " +
+												"modal front, " +
+												"modal back, " +
+												"multitype, " +
+												"artifact, " +
+												"battle, " +
+												"creature, " +
+												"enchantment, " +
+												"fortress, " +
+												"instant, " +
+												"land, " +
+												"planeswalker, " +
+												"sorcery, " +
+												"non standard conspiracy, " +
+												"non standard dungeon, " +
+												"non standard emblem, " +
+												"non standard hero, " +
+												"non standard phenomenon, " +
+												"non standard plane, " +
+												"non standard scheme, " +
+												"non standard vanguard")
+	input
+}
+
+clean_transform_symbol_shape :=
+	replace@(match: "^.*, ", replace: "") +
+	replace@(match: "extra |non standard ", replace: "")
+
+transform_symbol_backwards_compatibility :=
+	#### remove sparker and modal color options
+	replace@(match: "(sparker|modal front|modal back)( [(]colored[)])? (default|white|blue|black|red|green|multicolor|colorless|artifact)", replace: "_1") +
+	#### add new render options
+	{
+		if		not chosen(input, choice: "position default")
+			and	not chosen(input, choice: "position left")
+			and	not chosen(input, choice: "position right")
+		then	"position default, background default, rim default, icon default, bevel default, " + input
+		else	input
+	}
+
 transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
+transform_symbol_style := { if input <= 1 then card_style.transformation else card_style["transformation_" + input] }
+
+transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
+
 transform_symbol_is_mirrored :=
 {
-	if input <= 1
-		then transform_symbol_mirrored_1()
-	else if input == 2
-		then transform_symbol_mirrored_2()
-	else transform_symbol_mirrored_3()
-}
-transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
-transform_symbol_image :=
-{
-	map := face_coordinates_map(face)
-	if map.width == 0 or map.height == 0
-		then ""
-	else (
-		shape := transform_symbol_field(face)
-		link := clean_transform_symbol_shape(shape)
-		if transform_symbol_is_mirrored(face) then link := flip_transform_symbol_shape(link)
-		if contains(link, match:"/default") then (
-			color := sparker_card_color(card_color_field(face))
-			link := replace(link, match:"/default", replace:"/"+color)
-		)
-		case shape of
-			"none": "",
-			"custom symbol one": custom_symbol_1(),
-			"custom symbol two": custom_symbol_2(),
-			"custom symbol three": custom_symbol_3(),
-			"custom symbol four": custom_symbol_4(),
-			else: {
-				folder := transform_symbol_image_folder()
-				if not ends_dash(folder) then folder := folder + "/"
-				name := link + ".png"
-				path := folder + name
-				if exists_in_package(path) then path else "/magic-modules.mse-include/symbols/" + name
-			}();
+	chosen(input, choice: "position right")
+	or (
+		chosen(input, choice: "position default")
+		and transform_symbol_default_position(input) == "right"
 	)
 }
-clean_transform_symbol_shape :=
-	replace@(match: "modal front ", replace: "modalfront/") +
-	replace@(match: "modal back ", replace: "modalback/") +
-	replace@(match: "sparker [(]colored[)] ", replace: "sparker/") +
-	replace@(match: "extra |non standard ", replace: "")
-flip_transform_symbol_shape :=
-	replace@(match: "modalfront/", replace: "modalfrontflipped/") +
-	replace@(match: "modalback/", replace: "modalbackflipped/")
+transform_symbol_is_beveled :=
+{
+	chosen(input, choice: "bevel yes")
+	or (
+		chosen(input, choice: "bevel default")
+		and transform_symbol_default_bevel(input) == "yes"
+	)
+}
+
+transform_symbol_background_image :=
+{
+	if background == "colored" then (
+		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
+		color_name := "background/color/" + variant + "/" + input + ".png"
+		noncolor_name := "background/color/" + variant + ".png"
+		color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
+						else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
+						else																"/magic-modules.mse-include/symbols/" + color_name
+		resize_image(color_image, width:width, height:height)
+	)
+	else (
+		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
+		color := if background == "white" then rgb(255,255,255) else rgb(0,0,0)
+		name := "background/flat/" + variant + ".png"
+		image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
+		recolor_image(resize_image(image, width:width, height:height), color: color)
+	)
+}
+transform_symbol_rim_image :=
+{
+	if rim == "colored" then (
+		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
+		color_name := "/color/" + variant + "/" + input + ".png"
+		noncolor_name := "/color/" + variant + ".png"
+		color_image :=	if		exists_in_package(transform_folder + "rim" + color_name)		then	transform_folder + "rim" + color_name
+						else if	exists_in_package(transform_folder + "rim" + noncolor_name)		then	transform_folder + "rim" + noncolor_name
+						else if	exists_in_package(transform_folder + "icon" + color_name)		then	transform_folder + "icon" + color_name
+						else if	exists_in_package(transform_folder + "icon" + noncolor_name)	then	transform_folder + "icon" + noncolor_name
+						else																			"/magic-modules.mse-include/symbols/" + color_name
+		shape_name := "rim/" + (if transform_beveled then "bevel/" else "flat/") + variant + ".png"
+		shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+		combine_blend(image1: recolor_image(resize_image(shape_image, width:width, height:height), color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
+	)
+	else (
+		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
+		color := if rim == "white" then rgb(255,255,255) else rgb(0,0,0)
+		name := "rim/" + (if transform_beveled then "bevel/" else "flat/") + variant + ".png"
+		image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
+		recolor_image(resize_image(image, width:width, height:height), color: color)
+	)
+}
+transform_symbol_icon_image :=
+{
+	if icon == "colored" then (
+		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
+		color_name := "icon/color/" + variant + "/" + input + ".png"
+		noncolor_name := "icon/color/" + variant + ".png"
+		color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
+						else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
+						else																"/magic-modules.mse-include/symbols/" + color_name
+		if contains(transform_shape, match: "modal") and background == "none" then transform_shape := transform_shape + " centered"
+		shape_name := "icon/" + (if transform_beveled then "bevel/" else "flat/") + transform_shape + ".png"
+		shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+		combine_blend(image1: recolor_image(resize_image(shape_image, width:width, height:height), color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
+	)
+	else (
+		color := if icon == "white" then rgb(255,255,255) else rgb(0,0,0)
+		name := "icon/" + (if transform_beveled then "bevel/" else "flat/") + transform_shape + ".png"
+		image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
+		recolor_image(resize_image(image, width:width, height:height), color: color)
+	)
+}
+transform_symbol_template :=
+{
+	icon :=			if		chosen(transform_field, choice: "icon default")			then	transform_symbol_default_icon(input)
+					else if	chosen(transform_field, choice: "icon colored")			then	"colored"
+					else if	chosen(transform_field, choice: "icon black")			then	"black"
+					else																	"white"
+	rim :=			if		chosen(transform_field, choice: "rim default")			then	transform_symbol_default_rim(input)
+					else if	chosen(transform_field, choice: "rim colored")			then	"colored"
+					else if	chosen(transform_field, choice: "rim black")			then	"black"
+					else if	chosen(transform_field, choice: "rim white")			then	"white"
+					else																	"none"
+	background :=	if		chosen(transform_field, choice: "background default")	then	transform_symbol_default_background(input)
+					else if	chosen(transform_field, choice: "background colored")	then	"colored"
+					else if	chosen(transform_field, choice: "background black")		then	"black"
+					else if	chosen(transform_field, choice: "background white")		then	"white"
+					else																	"none"
+	
+	image := transform_symbol_icon_image(width:width, height:height, background:background)
+	
+	if rim != "none" or background != "none" then (
+		dimensions := dimensions_of(image)
+		if rim != "none" then (
+			rim_image := resize_image(transform_symbol_rim_image(width:width, height:height), width: dimensions[0], height: dimensions[1])
+			image := insert_image(base_image: rim_image, inserted_image: image, offset_x: 0, offset_y: 0)
+		)
+		if background != "none"	then (
+			background_image :=	resize_image(transform_symbol_background_image(width:width, height:height), width: dimensions[0], height: dimensions[1])
+			image := insert_image(base_image: background_image, inserted_image: image, offset_x: 0, offset_y: 0)
+		)
+	)
+	
+	if transform_mirrored then image := flip_image(image, horizontal: true)
+	
+	image
+}
+transform_symbol_image :=
+{
+	face_map := face_coordinates_map(face)
+	if face_map.width == 0 or face_map.height == 0
+		then ""
+	else (
+		transform_field := transform_symbol_field(face)
+		transform_shape := clean_transform_symbol_shape(transform_field)
+		if		transform_shape == "none"					then ""
+		else if	transform_shape == "custom symbol one"		then custom_symbol_1()
+		else if	transform_shape == "custom symbol two"		then custom_symbol_2()
+		else if	transform_shape == "custom symbol three"	then custom_symbol_3()
+		else if	transform_shape == "custom symbol four"		then custom_symbol_4()
+		else (
+			transform_style :=		transform_symbol_style(face)
+			transform_beveled :=	transform_symbol_is_beveled(transform_field)
+			transform_mirrored :=	transform_symbol_is_mirrored(transform_field)
+			transform_folder :=		transform_symbol_image_folder()
+			if not ends_dash(transform_folder) then transform_folder := transform_folder + "/"
+			
+			template := transform_symbol_template
+			colored_lands := false
+			color_background(
+				input:				card_color_field(face),
+				type:				"whatever",
+				base_hybrid:		moving_pt_hybrid,
+				multicolor_blend:	"black"
+				hybrid_blend:		"black"
+				artifact_blend:		"black"
+				offset_x:			transform_style.left,
+				offset_y:			transform_style.top,
+				width:				transform_style.width,
+				height:				transform_style.height,
+				face_width:			face_map.width,
+				face_height:		face_map.height
+			)
+		)
+	)
+}
 
 #### General form
 transform_symbol_left :=
 {
 	map := face_coordinates_map(face)
-	mirrored := transform_symbol_is_mirrored(face)
+	mirrored := transform_symbol_is_mirrored(transform_symbol_field(face))
 	if mirrored then offset := -offset
 	if map.width > map.height then
 	(
@@ -3460,7 +3662,6 @@ transform_symbol_height :=
 #### Specific faces
 transform_symbol_face_1 := { 1 }
 transform_symbol_disabled_1 := { false }
-transform_symbol_mirrored_1 := { get_front_face(card) != nil }
 transform_symbol_offset_top_1 := { 0 }
 transform_symbol_offset_left_1 := { 0 }
 transform_symbol_offset_width_1 := { 0 }
@@ -3472,7 +3673,6 @@ transform_symbol_height_1 := { transform_symbol_height(face:transform_symbol_fac
 
 transform_symbol_face_2 := { 2 }
 transform_symbol_disabled_2 := { false }
-transform_symbol_mirrored_2 := { true }
 transform_symbol_offset_top_2 := { 0 }
 transform_symbol_offset_left_2 := { 0 }
 transform_symbol_offset_width_2 := { 0 }
@@ -3484,7 +3684,6 @@ transform_symbol_height_2 := { transform_symbol_height(face:transform_symbol_fac
 
 transform_symbol_face_3 := { 3 }
 transform_symbol_disabled_3 := { false }
-transform_symbol_mirrored_3 := { true }
 transform_symbol_offset_top_3 := { 0 }
 transform_symbol_offset_left_3 := { 0 }
 transform_symbol_offset_width_3 := { 0 }
@@ -4282,8 +4481,7 @@ casting_cost_height :=
 
 casting_cost_transform_symbol_shift :=
 {
-	if transform_symbol_field(face) == "none" or disabled
-		then 0
+	if disabled then 0
 	else (
 		map := face_coordinates_map(face)
 		29 * -(min(map.width, map.height)/375) + offset
@@ -4300,7 +4498,15 @@ casting_cost_right_1 :=  { casting_cost_right(face:nameline_face_1(),  offset:ca
 casting_cost_top_1 :=    { casting_cost_top(face:nameline_face_1(),    offset:casting_cost_offset_top_1())    }
 casting_cost_width_1 :=  { casting_cost_width(face:nameline_face_1(),  offset:casting_cost_offset_width_1())  }
 casting_cost_height_1 := { casting_cost_height(face:nameline_face_1(), offset:casting_cost_offset_height_1()) }
-casting_cost_transform_symbol_shift_1 := { casting_cost_transform_symbol_shift(face:nameline_face_1(), offset:casting_cost_transform_symbol_offset_left_1() - nameline_offset_height_1(), disabled:transform_symbol_disabled_1() or (not transform_symbol_mirrored_1())) }
+casting_cost_transform_symbol_shift_1 :=
+{
+	field := transform_symbol_field(1)
+	casting_cost_transform_symbol_shift(
+		face: nameline_face_1(),
+		offset: casting_cost_transform_symbol_offset_left_1() - nameline_offset_height_1(),
+		disabled: transform_symbol_disabled_1() or clean_transform_symbol_shape(field) == "none" or not transform_symbol_is_mirrored(field)
+	)
+}
 
 casting_cost_disabled_2 := { false }
 casting_cost_offset_top_2 := { 0 }
@@ -4312,7 +4518,15 @@ casting_cost_right_2 :=  { casting_cost_right(face:nameline_face_2(),  offset:ca
 casting_cost_top_2 :=    { casting_cost_top(face:nameline_face_2(),    offset:casting_cost_offset_top_2())    }
 casting_cost_width_2 :=  { casting_cost_width(face:nameline_face_2(),  offset:casting_cost_offset_width_2())  }
 casting_cost_height_2 := { casting_cost_height(face:nameline_face_2(), offset:casting_cost_offset_height_2()) }
-casting_cost_transform_symbol_shift_2 := { casting_cost_transform_symbol_shift(face:nameline_face_2(), offset:casting_cost_transform_symbol_offset_left_2() - nameline_offset_height_2(), disabled:transform_symbol_disabled_2() or (not transform_symbol_mirrored_2())) }
+casting_cost_transform_symbol_shift_2 :=
+{
+	field := transform_symbol_field(2)
+	casting_cost_transform_symbol_shift(
+		face: nameline_face_2(),
+		offset: casting_cost_transform_symbol_offset_left_2() - nameline_offset_height_2(),
+		disabled: transform_symbol_disabled_2() or clean_transform_symbol_shape(field) == "none" or not transform_symbol_is_mirrored(field)
+	)
+}
 
 casting_cost_disabled_3 := { false }
 casting_cost_offset_top_3 := { 0 }
@@ -4324,7 +4538,15 @@ casting_cost_right_3 :=  { casting_cost_right(face:nameline_face_3(),  offset:ca
 casting_cost_top_3 :=    { casting_cost_top(face:nameline_face_3(),    offset:casting_cost_offset_top_3())    }
 casting_cost_width_3 :=  { casting_cost_width(face:nameline_face_3(),  offset:casting_cost_offset_width_3())  }
 casting_cost_height_3 := { casting_cost_height(face:nameline_face_3(), offset:casting_cost_offset_height_3()) }
-casting_cost_transform_symbol_shift_3 := { casting_cost_transform_symbol_shift(face:nameline_face_3(), offset:casting_cost_transform_symbol_offset_left_3() - nameline_offset_height_3(), disabled:transform_symbol_disabled_3() or (not transform_symbol_mirrored_3())) }
+casting_cost_transform_symbol_shift_3 :=
+{
+	field := transform_symbol_field(3)
+	casting_cost_transform_symbol_shift(
+		face: nameline_face_3(),
+		offset: casting_cost_transform_symbol_offset_left_3() - nameline_offset_height_3(),
+		disabled: transform_symbol_disabled_3() or clean_transform_symbol_shape(transform_symbol_field(3)) == "none" or not transform_symbol_is_mirrored(transform_symbol_field(3))
+	)
+}
 
 ############################################################## Name offsets
 name_left :=
@@ -4358,8 +4580,7 @@ name_height :=
 
 name_transform_symbol_shift :=
 {
-	if transform_symbol_field(face) == "none" or disabled
-		then 0
+	if disabled then 0
 	else (
 		map := face_coordinates_map(face)
 		29 * (min(map.width, map.height)/375) + offset
@@ -4387,8 +4608,16 @@ name_left_1 :=   { name_left(face:nameline_face_1(),   offset:name_offset_left_1
 name_top_1 :=    { name_top(face:nameline_face_1(),    offset:name_offset_top_1())    }
 name_right_1 :=  { name_right(face:nameline_face_1(),  offset:name_offset_right_1())  }
 name_height_1 := { name_height(face:nameline_face_1(), offset:name_offset_height_1()) }
-name_card_symbol_shift_1 :=      { name_card_symbol_shift(face:nameline_face_1(), offset:name_card_symbol_offset_left_1(), disabled:card_symbol_disabled_1()) }
-name_transform_symbol_shift_1 := { name_transform_symbol_shift(face:nameline_face_1(), offset:name_transform_symbol_offset_left_1() + nameline_offset_height_1(), disabled:transform_symbol_disabled_1() or transform_symbol_mirrored_1()) }
+name_card_symbol_shift_1 := { name_card_symbol_shift(face:nameline_face_1(), offset:name_card_symbol_offset_left_1(), disabled:card_symbol_disabled_1()) }
+name_transform_symbol_shift_1 :=
+{
+	field := transform_symbol_field(1)
+	name_transform_symbol_shift(
+		face:nameline_face_1(),
+		offset:name_transform_symbol_offset_left_1() + nameline_offset_height_1(),
+		disabled: transform_symbol_disabled_1() or clean_transform_symbol_shape(field) == "none" or transform_symbol_is_mirrored(field)
+	)
+}
 
 name_disabled_2 := { false }
 name_offset_top_2 := { 0 }
@@ -4402,8 +4631,16 @@ name_left_2 :=   { name_left(face:nameline_face_2(),   offset:name_offset_left_2
 name_top_2 :=    { name_top(face:nameline_face_2(),    offset:name_offset_top_2())    }
 name_right_2 :=  { name_right(face:nameline_face_2(),  offset:name_offset_right_2())  }
 name_height_2 := { name_height(face:nameline_face_2(), offset:name_offset_height_2()) }
-name_card_symbol_shift_2 :=      { name_card_symbol_shift(face:nameline_face_2(), offset:name_card_symbol_offset_left_2(), disabled:card_symbol_disabled_2()) }
-name_transform_symbol_shift_2 := { name_transform_symbol_shift(face:nameline_face_2(), offset:name_transform_symbol_offset_left_2() + nameline_offset_height_2(), disabled:transform_symbol_disabled_2() or transform_symbol_mirrored_2()) }
+name_card_symbol_shift_2 := { name_card_symbol_shift(face:nameline_face_2(), offset:name_card_symbol_offset_left_2(), disabled:card_symbol_disabled_2()) }
+name_transform_symbol_shift_2 :=
+{
+	field := transform_symbol_field(2)
+	name_transform_symbol_shift(
+		face:nameline_face_2(),
+		offset:name_transform_symbol_offset_left_2() + nameline_offset_height_2(),
+		disabled: transform_symbol_disabled_2() or clean_transform_symbol_shape(field) == "none" or transform_symbol_is_mirrored(field)
+	)
+}
 
 name_disabled_3 := { false }
 name_offset_top_3 := { 0 }
@@ -4417,8 +4654,16 @@ name_left_3 :=   { name_left(face:nameline_face_3(),   offset:name_offset_left_3
 name_top_3 :=    { name_top(face:nameline_face_3(),    offset:name_offset_top_3())    }
 name_right_3 :=  { name_right(face:nameline_face_3(),  offset:name_offset_right_3())  }
 name_height_3 := { name_height(face:nameline_face_3(), offset:name_offset_height_3()) }
-name_card_symbol_shift_3 :=      { name_card_symbol_shift(face:nameline_face_3(), offset:name_card_symbol_offset_left_3(), disabled:card_symbol_disabled_3()) }
-name_transform_symbol_shift_3 := { name_transform_symbol_shift(face:nameline_face_3(), offset:name_transform_symbol_offset_left_3() + nameline_offset_height_3(), disabled:transform_symbol_disabled_3() or transform_symbol_mirrored_3()) }
+name_card_symbol_shift_3 := { name_card_symbol_shift(face:nameline_face_3(), offset:name_card_symbol_offset_left_3(), disabled:card_symbol_disabled_3()) }
+name_transform_symbol_shift_3 :=
+{
+	field := transform_symbol_field(3)
+	name_transform_symbol_shift(
+		face:nameline_face_3(),
+		offset:name_transform_symbol_offset_left_3() + nameline_offset_height_3(),
+		disabled: transform_symbol_disabled_3() or clean_transform_symbol_shape(field) == "none" or transform_symbol_is_mirrored(field)
+	)
+}
 
 ############################################################## Nameline offsets
 nameline_face_1 := { 1 }
@@ -4782,11 +5027,11 @@ custom_symbol_image := {
 	src := if style_src != "" then style_src else set["custom_symbol_"+input]
 	array := split_comma(src)
 	if not has_png(array.0) or (array.1 or else "" == "Not found")
-		then "/magic-modules.mse-include/symbols/aetherprint.png"
+		then "/magic-modules.mse-include/symbols/not found.png"
 	else (
 		link := "/magic-mainframe-extras.mse-include/" + array.0
 		if array.3 or else "" == "+" then link := enlarge(link, border_size:0.189)
-		link
+		to_image(link)
 	)
 }@(style_src:"")
 custom_symbol_1 := {
