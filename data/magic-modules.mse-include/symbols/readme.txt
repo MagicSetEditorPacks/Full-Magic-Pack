@@ -23,14 +23,6 @@ transformation:
 	height: 43h
 
 #### Customization
-#### The symbols default to "none", defaults can be changed with
-transform_symbol_default :=
-{
-	stylesheet ## reload script when template changes
-	if		margin_code == "transform1" then	"front triangle"
-	else if	margin_code == "transform2" then	"back triangle"
-	else										"eldrazi"
-}
 #### Optionally, you can adjust global alignment by defining the following functions in the init script,
 #### which must return an int corresponding to the number of pixels you want to shift things by:
 
@@ -44,35 +36,82 @@ transform_symbol_offset_left_1 := { 0 }
 transform_symbol_offset_width_1 := { 0 }
 transform_symbol_offset_height_1 := { 0 }
 
-#### By default, the symbol moves to the right when the card is a back face
-#### (that is, when it is linked to a front face). To override this behavior:
-transform_symbol_mirrored_1 := { get_front_face(card) != nil }
+#### The symbol icon defaults to "none".
+#### To override this behavior, redefine this function, for example like so:
+transform_symbol_default :=
+{
+	if		margin_code == "transform1" then	"front triangle"
+	else if	margin_code == "transform2" then	"back triangle"
+	else										"eldrazi"
+}
+
+#### There are also a number of rendering options.
+#### By default, the symbol is on the right of the card when it is a back face (that is, when it is linked to a front face),
+#### and when it is not a modal DFC. In all other cases it is on the left. To override this behavior, redefine this function.
+#### It must output either "left" or "right".
+transform_symbol_default_position :=
+{
+	if get_front_face(card) != nil
+	and not contains(transform_symbol_field(face), match: "modal")
+	then "right" else "left"
+}
 
 #### When the symbol is on the right of the card, transform_symbol_offset_left_1's effect is flipped
 #### (Positive numbers will shift to the left)
+
+#### By default, the background of the symbol is colored if the card is a modal DFC,
+#### and black otherwise. To override this behavior, redefine this function.
+#### It must output either "colored", "black", "white" or "none".
+transform_symbol_default_background :=
+{
+	if contains(transform_symbol_field(face), match: "modal")
+	then "colored" else "black"
+}
+
+#### By default, the symbol has a white rim around it. To override this behavior, redefine this function.
+#### It must output either "colored", "black", "white" or "none".
+transform_symbol_default_rim :=
+{
+	"white"
+}
+
+#### By default, the symbol has a black icon if the card is the front of a modal DFC,
+#### and a white one otherwise. To override this behavior, redefine this function.
+#### It must output either "colored", "black" or "white".
+transform_symbol_default_icon :=
+{
+	if contains(transform_symbol_field(face), match: "modal front")
+	then "black" else "white"
+}
+
+#### By default, the symbol has no bevel effect. To override this behavior, redefine this function.
+#### It must output either "yes" or "no".
+transform_symbol_default_bevel :=
+{
+	"no"
+}
+
+#### To change the folder from which the symbol images are taken:
+#### You must write the path of the folder starting from the data folder
+#### The image files must have the same names, and be placed in the same subfolders
+#### as the ones in the default folder (/magic-modules.mse-include/symbols/)
+#### You can omit some images and it will use the default ones instead
+transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
 
 #### When a symbol is present on the card, the name or casting cost need to move.
 #### You can increase/decrease the amount by which they do:
 name_transform_symbol_offset_left_1 := { 0 }
 casting_cost_transform_symbol_offset_left_1 := { 0 }
 
-#### To change the folder from which the symbol images are taken:
-#### You must write the path of the folder starting from the data folder
-#### The image files must have the same names as the ones in the default folder (/magic-modules.mse-include/symbols/)
-#### You can omit some images and it will use the default ones instead
-transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
-
 #### For the other faces on DFCs use:
 transform_symbol_offset_top_2 := { 0 }
 transform_symbol_offset_left_2 := { 0 }
 transform_symbol_offset_width_2 := { 0 }
 transform_symbol_offset_height_2 := { 0 }
-transform_symbol_mirrored_2 := { true }
 transform_symbol_offset_top_3 := { 0 }
 transform_symbol_offset_left_3 := { 0 }
 transform_symbol_offset_width_3 := { 0 }
 transform_symbol_offset_height_3 := { 0 }
-transform_symbol_mirrored_3 := { true }
 etc...
 
 #### You can disable the symbols on some of the faces,
