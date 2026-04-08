@@ -3383,23 +3383,46 @@ transform_symbol_default_rim :=
 {
 	"white"
 }
+transform_symbol_default_rim_bevel := { false }
+transform_symbol_default_rim_shadow := { false }
+transform_symbol_default_rim_shadow_color :=
+{
+	if transform_symbol_background() == "black" then rgb(128,128,128) else rgb(0,0,0)
+}
 transform_symbol_default_icon :=
 {
 	if contains(input, match: "modal front")
 	then "black" else "white"
 }
-transform_symbol_default_bevel :=
+transform_symbol_default_icon_bevel := { false }
+transform_symbol_default_icon_shadow := { false }
+transform_symbol_default_icon_shadow_color :=
 {
-	"no"
+	if transform_symbol_background() == "black" then rgb(128,128,128) else rgb(0,0,0)
 }
+transform_symbol_default_map :=
+[
+	rim:
+	[
+		render:	{ transform_symbol_default_rim() }
+		bevel:	{ transform_symbol_default_rim_bevel() }
+		shadow:	{ transform_symbol_default_rim_shadow() }
+	]
+	icon:
+	[
+		render:	{ transform_symbol_default_icon() }
+		bevel:	{ transform_symbol_default_icon_bevel() }
+		shadow:	{ transform_symbol_default_icon_shadow() }
+	]
+]
+
 transform_symbol_script :=
 {
 	input := transform_symbol_backwards_compatibility()
-	input := require_exclusive_choice(choices:	"position default, position left, position right")
-	input := require_exclusive_choice(choices:	"background default, background colored, background black, background white, background none")
-	input := require_exclusive_choice(choices:	"rim default, rim colored, rim black, rim white, rim none")
-	input := require_exclusive_choice(choices:	"icon default, icon colored, icon black, icon white")
-	input := require_exclusive_choice(choices:	"bevel default, bevel yes, bevel no")
+	input := require_exclusive_choice(choices: "position default, position left, position right")
+	input := require_exclusive_choice(choices: "background default, background colored, background black, background white, background none")
+	if		contains(last_change, match: "rim ")	then input := transform_symbol_clean_option_choices(option: "rim")
+	else if	contains(last_change, match: "icon ")	then input := transform_symbol_clean_option_choices(option: "icon")
 	input := require_exclusive_choice(choices:	"front triangle, " +
 												"day, " +
 												"moon, " +
@@ -3443,11 +3466,6 @@ transform_symbol_script :=
 												"non standard vanguard")
 	input
 }
-
-clean_transform_symbol_shape :=
-	replace@(match: "^.*, ", replace: "") +
-	replace@(match: "extra |non standard ", replace: "")
-
 transform_symbol_backwards_compatibility :=
 	#### remove sparker and modal color options
 	replace@(match: "(sparker|modal front|modal back)( [(]colored[)])? (default|white|blue|black|red|green|multicolor|colorless|artifact)", replace: "_1") +
@@ -3456,15 +3474,56 @@ transform_symbol_backwards_compatibility :=
 		if		not chosen(input, choice: "position default")
 			and	not chosen(input, choice: "position left")
 			and	not chosen(input, choice: "position right")
-		then	"position default, background default, rim default, icon default, bevel default, " + input
-		else	input
+		then "position default, background default, rim default, icon default, bevel default, " + input
+		else input
 	}
+transform_symbol_clean_option_choices :=
+{
+	#### If the user selected default, remove all other choices
+	if last_change == option + " default" then replace(input, match: option + " (colored|black|white|none|shadow|bevel), ", replace: "")
+	#### If the user selected something other than default, and we were on default, populate with default values
+	else if contains(input, match: option + " default") then (
+		input := replace(input, match: option + " default, ", replace: "")
+		bevel := contains(last_change, match: "bevel")
+		shadow := contains(last_change, match: "shadow")
+		addition :=	(if bevel or shadow													then ", " + option + " " + transform_symbol_default_map[option]["render"]()	else "") +
+					(if not bevel and transform_symbol_default_map[option]["bevel"]()	then ", " + option + " bevel"												else "") +
+					(if not shadow and transform_symbol_default_map[option]["shadow"]()	then ", " + option + " shadow"												else "")
+		replace(input, match: last_change, replace: last_change + addition)
+	)
+	#### If the user selected something other than default, and we weren't on default, just require exclusive
+	else require_exclusive_choice(input, choices: option + " colored, " + option + " black, " + option + " white, " + option + " none")
+}
+transform_symbol_clean_shape :=
+	replace@(match: "^.*, ", replace: "") +
+	replace@(match: "extra |non standard ", replace: "")
 
 transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
 transform_symbol_style := { if input <= 1 then card_style.transformation else card_style["transformation_" + input] }
 
-transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
-
+transform_symbol_background :=
+{
+	if		chosen(transform_field, choice: "background default")	then	transform_symbol_default_background(input)
+	else if	chosen(transform_field, choice: "background colored")	then	"colored"
+	else if	chosen(transform_field, choice: "background black")		then	"black"
+	else if	chosen(transform_field, choice: "background white")		then	"white"
+	else																	"none"
+}
+transform_symbol_rim :=
+{
+	if		chosen(transform_field, choice: "rim default")			then	transform_symbol_default_rim(input)
+	else if	chosen(transform_field, choice: "rim colored")			then	"colored"
+	else if	chosen(transform_field, choice: "rim black")			then	"black"
+	else if	chosen(transform_field, choice: "rim white")			then	"white"
+	else																	"none"
+}
+transform_symbol_icon :=
+{
+	if		chosen(transform_field, choice: "icon default")			then	transform_symbol_default_icon(input)
+	else if	chosen(transform_field, choice: "icon colored")			then	"colored"
+	else if	chosen(transform_field, choice: "icon black")			then	"black"
+	else																	"white"
+}
 transform_symbol_is_mirrored :=
 {
 	chosen(input, choice: "position right")
@@ -3473,19 +3532,42 @@ transform_symbol_is_mirrored :=
 		and transform_symbol_default_position(input) == "right"
 	)
 }
-transform_symbol_is_beveled :=
+transform_symbol_rim_has_bevel :=
 {
-	chosen(input, choice: "bevel yes")
+	chosen(input, choice: "rim bevel")
 	or (
-		chosen(input, choice: "bevel default")
-		and transform_symbol_default_bevel(input) == "yes"
+		chosen(input, choice: "rim default")
+		and transform_symbol_default_rim_bevel(input)
+	)
+}
+transform_symbol_rim_has_shadow :=
+{
+	chosen(input, choice: "rim shadow")
+	or (
+		chosen(input, choice: "rim default")
+		and transform_symbol_default_rim_shadow(input)
+	)
+}
+transform_symbol_icon_has_bevel :=
+{
+	chosen(input, choice: "icon bevel")
+	or (
+		chosen(input, choice: "icon default")
+		and transform_symbol_default_icon_bevel(input)
+	)
+}
+transform_symbol_icon_has_shadow :=
+{
+	chosen(input, choice: "icon shadow")
+	or (
+		chosen(input, choice: "icon default")
+		and transform_symbol_default_icon_shadow(input)
 	)
 }
 
 transform_symbol_background_image :=
 {
 	if background == "colored" then (
-		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
 		color_name := "background/color/" + variant + "/" + input + ".png"
 		noncolor_name := "background/color/" + variant + ".png"
 		color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
@@ -3494,7 +3576,6 @@ transform_symbol_background_image :=
 		resize_image(color_image, width:width, height:height)
 	)
 	else (
-		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
 		color := if background == "white" then rgb(255,255,255) else rgb(0,0,0)
 		name := "background/flat/" + variant + ".png"
 		image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
@@ -3503,73 +3584,68 @@ transform_symbol_background_image :=
 }
 transform_symbol_rim_image :=
 {
-	if rim == "colored" then (
-		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
-		color_name := "/color/" + variant + "/" + input + ".png"
-		noncolor_name := "/color/" + variant + ".png"
-		color_image :=	if		exists_in_package(transform_folder + "rim" + color_name)		then	transform_folder + "rim" + color_name
-						else if	exists_in_package(transform_folder + "rim" + noncolor_name)		then	transform_folder + "rim" + noncolor_name
-						else if	exists_in_package(transform_folder + "icon" + color_name)		then	transform_folder + "icon" + color_name
-						else if	exists_in_package(transform_folder + "icon" + noncolor_name)	then	transform_folder + "icon" + noncolor_name
-						else																			"/magic-modules.mse-include/symbols/" + color_name
-		shape_name := "rim/" + (if transform_beveled then "bevel/" else "flat/") + variant + ".png"
-		shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
-		combine_blend(image1: recolor_image(resize_image(shape_image, width:width, height:height), color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
-	)
-	else (
-		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
-		color := if rim == "white" then rgb(255,255,255) else rgb(0,0,0)
-		name := "rim/" + (if transform_beveled then "bevel/" else "flat/") + variant + ".png"
-		image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
-		recolor_image(resize_image(image, width:width, height:height), color: color)
-	)
+	rim_image :=
+		if rim == "colored" then (
+			color_name := "/color/" + variant + "/" + input + ".png"
+			noncolor_name := "/color/" + variant + ".png"
+			color_image :=	if		exists_in_package(transform_folder + "rim" + color_name)		then	transform_folder + "rim" + color_name
+							else if	exists_in_package(transform_folder + "rim" + noncolor_name)		then	transform_folder + "rim" + noncolor_name
+							else if	exists_in_package(transform_folder + "icon" + color_name)		then	transform_folder + "icon" + color_name
+							else if	exists_in_package(transform_folder + "icon" + noncolor_name)	then	transform_folder + "icon" + noncolor_name
+							else																			"/magic-modules.mse-include/symbols/" + color_name
+			shape_name := "rim/" + (if transform_bevel_rim then "bevel/" else "flat/") + variant + ".png"
+			shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+			combine_blend(image1: recolor_image(resize_image(shape_image, width:width, height:height), color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
+		)
+		else (
+			color := if rim == "white" then rgb(255,255,255) else rgb(0,0,0)
+			name := "rim/" + (if transform_bevel_rim then "bevel/" else "flat/") + variant + ".png"
+			image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
+			recolor_image(resize_image(image, width:width, height:height), color: color)
+		)
+	if transform_shadow_rim then rim_image := add_drop_shadow(rim_image, offset_x: -0.1, offset_y: 0.1, alpha: 0.9, blur_radius: 0.05, color: transform_symbol_default_rim_shadow_color())
+	rim_image
 }
 transform_symbol_icon_image :=
 {
-	if icon == "colored" then (
-		variant := if transform_shape == "modal front" then "modalfront" else if transform_shape == "modal back" then "modalback" else "normal"
-		color_name := "icon/color/" + variant + "/" + input + ".png"
-		noncolor_name := "icon/color/" + variant + ".png"
-		color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
-						else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
-						else																"/magic-modules.mse-include/symbols/" + color_name
-		if contains(transform_shape, match: "modal") and background == "none" then transform_shape := transform_shape + " centered"
-		shape_name := "icon/" + (if transform_beveled then "bevel/" else "flat/") + transform_shape + ".png"
-		shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
-		combine_blend(image1: recolor_image(resize_image(shape_image, width:width, height:height), color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
-	)
-	else (
-		color := if icon == "white" then rgb(255,255,255) else rgb(0,0,0)
-		name := "icon/" + (if transform_beveled then "bevel/" else "flat/") + transform_shape + ".png"
-		image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
-		recolor_image(resize_image(image, width:width, height:height), color: color)
-	)
+	icon_image :=
+		if icon == "colored" then (
+			color_name := "icon/color/" + variant + "/" + input + ".png"
+			noncolor_name := "icon/color/" + variant + ".png"
+			color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
+							else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
+							else																"/magic-modules.mse-include/symbols/" + color_name
+			shape_name := "icon/" + (if transform_bevel_icon then "bevel/" else "flat/") + transform_shape + ".png"
+			shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+			shape_image := resize_image(crop_image(resize_image(shape_image, width:width, height:height), offset_x: transform_symbol_icon_offset_width()-transform_symbol_icon_offset_left(), offset_y: transform_symbol_icon_offset_height()-transform_symbol_icon_offset_top(), width: width-2*transform_symbol_icon_offset_width(), height: height-2*transform_symbol_icon_offset_height()), width:width, height:height)
+			combine_blend(image1: recolor_image(shape_image, color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
+		)
+		else (
+			color := if icon == "white" then rgb(255,255,255) else rgb(0,0,0)
+			name := "icon/" + (if transform_bevel_icon then "bevel/" else "flat/") + transform_shape + ".png"
+			image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
+			recolor_image(resize_image(image, width:width, height:height), color: color)
+		)
+	if transform_shadow_icon then icon_image := add_drop_shadow(icon_image, offset_x: -0.065, offset_y: 0.05, alpha: 0.9, blur_radius: 0.02, color: transform_symbol_default_icon_shadow_color())
+	icon_image
 }
 transform_symbol_template :=
 {
-	icon :=			if		chosen(transform_field, choice: "icon default")			then	transform_symbol_default_icon(input)
-					else if	chosen(transform_field, choice: "icon colored")			then	"colored"
-					else if	chosen(transform_field, choice: "icon black")			then	"black"
-					else																	"white"
-	rim :=			if		chosen(transform_field, choice: "rim default")			then	transform_symbol_default_rim(input)
-					else if	chosen(transform_field, choice: "rim colored")			then	"colored"
-					else if	chosen(transform_field, choice: "rim black")			then	"black"
-					else if	chosen(transform_field, choice: "rim white")			then	"white"
-					else																	"none"
-	background :=	if		chosen(transform_field, choice: "background default")	then	transform_symbol_default_background(input)
-					else if	chosen(transform_field, choice: "background colored")	then	"colored"
-					else if	chosen(transform_field, choice: "background black")		then	"black"
-					else if	chosen(transform_field, choice: "background white")		then	"white"
-					else																	"none"
+	icon :=			transform_symbol_icon()
+	rim :=			transform_symbol_rim()
+	background :=	transform_symbol_background()
 	
-	image := transform_symbol_icon_image(width:width, height:height, background:background)
+	variant := if transform_symbol_modal_uses_normal_background() or not contains(transform_shape, match: "modal") then "normal" else transform_shape
+	if (background == "none" or transform_symbol_modal_uses_normal_background()) and contains(transform_shape, match: "modal") then transform_shape := transform_shape + " centered"
+	
+	image := transform_symbol_icon_image(width:width, height:height, variant:variant)
 	
 	if rim != "none" then (
-		rim_image := transform_symbol_rim_image(width:width, height:height)
+		rim_image := transform_symbol_rim_image(width:width, height:height, variant:variant)
 		image := insert_image(base_image: rim_image, inserted_image: image, offset_x: 0, offset_y: 0)
 	)
 	if background != "none"	then (
-		background_image :=	transform_symbol_background_image(width:width, height:height)
+		background_image :=	transform_symbol_background_image(width:width, height:height, variant:variant)
 		image := insert_image(base_image: background_image, inserted_image: image, offset_x: 0, offset_y: 0)
 	)
 	
@@ -3584,17 +3660,20 @@ transform_symbol_image :=
 		then ""
 	else (
 		transform_field := transform_symbol_field(face)
-		transform_shape := clean_transform_symbol_shape(transform_field)
+		transform_shape := transform_symbol_clean_shape(transform_field)
 		if		transform_shape == "none"					then ""
 		else if	transform_shape == "custom symbol one"		then custom_symbol_1()
 		else if	transform_shape == "custom symbol two"		then custom_symbol_2()
 		else if	transform_shape == "custom symbol three"	then custom_symbol_3()
 		else if	transform_shape == "custom symbol four"		then custom_symbol_4()
 		else (
-			transform_style :=		transform_symbol_style(face)
-			transform_beveled :=	transform_symbol_is_beveled(transform_field)
-			transform_mirrored :=	transform_symbol_is_mirrored(transform_field)
-			transform_folder :=		transform_symbol_image_folder()
+			transform_style :=			transform_symbol_style(face)
+			transform_bevel_rim :=		transform_symbol_rim_has_bevel(transform_field)
+			transform_shadow_rim :=		transform_symbol_rim_has_shadow(transform_field)
+			transform_bevel_icon :=		transform_symbol_icon_has_bevel(transform_field)
+			transform_shadow_icon :=	transform_symbol_icon_has_shadow(transform_field)
+			transform_mirrored :=		transform_symbol_is_mirrored(transform_field)
+			transform_folder :=			transform_symbol_image_folder()
 			if not ends_dash(transform_folder) then transform_folder := transform_folder + "/"
 			
 			template := transform_symbol_template
@@ -3616,6 +3695,14 @@ transform_symbol_image :=
 		)
 	)
 }
+
+transform_symbol_icon_offset_top := { 0 }
+transform_symbol_icon_offset_left := { 0 }
+transform_symbol_icon_offset_width := { 0 }
+transform_symbol_icon_offset_height := { 0 }
+
+transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
+transform_symbol_modal_uses_normal_background := { false }
 
 #### General form
 transform_symbol_left :=
@@ -4501,7 +4588,7 @@ casting_cost_transform_symbol_shift_1 :=
 	casting_cost_transform_symbol_shift(
 		face: nameline_face_1(),
 		offset: casting_cost_transform_symbol_offset_left_1() - nameline_offset_height_1(),
-		disabled: transform_symbol_disabled_1() or clean_transform_symbol_shape(field) == "none" or not transform_symbol_is_mirrored(field)
+		disabled: transform_symbol_disabled_1() or transform_symbol_clean_shape(field) == "none" or not transform_symbol_is_mirrored(field)
 	)
 }
 
@@ -4521,7 +4608,7 @@ casting_cost_transform_symbol_shift_2 :=
 	casting_cost_transform_symbol_shift(
 		face: nameline_face_2(),
 		offset: casting_cost_transform_symbol_offset_left_2() - nameline_offset_height_2(),
-		disabled: transform_symbol_disabled_2() or clean_transform_symbol_shape(field) == "none" or not transform_symbol_is_mirrored(field)
+		disabled: transform_symbol_disabled_2() or transform_symbol_clean_shape(field) == "none" or not transform_symbol_is_mirrored(field)
 	)
 }
 
@@ -4541,7 +4628,7 @@ casting_cost_transform_symbol_shift_3 :=
 	casting_cost_transform_symbol_shift(
 		face: nameline_face_3(),
 		offset: casting_cost_transform_symbol_offset_left_3() - nameline_offset_height_3(),
-		disabled: transform_symbol_disabled_3() or clean_transform_symbol_shape(transform_symbol_field(3)) == "none" or not transform_symbol_is_mirrored(transform_symbol_field(3))
+		disabled: transform_symbol_disabled_3() or transform_symbol_clean_shape(transform_symbol_field(3)) == "none" or not transform_symbol_is_mirrored(transform_symbol_field(3))
 	)
 }
 
@@ -4612,7 +4699,7 @@ name_transform_symbol_shift_1 :=
 	name_transform_symbol_shift(
 		face:nameline_face_1(),
 		offset:name_transform_symbol_offset_left_1() + nameline_offset_height_1(),
-		disabled: transform_symbol_disabled_1() or clean_transform_symbol_shape(field) == "none" or transform_symbol_is_mirrored(field)
+		disabled: transform_symbol_disabled_1() or transform_symbol_clean_shape(field) == "none" or transform_symbol_is_mirrored(field)
 	)
 }
 
@@ -4635,7 +4722,7 @@ name_transform_symbol_shift_2 :=
 	name_transform_symbol_shift(
 		face:nameline_face_2(),
 		offset:name_transform_symbol_offset_left_2() + nameline_offset_height_2(),
-		disabled: transform_symbol_disabled_2() or clean_transform_symbol_shape(field) == "none" or transform_symbol_is_mirrored(field)
+		disabled: transform_symbol_disabled_2() or transform_symbol_clean_shape(field) == "none" or transform_symbol_is_mirrored(field)
 	)
 }
 
@@ -4658,7 +4745,7 @@ name_transform_symbol_shift_3 :=
 	name_transform_symbol_shift(
 		face:nameline_face_3(),
 		offset:name_transform_symbol_offset_left_3() + nameline_offset_height_3(),
-		disabled: transform_symbol_disabled_3() or clean_transform_symbol_shape(field) == "none" or transform_symbol_is_mirrored(field)
+		disabled: transform_symbol_disabled_3() or transform_symbol_clean_shape(field) == "none" or transform_symbol_is_mirrored(field)
 	)
 }
 

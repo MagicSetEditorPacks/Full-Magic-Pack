@@ -36,6 +36,8 @@ transform_symbol_offset_left_1 := { 0 }
 transform_symbol_offset_width_1 := { 0 }
 transform_symbol_offset_height_1 := { 0 }
 
+#### The symbol is composed of three parts: the background, the rim and the icon.
+
 #### The symbol icon defaults to "none".
 #### To override this behavior, redefine this function, for example like so:
 transform_symbol_default :=
@@ -46,9 +48,9 @@ transform_symbol_default :=
 }
 
 #### There are also a number of rendering options.
-#### By default, the symbol is on the right of the card when it is a back face (that is, when it is linked to a front face),
-#### and when it is not a modal DFC. In all other cases it is on the left. To override this behavior, redefine this function.
-#### It must output either "left" or "right".
+#### By default, the symbol is on the right when the card is both a back face (that is, when it is linked to a front face),
+#### and at the same time is not a modal DFC. In all other cases the symbol is on the left.
+#### To override this behavior, redefine this function. It must output either "left" or "right".
 transform_symbol_default_position :=
 {
 	if get_front_face(card) != nil
@@ -84,23 +86,35 @@ transform_symbol_default_icon :=
 	then "black" else "white"
 }
 
-#### By default, the symbol has no bevel effect. To override this behavior, redefine this function.
-#### It must output either "yes" or "no".
-transform_symbol_default_bevel :=
-{
-	"no"
-}
+#### By default, the symbol rim and icon have no bevel effect, and no shadow.
+#### To override this behavior, redefine these functions. they must output either true or false.
+transform_symbol_default_rim_bevel := { false }
+transform_symbol_default_rim_shadow := { false }
+transform_symbol_default_icon_bevel := { false }
+transform_symbol_default_icon_shadow := { false }
+#### To change the shadow color:
+transform_symbol_default_rim_shadow_color := { if transform_symbol_background() == "black" then rgb(128,128,128) else rgb(0,0,0) }
+transform_symbol_default_icon_shadow_color := { if transform_symbol_background() == "black" then rgb(128,128,128) else rgb(0,0,0) }
 
 #### To change the folder from which the symbol images are taken:
-#### You must write the path of the folder starting from the data folder
-#### The image files must have the same names, and be placed in the same subfolders
-#### as the ones in the default folder (/magic-modules.mse-include/symbols/)
-#### You can omit some images and it will use the default ones instead
+#### You must write the path of the folder starting from the data folder.
+#### The image files must have the same names, and be placed in the same subfolders as the
+#### ones in the default folder (/magic-modules.mse-include/symbols/), and must all be PNGs.
+#### You can omit some images and it will use the default ones instead.
 transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
 
 #### If there is only one color for all the frames, then instead of
 #### making a folder containing the 8 variants (w u b r g m c a),
 #### make a single PNG image file with the same name as that folder.
+
+#### If the modal symbols need to use the same background as the normal ones:
+transform_symbol_modal_uses_normal_background := { true }
+
+#### If you need to move the icon placement within the symbol image:
+transform_symbol_icon_offset_top := { 0 }
+transform_symbol_icon_offset_left := { 0 }
+transform_symbol_icon_offset_width := { 0 }
+transform_symbol_icon_offset_height := { 0 }
 
 #### When a symbol is present on the card, the name or casting cost need to move.
 #### You can increase/decrease the amount by which they do:
