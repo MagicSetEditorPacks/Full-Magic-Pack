@@ -10,15 +10,6 @@ include file: /magic-modules.mse-include/namelines/card_fields_dfc
 include file: /magic-modules.mse-include/namelines/card_fields_tfc
 
 #### Customization
-#### The transform symbols default to "none", defaults can be changed with
-transform_symbol_default :=
-{
-	stylesheet ## reload script when template changes
-	if		margin_code == "transform1" then	"front triangle"
-	else if	margin_code == "transform2" then	"back triangle"
-	else										"eldrazi"
-}
-
 #### Optionally, you can define which face of the card the nameline should snap to,
 #### by defining the following function in the init script:
 nameline_face_1 := { 1 }
@@ -60,19 +51,8 @@ transform_symbol_offset_height_1 := { 0 }
 name_card_symbol_offset_left_1 := { 0 }
 name_transform_symbol_offset_left_1 := { 0 }
 
-#### By default, the transformation symbol moves to the right when the card is a back face
-#### (that is, when it is linked to a front face). To override this behavior:
-transform_symbol_mirrored_1 := { get_front_face(card) != nil }
-
-#### When the transformation symbol is on the right of the card,
-#### the casting cost needs to shift instead. To adjust that:
-casting_cost_transform_symbol_offset_left_1 := { 0 }
-
-#### To change the folder from which the transformation symbol images are taken:
-#### You must write the path of the folder starting from the data folder
-#### The image files must have the same names as the ones in the default folder (/magic-modules.mse-include/symbols/)
-#### You can omit some images and it will use the default ones instead
-transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
+#### For more in depth documentation about the transformation symbol, see this file:
+/magic-modules.mse-include/symbols/readme.txt
 
 #### For DFC or TFC templates, use:
 nameline_offset_top_2 := { 0 }

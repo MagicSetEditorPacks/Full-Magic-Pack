@@ -23,50 +23,56 @@ transformation:
 	height: 43h
 
 #### Customization
-#### Optionally, you can adjust global alignment by defining the following functions in the init script,
-#### which must return an int corresponding to the number of pixels you want to shift things by:
-
-#### To shift everything up/down:
-transform_symbol_offset_top_1 := { 0 }
-
-#### To shift everything left/right:
-transform_symbol_offset_left_1 := { 0 }
-
-#### To increase/decrease the size:
-transform_symbol_offset_width_1 := { 0 }
-transform_symbol_offset_height_1 := { 0 }
-
 #### The symbol is composed of three parts: the background, the rim and the icon.
+#### You can query the values selected by the user with the following functions:
 
-#### The symbol icon defaults to "none".
-#### To override this behavior, redefine this function, for example like so:
+#### Shape of the icon (for example: "lesson", "compass", "front triangle", "back triangle", etc...)
+transform_symbol_shape()
+
+#### Render options for the icon ("colored", "black", or "white")
+transform_symbol_icon()
+
+#### Render options for the rim ("colored", "black", "white", or "none")
+transform_symbol_rim()
+
+#### Render options for the background ("colored", "black", "white", or "none")
+transform_symbol_background()
+
+#### Bevel and shadow options for the rim and icon (true or false)
+transform_symbol_rim_has_bevel()
+transform_symbol_rim_has_shadow()
+transform_symbol_icon_has_bevel()
+transform_symbol_icon_has_shadow()
+
+#### Is the symbol on the right of the card (true or false)
+transform_symbol_is_mirrored()
+
+#### Each part of the symbol has default values.
+#### The icon shape defaults to "front triangle" if it's a front face (that is, when it is linked to a back face),
+#### "back triangle" if it's a back face, and "none" otherwise. To override this behavior, redefine this function:
 transform_symbol_default :=
 {
-	if		margin_code == "transform1" then	"front triangle"
-	else if	margin_code == "transform2" then	"back triangle"
-	else										"eldrazi"
+	if		get_back_face(card) != nil	then	"front triangle"
+	else if	get_front_face(card) != nil	then	"back triangle"
+	else										"none"
 }
 
-#### There are also a number of rendering options.
-#### By default, the symbol is on the right when the card is both a back face (that is, when it is linked to a front face),
+#### By default, the symbol is on the right when the card is both a back face,
 #### and at the same time is not a modal DFC. In all other cases the symbol is on the left.
 #### To override this behavior, redefine this function. It must output either "left" or "right".
 transform_symbol_default_position :=
 {
 	if get_front_face(card) != nil
-	and not contains(transform_symbol_field(face), match: "modal")
+	and not contains(transform_symbol_shape(), match: "modal")
 	then "right" else "left"
 }
-
-#### When the symbol is on the right of the card, transform_symbol_offset_left_1's effect is flipped
-#### (Positive numbers will shift to the left)
 
 #### By default, the background of the symbol is colored if the card is a modal DFC,
 #### and black otherwise. To override this behavior, redefine this function.
 #### It must output either "colored", "black", "white" or "none".
 transform_symbol_default_background :=
 {
-	if contains(transform_symbol_field(face), match: "modal")
+	if contains(transform_symbol_shape(), match: "modal")
 	then "colored" else "black"
 }
 
@@ -82,19 +88,19 @@ transform_symbol_default_rim :=
 #### It must output either "colored", "black" or "white".
 transform_symbol_default_icon :=
 {
-	if contains(transform_symbol_field(face), match: "modal front")
+	if transform_symbol_shape() == "modal front"
 	then "black" else "white"
 }
 
-#### By default, the symbol rim and icon have no bevel effect, and no shadow.
-#### To override this behavior, redefine these functions. they must output either true or false.
+#### By default, the rim and icon have no bevel effect, and no shadow.
+#### To override this behavior, redefine these functions. They must output either true or false.
 transform_symbol_default_rim_bevel := { false }
 transform_symbol_default_rim_shadow := { false }
 transform_symbol_default_icon_bevel := { false }
 transform_symbol_default_icon_shadow := { false }
 #### To change the shadow color:
-transform_symbol_default_rim_shadow_color := { if transform_symbol_background() == "black" then rgb(128,128,128) else rgb(0,0,0) }
-transform_symbol_default_icon_shadow_color := { if transform_symbol_background() == "black" then rgb(128,128,128) else rgb(0,0,0) }
+transform_symbol_default_rim_shadow_color := { if transform_symbol_background() == "black" or transform_symbol_icon() == "black" then rgb(100,100,100) else rgb(0,0,0) }
+transform_symbol_default_icon_shadow_color := { if transform_symbol_background() == "black" or transform_symbol_icon() == "black" then rgb(100,100,100) else rgb(0,0,0) }
 
 #### To change the folder from which the symbol images are taken:
 #### You must write the path of the folder starting from the data folder.
@@ -115,6 +121,16 @@ transform_symbol_icon_offset_top := { 0 }
 transform_symbol_icon_offset_left := { 0 }
 transform_symbol_icon_offset_width := { 0 }
 transform_symbol_icon_offset_height := { 0 }
+
+#### Optionally, you can adjust global alignment of the entire symbol by defining the following functions,
+#### which must return an int corresponding to the number of pixels you want to shift things by:
+transform_symbol_offset_top_1 := { 0 }
+transform_symbol_offset_left_1 := { 0 }
+transform_symbol_offset_width_1 := { 0 }
+transform_symbol_offset_height_1 := { 0 }
+
+#### When the symbol is on the right of the card, transform_symbol_offset_left_1's effect is flipped
+#### (Positive numbers will shift to the left)
 
 #### When a symbol is present on the card, the name or casting cost need to move.
 #### You can increase/decrease the amount by which they do:
