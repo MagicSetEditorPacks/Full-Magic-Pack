@@ -153,3 +153,17 @@ etc...
 transform_symbol_disabled_1 := { true }
 transform_symbol_disabled_2 := { true }
 transform_symbol_disabled_3 := { true }
+
+
+
+#### A GIMP script is provided to turn normal symbol images into the kind of images this module uses.
+
+#### To Install this script, open GIMP 3.X or later, go to "Edit" menu > "Preferences", then under "Folders", select "Plug-ins".
+#### Select one of the folders in the list, then click on the icon to the right labeled "Show file location in the file manager".
+#### It will open the system explorer, navigate inside the folder named "plug-ins", then copy the folder (not the contents)
+#### "data/magic-modules.mse-include/symbols/mse-transformation-symbols/" into this "plug-ins" folder. Restart GIMP.
+
+#### To use this script, open the blank symbol image "data/magic-modules.mse-include/symbols/blank.png", and add your symbol in the circle.
+#### Your symbol must be white on the image's black background. Save this image in a folder, then go to "Tools" menu > "Transformation Symbols...".
+#### Select the folder you saved your image in. (You can save multiple different images if you want.) Click OK. The script will create
+#### a sub folder called "shape", where it will store the results. Save these in "data/magic-modules.mse-include/symbols/icon/shape/".

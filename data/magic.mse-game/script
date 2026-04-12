@@ -3572,99 +3572,85 @@ transform_symbol_icon_has_shadow :=
 ############ Image creation (input is the 'template' blending function input, so: w,u,b,r,g,m,c,a)
 transform_symbol_background_image :=
 {
-	background_image :=
-		if background == "colored" then (
-			color_name := "background/color/" + variant + "/" + input + ".png"
-			noncolor_name := "background/color/" + variant + ".png"
-			#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
-			color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
-							else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
-							else																"/magic-modules.mse-include/symbols/" + color_name
-			resize_image(color_image, width:width, height:height)
-		)
-		else (
-			color := if background == "white" then rgb(255,255,255) else rgb(0,0,0)
-			name := "background/flat/" + variant + ".png"
-			image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
-			recolor_image(resize_image(image, width:width, height:height), color: color)
-		)
-	if transform_mirrored then background_image := flip_image(background_image, horizontal: true)
-	background_image
+	color_name := "background/" + background + "/" + variant + "/" + input + ".png"
+	noncolor_name := "background/" + background + "/" + variant + ".png"
+	#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
+	image :=	if		exists_in_package(transform_folder						+ color_name)		then	transform_folder						+ color_name
+				else if	exists_in_package(transform_folder						+ noncolor_name)	then	transform_folder						+ noncolor_name
+				else if	exists_in_package("/magic-modules.mse-include/symbols/"	+ color_name)		then	"/magic-modules.mse-include/symbols/"	+ color_name
+				else																						"/magic-modules.mse-include/symbols/"	+ noncolor_name
+	image := resize_image(image, width:width, height:height)
+	
+	if transform_mirrored then image := flip_image(image, horizontal: true)
+	image
 }
 transform_symbol_rim_image :=
 {
-	rim_image :=
-		if rim == "colored" then (
-			color_name := "/color/" + variant + "/" + input + ".png"
-			noncolor_name := "/color/" + variant + ".png"
-			#### Try to find the folder with the color variants first, fall back on the non colored file, if still no dice try the icon files, finally fall back on module files
-			color_image :=	if		exists_in_package(transform_folder + "rim" + color_name)		then	transform_folder + "rim" + color_name
-							else if	exists_in_package(transform_folder + "rim" + noncolor_name)		then	transform_folder + "rim" + noncolor_name
-							else if	exists_in_package(transform_folder + "icon" + color_name)		then	transform_folder + "icon" + color_name
-							else if	exists_in_package(transform_folder + "icon" + noncolor_name)	then	transform_folder + "icon" + noncolor_name
-							else																			"/magic-modules.mse-include/symbols/" + color_name
-			shape_name := "rim/" + (if transform_bevel_rim then "bevel/" else "flat/") + variant + ".png"
-			shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
-			combine_blend(image1: recolor_image(resize_image(shape_image, width:width, height:height), color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
-		)
-		else (
-			color := if rim == "white" then rgb(255,255,255) else rgb(0,0,0)
-			name := "rim/" + (if transform_bevel_rim then "bevel/" else "flat/") + variant + ".png"
-			image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
-			recolor_image(resize_image(image, width:width, height:height), color: color)
-		)
+	#### Get the image that contains the texture
+	color_name :=	if rim == "colored" then "/texture/" + variant + "/" + input + ".png"
+					else "/texture/" + (if transform_bevel_rim then "off " else "pure ") + rim + ".png"
+	noncolor_name := if rim == "colored" then "/texture/" + variant + ".png" else color_name
+	#### Try to find the folder with the color variants first, fall back on the non colored file, if still no dice try the icon files, finally fall back on module files
+	color_image :=	if		exists_in_package(transform_folder + "rim" + color_name)		then	transform_folder + "rim" + color_name
+					else if	exists_in_package(transform_folder + "rim" + noncolor_name)		then	transform_folder + "rim" + noncolor_name
+					else if	exists_in_package(transform_folder + "icon" + color_name)		then	transform_folder + "icon" + color_name
+					else if	exists_in_package(transform_folder + "icon" + noncolor_name)	then	transform_folder + "icon" + noncolor_name
+					else																			"/magic-modules.mse-include/symbols/rim" + color_name
+	color_image := resize_image(color_image, width:width, height:height)
+	
+	#### Get the image that contains the shape
+	shape_name := "rim/shape/" + variant + ".png"
+	shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+	shape_image := resize_image(shape_image, width:width, height:height)
+	if not transform_bevel_rim then shape_image := fill_image(shape_image, color: rgb(128,128,128))
+	
+	#### Bake the texture onto the shape
+	rim_image := combine_blend(image1: color_image, image2: shape_image, combine: "lightmap relative")
+	
+	#### Mirror
 	if transform_mirrored then rim_image := flip_image(rim_image, horizontal: true)
-	if transform_shadow_rim then rim_image := add_drop_shadow(rim_image, offset_x: -0.039, offset_y: 0.03, alpha: 0.9, blur_radius: 0.015, color: transform_symbol_default_rim_shadow_color(transform_field))
+	
+	#### Shadow last so it doesn't get flipped
+	if transform_shadow_rim then rim_image := add_drop_shadow(rim_image, offset_x: -0.04, offset_y: 0.03, alpha: 0.9, blur_radius: 0.01, color: transform_symbol_default_rim_shadow_color(transform_field))
 	rim_image
 }
 transform_symbol_icon_image :=
 {
-	icon_image :=
-		if icon == "colored" then (
-			color_name := "icon/color/" + variant + "/" + input + ".png"
-			noncolor_name := "icon/color/" + variant + ".png"
-			#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
-			color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
-							else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
-							else																"/magic-modules.mse-include/symbols/" + color_name
-			shape_name := "icon/" + (if transform_bevel_icon then "bevel/" else "flat/") + transform_shape + ".png"
-			shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
-			#### Offsets
-			shape_image := crop_image(
-				resize_image(
-					shape_image,
-					width:width+2*transform_symbol_icon_offset_width(transform_field),
-					height:height+2*transform_symbol_icon_offset_height(transform_field)
-				),
-				offset_x: transform_symbol_icon_offset_width(transform_field)-transform_symbol_icon_offset_left(transform_field),
-				offset_y: transform_symbol_icon_offset_height(transform_field)-transform_symbol_icon_offset_top(transform_field),
-				width:width,
-				height:height
-			)
-			#### Bake texture
-			combine_blend(image1: recolor_image(shape_image, color:rgb(255,255,255)), image2: resize_image(color_image, width:width, height:height), combine: "multiply")
-		)
-		else (
-			color := if icon == "white" then rgb(255,255,255) else rgb(0,0,0)
-			name := "icon/" + (if transform_bevel_icon then "bevel/" else "flat/") + transform_shape + ".png"
-			image := if exists_in_package(transform_folder + name) then transform_folder + name else "/magic-modules.mse-include/symbols/" + name
-			image := crop_image(
-				resize_image(
-					image,
-					width:width+2*transform_symbol_icon_offset_width(transform_field),
-					height:height+2*transform_symbol_icon_offset_height(transform_field)
-				),
-				offset_x: transform_symbol_icon_offset_width(transform_field)-transform_symbol_icon_offset_left(transform_field),
-				offset_y: transform_symbol_icon_offset_height(transform_field)-transform_symbol_icon_offset_top(transform_field),
-				width:width,
-				height:height
-			)
-			recolor_image(image, color: color)
-		)
+	#### Get the image that contains the texture
+	color_name :=	if icon == "colored" then "icon/texture/" + variant + "/" + input + ".png"
+					else "icon/texture/" + (if transform_bevel_icon then "off " else "pure ") + icon + ".png"
+	noncolor_name := if icon == "colored" then "icon/texture/" + variant + ".png" else color_name
+	#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
+	color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
+					else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
+					else																"/magic-modules.mse-include/symbols/" + color_name
+	color_image := resize_image(color_image, width:width, height:height)
+	
+	#### Get the image that contains the shape
+	shape_name := "icon/shape/" + transform_shape + ".png"
+	shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+	#### Offsets
+	shape_image := crop_image(
+		resize_image(
+			shape_image,
+			width:width+2*transform_symbol_icon_offset_width(transform_field),
+			height:height+2*transform_symbol_icon_offset_height(transform_field)
+		),
+		offset_x: transform_symbol_icon_offset_width(transform_field)-transform_symbol_icon_offset_left(transform_field),
+		offset_y: transform_symbol_icon_offset_height(transform_field)-transform_symbol_icon_offset_top(transform_field),
+		width:width,
+		height:height
+	)
+	if not transform_bevel_icon then shape_image := fill_image(shape_image, color: rgb(128,128,128))
+	
+	#### Bake the texture onto the shape
+	icon_image := combine_blend(image1: color_image, image2: shape_image, combine: "lightmap relative")
+	
 	#### Mirror
 	if transform_mirrored then icon_image := flip_image(icon_image, horizontal: true)
+	
 	#### Shadow last so it doesn't get flipped
-	if transform_shadow_icon then icon_image := add_drop_shadow(icon_image, offset_x: -0.065, offset_y: 0.05, alpha: 0.9, blur_radius: 0.02, color: transform_symbol_default_icon_shadow_color(transform_field))
+	if transform_shadow_icon then icon_image := add_drop_shadow(icon_image, offset_x: -0.06, offset_y: 0.045, alpha: 0.9, blur_radius: 0.015, color: transform_symbol_default_icon_shadow_color(transform_field))
 	icon_image
 }
 transform_symbol_template :=
