@@ -1,25 +1,156 @@
-mse version: 2.0.0
-game: magic
-short name: Playtest
-full name: Playtest Card
-installer group: magic/playtest style
-icon: card-sample.png
-position hint: 999
+mse version:		2.6.0
+game:				magic
+short name:			Playtest Main
+full name:			Proxy Card
+icon:				card_sample.png
+position hint:		032000
+installer group:	magic/M15 Frames/Uncommon/Playtest Main
 
-version: 2018-02-22
+
+version:			2026-04-22
 depends on:
-	package: magic.mse-game
-	version: 2007-12-29
+	package:			magic.mse-game
+	version:			2007-12-29
+depends on:
+	package:			magic-modules.mse-include
+	version:			2024-05-20
 
-card background: white
-card width: 338
-card height: 497
-card dpi: 138
+card background:	white
+card width:			650
+card height:		986
+card dpi:			300
 
 ############################################################## Extra scripts
 init script:
+	swap_fonts_pt_default :=
+	[
+		name: {"MyriadPro-Bold"},
+		size: {30.0},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MyriadPro-Bold-Italic"}
+	]
+	
+	swap_fonts_body_default :=
+	[
+		name: {"MyriadPro-Regular"},
+		size: {26.0},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MyriadPro-CondIt"}
+	]
+	
+	typeline_offset_top_1 := { -83 }
+	typeline_offset_left_1 := { -8 }
+	typeline_offset_width_1 := { 16 }
+	indicator_offset_top_1 := { -1 }
+	rarity_offset_left_1 := { -2 }
+	typeline_character_limit := 30
+	swap_fonts_type_default :=
+	[
+		name: {"MyriadPro-Regular"},
+		size: { 28.0 - max(0, (length(to_text(card.type)) - typeline_character_limit) / 3) },
+		color: {"black"},
+		vertical: {0},
+		italic: {"MyriadPro-CondIt"}
+	]
+	
+	nameline_offset_top_1 := { -7 }
+	nameline_offset_left_1 := { -9 }
+	nameline_offset_height_1 := { 2 }
+	nameline_offset_width_1 := { 12 }
+	casting_cost_offset_top_1 := { 2 }
+	transform_symbol_disabled_1 := { true }
+	swap_fonts_name_default :=
+	[
+		name: {"MyriadPro-Bold"},
+		size: {30.0},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MyriadPro-Bold-Italic"}
+	]
+	
+	information_offset_top_1 := { 16 }
+	information_secondary_shift_with_pt_1 := { false }
+	
+	template_prefix :=
+	[
+		identity:	"/magic-modules.mse-include/indicators/",
+		identity2:	"/magic-modules.mse-include/indicators/",
+	]
+	template_suffix :=
+	[
+		identity:	"identity.png",
+		identity2:	"identity.png",
+	]
+	
+	color_name_map :=
+	[
+		w:		"white",
+		u:		"blue",
+		b:		"black",
+		r:		"red",
+		g:		"green",
+		c:		"colorless",
+		a:		"artifact"
+		m:		"gold"
+	]
+	
+	normal_template := { template_prefix[type] + input + template_suffix[type] }
+	normal_land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
+	
+	template := { if contains(type, match: "identity") then normal_template() else complete_card_image(input) }
+	land_template := { if contains(type, match: "identity") then normal_land_template() else complete_card_image(input) }
+	
+	card_background := { color_background(input: card.card_color, type: "card", base_hybrid: card_hybrid, multicolor_blend: "white", hybrid_blend: "white", artifact_blend: "white") }
+	
+	is_promo := { styling.promo }
+	
+	is_unsorted := { styling.remove_from_autocount }
+	
+	is_crowned := { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
+	
+	chop_top := { split := split_comma(styling.chop_text_box); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -1500) else 0 }
+	chop_bot := { split := split_comma(styling.chop_text_box); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: -1500) else 0 }
+	
+	art_left :=		{ 40 }
+	art_top :=		{ 110 }
+	art_width :=	{ 570 }
+	art_bottom :=	{ 454 + move_typeline() }
+	
+	alignment_script :=
+	{
+		if	(styling.center_text == "short text only" and
+			not contains(match:"\n", card.rule_text) and
+			card.flavor_text == "<i-flavor></i-flavor>" and
+			card_style.text.content_lines <= 2) or
+			styling.center_text == "always"
+		then "middle center"
+		else "middle left"
+	}
+	
+	move_typeline :=
+	{
+		to_number_lax(styling.move_typeline)
+	}
+	
+	border_mask :=
+	{
+		result := insert_image(base_image: "border_card.png", inserted_image: "border_type.png", offset_x: 38, offset_y: 454 + move_typeline())
+		if card.pt != "" then result := insert_image(base_image: result, inserted_image: "border_pt.png", offset_x: 489, offset_y: 877)
+		result
+	}
+	
+	complete_card_image :=
+	{
+		result := insert_image(base_image: "card.png", inserted_image: "type.png", offset_x: 38, offset_y: 455 + move_typeline())
+		if card.pt != "" then result := insert_image(base_image: result, inserted_image: "pt.png", offset_x: 490, offset_y: 877)
+		recolor_image(result, color: styling[color_name_map[input] + "_color"])
+	}
+	
 	# Script for the sort code field.
-	playtest_rarity_code :={
+	playtest_rarity_code :=
+	{
 		rarity := card.rarity
 		if rarity == "basic land" then "B"
 		else if rarity == "common" then "C"
@@ -29,7 +160,8 @@ init script:
 		else if rarity == "special" then "S"
 		else "C"
 	}
-	playtest_color_code := {
+	playtest_color_code :=
+	{
 		casting_cost := card.casting_cost
 		card_color := card.card_color
 		colors := sort_text(casting_cost, order: "<WUBRG>")
@@ -44,10 +176,13 @@ init script:
 		else if chosen(choice:"land", card_color) then "L"
 		else "A"
 	}
-	playtest_sort_code := { set.title + " - " + playtest_rarity_code () + playtest_color_code() + ", " + playtest_code_number()
+	playtest_sort_code :=
+	{
+		(if set.title != "" then set.title + " - " else "") + playtest_rarity_code () + playtest_color_code() + ", " + playtest_code_number()
 	}
 	
-	playtest_rarity_filter :={
+	playtest_rarity_filter :=
+	{
 		rarity := card.rarity
 		if rarity == "basic land" then {card.rarity == "basic land"}
 		else if rarity == "common" then {card.rarity == "common"}
@@ -57,7 +192,8 @@ init script:
 		else {card.rarity == "special"}
 	}
 
-	playtest_color_filter :={
+	playtest_color_filter :=
+	{
 		casting_cost := card.casting_cost
 		card_color := card.card_color
 		card_type := card.type
@@ -73,223 +209,439 @@ init script:
 		else { contains(card.card_color, match:"artifact") or contains(card.card_color, match:"colorless") }
 	}
 	
-	playtest_code_number := {
-		position (
+	playtest_code_number :=
+	{
+		position(
 			of: card
 			in: set
 			order_by: { to_string(card.time_created,format:"%S%M%H%d%m%y") }
 			filter: playtest_color_filter()
 		) + 1
 	}
+
 ############################################################## Extra style options
 styling field:
-	type: choice
-	name: frame style
-	description: Should the frame be totally blank, or read MTG Confidential?
-	initial: blank
-	choice: blank
-	choice: mtg confidential
+	type:			boolean
+	name:			confidential
+	description:	Should the frame have the "Confidential" text?
+	initial:		no
+styling field:
+	type:			boolean
+	name:			art
+	description:	Should the frame have an illustration?
+	initial:		no
+styling field:
+	type:			boolean
+	name:			code
+	description:	Should the frame show its playtest code?
+	initial:		yes
+styling field:
+	type:			boolean
+	name:			time created
+	description:	Should the frame show when it was created / modified?
+	initial:		yes
+styling field:
+	type:			color
+	name:			white color
+	description:	Use the specified color for white cards.
+	choice:
+		name:			canon
+		color:			rgb(241,242,236)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(241,242,236)
+styling field:
+	type:			color
+	name:			blue color
+	description:	Use the specified color for blue cards.
+	choice:
+		name:			canon
+		color:			rgb(2,119,177)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(2,119,177)
+styling field:
+	type:			color
+	name:			black color
+	description:	Use the specified color for black cards.
+	choice:
+		name:			canon
+		color:			rgb(57,54,48)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(57,54,48)
+styling field:
+	type:			color
+	name:			red color
+	description:	Use the specified color for red cards.
+	choice:
+		name:			canon
+		color:			rgb(230,77,52)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(230,77,52)
+styling field:
+	type:			color
+	name:			green color
+	description:	Use the specified color for green cards.
+	choice:
+		name:			canon
+		color:			rgb(14,116,70)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(14,116,70)
+styling field:
+	type:			color
+	name:			gold color
+	description:	Use the specified color for gold cards.
+	choice:
+		name:			canon
+		color:			rgb(219,209,84)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(219,209,84)
+styling field:
+	type:			color
+	name:			artifact color
+	description:	Use the specified color for artifact cards.
+	choice:
+		name:			canon
+		color:			rgb(90,140,160)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(90,140,160)
+styling field:
+	type:			color
+	name:			colorless color
+	description:	Use the specified color for colorless cards.
+	choice:
+		name:			canon
+		color:			rgb(153,138,125)
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	initial:		rgb(153,138,125)
+styling field:
+	type:			slider
+	name:			move typeline
+	description:	Move the typeline up or down
+	minimum:		-300
+	maximum:		300
+	initial:		0
+
+include file: /magic-modules.mse-include/texts/styling_fields
+
+include file: /magic-modules.mse-include/rarities/styling_fields
+
+include file: /magic-modules.mse-include/indicators/styling_fields
+
+include file: /magic-modules.mse-include/watermarks/styling_fields
+
+styling field:
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+
+styling field:
+	type:			boolean
+	name:			remove from autocount
+	description:	Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			promo
+	description:	Is this card a promo card, with the "P" rarity?
+	initial:		no
+styling field:
+	type:			color
+	name:			copyright text color
+	description:	Color of the copyright, illustrator, card number, and set code text.
+	choice:			black
+	choice:			white
+
+styling field:
+	type:			package choice
+	name:			casting cost mana symbols
+	description:	Mana symbols used for casting cost, name, banner, fuse and transformation reminder.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-ravnica-dossier.mse-symbol-font
+styling field:
+	type:			package choice
+	name:			text box mana symbols
+	description:	Mana symbols used inside rule text.
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-ravnica-dossier.mse-symbol-font
+styling field:
+	type:			boolean
+	name:			use ancestral mana symbols
+	description:	Enables ancestral's modified generic mana.
+	initial:		no
+styling field:
+	type:			boolean
+	name:			use guild mana symbols
+	description:	Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial:		no
+styling field:
+	type:			choice
+	name:			tap symbol
+	description:	What tap and untap symbols should be used on cards?
+	choice:			modern
+	choice:			old
+	choice:			diagonal T
+	initial:		modern
 styling style:
-	frame style:
-		render style: both
+	use ancestral mana symbols:
 		choice images:
-			blank: card2.png
-			mtg confidential:  card.png
+			yes:				/magic-modules.mse-include/symbol-fonts/generic_ancestral.png
+			no:					/magic-modules.mse-include/symbol-fonts/generic_normal.png
+	use guild mana symbols:
+		choice images:
+			yes:				/magic-modules.mse-include/symbol-fonts/hybrid_guild.png
+			no:					/magic-modules.mse-include/symbol-fonts/hybrid_normal.png
+	tap symbol:
+		render style:	both
+		choice images:
+			modern:				/magic-modules.mse-include/symbol-fonts/tap_new.png
+			old:				/magic-modules.mse-include/symbol-fonts/tap_old.png
+			diagonal T:			/magic-modules.mse-include/symbol-fonts/tap_older.png
+
+include file: /magic-modules.mse-include/fonts/styling_fields
+
 ############################################################## Card fields
+
+include file: /magic-modules.mse-include/namelines/card_fields
+
+include file: /magic-modules.mse-include/information/card_fields
+
+include file: /magic-modules.mse-include/watermarks/card_fields
+
 card style:
 	############################# Background stuff
 	border color:
-		left: 0
-		top : 0
-		width:	338
-		height:	497
-		radius: 18
-		left width:   17
-		right width:  17
-		top width:    17
-		bottom width: 18
-		z index: -1
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			0
+		mask:				{ border_mask() }
 	card color:
-		left:	0
-		top:	0
-		width:	338
-		height:	497
-		z index: -2
-		render style: image
-		popup style: in place
-		image:
-			script:
-				if styling.frame_style == "blank" then "card2.png"
-				else "card.png"
-
-	############################# Name line
-	name:
-		left:   29
-		top :   29
-		right:  { 317 - card_style.casting_cost.content_width }
-		height: 23
-		alignment: bottom shrink-overflow
-		padding bottom: 0
-		z index: 1
-		font:
-			name: Times New Roman
-			size: 18
-			weight: bold
-			color: rgb(0,0,0)
-	casting cost:
-		right: 317
-		top : 29
-		width: { max(30, card_style.casting_cost.content_width) + 5 }
-		height: 23
-		alignment: bottom right
-		font:
-			name: Times New Roman
-			size: 18
-		z index: 2
-		padding top: 0
-
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			100
+		popup style:		in place
+		render style:		image
+		image:				{ card_background() }
 	############################# Image
-
-	############################# Card type
-
+	image:
+		left:				{ art_left() }
+		top:				{ art_top() }
+		width:				{ art_width() }
+		bottom:				{ art_bottom() }
+		z index:			200
+		visible:			{ styling.art }
+	############################# Typeline
 	type:
-		left: 29
-		top : 202
-		width: 215
-		height: 20
-		alignment: top shrink-overflow
-		z index: 1
-		padding top: 2
+		left:				{ indicator_left_1() + type_indicator_shift_1() + type_offset_left_1() + typeline_offset_left_1() }
+		top:				{ indicator_top_1() - indicator_size_1() * 0.2 + type_offset_top_1() + typeline_offset_top_1() + type_font_vertical() + move_typeline() }
+		right:				{ min(rarity_left_1() + type_offset_right_1() + typeline_offset_left_1() + typeline_offset_width_1() - typeline_offset_height_1(), 604) }
+		height:				{ indicator_size_1() * 1.3 + type_offset_height_1() + typeline_offset_height_1() }
+		z index:			900
+		alignment:			middle left shrink-overflow
+		visible:			{ (not typeline_disabled_1()) and not type_disabled_1() }
 		font:
-			name: Times New Roman
-			size: 15
-			color: rgb(0,0,0)
-			separator color: rgb(128,128,128)
-
+			name:				{ type_font() }
+			italic name:		{ type_font_italic() }
+			size:				{ type_font_size() }
+			color:				{ type_font_color() }
+			separator color:	red
 	rarity:
-		right: 296
-		top : 203
-		width: 44
-		height: 22
-		z index: 1
-		choice images:
-			# Images based on the set symbol
-			basic land: script: symbol_variation(symbol: set.symbol, variation: "common")
-			common:     script: symbol_variation(symbol: set.symbol, variation: "common")
-			uncommon:   script: symbol_variation(symbol: set.symbol, variation: "common")
-			rare:       script: symbol_variation(symbol: set.symbol, variation: "common")
-			mythic rare:       script: symbol_variation(symbol: set.symbol, variation: "common")
-			special:    script: symbol_variation(symbol: set.symbol, variation: "common")
-			masterpiece: script: symbol_variation(symbol: set.masterpiece_symbol, variation: "common")
-
+		right:				{ rarity_right_1() + typeline_offset_left_1() + typeline_offset_width_1() }
+		top:				{ rarity_top_1() + typeline_offset_top_1() + move_typeline() }
+		width:				{ rarity_width_1() + typeline_offset_height_1() }
+		height:				{ rarity_height_1() + typeline_offset_height_1() }
+		z index:			950
+		alignment:			middle right
+		visible:			{ (not typeline_disabled_1()) and not rarity_disabled_1() }
+		render style:		image
+		include file:		/magic-modules.mse-include/rarities/choice_images
+	indicator:
+		left:				{ indicator_left_1() + typeline_offset_left_1() }
+		top:				{ indicator_top_1() + typeline_offset_top_1() + move_typeline() }
+		width:				{ indicator_size_1() + typeline_offset_height_1() }
+		height:				{ indicator_size_1() + typeline_offset_height_1() }
+		z index:			800
+		render style:		image
+		visible:			{ styling.color_indicator_dot }
+		image:				{ module_identity(card.indicator) }
 	############################# Text box
 	text:
-		left: 29
-		top : 252
-		width: 283
-		height: 165
+		left:				50
+		top:				{ 553 + chop_top() + body_font_vertical() + move_typeline() }
+		right:				600
+		bottom:				{ 857 - chop_bot() }
+		z index:			900
+		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height line:	1.5
+		line height soft:	0.9
+		line height hard max:	{ if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height line max:	1.6
+		alignment:			{ alignment_script() }
 		font:
-			name: Times New Roman
-			italic name: Times New Roman
-			size: 15
-			scale down to: 6
-			color: rgb(0,0,0)
-		alignment: middle left
-		z index: 2
-		padding left:   6
-		padding top:    2
-		padding right:  4
-		padding bottom: 2
-		line height hard: 1.2
-		line height line: 1.5
-
-
+			name:				{ body_font() }
+			italic name:		{ body_font_italic() }
+			size:				{ body_font_size() }
+			scale down to:		7
+			color:				{ body_font_color() }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ body_font_size() }
+			scale down to:		7
 	############################# PT
 	pt:
-		z index: 4
-		left:	256
-		top:	443
-		width:	60
-		height:	28
-		alignment: center middle
+		left:				510
+		top:				{ 878 + pt_font_vertical() }
+		width:				91
+		height:				45
+		z index:			900
+		alignment:			center middle shrink-overflow
 		font:
-			name: Times New Roman
-			size: 17
-			weight: bold
-			color: rgb(0,0,0)
-			separator color: rgb(200,0,0)
-
-	############################# Card sorting / numbering
-	############################# Copyright stuff
-	copyright line:
-		z index: 4
-		left: 29
-		right: 256
-		height: 20
-		top: 453
-		alignment: left middle  shrink-overflow
-		font:
-			name: Times New Roman
-			size: 10
-			scale down to: 4
-			weight: bold
+			name:				{ pt_font() }
+			size:				{ pt_font_size() }
+			color:				{ pt_font_color() }
+			separator color:	red
 
 ############################################################## Extra card fields
 extra card field:
-	type: text
-	name: created
-	editable: false
-	script: "Time Created: " + to_string(card.time_created,format:"%y-%m-%d, %H:%M:%S")
-	save value: false
+	type:				text
+	name:				test card text
+	default:			"<i><b><font:Myriad Pro>TEST CARD</font:Myriad Pro></b> - Not for constructed play</i>"
 extra card field:
-	type: text
-	name: modified
-	editable: false
-	script: "Time Modified: " + to_string(card.time_modified,format:"%y-%m-%d, %H:%M:%S")
-	save value: false
+	type:				text
+	name:				sort code
+	save value:			false
+	editable:			false
+	script:				playtest_sort_code()
 extra card field:
-	type: text
-	name: sort code
-	save value: false
-	editable: false
-	script: playtest_sort_code()
+	type:				text
+	name:				created
+	editable:			false
+	save value:			false
+	script:				"Time Created: " + to_string(card.time_created,format:"%y-%m-%d, %H:%M:%S")
+extra card field:
+	type:				text
+	name:				modified
+	editable:			false
+	save value:			false
+	script:				"Time Modified: " + to_string(card.time_modified,format:"%y-%m-%d, %H:%M:%S")
+extra card field:
+	type:				choice
+	name:				confidential
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				confidential
+extra card field:
+	type:				choice
+	name:				foil layer
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				foil layer
+
 extra card style:
 	sort code:
-		left: 20
-		top: 140
-		width: 298
-		height: 20
-		z index: 2
-		alignment: center middle shrink-overflow
+		left:				50
+		top:				110
+		width:				500
+		height:				50
+		z index:			900
+		alignment:			left middle shrink-overflow
+		visible:			{ styling.code }
 		font:
-			name: Times New Roman
-			size: 14
-			scale down to: 6
-			weight: bold
-			color: rgb(0,0,0)
+			name:				Times New Roman
+			size:				28
+			scale down to:		6
+			weight:				bold
+			color:				rgb(0,0,0)
+			stroke color:		{ if styling.art then rgba(255,255,255,255) else rgba(0,0,0,0) }
+			stroke radius:		2
+			stroke blur:		0.55
 	created:
-		left: 20
-		top: 80
-		width: 298
-		height: 20
-		z index: 2
-		alignment: center middle shrink-overflow
+		left:				50
+		top:				{ 170 - if styling.code then 0 else 60 }
+		width:				500
+		height:				50
+		z index:			900
+		alignment:			left middle shrink-overflow
+		visible:			{ styling.time_created }
 		font:
-			name: Times New Roman
-			size: 14
-			scale down to: 6
-			weight: bold
-			color: rgb(0,0,0)
+			name:				Times New Roman
+			size:				28
+			scale down to:		6
+			weight:				bold
+			color:				rgb(0,0,0)
+			stroke color:		{ if styling.art then rgba(255,255,255,255) else rgba(0,0,0,0) }
+			stroke radius:		2
+			stroke blur:		0.55
 	modified:
-		left: 20
-		top: 110
-		width: 298
-		height: 20
-		z index: 2
-		alignment: center middle shrink-overflow
+		left:				50
+		top:				{ 220 - if styling.code then 0 else 60 }
+		width:				500
+		height:				50
+		z index:			900
+		alignment:			left middle shrink-overflow
+		visible:			{ styling.time_created }
 		font:
-			name: Times New Roman
-			size: 14
-			scale down to: 6
-			weight: bold
-			color: rgb(0,0,0)
+			name:				Times New Roman
+			size:				28
+			scale down to:		6
+			weight:				bold
+			color:				rgb(0,0,0)
+			stroke color:		{ if styling.art then rgba(255,255,255,255) else rgba(0,0,0,0) }
+			stroke radius:		2
+			stroke blur:		0.55
+	foil layer:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			1050
+		visible:			{ styling.overlay != "none" and styling.overlay != "" }
+		render style:		image
+		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
+	confidential:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		#left:				18
+		#top:				{ 518 + move_typeline() }
+		#width:				614
+		#bottom:				895
+		z index:			850
+		visible:			{ styling.confidential }
+		render style:		image
+		image:				confidential.png
+	test card text:
+		left:				48
+		top:				{ 878 + body_font_vertical() }
+		width:				433
+		height:				45
+		z index:			900
+		alignment:			left middle shrink-overflow
+		font:
+			name:				{ body_font() }
+			size:				{ body_font_size() - 4 }
+			color:				{ body_font_color() }
+			separator color:	red
