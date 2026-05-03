@@ -1,29 +1,31 @@
-mse version: 2.5.7
+mse version: 2.6.0
+game: magic
 short name: Egg's All-in-One
-full name: Egg's All-in-One Exporter
-position hint: 009
+full name: Egghub Exporter
+position hint: 0
 icon: icon.png
-version: 2025-03-31
+installer group: magic/Export/Egg's All-in-One
 
+
+version: 2026-04-30
 depends on:
 	package: magic.mse-game
-	version: 2008-08-08
+	version: 2026-02-28
 depends on:
 	package: magic-modules.mse-include
 	version: 2024-10-01
 
-game: magic
 create directory: true
 file type: *.txt|*.txt|*.*|*.*
 
-#JSON implementation by Fungustober
+#JSON implementation by Fungustober and GenevensiS
 
 option field:
 	type: choice
 	name: image type
 	choice: png
 	choice: jpg
-	description: Image type
+	description: Image type, png for better quality, jpg for smaller file size
 
 option field:
 	type: choice
@@ -67,103 +69,47 @@ option field:
 	choice: empty
 	description: What should display on the preview gallery for unpreviewed cards
 
+option field:
+	type: choice
+	name: transparent corners
+	choice: no
+	choice: yes
+	initial: yes
+	description: Should the card images have tranparent rounded corners
+
 script:
-	fix_tm := replace@(match:"™", replace:"TM")
-	remove_quotes := replace@(match:"\"", replace:"")
+	## set name, workaround windows reserved filenames
+	set_code := replace(set.set_code, match:"^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$", replace:{_1 + "_"})
 	
 	## clean up strays that will mess up the json
 	escape_backslash := replace@(match:"\\\\", replace:"\\\\\\\\")
 	escape_quotes := replace@(match:"\"", replace:"\\\\\"")
 	escape_breaks := replace@(match:"\n", replace:"\\\\n")
 	apos_fix := replace@(match:"’", replace:"'")
-	remove_tabs := replace@(match:"\t", replace:"") +
+	remove_tabs :=
+		replace@(match:"\t", replace:"") +
 		replace@(match:"	", replace:"") +
 		replace@(match:"  +", replace:" ")
 	remove_controls := replace@(match:"\r", replace:"")
-
-	sanitize := to_text +
-				escape_backslash +
-				escape_breaks +
-				escape_quotes + 
-				remove_controls + 
-				remove_tabs +
-				apos_fix +
-				trim
-
-	## remove characters that are illegal in windows filenames
-	windex := replace@(match:"[\\\\/|*<>?:\"]", replace:"")
-	## workaround windows reserved filenames
-	winfix := replace@(match:"^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$", replace:{_1 + "_"})
-	adj_setcode := { winfix(set.set_code) }
+	remove_quotes := replace@(match:"\"", replace:"")
 	
-	### tag management
-	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n]+")
-	exporter_name_grabber := replace@(match:"!exporte?r?name ", replace:"")
-
-	exporter_backname_filter := filter_text@(match:"!backf?a?c?e?name [^\n\<]+")
-	exporter_backname_grabber := replace@(match:"!backf?a?c?e?name ", replace:"")
-
-	card_name := { 
-		given := exporter_name_grabber(exporter_name_filter(card.notes))
-		if given == "" then given := card.name
-		sanitize(remove_quotes(given))
-	}
-	card_name_2 := { 
-		given := exporter_backname_grabber(exporter_backname_filter(card.notes))
-		if given == "" then given := card.name_2
-		sanitize(remove_quotes(given))
-	}
-
-	card_rarity := {
-		if card.rarity == "mythic rare"
-			then "mythic"
-		else if card.rarity == "basic land"
-			then "common"
-		else card.rarity
-	}
+	sanitize :=
+		to_text +
+		escape_backslash +
+		escape_breaks +
+		escape_quotes + 
+		remove_controls + 
+		remove_tabs +
+		apos_fix +
+		trim
 	
-	devoid_ci := contains@(match:">Devoid<")
-	get_card_color := {
-		if devoid_ci(text) or is_land(type)
-			then ""
-		else (
-			  ( if contains(color, match:"white") or contains(cost, match:"W") then "W" else "" )
-			+ ( if contains(color, match:"blue") or contains(cost, match:"U") then "U" else "" )
-			+ ( if contains(color, match:"black") or contains(cost, match:"B") then "B" else "" )
-			+ ( if contains(color, match:"red") or contains(cost, match:"R") then "R" else "" )
-			+ ( if contains(color, match:"green") or contains(cost, match:"G") then "G" else "" )
-		)
-	}
-	card_color_1 := { get_card_color(text:card.text, type:card.type, color:card.card_color, cost:card.casting_cost) }
-	card_color_2 := { get_card_color(text:card.text_2, type:card.type_2, color:card.card_color_2, cost:card.casting_cost_2) }
-
-	##Fungustober's notes:
-	#.txt implementation example:
-	#Black Lotus	artifact	cube	Artifact	0000	C	{0}	{T}, Sacrifice this artifact: Add three mana of any one color.			normal	TST		!restricted	VintageREPLACEME
-	#.json with same info:
-	#{"name":"Black Lotus","color":"artifact","rarity":"cube","type":"Artifact","card_number":"0000","color_identity":"C","casting_cost":"{0}","rules_text":"{T}, Sacrifice this artifact: Add three mana of any one color.","shape":"normal",set:"TST",notes:"!restricted Vintage"},
-		#card_number can just be a number instead of a string, because we don't need to add a or b based on which side the card object is.
-		#having the entire DFC be just one card object make this a whole lot easier
-		#loyalty definitely cannot be a number because of the possibility of X or n+X, and PT can't be a number because of the /
-		
-	#dfc example:
-	#.txt implementation:
-	#Delver of Secrets	blue	common	Creature -- Human Wizard	0001	U	{U}	At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform Delver of Secrets.	1/1		double faced	TST		Insectile Aberration	blue	Creature -- Human Insect	U		3/2			no longer legal in standard :(REPLACEME
-	#.json with same info:
-	#{"name":"Delver of Secrets","color":"blue","rarity":"common","type":"Creature -- Human Wizard"card_number:"0001","color_identity":"U","cost":"{U}","rules_text":"{U}	At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform Delver of Secrets.","p/t":"1/1","shape":"double faced","set":"TST","name2":"Insectile Aberration","color2":"blue","type2":"Creature -- Human Insect","rules_text2":"3/2","notes":"no longer legal in standard :("},
-		#color_identity_statistic() uses both sides of a DFC to create the color identity, so calling it twice is redundant.	
-	
-	#now that we understand how write_card works, let's reformat it to fit JSON specifications.
-	#we're also formatting this in vertical chunks so we don't have to scroll to the right to see everything
-
-	##symbol processing
-	#adding my symbol processing functions to simplify things down the road
-	#If we make all the symbols {1}{U} here, we won't have to use tokenize/symbolize in the python scripts
-	
-	#all the mana types we need this regex to detect: (css is case-insensitive, so we don't need to worry about making things upper/lowercase)
+	## symbol processing
+	## adding Fungustober's symbol processing functions to simplify things down the road
+	## if we make all the symbols {1}{U} here, we won't have to use tokenize/symbolize in the python scripts
+	## all the mana types we need this regex to detect: (css is case-insensitive, so we don't need to worry about making things upper/lowercase)
 	#w
 	#w/p -> every mana type with a slash needs to not have that by the end
-	#u, u/p, b, b/p, r, r/p, g, g/p 
+	#u, u/p, b, b/p, r, r/p, g, g/p
 	#w/u, w/b, u/b, u/r, b/r, b/g, r/w, r/g, g/w, g/u
 	#2/w-g, c/w-g
 	#p
@@ -184,195 +130,337 @@ script:
 	#chaos
 	#½
 	#∞
-	v_rep := {
-		if input != "V"
-			then input
-		else if options.v_mana_replacement == ""
-			then input
-		else
-			options.v_mana_replacement
+	v_replacement := {
+		if input != "V" or options.v_mana_replacement == "" then input
+		else options.v_mana_replacement
 	}
-	inline_replacement := replace@(match:"<sym(-auto)?>([^<]+)</sym(-auto)?>", replace:{mana_cost_replacement_css(_2)})
-	mana_cost_replacement := replace@(match:"([+=-])([0-9X])", replace:{ if _2 == "0" or _2 == "=" then "["+_2+"]" else "["+_1+_2+"]"})+
-		replace@(match:"([0-9HWUBRGSCV])/([WUBRGCSV])(/([WUBRGCSV]))?", replace:{"\{"+_1+"/"+_2+_3+"\}"})+
-		replace@(match:"([½∞XYZWUBRGCSTQVJFENAH])", in_context:"(?<![\{[+-])(?<!/)<match>", replace:{"\{"+_1+"\}"})+
-		replace@(match:"([1-9]?[0-9]+)", in_context:"(?<![\{[+-])(?<!\\/)<match>", replace:{"\{"+_1+"\}"})+
-		replace@(match:"V", replace:{v_rep("V")})
-	mana_cost_replacement_css := mana_cost_replacement +
+	mana_cost_replacement :=
+		replace@(match:"([+=-])([0-9X])", replace:{ if _2 == "0" or _2 == "=" then "["+_2+"]" else "["+_1+_2+"]"}) +
+		replace@(match:"([0-9HWUBRGSCV])/([WUBRGCSV])(/([WUBRGCSV]))?", replace:{"\{"+_1+"/"+_2+_3+"\}"}) +
+		replace@(match:"([½∞XYZWUBRGCSTQVJFENAH])", in_context:"(?<![\{[+-])(?<!/)<match>", replace:{"\{"+_1+"\}"}) +
+		replace@(match:"([1-9]?[0-9]+)", in_context:"(?<![\{[+-])(?<!\\/)<match>", replace:{"\{"+_1+"\}"}) +
+		replace@(match:"V", replace:{v_replacement("V")}) +
 		replace@(match:"/", replace:"") +
 		replace@(match:"\{H([^}]*)}", replace:{"\{"+_1+"P\}"})
 	
+	inline_replacement := replace@(match:"<sym(-auto)?>([^<]+)</sym(-auto)?>", replace:{mana_cost_replacement(_2)})
+	
 	convert_tags := replace@(match:"<(/?[ib])(-auto|-flavor)?>", replace:{"[" + _1 + "]"})
 	
-	format_textbox := inline_replacement + convert_tags + sanitize
-
-	##Slightly more advanced CI functions to let the exporter detect land types
-	get_land_type_CI := {
-		  (if contains(card.type, match:"Plains") then "W" else "")
-		+ (if contains(card.type, match:"Island") then "U" else "")
-		+ (if contains(card.type, match:"Swamp") then "B" else "")
-		+ (if contains(card.type, match:"Mountain") then "R" else "")
-		+ (if contains(card.type, match:"Forest") then "G" else "")
-	}
-	merge_ci := {
-		base := input
-		add := with
-		if length(base) > length(add) then (
-			base := with
-			add := input
-		)
-		for x from 0 to length(add)-1 do if not contains(base, match:add[x]) then base := base + add[x]
-		base
-	}
-
-	get_color_identity := {
-		land_ci := get_land_type_CI()
-		base_ci := color_identity_statistic()
-		## if base_ci is colorless and land_ci isn't, use land_ci
-		## if land and land_ci isn't blank, use both
-		## otherwise use base_ci
-		if base_ci == "C" and land_ci != ""
-			then land_ci
-		else if is_land(card.type) and land_ci != ""
-			then merge_ci(base_ci, with:land_ci)
-		else base_ci
-	}
-
-	##Grab special_text if it's not empty, otherwise grab rule_text
-	full_text := { if card.special_text != "" then card.special_text else card.rule_text }
-	full_text2 := { if card.special_text_2 != "" then card.special_text_2 else card.rule_text_2 }
-	full_text3 := { card.rule_text_3 }
-
-	##Shape function to deal with all the non-standard shapes
-	get_shape := {
-		if card.shape == "emblem"
-		or card.shape == "counter"
-		or card.shape == "rulestip"
-		or card.shape == "checklist"
-		or contains (card.notes, match:"!token") and not contains (card.notes, match:"!tokens")
-			then "token"
-		else card.shape
-	}
-
-	is_rotated := {
-		card_image := to_card_image(card)
-		card_width := width_of(card_image)
-		if contains(card.shape, match:"double") and lang_setting("is_battle")(card.super_type) and width_of(card_image) == 900
-			then "true"
-		else if card_width == 523 or card_width == 902 or card_width == 1039 or card_width == 1046
-			then "true"
-		else "false"
-	}
-
-	is_double_card := match@(match:"double|adventure|aftermath|spli|flip")
-	q := "\""
-	write_card := {
-		strings := [
-			"{q}card_name{q}: {q}{card_name()}{q}",
-			"{q}color{q}: {q}{card_color_1()}{q}",
-			"{q}rarity{q}: {q}{if options.draft_structure == "cube" then "cube" else card_rarity()}{q}",
-			"{q}type{q}: {q}{sanitize(card.type)}{q}",
-			"{q}number{q}: {sanitize(card_number())}",
-			"{q}color_identity{q}: {q}{get_color_identity()}{q}",
-			"{q}cost{q}: {q}{mana_cost_replacement_css(card.casting_cost)}{q}",
-			"{q}rules_text{q}: {q}{format_textbox(full_text())}{q}",
-			"{q}flavor_text{q}: {q}{format_textbox(card.flavor_text)}{q}",
-			"{q}pt{q}: {q}{sanitize(card.pt)}{q}",
-			"{q}special_text{q}: {q}{format_textbox(card.special_text)}{q}",
-			"{q}shape{q}: {q}{get_shape()}{q}",
-			"{q}set{q}: {q}{adj_setcode()}{q}",
-			"{q}loyalty{q}: {q}{sanitize(card.loyalty)}{q}",
-			"{q}artist{q}: {q}{sanitize(card.illustrator)}{q}",
-			"{q}alias{q}: {q}{sanitize(card.alias)}{q}",
-			"{q}position{q}: {q}{position(of:card, in:set)}{q}"
-		]
-		if is_double_card(card.shape) then strings := strings + [
-			"{q}card_name2{q}: {q}{card_name_2()}{q}",
-			"{q}color2{q}: {q}{card_color_2()}{q}",
-			"{q}type2{q}: {q}{sanitize(card.type_2)}{q}",
-			"{q}cost2{q}: {q}{mana_cost_replacement_css(card.casting_cost_2)}{q}",
-			"{q}rules_text2{q}: {q}{format_textbox(full_text2())}{q}",
-			"{q}flavor_text2{q}: {q}{format_textbox(card.flavor_text_2)}{q}",
-			"{q}pt2{q}: {q}{sanitize(sanitize(card.pt_2))}{q}",
-			"{q}special_text2{q}: {q}{format_textbox(card.special_text_2)}{q}",
-			"{q}loyalty2{q}: {q}{sanitize(card.loyalty_2)}{q}",
-			"{q}artist2{q}: {q}{sanitize(card.illustrator_2)}{q}",
-			"{q}alias2{q}: {q}{sanitize(card.alias_2)}{q}",
-			"{q}rules_text3{q}: {q}{format_textbox(full_text3())}{q}"
-		]
-		strings := strings + [
-			"{q}rotated{q}: {is_rotated()}",
-			"{q}notes{q}: {q}{sanitize(card.notes)}{q}"
-		]
-		"\{" + join(strings) + "}"
-	}
+	format_text := inline_replacement + convert_tags + sanitize
 	
-	write_cards := {
-		strings := for each card in cards do [write_card()]
-		join(strings)
-	}
-
-	#### load corner masks for the most common card dimensions, so we dont re-load them for every card
+	## should the card image be rotated, for example if it's a battle
+	is_rotated := { input == 523 or input == 902 or input == 1039 or input == 1046 }
+	
+	## are there multiple faces?
+	has_secondary_face := match@(match:"adventure|aftermath|split|flip")
+	has_tertiary_face := match@(match:"adventure") + { card.name_3 != "" }
+	
+	## load corner masks for the most common card dimensions, so we dont re-load them for every card
 	corner_masks := [
 		"523"  : invert_image("/magic-modules.mse-include/corners/375x523 rounded and antialiased.png"),
 		"902"  : invert_image("/magic-modules.mse-include/corners/646x902 rounded and antialiased.png"),
 		"1039" : invert_image("/magic-modules.mse-include/corners/744x1039 rounded and antialiased.png"),
 		"1046" : invert_image("/magic-modules.mse-include/corners/750x1046 rounded and antialiased.png")
 	]
-
-	write_all_images := {
-		for each card in cards do (
-			card_position := position(of:card, in:set)
-			card_image := to_card_image(card)
-			#### double faced templates
-			if contains(card.shape, match:"double") then (
-				#### check if we need to rotate the front face (if it's a battle)
-				rotated := lang_setting("is_battle")(card.super_type) and width_of(card_image) == 900
-				front_width := if rotated then 523 else 375
-				front_height := if rotated then 375 else 523
-				front_image := crop(card_image, width: front_width, height: front_height, offset_x: 0, offset_y: 0)
-				back_image := crop(card_image, width: 375, height: 523, offset_x: front_width + 2, offset_y: 0)
-				if rotated then front_image := rotate_image(front_image, angle: 90)
-				#### add transparent corners (all double faced templates are 375x523)
-				front_image := set_mask(image: front_image, mask: corner_masks["523"])
-				back_image := set_mask(image: back_image, mask: corner_masks["523"])
-				#### write to disk
-				write_image_file(front_image, file: "img/" + card_position + "_front." + options.image_type)
-				write_image_file(back_image, file: "img/" + card_position + "_back." + options.image_type)
-			)
-			#### single faced templates
-			else (
-				#### check if we need to rotate the card image (if it's a battle)
-				card_width := width_of(card_image)
-				rotated := card_width == 523 or card_width == 902 or card_width == 1039 or card_width == 1046
-				if rotated then card_image := rotate_image(card_image, angle: 90)
-				#### add transparent corners
-				mask_height := to_string(if rotated then card_width else height_of(card_image))
-				corner_mask := corner_masks[mask_height] or else corner_masks["1046"]
-				card_image := set_mask(image: card_image, mask: corner_mask)
-				#### write to disk
-				write_image_file(card_image, file: "img/" + card_position + "." + options.image_type)
-			)
+	
+	## card and face values
+	write_card_full_name := {
+		write_face_name(1, suffix:"") +
+		if card_is_double then " // " + write_face_name(2, suffix:"_2")
+		else (
+			(if front_has_secondary_face then " // " + write_face_name(2, suffix:"_2")) +
+			(if front_has_tertiary_face then " // " + write_face_name(3, suffix:"_3")) +
+			(if back != nil then (
+				" // " + write_face_name(1, suffix:"", card:back) +
+				(if back_has_secondary_face then " // " + write_face_name(2, suffix:"_2", card:back)) +
+				(if back_has_tertiary_face then " // " + write_face_name(3, suffix:"_3", card:back))
+			))
 		)
 	}
-
-	main_keys := [
-		"{q}name{q}: {q}{set.title}{q}",
-		"{q}formats{q}: {q}{options.formats}{q}",
-		"{q}image_type{q}: {q}{options.image_type}{q}",
-		"{q}draft_structure{q}: {q}{options.draft_structure}{q}",
-		"{q}unpreviewed{q}: {q}{options.unpreviewed_card_image}{q}",
-		"{q}image_name{q}: {q}position{q}",
-		"{q}v_mana{q}: {q}{options.v_mana_replacement}{q}",
-		"{q}cards{q}: [{write_cards()}]"
-	]
-	write_text_file(file: adj_setcode() + ".json", "\{" + join(main_keys) + "}")
-
+	
+	write_card_color_identity := { color_identity_statistic() }
+	
+	write_card_id := {
+		sanitize(corrected_card_number())
+	}
+	
+	write_card_rarity := {
+		if options.draft_structure == "cube" then "cube"
+		else if card.rarity == "mythic rare" then "mythic"
+		else if card.rarity == "basic land" then "common"
+		else card.rarity
+	}
+	
+	write_card_notes := {
+		",\"" + sanitize(card.notes) + "\",\"" +
+		(if back != nil then sanitize(back.notes)) +
+		"\""
+	}
+	
+	write_card_flavor_texts := {
+		",\"" + format_text(card.flavor_text) + "\",\"" +
+		(if card_is_double then format_text(card.flavor_text_2)
+		else if back != nil then format_text(back.flavor_text)
+		else "") +
+		"\""
+	}
+	
+	write_card_artists := {
+		",\"" + sanitize(card.illustrator) + "\",\"" +
+		(if card_is_double then sanitize(card.illustrator_2)
+		else if back != nil then sanitize(back.illustrator)
+		else "") +
+		"\""
+	}
+	
+	write_face_colors := { face_color_statistic(face: input) }
+	
+	write_face_name := {
+		command := "!export(er)?name" + input + " "
+		result := replace(filter_text(match:command + "[^\n\<]+"), match:command, replace:"")
+		if result == "" then result := card["alias" + suffix]
+		if result == "" then result := card["name" + suffix]
+		sanitize(remove_quotes(result))
+	}
+	
+	write_face_alias := {
+		if card["alias" + suffix] != "" then sanitize(remove_quotes(card["name" + suffix])) else ""
+	}
+	
+	write_face_mana_cost := {
+		mana_cost_replacement(card["casting_cost" + suffix])
+	}
+	
+	write_face_mana_value := {
+		mana_value_statistic()
+	}
+	
+	write_face_type := {
+		sanitize(card["type" + suffix])
+	}
+	
+	write_face_power := {
+		sanitize(card["power" + suffix])
+	}
+	
+	write_face_toughness := {
+		sanitize(card["toughness" + suffix])
+	}
+	
+	write_face_loyalty := {
+		if not lang_setting("is_battle")(card["super_type" + suffix]) then sanitize(card["loyalty" + suffix]) else ""
+	}
+	
+	write_face_defense := {
+		if lang_setting("is_battle")(card["super_type" + suffix]) then sanitize(card["loyalty" + suffix]) else ""
+	}
+	
+	write_face_rules_text := {
+		format_text(if card["special_text" + suffix] or else "" != "" then card["special_text" + suffix]	else card["rule_text" + suffix])
+	}
+	
+	write_card_face := {
+		suffix := if input <= 1 then "" else "_" + input
+		",\{" +
+		"\"" + "name"				+ "\": \""	+ write_face_name()								+ "\"," +
+		"\"" + "alias"				+ "\": \""	+ write_face_alias()							+ "\"," +
+		"\"" + "mana_cost"			+ "\": \""	+ write_face_mana_cost()						+ "\"," +
+		"\"" + "mana_value"			+ "\": \""	+ write_face_mana_value()						+ "\"," +
+		"\"" + "type"				+ "\": \""	+ write_face_type()								+ "\"," +
+		"\"" + "rules_text"			+ "\": \""	+ write_face_rules_text()						+ "\"," +
+		"\"" + "power"				+ "\": \""	+ write_face_power()							+ "\"," +
+		"\"" + "toughness"			+ "\": \""	+ write_face_toughness()						+ "\"," +
+		"\"" + "loyalty"			+ "\": \""	+ write_face_loyalty()							+ "\"," +
+		"\"" + "defense"			+ "\": \""	+ write_face_defense()							+ "\"," +
+		"\"" + "colors"				+ "\": \""	+ write_face_colors()							+ "\"" +
+		"\}"
+	}
+	
+	write_card_faces := {
+		write_card_face(1) +
+		if card_is_double then write_card_face(2)
+		else (
+			(if front_has_secondary_face then write_card_face(2)) +
+			(if front_has_tertiary_face then write_card_face(3)) +
+			(if back != nil then (
+				write_card_face(1, card:back) +
+				(if back_has_secondary_face then write_card_face(2, card:back)) +
+				(if back_has_tertiary_face then write_card_face(3, card:back))
+			))
+		)
+	}
+	
+	write_card_version := {
+		",\{" +
+		"\"" + "set_id"				+ "\": \""	+ set_code										+ "\"," +
+		"\"" + "card_id"			+ "\": \""	+ write_card_id()								+ "\"," +
+		"\"" + "rarity"				+ "\": \""	+ write_card_rarity()							+ "\"," +
+		"\"" + "flavor_texts"		+ "\": ["	+ substring(write_card_flavor_texts(), begin:1)	+ "]," +
+		"\"" + "artists"			+ "\": ["	+ substring(write_card_artists(), begin:1)		+ "]," +
+		"\"" + "images"				+ "\": ["	+ substring(write_card_image_paths(), begin:1)	+ "]," +
+		"\"" + "rotateds"			+ "\": ["	+ substring(write_card_rotateds(), begin:1)		+ "]" +
+		"\}"
+	}
+	
+	write_card_json := {
+		",\{" +
+		"\"" + "full_name"			+ "\": \""	+ write_card_full_name()						+ "\"," +
+		"\"" + "color_identity"		+ "\": \""	+ write_card_color_identity()					+ "\"," +
+		"\"" + "notes"				+ "\": ["	+ substring(write_card_notes(), begin:1)		+ "]," +
+		"\"" + "faces"				+ "\": ["	+ substring(write_card_faces(), begin:1)		+ "]," +
+		"\"" + "versions"			+ "\": ["	+ substring(write_card_version(), begin:1)		+ "]" +
+		"\}"
+	}
+	
+	## card images
+	write_card_image_paths := {
+		",\"" + front_image_path + "\"" +
+		",\"" + back_image_path + "\""
+	}
+	
+	write_card_rotateds := {
+		",\"" + front_rotated + "\"" +
+		",\"" + back_rotated + "\""
+	}
+	
+	write_face_image := {
+		## rotate if necessary
+		if rotated then (
+			input := rotate_image(input, angle: 90)
+			temp := width
+			width := height
+			height := temp
+		)
+		
+		## add transparent corners
+		if options.transparent_corners == "yes" then (
+			corner_mask := corner_masks[width] or else corner_masks["1046"]
+			input := set_mask(image: input, mask: corner_mask)
+		)
+		
+		## write
+		write_image_file(input)
+	}
+	
+	write_card_images := {
+		## gather info
+		card_image :=		to_card_image(card)
+		card_dimensions :=	dimensions_of(card_image)
+		card_width :=		card_dimensions.0
+		card_height :=		card_dimensions.1
+		
+		front_rotated :=	false
+		back_rotated :=		false
+		front_image_path :=	""
+		back_image_path :=	""
+		
+		## double faced template
+		if card_is_double then (
+			if card_width == 1504 then (
+				front_width :=	750
+				front_height :=	1046
+				back_width :=	750
+				back_height :=	1046
+				back_offset :=	754
+			)
+			else if card_width == 1489 then (
+				front_width :=	744
+				front_height :=	1039
+				back_width :=	744
+				back_height :=	1039
+				back_offset :=	745
+			)
+			else (
+				front_width :=	375
+				front_height :=	523
+				back_width :=	375
+				back_height :=	523
+				back_offset :=	377
+			)
+			front_image :=	crop(card_image,	width: front_width,	height: front_height,	offset_x: 0,			offset_y: 0)
+			back_image :=	crop(card_image,	width: back_width,	height: back_height,	offset_x: back_offset,	offset_y: 0)
+			front_image_path :=	"img/" + card_position + "_front." + options.image_type
+			back_image_path :=	"img/" + card_position + "_back." + options.image_type
+			
+			write_face_image(front_image,		width: front_width,	height: front_height,	rotated: front_rotated,	file: front_image_path)
+			write_face_image(back_image,		width: back_width,	height: back_height,	rotated: back_rotated,	file: back_image_path)
+		)
+		## single faced template, but linked to a back face
+		else if back != nil then (
+			front_rotated :=	is_rotated(card_width)
+			back_image :=		to_card_image(back)
+			back_dimensions :=	dimensions_of(back_image)
+			back_width :=		back_dimensions.0
+			back_height :=		back_dimensions.1
+			back_rotated :=		is_rotated(back_width)
+			front_image_path :=	"img/" + card_position + "_front." + options.image_type
+			back_image_path :=	"img/" + card_position + "_back." + options.image_type
+			
+			write_face_image(card_image,		width: card_width,	height: card_height,	rotated: front_rotated,	file: front_image_path)
+			write_face_image(back_image,		width: back_width,	height: back_height,	rotated: back_rotated,	file: back_image_path)
+		)
+		## single faced template, unlinked
+		else (
+			front_rotated :=	is_rotated(card_width)
+			front_image_path :=	"img/" + card_position + "." + options.image_type
+			
+			write_face_image(card_image,		width: card_width,	height: card_height,	rotated: front_rotated,	file: front_image_path)
+		)
+		
+		## return these so we dont need to recompute them
+		[front_rotated, front_image_path, back_rotated, back_image_path]
+	}
+	
+	## start of actual work
+	## iterate on the cards, write their image to disk, store their text
+	card_jsons := for each card in cards do (
+		## is this card a back face? if so, we don't need to handle it
+		## it will be handled when we get to its front face
+		front_face := get_front_face(card)
+		if front_face != nil then "" else (
+		
+		## gather info
+		card_full_name :=			""
+		card_position :=			position(of:card, in:set)
+		card_is_double :=			contains(card.shape, match:"double")
+		card_shape :=				if card.shape == "emblem" or card.shape == "counter" or card.shape == "rulestip" or card.shape == "checklist" or card.shape == "designation" then "token" else card.shape
+		
+		front_has_secondary_face :=	has_secondary_face(card_shape)
+		front_has_tertiary_face :=	has_tertiary_face(card_shape)
+		
+		back :=						get_back_face(card)
+		back_has_secondary_face :=	if back != nil then has_secondary_face(back.shape, card:back) else false
+		back_has_tertiary_face :=	if back != nil then has_tertiary_face(back.shape, card:back) else false
+		
+		result :=					write_card_images()
+		front_rotated :=			result.0
+		front_image_path :=			result.1
+		back_rotated :=				result.2
+		back_image_path :=			result.3
+		
+		write_card_json())
+	)
+	
+	## write final json file
+	main_string :=
+		"\{" +
+		"\"" + "name"				+ "\": \""	+ set.title										+ "\"," +
+		"\"" + "formats"			+ "\": \""	+ options.formats								+ "\"," +
+		"\"" + "image_type"			+ "\": \""	+ options.image_type							+ "\"," +
+		"\"" + "draft_structure"	+ "\": \""	+ options.draft_structure						+ "\"," +
+		"\"" + "unpreviewed"		+ "\": \""	+ options.unpreviewed_card_image				+ "\"," +
+		"\"" + "image_name"			+ "\": \""	+ "position"									+ "\"," +
+		"\"" + "v_mana"				+ "\": \""	+ options.v_mana_replacement					+ "\"," +
+		"\"" + "cards"				+ "\": ["	+ substring(card_jsons, begin:1)				+ "]" +
+		"}"
+	write_text_file(file: set_code + ".json", main_string)
+	
+	## write symbol and logo image files
 	write_image_file({symbol_variation(symbol: set.symbol, variation: options.symbol_rarity)}(), file: "icon.png", width: 512, height: 512)
 	write_image_file({symbol_variation(symbol: set.symbol, variation: options.symbol_rarity)}(), file: "logo.png", width: 320, height: 320)
-
-	if options.export_description == "yes"
-		then write_text_file(file: "splash.md", set.description)
-
-	write_all_images()
+	
+	## write set description file
+	if options.export_description == "yes" then write_text_file(file: "splash.md", set.description)
+	
 	"This file doesn't contain anything. Exported files can be found in the name-files folder with the same name you saved as."
