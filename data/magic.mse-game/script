@@ -3629,7 +3629,11 @@ transform_symbol_icon_image :=
 	
 	#### Get the image that contains the shape
 	shape_name := "icon/shape/" + transform_shape + ".png"
-	shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+	shape_image := 	if transform_custom_path != ""
+						then transform_custom_path 
+					else if exists_in_package(transform_folder + shape_name)
+						then transform_folder + shape_name
+					else "/magic-modules.mse-include/symbols/" + shape_name
 	#### Offsets
 	shape_image := crop_image(
 		resize_image(
@@ -3684,11 +3688,26 @@ transform_symbol_image :=
 	else (
 		transform_field := transform_symbol_field(face)
 		transform_shape := transform_symbol_shape(transform_field)
+		
+		## check for custom icon
+		transform_custom_path := ""
+		slug := ""
+		old_custom := true
+		custom_syms := ["custom symbol one", "custom symbol two", "custom symbol three", "custom symbol four"]
+		sym_index := position(of:transform_shape in:custom_syms)
+		if sym_index >= 0 then slug := custom_symbol_slug(sym_index+1)
+		if slug != "" then (
+			fs := split_custom_directory(slug)
+			transform_custom_path := "/magic-mainframe-extras.mse-include/" + fs.directory + "shape/" + fs.filename
+			old_custom := not exists_in_package(transform_custom_path)
+			if old_custom then transform_custom_path := ""
+		)
+
 		if		transform_shape == "none"					then ""
-		else if	transform_shape == "custom symbol one"		then custom_symbol_1()
-		else if	transform_shape == "custom symbol two"		then custom_symbol_2()
-		else if	transform_shape == "custom symbol three"	then custom_symbol_3()
-		else if	transform_shape == "custom symbol four"		then custom_symbol_4()
+		else if sym_index >= 0 and old_custom then (
+			funcs := [custom_symbol_1, custom_symbol_2, custom_symbol_3, custom_symbol_4]
+			funcs[sym_index]()
+		)
 		else (
 			transform_style :=			transform_symbol_style(face)
 			transform_bevel_rim :=		transform_symbol_rim_has_bevel(transform_field)
@@ -5130,6 +5149,15 @@ verify_symbol_image := {
 			sym_link + ",File found,{sym_width},{sym_pad}"
 		)
 	)
+}
+
+custom_symbol_slug := {
+	style_src := styling["custom_symbol_{input}"] or else styling["custom_symbol_{english_number(input)}"] or else styling.custom_symbol or else ""
+	src := if style_src != "" then style_src else set["custom_symbol_{input}"]
+	array := split_comma(src)
+	if not has_png(array.0) or (array.1 or else "" == "Not found")
+		then ""
+	else array.0
 }
 custom_symbol_image := {
 	src := if style_src != "" then style_src else set["custom_symbol_"+input]
