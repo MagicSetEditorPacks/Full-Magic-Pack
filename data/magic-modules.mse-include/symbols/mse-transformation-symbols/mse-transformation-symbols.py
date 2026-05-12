@@ -87,13 +87,14 @@ def run(procedure: Gimp.ImageProcedure,
 		if (not os.path.isdir(file_path)) and (file_path_lower.endswith('.png') or file_path_lower.endswith('.webp') or file_path_lower.endswith('.jpg') or file_path_lower.endswith('.jpeg')):
 			file = Gio.File.new_for_path(file_path)
 			layer = Gimp.file_load_layer(Gimp.RunMode.NONINTERACTIVE, image, file)
-			layer.set_name(file_name)
-			image.insert_layer(layer, load_layer_group, 0)
 			width = layer.get_width()
 			height = layer.get_height()
 			if width != 706 or height != 706:
 				Gimp.message(f'ERROR: Image {file_name} is not 706x706 pixels!')
-				return
+				layer.delete()
+				continue
+			layer.set_name(file_name)
+			image.insert_layer(layer, load_layer_group, 0)
 			Gimp.displays_flush()
 			layer.set_visible(False)
 	layers = load_layer_group.get_children()
