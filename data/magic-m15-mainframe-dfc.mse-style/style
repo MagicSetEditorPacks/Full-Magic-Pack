@@ -95,6 +95,13 @@ init script:
 	include file: /magic-modules.mse-include/loyalty/init_script_dfc
 
 	d20_filter := replace@(match:"^(|[Ee]lse ?|[Oo]ther ?|((</sym>)?[-0-9 ,+>\<](<sym>)?)+)[|]", replace:"<b>\\1</b>|")
+	archetype_formatter := {
+		out := replace(input
+			match:"^([^ ]+)[ ]([^\\\n]+)([ ][ ])"
+			replace:{"<sym>"+remove_tags(_1) + "</sym> <font:Gotham Pro Black>" + to_upper(remove_tags(_2)) + "</font> "}
+		)
+		out
+	}
 	text_filter := text_filter + d20_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)} + {if is_modal(input) then bump_text(softline_ripper(input)) else input}
 
 	#### template images
@@ -150,6 +157,25 @@ init script:
 		
 		flag: "/magic-modules.mse-include/flags/dark/",
 		flag2: "/magic-modules.mse-include/flags/light/",
+
+		tok_card: "token/"
+		tok_card2: "token/"
+		tok_card3: "token/"
+		tok_card4: "token/nyx/"
+		tok_card5: "token/nyx/"
+		tok_card6: "token/nyx/"
+		tok_card7: "token/m20/"
+		tok_card8: "token/m20/"
+		tok_card9: "token/m20/"
+		tok_alias: "token/alias/"
+		tok_crown: "/magic-modules.mse-include/crowns/375/borderless/"
+		tok_pt: "/magic-modules.mse-include/pts/375 m15/"
+		tok_snow: "/magic-modules.mse-include/trims/snow/"
+		tok_nyx: "/magic-modules.mse-include/trims/nyx/"
+		tok_snowbox: "/magic-modules.mse-include/cards/375 m15 simple/snow/"
+		tok_stamp: "token/stamps/round/"
+		tok_ubstamp: "token/stamps/ub/"
+		tok_star: "/magic-modules.mse-include/trims/star/"
 	]
 	template_suffix := [
 		card: "card.jpg",
@@ -202,6 +228,25 @@ init script:
 		
 		flag: "flag.png",
 		flag2: "flag.png",
+
+		tok_card: "card.jpg"
+		tok_card2: "card2.jpg"
+		tok_card3: "card3.jpg"
+		tok_card4: "nyx.png"
+		tok_card5: "card2.jpg"
+		tok_card6: "card3.jpg"
+		tok_card7: "card.png"
+		tok_card8: "card2.png"
+		tok_card9: "card3.png"
+		tok_alias: "alias.png"
+		tok_crown: "crown.png"
+		tok_pt: "pt.png"
+		tok_snow: "snow.png"
+		tok_nyx: "nyx.png"
+		tok_snowbox: "card.jpg"
+		tok_stamp: "stamp.png"
+		tok_ubstamp: "stamp.png"
+		tok_star: "star.png"
 	]
 	template := { 
 		if type_name(harder_script[type] or else nil) != type_name(nil)
@@ -522,11 +567,12 @@ init script:
 	front_clear := { chosen(styling.other_options, choice:"clear front") }
 
 	#### back checks
-	back_normal := { not contains(styling.back_style, match:"planeswalker") }
+	back_normal := { styling.back_style != "token" and not contains(styling.back_style, match:"planeswalker") }
 	back_saga := { back_two_boxes() or back_three_boxes() or back_four_boxes() }
 	
 	back_legend := {
-		back_normal()
+		styling.back_style != "token"
+		and back_normal()
 		and not back_map()
 		and (
 			chosen(styling.other_options, choice:"legendary back")
@@ -534,22 +580,29 @@ init script:
 		)
 	}
 	back_nyx := {
-		(lang_setting("is_enchantment")(card.super_type_2) and set.auto_nyx)
+		styling.back_style != "token"
+		and (lang_setting("is_enchantment")(card.super_type_2) and set.auto_nyx)
 	}
 	back_snow := {
-		styling.back_style == "snow"
-		or chosen(styling.other_options, choice:"snow back")
-		or (
-			chosen(styling.other_options, choice:"automate type frames")
-			and lang_setting("is_snow")(card.super_type_2)
+		styling.back_style != "token"
+		and (
+			styling.back_style == "snow"
+			or chosen(styling.other_options, choice:"snow back")
+			or (
+				chosen(styling.other_options, choice:"automate type frames")
+				and lang_setting("is_snow")(card.super_type_2)
+			)
 		)
 	}
 	back_vehicle := {
-		styling.back_style == "vehicle"
-		or chosen(styling.other_options, choice:"vehicle back")
-		or (
-			chosen(styling.other_options, choice:"automate type frames")
-			and lang_setting("is_vehicle")(card.sub_type_2)
+		styling.back_style != "token"
+		and (
+			styling.back_style == "vehicle"
+			or chosen(styling.other_options, choice:"vehicle back")
+			or (
+				chosen(styling.other_options, choice:"automate type frames")
+				and lang_setting("is_vehicle")(card.sub_type_2)
+			)
 		)
 	}
 	back_custom_border := {
@@ -574,7 +627,79 @@ init script:
 	back_poke_walker := {mainframe_walkerb() and not mythic_edition() and use_evobar()}
 	back_skinned := {not back_saga() and chosen(styling.other_options, choice:"godzilla style alias")}
 	back_clear := { chosen(styling.other_options, choice:"clear back") }
-	
+
+	#### token back checks
+	back_token := { styling.back_style == "token" }
+	back_token_m20 := { back_token() and contains(styling.back_token_frames, match:"M20") }
+	back_token_tall := { back_token() and contains(styling.back_token_frames, match:"tall") }
+	back_token_textless := { back_token() and card.rule_text_2 == "" and remove_tags(card.flavor_text_2) == "" }
+	back_token_clear := { back_token() and contains(styling.back_token_frames, match:"clear") }
+	back_token_mtgo_abil := { back_token() and contains(styling.back_token_frames, match:"MTGO Ability") and not back_token_m20() }
+	back_token_legend := {
+		back_token() and (
+			(set.auto_legends and lang_setting("is_legendary")(card.super_type_2))
+			or contains(styling.back_token_frames, match:"legendary")
+		)
+	}
+	back_token_vehicle := {
+		back_token() and (
+			(contains(styling.back_token_auto_frames, match:"vehicle") and lang_setting("is_vehicle")(card.sub_type_2))
+			or contains(styling.back_token_frames, match:"vehicle")
+		)
+		and not back_token_m20()
+	}
+	back_token_nyx := {
+		back_token() and (
+			(contains(styling.back_token_auto_frames, match:"nyx") and lang_setting("is_enchantment")(card.super_type_2))
+			or contains(styling.back_token_frames, match:"nyx")
+		)
+		and not back_token_clear()
+	}
+	back_token_snow := {
+		back_token() and (
+			(contains(styling.back_token_auto_frames, match:"snow") and lang_setting("is_snow")(card.super_type_2))
+			or contains(styling.back_token_frames, match:"snow")
+		)
+	}
+	back_token_copy := { back_token() and contains(styling.back_token_frames, match:"copy") }
+	back_token_archetype := { back_token() and chosen(styling.back_token_frames, choice:"archetype") }
+	back_token_state := { back_token() and chosen(styling.back_token_frames, choice:"state") }
+	back_token_weird := { back_token_archetype() or back_token_state() }
+	back_token_custom_border := {
+		if back_token() and chosen(styling.back_token_frames, choice:"custom border")
+			then has_png(styling.custom_border_source)
+		else false
+	}
+	back_token_text_shape := {
+		if back_token_m20() and back_token_tall() then "9"
+		else if back_token_m20() and back_token_textless() then "7"
+		else if back_token_m20() then "8"
+		else if back_token_tall() then "3"
+		else if back_token_textless() then ""
+		else "2"
+	}
+	back_token_skinned := { back_token() and chosen(styling.back_token_options, choice:"godzilla style alias") }
+	back_token_use_evobar := { back_token() and chosen(styling.back_token_options, choice:"pokemon evobar") and not back_token_skinned() }
+	back_token_center_pt := { back_token() and chosen(styling.back_token_options, choice:"center pt") }
+	back_token_remove_rarity := { back_token() and chosen(styling.back_token_options, choice:"remove rarity symbol") }
+	back_token_use_vorthos := { back_token() and chosen(styling.back_token_options, choice:"vorthos box") }
+	back_token_white_state_font := { back_token_weird() and contains(styling.back_token_options, match:"white state text") }
+	back_token_archetype_image := { back_token_archetype() and contains(styling.back_token_options, match:"archetype image") }
+	back_token_use_drop_shadow := { back_token_weird() and contains(styling.back_token_options, match:"state drop shadow") }
+	back_token_input_mixer := {
+		if input == "w" and (type == "tok_card7" or type == "tok_card8" or type == "tok_card9") and (card.card_color_2 != "white")
+			then "h"
+		else input
+	}
+
+	# Archetype text filter - must be after back_token functions are defined
+	text_filter :=
+		{
+			if back_token_archetype() then archetype_formatter(input) else input
+		}
+		+
+		text_filter
+
 	#### field scripts
 	chop_front := {
 		if styling.front_chop != "" then
@@ -613,7 +738,14 @@ init script:
 		- chop_front(1)
 	}
 	top_of_textbox2 := {
-		(
+		if back_token() then (
+			if back_token_archetype() then 30
+			else if back_token_state() then 327
+			else if back_token_tall() then 327
+			else if back_token_textless() then 459
+			else 388
+		)
+		else (
 			if mainframe_walkerb()
 				then 329 + (if back_clear() then 5 else 0) + (if back_four_abilities() then -37 else 0)
 			else if back_class() or back_case()
@@ -627,7 +759,14 @@ init script:
 		+ chop_back(0)
 	}
 	bottom_of_textbox2 := {
-		(
+		if back_token() then (
+			if back_token_archetype() then 480
+			else if back_token_state() then 481
+			else if back_token_tall() then 481
+			else if back_token_textless() then 486
+			else 482
+		)
+		else (
 			if mainframe_walkerb()
 				then 477 - (if is_modal_dfc() then 5 else if card.card_stamp_2 != "none" then 2 else 0)
 			else if back_class() or back_case()
@@ -1160,7 +1299,12 @@ init script:
 		else "frame_masks/normal.png"
 	}
 	back_frame_mask := {
-		if back_saga()
+		if back_token() then (
+			if back_token_archetype() then "token/arch_mask.png"
+			else if back_token_state() then "token/state_mask.png"
+			else "token/framemask" + back_token_text_shape() + ".png"
+		)
+		else if back_saga()
 			then "frame_masks/saga.png"
 		else if back_class() or back_case()
 			then "frame_masks/class.png"
@@ -1275,31 +1419,72 @@ init script:
 		italic: {""}
 	]
 	swap_fonts_name2_default := [
-		name: {if back_map() then "Beleren Small Caps" else "Beleren Bold"},
-		size: {if back_map() then 14.8 else 16},
-		color: {if back_map() or back_clear() or chosen(styling.other_options, choice:"normal back face") then "black" else "white"},
+		name: {
+			if back_token_archetype() then "Gotham Medium"
+			else if back_token_copy() or back_token_mtgo_abil() then "Beleren Bold"
+			else if back_token() then "Beleren Small Caps Bold"
+			else if back_map() then "Beleren Small Caps"
+			else "Beleren Bold"
+		},
+		size: {
+			if back_token_archetype() then 9
+			else if back_token_copy() or back_token_mtgo_abil() then 18
+			else if back_token() then 19
+			else if back_map() then 14.8
+			else 16
+		},
+		color: {
+			if back_token_weird() then "white"
+			else if back_token_m20() and back_token_snow() then "black"
+			else if back_token_m20() and card.card_color_2 == "white" and not back_token_clear() then "black"
+			else if back_token_m20() then "white"
+			else if back_token() then rgb(255,239,128)
+			else if back_map() or back_clear() or chosen(styling.other_options, choice:"normal back face") then "black"
+			else "white"
+		},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_type2_default := [
 		name: {"Beleren Bold"},
-		size: {if back_map() then 12 else 13},
-		color: {if back_map() or back_clear() or chosen(styling.other_options, choice:"normal back face") then "black" else "white"},
+		size: {
+			if back_token() then 14
+			else if back_map() then 12
+			else 13
+		},
+		color: {
+			if back_token_mtgo_abil() then rgb(255,239,128)
+			else if back_token() then "black"
+			else if back_map() or back_clear() or chosen(styling.other_options, choice:"normal back face") then "black"
+			else "white"
+		},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_body2_default := [
-		name: {"MPlantin"},
-		size: {if styling.back_font_cap != "" then to_number(styling.back_font_cap) else if front_mutate() then 12 else 14},
-		color: {if back_map() then "black" else "black"},
+		name: {if back_token_archetype() then "Gotham Pro" else "MPlantin"},
+		size: {
+			if back_token() then 14
+			else if styling.back_font_cap != "" then to_number(styling.back_font_cap)
+			else if front_mutate() then 12
+			else 14
+		},
+		color: {
+			if back_token_white_state_font() then "white"
+			else if back_token() then "black"
+			else if back_map() then "black"
+			else "black"
+		},
 		vertical: {0},
-		italic: {"MPlantin-Italic"}
+		italic: {if back_token_archetype() then "" else "MPlantin-Italic"}
 	]
 	swap_fonts_pt2_default := [
 		name: {"Beleren Bold"},
-		size: {if back_map() then 14 else 16},
+		size: {if back_token() then 16 else if back_map() then 14 else 16},
 		color: {
-			if back_map() then "black" 
+			if back_token_vehicle() then "white"
+			else if back_token() then "black"
+			else if back_map() then "black"
 			else "white"
 		},
 		vertical: {0},
@@ -1467,23 +1652,34 @@ init script:
 
 	}
 	card_background2 := {
-		norm := chosen(styling.other_options, choice:"normal back face")
-		folder := 	if b_saga()
-						then "/magic-modules.mse-include/cards/375 m15 saga cut/"
-					else if mainframe_walkerb() and back_four_abilities()
-						then "/magic-modules.mse-include/cards/750 m15 planeswalker cut/" + (if not norm then "back/" else "") + "tall/"
-					else if mainframe_walkerb()
-						then "/magic-modules.mse-include/cards/750 m15 planeswalker cut/" + (if not norm then "back/" else "")
-					else if back_map()
-						then "/magic-modules.mse-include/cards/746 maps/"
-					else "/magic-modules.mse-include/cards/375 m15 cut/" + (if not norm then "back/" else "")
-		if back_clear() and not b_saga()
-			then back_card_img()
-		else color_background(
-			type: "card2",
-			base_hybrid: card_hybrid,
-			folder: folder,
-			blend_type:"card"
+		if back_token() then (
+			if back_token_archetype() then "token/arch_frame.png"
+			else if back_token_state() then "token/state_frame.png"
+			else color_background(
+				type: "tok_card" + back_token_text_shape(),
+				base_hybrid: card_hybrid,
+				folder: "token/"
+			)
+		)
+		else (
+			norm := chosen(styling.other_options, choice:"normal back face")
+			folder := 	if b_saga()
+							then "/magic-modules.mse-include/cards/375 m15 saga cut/"
+						else if mainframe_walkerb() and back_four_abilities()
+							then "/magic-modules.mse-include/cards/750 m15 planeswalker cut/" + (if not norm then "back/" else "") + "tall/"
+						else if mainframe_walkerb()
+							then "/magic-modules.mse-include/cards/750 m15 planeswalker cut/" + (if not norm then "back/" else "")
+						else if back_map()
+							then "/magic-modules.mse-include/cards/746 maps/"
+						else "/magic-modules.mse-include/cards/375 m15 cut/" + (if not norm then "back/" else "")
+			if back_clear() and not b_saga()
+				then back_card_img()
+			else color_background(
+				type: "card2",
+				base_hybrid: card_hybrid,
+				folder: folder,
+				blend_type:"card"
+			)
 		)
 	}
 	# this goes at the very end
@@ -1666,6 +1862,7 @@ styling field:
 	choice: vehicle
 	choice: snow
 	choice: map
+	choice: token
 	initial: normal
 	description: Choose the style for the back face
 styling field:
@@ -1706,6 +1903,46 @@ styling field:
 	choice: all breaks +2
 	choice: all breaks +3
 	description: Do dice levels normally, off, on all linebreaks, on all but the first linebreak, etc.
+styling field:
+	type: info
+	name: Token Back Options
+styling field:
+	type: multiple choice
+	name: back token frames
+	description: Frame variant options for the token back face.
+	choice: archetype
+	choice: state
+	choice: copy
+	choice: tall
+	choice: legendary
+	choice: clear
+	choice: M20
+	choice: MTGO Ability
+	choice: nyx
+	choice: snow
+	choice: vehicle
+	choice: custom border
+styling field:
+	type: multiple choice
+	name: back token auto frames
+	description: Automatically applies frames for the token back face.
+	choice: nyx
+	choice: snow
+	choice: vehicle
+	initial: nyx, vehicle, snow
+styling field:
+	type: multiple choice
+	name: back token options
+	description: Additional options for the token back face.
+	choice: center pt
+	choice: remove rarity symbol
+	choice: vorthos box
+	choice: godzilla style alias
+	choice: pokemon evobar
+	choice: archetype image
+	choice: white state text
+	choice: state drop shadow
+	initial: white state text
 styling field:
 	type: info
 	name: Both faces
@@ -1992,11 +2229,11 @@ card style:
 			size: { name_font_size() }
 			color: { name_font_color() }
 	name 2:
-		left:	{ if back_map() then 442 else if back_normal() then ( if card.card_symbol_2 == "none" then 435 else 455) else if card.card_symbol_2 == "none" then 439 else 456 }
-		top:	{ (if back_map() then 27 else if back_normal() then 30 else 22) - 0.5*shrink_name2() }
-		right:	{ (if back_map() then 719 else 714) - card_style.casting_cost_2.content_width }
-		height: { 23 - (0.5 * shrink_name2()) }
-		alignment: { if chosen(styling.other_options, choice:"center second name") then "bottom center" else "bottom shrink-overflow" }
+		left:	{ if back_token() and back_token_copy() then 409 else if back_token() then 431 else if back_map() then 442 else if back_normal() then ( if card.card_symbol_2 == "none" then 435 else 455) else if card.card_symbol_2 == "none" then 439 else 456 }
+		top:	{ (if back_token_archetype() then 10 else if back_token_copy() then 24 else if back_token() then 26 else if back_map() then 27 else if back_normal() then 30 else 22) - 0.5*shrink_name2() + name2_font_vertical() }
+		right:	{ if back_token() then 698 - (if back_token_copy() then card_style.casting_cost_2.content_width else 0) else (if back_map() then 719 else 714) - card_style.casting_cost_2.content_width }
+		height: { if back_token_archetype() then 14 else if back_token() then 28 - (0.5 * shrink_name2()) else 23 - (0.5 * shrink_name2()) }
+		alignment: { if back_token_copy() or back_token_mtgo_abil() then "bottom shrink-overflow" else if back_token() then "bottom center shrink-overflow" else if chosen(styling.other_options, choice:"center second name") then "bottom center" else "bottom shrink-overflow" }
 		padding bottom: 0
 		z index: 900
 		font:
@@ -2019,8 +2256,8 @@ card style:
 		padding top: 0
 	casting cost 2:
 		right: 722
-		top: { if back_normal() then 29 else 21 }
-		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
+		top: { if back_token() then 29 else if back_normal() then 29 else 21 }
+		width: { if back_token() and not back_token_copy() then 0 else max(30, card_style.casting_cost_2.content_width) + 5 }
 		height: 23
 		alignment: middle right
 		symbol font:
@@ -2094,7 +2331,10 @@ card style:
 	image 2:
 		left:
 			script:
-				if back_class() or back_case()
+				if back_token_weird() then 391
+				else if back_token() and (back_token_clear() or back_token_m20()) then 377
+				else if back_token() then 406
+				else if back_class() or back_case()
 					then 405
 				else if back_saga()
 					then 565
@@ -2109,7 +2349,11 @@ card style:
 				else 392
 		top:
 			script:
-				if b_saga()
+				if back_token_archetype() then 30
+				else if back_token_state() then 15
+				else if back_token() and (back_token_clear() or back_token_m20()) then 0
+				else if back_token() then 62
+				else if b_saga()
 					then 59
 				else if back_map()
 					then 57
@@ -2122,7 +2366,10 @@ card style:
 				else 15
 		width:
 			script:
-				if b_saga()
+				if back_token_weird() then 346
+				else if back_token() and (back_token_clear() or back_token_m20()) then 375
+				else if back_token() then 317
+				else if b_saga()
 					then 157
 				else if back_clear() or back_map() or mythic_edition()
 					then 375
@@ -2135,7 +2382,14 @@ card style:
 				else 345
 		height:
 			script:
-				if b_saga()
+				if back_token_archetype_image() then 461
+				else if back_token_archetype() then 0
+				else if back_token_state() then 467
+				else if back_token() and (back_token_clear() or back_token_m20()) then 523
+				else if back_token_tall() then 229
+				else if back_token_textless() then 363
+				else if back_token() then 289
+				else if b_saga()
 					then 379
 				else if back_map()
 					then 241
@@ -2149,8 +2403,8 @@ card style:
 					then 428
 				else 493
 		z index: 100
-		mask: { back_mask_script() }
-		default: {default_image(card.card_color_2)}
+		mask: { if back_token_weird() then "" else if back_token() then ("token/" + (if back_token_m20() then "m20_" else if back_token_clear() then "clear_" else "") + "imagemask" + (if back_token_clear() and not back_token_m20() then "" else if back_token_tall() then "3" else if back_token_textless() then "" else "2") + ".png") else back_mask_script() }
+		default: {if back_token() and back_token_clear() then "" else default_image(card.card_color_2)}
 	mainframe image:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
@@ -2168,8 +2422,8 @@ card style:
 		visible: { has_identity()}
 		image: { module_identity() }
 	indicator 2:
-		left: { if back_map() then 395 else 408 }
-		top: { if b_saga() then 449 else if back_map() then 298 else if back_four_abilities() then 265 else 300 }
+		left: { if back_token() then 404 else if back_map() then 395 else 408 }
+		top: { if back_token() then (if back_token_tall() then 300 else if back_token_textless() then 433 else 358) else if b_saga() then 449 else if back_map() then 298 else if back_four_abilities() then 265 else 300 }
 		width: 17
 		height: 17
 		z index: 800
@@ -2193,10 +2447,13 @@ card style:
 			color: { type_font_color() }
 			separator color: red
 	type 2:
-		left: { if back_map() then 462 else if has_identity_2() then 429 else 409 }
-		top: { (if back_map() then 297.5 else if b_saga() then 444 else if back_four_abilities() then 261 else 296) + shrink_type2() }
-		width: { if back_map() then 205 else (if has_identity_2() then 290 else 310) - (if chosen(styling.other_options, choice:"use backface rarity") and set.shorten_types_for_rarity then rare_width() else 0) }
-		height: { if back_map() then 18 - shrink_type2() else 20 - shrink_type2()}
+		left: { if back_token_weird() then 377 else if back_token() then (if has_identity_2() then 424 else 409) else if back_map() then 462 else if has_identity_2() then 429 else 409 }
+		top:
+			script:
+				if back_token() then ( if back_token_tall() and back_token_clear() then 294 else if back_token_tall() then 296 else if back_token_textless() then 429 else if back_token_clear() then 354 else 354 ) + ( if back_token_m20() and back_token_textless() then 1 else if back_token_m20() and not back_token_tall() then 2 else 0 ) + type2_font_vertical()
+				else (if back_map() then 297.5 else if b_saga() then 444 else if back_four_abilities() then 261 else 296) + shrink_type2() + type2_font_vertical()
+		width: { if back_token_weird() then 0 else if back_token() then (if has_identity_2() then 296 else 311) - (if back_token_remove_rarity() then 0 else rare_width()) else if back_map() then 205 else (if has_identity_2() then 290 else 310) - (if chosen(styling.other_options, choice:"use backface rarity") and set.shorten_types_for_rarity then rare_width() else 0) }
+		height: { if back_token() then 20 else if back_map() then 18 - shrink_type2() else 20 - shrink_type2() }
 		alignment: {if back_map() then "center top shrink-overflow" else "top shrink-overflow"}
 		z index: 900
 		padding top: 2
@@ -2218,9 +2475,9 @@ card style:
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
 	rarity 2:
-		right: { (if back_map() then 576 else 721) + rarity_user_offset_left(styling.rarity_offsets or else "") }
-		top: { (if b_saga() then 445 else if back_map() then 53 else if back_normal() then 297 else if back_four_abilities() then 262 else 297) + rarity_user_offset_top(styling.rarity_offsets or else "") }
-		width: { if chosen(styling.other_options, choice:"use backface rarity") and set.shorten_types_for_rarity then 44 + rarity_user_offset_width(styling.rarity_offsets or else "") else 0 }
+		right: { if back_token() then 721 else (if back_map() then 576 else 721) + rarity_user_offset_left(styling.rarity_offsets or else "") }
+		top: { if back_token() then (if back_token_tall() then (if back_token_m20() then 298 else if back_token_clear() then 296 else 297) else if back_token_textless() then (if back_token_m20() then 432 else 431) else if back_token_m20() then 358 else 356) else (if b_saga() then 445 else if back_map() then 53 else if back_normal() then 297 else if back_four_abilities() then 262 else 297) + rarity_user_offset_top(styling.rarity_offsets or else "") }
+		width: { if back_token() and (back_token_weird() or back_token_remove_rarity()) then 0 else if back_token() then 44 else if chosen(styling.other_options, choice:"use backface rarity") and set.shorten_types_for_rarity then 44 + rarity_user_offset_width(styling.rarity_offsets or else "") else 0 }
 		height: {22 + rarity_user_offset_height(styling.rarity_offsets or else "")}
 		z index: 950
 		render style: image
@@ -2268,12 +2525,14 @@ card style:
 		line height hard max: {if is_modal(card.rule_text) then 1.0 else 1.3 }
 		line height line max: 1.6
 	text 2:
-		left: { if back_class() or back_case() then 565 else if back_map() then 417 else if mainframe_walkerb() then 425 else if back_bumped() then 425 else 407 }
+		left: { if back_token_archetype() then 397 else if back_token() then 406 else if back_class() or back_case() then 565 else if back_map() then 417 else if mainframe_walkerb() then 425 else if back_bumped() then 425 else 407 }
 		top: { top_of_textbox2() }
 		bottom: { bottom_of_textbox2()}
 		width:
 			script:
-				if back_leveler()
+				if back_token_archetype() then 337
+				else if back_token() then 315
+				else if back_leveler()
 					then 0
 				else if back_class() or back_case()
 					then 153
@@ -2294,11 +2553,18 @@ card style:
 			size: { body2_font_size() }
 			scale down to: 6
 			color: { body2_font_color() }
+			shadow color: { if back_token_use_drop_shadow() then (if back_token_white_state_font() then "black" else "white") else rgba(0,0,0,0) }
+			shadow displacement x: -1
+			shadow displacement y: 1
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { body2_font_size() }
 		alignment:
-			script:	if chosen(styling.other_options, choice:"center back") then "middle center" else if chosen(styling.other_options, choice:"right align") then "middle right" else "middle left"
+			script:
+				if back_token() and chosen(styling.back_token_options, choice:"center pt") then "middle center"
+				else if chosen(styling.other_options, choice:"center back") then "middle center"
+				else if chosen(styling.other_options, choice:"right align") then "middle right"
+				else "middle left"
 		z index: 900
 		padding left:   6
 		padding right:  4
@@ -2372,10 +2638,10 @@ card style:
 		include file: /magic.mse-game/watermarks/menu_choice_images
 		image: { watermark_image_1() }
 	watermark 2:
-		left: { if back_class() or back_case() then 564 else if back_saga() then 422 else if back_map() then 5417 else 396}
-		top : { if back_four_abilities() then 296 else if b_saga() then 60 else 330 }
-		width: { if back_class() or back_case() then 160 else if back_saga() then 133 else if back_map() then 287 else 334}
-		height: { if b_saga() then 378 else if back_map() then 154 else if back_four_abilities() then 185 else 152 }
+		left: { if back_token() then (if back_token_tall() then 494 else 519) else if back_class() or back_case() then 564 else if back_saga() then 422 else if back_map() then 5417 else 396}
+		top : { if back_token() then (if back_token_tall() then 321 else if back_token_textless() then 600 else 383) else if back_four_abilities() then 296 else if b_saga() then 60 else 330 }
+		width: { if back_token() then (if back_token_tall() then 138 else 85) else if back_class() or back_case() then 160 else if back_saga() then 133 else if back_map() then 287 else 334}
+		height: { if back_token() then (if back_token_tall() then 166 else 104) else if b_saga() then 378 else if back_map() then 154 else if back_four_abilities() then 185 else 152 }
 		z index: 720
 		render style: image
 		alignment: middle center
@@ -2433,7 +2699,7 @@ card style:
 	level 3 text:
 		left: { leveler_left(face:1, lv:3) }
 		top: { leveler_top(face:1, lv:3) }
-		right: { leveler_right(face:1, lv:3) }
+		right: { if chosen(styling.other_options, choice:"use hovering pt") and front_leveler() then min(leveler_right(face:1, lv:3), 310) else leveler_right(face:1, lv:3) }
 		bottom: { leveler_bottom(face:1, lv:3) }
 		font:
 			name: { body_font() }
@@ -2457,7 +2723,7 @@ card style:
 	level 4 text:
 		left: { leveler_left(face:1, lv:4) }
 		top: { leveler_top(face:1, lv:4) }
-		right: { leveler_right(face:1, lv:4) }
+		right: { if chosen(styling.other_options, choice:"use hovering pt") and front_leveler() then min(leveler_right(face:1, lv:4), 310) else leveler_right(face:1, lv:4) }
 		bottom: { leveler_bottom(face:1, lv:4) }
 		font:
 			name: { body_font() }
@@ -2849,9 +3115,9 @@ card style:
 #### back PT or level 2 face 1
 	pt 2:
 		z index: 900
-		left: {if front_leveler() then 291 else 661}
-		top: { if front_leveler() then (l2_center() - 12) else if back_map() then 467 else 469}
-		width: {if front_leveler() and lone_pt() and card.pt == "" then 0 else if (front_leveler() and not lone_pt()) or back_normal() or card.pt_2 != "" then 60 else 0 }
+		left: { if front_leveler() then 291 else if back_token_center_pt() then 534.5 else if back_token() then 663 else 661 }
+		top: { if front_leveler() then (l2_center() - 12) else if back_token() then 469 + pt2_font_vertical() else if back_map() then 467 else 469 }
+		width: { if front_leveler() and lone_pt() and card.pt == "" then 0 else if (front_leveler() and not lone_pt()) then 60 else if back_token() then (if card.pt_2 != "" then 60 else 0) else if back_normal() or card.pt_2 != "" then 60 else 0 }
 		height:	28
 		alignment: center middle shrink-overflow
 		font:
@@ -3012,7 +3278,7 @@ extra card field:
 extra card field:
 	type: text
 	name: pt 2 copy
-	script: if chosen(styling.other_options, choice:"use hovering loyalty") and card.pt_2 == "" then card.loyalty_2 else card.pt_2
+	script: if front_leveler() then card.pt_4 else if chosen(styling.other_options, choice:"use hovering loyalty") and card.pt_2 == "" then card.loyalty_2 else card.pt_2
 	editable: false
 	save value: false
 extra card field:
@@ -3755,6 +4021,73 @@ extra card field:
 	save value: false
 include file: /magic-modules.mse-include/loyalty/stripe_fields_dfc
 include file: /magic-modules.mse-include/loyalty/separator_fields_dfc
+#### Token back extra card fields
+extra card field:
+	type: choice
+	name: token clear frame 2
+	choice: clear
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token crown 2
+	script: card.card_color_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: token plate 2
+	choice: plate
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token nyx overlay 2
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token snow overlay 2
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token snow type overlay 2
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token vehicle overlay 2
+	choice: vehicle
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token custom overlay 2
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: token arch back 2
+	script: card.card_color_2
+	save value: false
+	editable: false
+extra card field:
+	type: text
+	name: saga pt copy
+	script: card.pt_2
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: saga notch
+	choice: notch
+	save value: false
+	editable: false
 extra card style:
 	foil layer:
 		left: 0
@@ -3775,16 +4108,16 @@ extra card style:
 	pt 2 copy:
 		z index: 750
 		right: 347
-		top: 446
+		top: { if front_leveler() then 447 else 446 }
 		width: 30
 		height:	12
 		alignment: bottom right
-		visible: {not is_modal_dfc() and not front_leveler() and not a_saga() and not mainframe_walker() and chosen(styling.other_options, choice:"use hovering pt")}
+		visible: {not is_modal_dfc() and not a_saga() and not mainframe_walker() and chosen(styling.other_options, choice:"use hovering pt")}
 		font:
 			name: ModMatrix
 			size: 12
 			weight: bold
-			color: {rgb(45,45,45)}
+			color: rgb(45,45,45)
 			separator color: red
 	pt box:
 		left: { if front_leveler() and not lone_pt() then 278 else if front_map() then 270 else 273}
@@ -3796,14 +4129,14 @@ extra card style:
 		render style: image
 		image: { front_ptbox() }
 	pt box 2:
-		left: { if front_leveler() then 278 else if back_map() then 647 else 648}
-		top: { if front_leveler() then (l2_center() - (if front_map() then 26 else 15)) else if back_map() then 453 else 466}
-		width: { if front_leveler() and front_map() then 90 else if front_leveler() then 81 else if back_map() then 90 else if back_normal() or card.pt_2 != "" then 81 else 0}
-		height:	{ if front_leveler() and front_map() then 54 else if front_leveler() then 42 else if back_map() then 54 else 42}
+		left: { if front_leveler() then 278 else if back_token_center_pt() then 521 else if back_token() then 650 else if back_map() then 647 else 648}
+		top: { if front_leveler() then (l2_center() - (if front_map() then 26 else 15)) else if back_token() then 466 else if back_map() then 453 else 466}
+		width: { if front_leveler() and front_map() then 90 else if front_leveler() then 81 else if back_token() then (if card.pt_2 != "" then 81 else 0) else if back_map() then 90 else if back_normal() or card.pt_2 != "" then 81 else 0}
+		height:	{ if front_leveler() and front_map() then 54 else if front_leveler() then 42 else if back_token() then 42 else if back_map() then 54 else 42}
 		z index: 840
-		visible: { card.pt_2 != "" }
+		visible: { (front_leveler() and not lone_pt()) or card.pt_2 != "" }
 		render style: image
-		image: { if not front_leveler() then back_ptbox(card.card_color_2) else if front_map() then card_mapbox(card.card_color) else combine_blend(image1:front_ptbox(), image2: template_prefix["pt"] + "ptbox_multiply_1.png", combine:"multiply") }
+		image: { if not front_leveler() and back_token() then (if back_token_clear() then "token/xpt.png" else if back_token_vehicle() then module_ptbox2(type:"vpt", card.card_color_2) else back_ptbox(card.card_color_2)) else if not front_leveler() then back_ptbox(card.card_color_2) else if front_map() then card_mapbox(card.card_color) else combine_blend(image1:front_ptbox(), image2: template_prefix["pt"] + "ptbox_multiply_1.png", combine:"multiply") }
 	pt box 3:
 		left: 278
 		top: { l3_center() - (if front_map() then 26 else 15)}
@@ -4602,11 +4935,34 @@ extra card style:
 		left: 15
 		top: 60
 		width: 27
-		height: 372
+		height: { if chosen(styling.other_options, choice:"use hovering pt") then 354 else 372 }
 		render style: image
 		image: {bookmark_background()}
 		z index: 830
 		visible: {front_saga()}
+	saga notch:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 900
+		render style: image
+		image: saga_notch.png
+		visible: { a_saga() and chosen(styling.other_options, choice:"use hovering pt") }
+	saga pt copy:
+		z index: 1000
+		left: 22
+		top: 420
+		width: 30
+		height: 12
+		alignment: bottom left
+		visible: { front_saga() and not is_modal_dfc() and chosen(styling.other_options, choice:"use hovering pt") }
+		font:
+			name: ModMatrix
+			size: 12
+			weight: bold
+			color: rgb(45,45,45)
+			separator color: red
 	bookmark 2:
 		left: 392
 		top: 60
@@ -4787,3 +5143,91 @@ extra card style:
 		height: {if mythic_edition() and mainframe_walkerb() and card.card_stamp_2 != "none" then 523 else 0}
 		z index: 800
 		mask: { "frame_masks/mythic_stamp_" + stamp_shape(field:2) + ".png"}
+	############################# Token Back Overlays
+	token arch back 2:
+		left: 377
+		top: 0
+		width: { if back_token_archetype() then 375 else 0 }
+		height: { if back_token_archetype() then 523 else 0 }
+		z index: -2
+		render style: image
+		image: token/arch_back.png
+		visible: { back_token_archetype() }
+	token clear frame 2:
+		left: 377
+		top: 0
+		width: { if back_token_clear() then 375 else 0 }
+		height: { if back_token_clear() then 523 else 0 }
+		z index: 200
+		render style: image
+		image: { "token/xcard" + back_token_text_shape() + ".png" }
+		visible: { back_token_clear() }
+	token crown 2:
+		left: 377
+		top: 0
+		width: 375
+		height: 523
+		z index: 840
+		render style: image
+		visible: { back_token_legend() }
+		image: { if back_token_m20() then color_background(type:"tok_crown", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/crowns/375/borderless/") else "token/crown.png" }
+		mask: { if back_token_m20() then "token/crown_m20.png" else "" }
+	token plate 2:
+		left: { 377 + 19 }
+		top: { if back_token_tall() then 291 else if back_token_textless() then 425 else 351 }
+		width: 336
+		height: 37
+		z index: 201
+		render style: image
+		image: token/plate.png
+		visible: { back_token_mtgo_abil() }
+	token nyx overlay 2:
+		left: { 377 + (if back_token_m20() then 0 else 15) }
+		top: { if back_token_m20() then 0 else 15 }
+		width: { if back_token_m20() then 375 else 345 }
+		height: { if back_token_m20() then 523 else 471 }
+		z index: 310
+		render style: image
+		image: { module_nyx() }
+		mask: { if back_token_m20() then "token/m20/nyx_mask.png" else "token/v_" + (if back_token_tall() then "tall_mask.png" else if back_token_textless() then "short_mask.png" else "mid_mask.png") }
+		visible: { back_token_nyx() }
+	token snow overlay 2:
+		left: { 377 + (if back_token_m20() then 0 else 15) }
+		top: { if back_token_m20() then 0 else 15 }
+		width: { if back_token_m20() then 375 else 345 }
+		height: { if back_token_m20() then 523 else 471 }
+		z index: 310
+		render style: image
+		image: { module_snow() }
+		mask: { if back_token_m20() then "token/m20/nyx_mask.png" else "token/v_" + (if back_token_nyx() then "nyx_" else "") + (if back_token_tall() then "tall_mask.png" else if back_token_textless() then "short_mask.png" else "mid_mask.png") }
+		visible: { back_token_snow() }
+	token snow type overlay 2:
+		left: 377
+		top: { if back_token_tall() then 0 else if back_token_textless() then 134 else 60 }
+		width: 375
+		height: 523
+		z index: 310
+		render style: image
+		image: { module_snow() }
+		mask: token/m20/type_mask.png
+		visible: { back_token_snow() and back_token_m20() }
+	token vehicle overlay 2:
+		left: { 377 + 15 }
+		top: 15
+		width: 345
+		height: 471
+		z index: 310
+		render style: image
+		image: token/voverlay.png
+		mask: { "token/v_" + (if back_token_nyx() or back_token_snow() then "nyx_" else "") + (if back_token_tall() then "tall_mask.png" else if back_token_textless() then "short_mask.png" else "mid_mask.png") }
+		visible: { back_token_vehicle() }
+	token custom overlay 2:
+		left: { 377 + 15 }
+		top: 15
+		width: { if back_token_custom_border() then 345 else 0 }
+		height: { if back_token_custom_border() then 471 else 0 }
+		z index: 310
+		render style: image
+		image: { if back_token_custom_border() then custom_border_blend() else "" }
+		mask: { "token/v_" + (if back_token_nyx() or back_token_snow() then "nyx_" else "") + (if back_token_tall() then "tall_mask.png" else if back_token_textless() then "short_mask.png" else "mid_mask.png") }
+		visible: { back_token_custom_border() }
