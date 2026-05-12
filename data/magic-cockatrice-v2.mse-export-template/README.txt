@@ -24,6 +24,11 @@ The description of the set under “Set Type” in Cockatrice, such as Promo or 
 Export Images
 Whether to export images and at what quality. JPG images are lower quality but smaller file sizes. PNG images can’t be uploaded to Planesculptors anymore.
 
+Ensure Unique Image Names
+Adds the set code and number to the end of image files, allowing different printings to have unique art.
+This requires at least the cockatrice 3.0 update which adds the option to differentiate custom images by using the format [cardname]_[setcode]_[setnumber].[extension].
+Custom images using this option are able to work next to canon printings, as well as having multiple printings in one set for eg promos.
+
 Tokens in Separate XML
 Separates the tokens into their own file. This is no longer necessary but is still supported.
 

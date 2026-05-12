@@ -1,9 +1,9 @@
 ﻿mse version: 2.5.0
 short name: Cockatrice
-full name: Exporter v2.2
+full name: Exporter v2.3
 position hint: 100
 icon: icon.png
-version: 2024-09-23
+version: 2026-05-13
 installer group: magic/Export/cockatrice
 
 depends on:
@@ -37,6 +37,11 @@ option field:
 	initial: no
 option field:
 	type: boolean
+	name: ensure Unique Image Names
+	description: Adds the set code and number to the end of image files, allowing different printings to have unique art (requires cockatrice 3.0 or newer)
+	initial: no
+option field:
+	type: boolean
 	name: tokens In Separate XML
 	description: Tokens are exported to a Separate file called "[Set Code] Tokens.xml"
 	initial: no
@@ -47,8 +52,8 @@ option field:
 	initial: no
 option field:
 	type: text
-	name: append String To Names
-	description: Appended to the front of all card names and image names.
+	name: prepend String To Names
+	description: Added to the front of all card names and image names.
 option field:
 	type: multiple choice
 	name: rarities to export
@@ -111,6 +116,9 @@ script:
 		#+ replace@(match:"\>",replace:"\\&gt;") #escape greater than sign, for some reason this upsets mse and they are technically not needed to escape
 	# escaped set code
 	setcode := xml_escape(set.set_code)
+
+	# cardnumber, simply use card_number() as it needs to be unique
+	cardnumber := xml_escape(card_number())
 
 	#functions for the !exportname command
 	exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n\<]+")
@@ -225,7 +233,7 @@ script:
 	write_normal := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))+"\</name>"
 		# Set
 		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
@@ -233,6 +241,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ ">"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
@@ -268,7 +277,9 @@ script:
 		# Name
 		+"\n      "+"\<name>"+xml_escape(strip_card_name(card_name())+(if options.append_Set_Code_To_Tokens then " " + setcode else ""))+"\</name>"
 		# Set
-		+"\n      "+"\<set>"+setcode+"\</set>"
+		+"\n      "+"\<set"
+			+ " num=\""+cardnumber+"\""
+			+ ">"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
 		+"\n        "+"\<colors>"
@@ -301,7 +312,7 @@ script:
 	write_flip := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))
 		#+" // "+strip_card_name(card.name_2)
 		+"\</name>"
 		# Set
@@ -311,6 +322,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ ">"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
@@ -373,7 +385,7 @@ script:
 	write_double := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
@@ -383,7 +395,8 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
+			+ " num=\""+cardnumber+"\""
+			+ " splitterPath=\""+"/"+options.prepend_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
 		+"\n        "+"\<colors>"
@@ -426,6 +439,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color II
@@ -464,7 +478,7 @@ script:
 	write_walker := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))+"\</name>"
 		# Set
 		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
@@ -472,6 +486,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\"" + card_number() + "\""
 			+ ">"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
@@ -517,7 +532,7 @@ script:
 	write_double_walker := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
@@ -527,7 +542,8 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
+			+ " num=\""+cardnumber+"\""
+			+ " splitterPath=\""+"/"+options.prepend_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
 		+"\n        "+"\<colors>"
@@ -584,6 +600,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color II
@@ -632,7 +649,7 @@ script:
 	write_sparker := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
@@ -642,7 +659,8 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
+			+ " num=\""+cardnumber+"\""
+			+ " splitterPath=\""+"/"+options.prepend_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
 		+"\n        "+"\<colors>"
@@ -684,6 +702,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color II
@@ -732,7 +751,7 @@ script:
 	write_sacrificer := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))
 		#+" | ("+strip_card_name(card.name_2)+")"
 		+"\</name>"
 		# Set
@@ -742,7 +761,8 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
-			+ " splitterPath=\""+"/"+options.append_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
+			+ " num=\""+cardnumber+"\""
+			+ " splitterPath=\""+"/"+options.prepend_String_To_Names+strip_card_name(card_name())+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
 		+"\n        "+"\<colors>"
@@ -800,6 +820,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ " splitterPath=\""+"/"+strip_card_name(card.name_2)+"." + file_type() + "\" >"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color II
@@ -833,7 +854,7 @@ script:
 	write_leveler := {
 		"\n    "+"\<card>"
 		# Name
-		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
+		+"\n      "+"\<name>"+xml_escape(options.prepend_String_To_Names+strip_card_name(card_name()))+"\</name>"
 		# Set
 		+"\n      "+"\<set rarity="
 			+(if contains(card.rarity,match:"uncommon") then "\"uncommon\""
@@ -841,6 +862,7 @@ script:
 			else if contains(card.rarity,match:"mythic") then "\"mythic\""
 			else if contains(card.rarity,match:"rare") then "\"rare\""
 			else "\"\"")
+			+ " num=\""+cardnumber+"\""
 			+ ">"+setcode+"\</set>"
 		+"\n      "+"\<prop>"
 		# Color
@@ -907,9 +929,10 @@ script:
 		else write_single_image()
 	}
 	format_file_name := {
-		options.append_String_To_Names
+		options.prepend_String_To_Names
 		+ input
 		+ (if is_token() and options.append_Set_Code_To_Tokens then " " + set.set_code else "")
+		+ (if options.ensure_Unique_Image_Names then "_" + set.set_code + "_" + card_number() else "")
 		+ "." + file_type()
 	}
 	write_single_image := {
