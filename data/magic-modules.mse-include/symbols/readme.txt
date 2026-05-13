@@ -17,7 +17,7 @@ include file: /magic-modules.mse-include/symbols/card_fields_tfc
 #### For 750x1046 templates, w = h = 2
 #### etc...
 transformation:
-	left:   13w, 319 mirrored
+	left:   13w, 319 right hand
 	top:    19h
 	width:  43w
 	height: 43h
@@ -45,6 +45,9 @@ transform_symbol_icon_has_bevel()
 transform_symbol_icon_has_shadow()
 
 #### Is the symbol on the right of the card (true or false)
+transform_symbol_is_right()
+
+#### Is the symbol icon mirrored (true or false, default false)
 transform_symbol_is_mirrored()
 
 #### Each part of the symbol has default values.
@@ -65,6 +68,13 @@ transform_symbol_default_position :=
 	if get_front_face(card) != nil
 	and not contains(transform_symbol_shape(), match: "modal")
 	then "right" else "left"
+}
+
+#### By default, the right-side icon is not mirrored relative to the left-side
+#### To have the right-side be mirrored, redefine this function
+transform_symbol_is_mirrored :=
+{
+	transform_symbol_is_right()
 }
 
 #### By default, the background of the symbol is colored if the card is a modal DFC,
