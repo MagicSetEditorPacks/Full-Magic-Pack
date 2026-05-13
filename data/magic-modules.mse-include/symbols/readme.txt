@@ -164,10 +164,9 @@ transform_symbol_disabled_3 := { true }
 #### "data/magic-modules.mse-include/symbols/mse-transformation-symbols/" into this "plug-ins" folder. Restart GIMP.
 
 #### To use this script, open the blank symbol image "data/magic-modules.mse-include/symbols/blank.png", and add your symbol in the circle.
-#### Your symbol must be white on the blank's black background. Save as a PNG into a folder. You may save multiple transformation symbols there,
-#### but do not have any images that shouldn't be converted in that folder, as they will interrupt the script.
+#### Your symbol must be white on the blank's black background. Save as a PNG into a folder. You may save multiple of these symbols there.
 #### Then go to "Tools" menu > "Transformation Symbols...". Select the folder you saved your image in. Click OK.
-#### This will create a sub folder in that folder named "shape", containing the converted images.
+#### This will create a sub folder in that folder named "shape", containing the converted version of all symbols in the folder.
 
 #### For custom symbols, move this folder to "data/magic-mainframe-extras.mse-include/" or a subfolder inside
 #### An example is provided, the link "examples/symbols/weather.png" will load "weather.png" or "shape/weather.png" as needed.
