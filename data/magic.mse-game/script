@@ -63,6 +63,8 @@ to_title :=        replace@(match:"(^| )([A-z])([^ ]*)", replace:{_1+ to_upper(_
 to_sentence :=     replace@(match:"(^|\n)([A-z])([^\n]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
 remove_zwsp :=     replace@(match:"​", replace:"")
 
+filter_number :=   filter_text@(match:"[0-9]+")
+
 #### Replace spaces by a spacer
 separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
 zwsp :=            "​" # this is a zero-width space not blank
@@ -1535,7 +1537,7 @@ inserts_values := { split_text(set.inserts+";;;;;;;;;", match:";") }
 inserts_count := { clamp(length(semicolon_count(set.inserts)), minimum:1, maximum:9) }
 custom_auto_reminder := {""}
 auto_reminder := {
-	level := filter_text(input, match:"[0-9]+")
+	level := filter_number(input)
 	if level == "" then level := "1"
 	tag := name_tag_for_level(to_number(level))
 	type_field := remove_tags(card["type"+tag])
@@ -3248,8 +3250,8 @@ reverse_name_for := {
 	lv := "1"
 	face := ""
 	if contains(margin_code, match:"lv") then
-		lv := filter_text(margin_code, match:"[0-9]+")
-	else face := filter_text(margin_code, match:"[0-9]+")
+		lv := filter_number(margin_code)
+	else face := filter_number(margin_code)
 	
 	card_name := if face != "" then card_name_for_face(face, reverse:true)
 					else card_name_for_level(lv, reverse:true)
@@ -5651,10 +5653,16 @@ rarity_sort_script :=
 dfc_split_import_script :=
 {
 	face_values := split_face(value)
-	for x from 1 to length(face_values) do
+	if length(face_values) > 1 then for x from 1 to length(face_values) do
 	(
 		suffix := if x <= 1 then "" else "_" + x
 		import_script(value:face_values[x-1], suffix:suffix)
+	)
+	else
+	(
+		x := filter_number(margin_code)
+		suffix := if x <= 1 then "" else "_" + x
+		import_script(value:face_values[0], suffix:suffix)
 	)
 }
 name_import_script :=
