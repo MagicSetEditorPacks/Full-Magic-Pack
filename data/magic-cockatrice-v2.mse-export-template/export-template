@@ -1,20 +1,21 @@
-﻿mse version: 2.5.0
+﻿mse version: 2.6.0
+game: magic
 short name: Cockatrice
 full name: Exporter v2.2
 position hint: 100
 icon: icon.png
-version: 2024-09-23
 installer group: magic/Export/cockatrice
 
+
+version: 2026-04-30
 depends on:
 	package: magic.mse-game
-	version: 2009-07-23
+	version: 2026-02-28
 
-game: magic
 create directory: true
 file type: *.xml|*.xml|*.*|*.*
 
-# By K'yoril, edited by Advent, Updated by Reuben Covington, Updated by Cajun, Updated by Zeu
+# By K'yoril, edited by Advent, Updated by Reuben Covington, Updated by Cajun, Updated by Zeu, Updated by GenevensiS
 # Updated to v4 xml by ebbit
 # Based on code by Pichoro, Idle Muse, Innuendo and Seeonee
 
@@ -22,11 +23,13 @@ option field:
 	type: choice
 	name: info
 	choice: Updated 2024/10, guide: https://tinyurl.com/ctexportv2
+
 option field:
 	type: text
 	name: cockatrice Set Type
 	description: The "set type" your set will appear as in Cockatrice. "Custom" should be the default.
 	default: Custom
+
 option field:
 	type: choice
 	name: export Images
@@ -35,20 +38,24 @@ option field:
 	choice: JPG
 	choice: PNG
 	initial: no
+
 option field:
 	type: boolean
 	name: tokens In Separate XML
 	description: Tokens are exported to a Separate file called "[Set Code] Tokens.xml"
 	initial: no
+
 option field:
 	type: boolean
 	name: append Set Code To Tokens
 	description: Adds the set code to token names to differentiate them from tokens with the same name from other sets.
 	initial: no
+
 option field:
 	type: text
 	name: append String To Names
 	description: Appended to the front of all card names and image names.
+
 option field:
 	type: multiple choice
 	name: rarities to export
@@ -61,6 +68,7 @@ option field:
 	choice: token
 	choice: masterpiece
 	initial: common, uncommon, rare, mythic rare, basic land, special, token, masterpiece
+
 option style:
 	rarities to export:
 		render style: checklist
@@ -71,6 +79,7 @@ option style:
 			no: {built_in_image("bool_no")}
 			JPG: {built_in_image("bool_yes")}
 			PNG: {built_in_image("bool_yes")}
+
 script:
 	splitter_name := {false} ## experimental future thing for splitting dfc images
 	#determine if the card is a type that is a "token" i.e. it should be batched with tokens instead of with other cards
@@ -138,34 +147,52 @@ script:
 	#helpers to find if persistent is desired for this token relation, and generate the requisite XML
 	add_persistent := {if filter_text(match:"<(conjure|persistent)>", input) != "" then " persistent=\"persistent\"" else ""}
 
-	#helper functions for converted_related later
-	related_entry_regex := "(.+?[^[:space:]])(?:;|\n|$)"
-
-	#convert the !related command field to <reverse-related> XML blocks
-	convert_related :=
-		replace@(match: "!related ?\n?", replace:"")+ #blank out the related command itself
+	#helper functions to clean related and token entries, and split them into a list
+	extract_entries :=
 		replace@(match: "\<",replace:"<") + #replace junk Start of Header characters with proper "less than sign"s
 		replace@(match: "’",replace:"'") + #replace bad apostrophe with good apostrophe
 		replace@(match: "<X>",replace:"<x>") + #replace accidentily capital X with lowercase X
 		replace@(match:"!",replace: "") + #blank out the command ender
-
+		break_text@(match:"(.+?[^[:space:]])(?:;|\n|$)") #split into list
+	extract_related :=
+		replace@(match: "!related ?\n?", replace:"") + #blank out the related command itself
+		extract_entries
+	extract_token :=
+		replace@(match: "!tokens? ?\n?", replace:"") + #blank out the token command itself
+		extract_entries
+	
+	#convert the !related command field to <reverse-related> XML blocks
+	convert_related :=
+		extract_related +
 		#for every other card name, surround it with reverse-related tags and put in relevant attributes
-		{for each entry in (break_text(match:related_entry_regex, input)) do ("\n      \<reverse-related" + add_related_count(entry)  + add_attachment(entry) + add_persistent(entry) + ">" + xml_escape(strip_card_name(entry)) + "\</reverse-related>")}
-
-	#remove accidentily created empty <reverse-related> XML blocks
-	remove_empty := replace@(match:"        \<(reverse-)?related>\</(reverse-)?related>", replace:"")
+		{for each entry in input do ("\n      \<reverse-related" + add_related_count(entry)  + add_attachment(entry) + add_persistent(entry) + ">" + xml_escape(strip_card_name(entry)) + "\</reverse-related>")}
 
 	#convert the !token command field to <related> XML blocks
 	convert_token :=
-		replace@(match: "!tokens? ?\n?", replace:"")+ #blank out the related command itself
-		replace@(match: "\<",replace:"<") + #replace junk Start of Header characters with proper "less than sign"s
-		replace@(match: "’",replace:"'") + #replace bad apostrophe with good apostrophe
-		replace@(match: "<X>",replace:"<x>") + #replace accidentily capital X with lowercase X
-		replace@(match:"!",replace: "") + #blank out the command ender
-
+		extract_token +
 		#for every other card name, surround it with reverse-related tags and put in relevant attributes
-		{for each entry in (break_text(match:related_entry_regex, input)) do ("\n      \<related" + add_related_count(entry)  + add_attachment(entry) + add_persistent(entry) + ">" + xml_escape(strip_card_name(entry)) + "\</related>")}
+		{for each entry in input do ("\n      \<related" + add_related_count(entry)  + add_attachment(entry) + add_persistent(entry) + ">" + xml_escape(strip_card_name(entry)) + "\</related>")}
 
+	#get the related cards that come from card links, remove those already in the notes
+	get_link_related :=
+	{
+		notes_related := extract_related(filter_related(card.notes))
+		link_related := get_cards_from_link(card, linked_relation: "Generator")
+		link_related := extract_related(for each related in link_related do (related.name + ";"))
+		[] + for each related in link_related do (if position(of:related, in:notes_related) == -1 then [related] else [])
+	}
+	
+	#get the tokens that come from card links, remove those already in the notes
+	get_link_token :=
+	{
+		notes_token := extract_token(filter_token(card.notes))
+		link_token := get_cards_from_link(card, linked_relation: "Token") + get_cards_from_link(card, linked_relation: "Emblem")
+		link_token := extract_token(for each token in link_token do (token.name + ";"))
+		[] + for each token in link_token do (if position(of:token, in:notes_token) == -1 then [token] else [])
+	}
+	
+	#remove accidentily created empty <reverse-related> XML blocks
+	remove_empty := replace@(match:"        \<(reverse-)?related>\</(reverse-)?related>", replace:"")
 
 	filter_related := filter_text@(match:"!relate ?[^!]+!?")
 	filter_token := filter_text@(match:"!tokens? ?[^!]+!?")
@@ -223,6 +250,9 @@ script:
 
 	#write a normal card's XML text
 	write_normal := {
+		back := get_back_face(card)
+		front := get_front_face(card)
+		tokens := get_link_token(card)
 		"\n    "+"\<card>"
 		# Name
 		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
@@ -259,11 +289,19 @@ script:
 		#CIPT
 		+ CIPT()
 		# Rules Text
-		+"\n      "+"\<text>"+xml_escape(card_rules_text())+"\</text>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text())
+		+ (if back  != nil then "\n---\n(Back): "+xml_escape(strip_card_name(back.name)) else "")
+		+ (if front != nil then "\n---\n(Front): "+xml_escape(strip_card_name(front.name)) else "")
+		+"\</text>"
+		# Name of the related cards
+		+ (if back  != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(back.name))+"\</related>" else "")
+		+ (if front != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(front.name))+"\</related>" else "")
+		+ (for each token in tokens do ("\n      \<related>"+xml_escape(strip_card_name(token))+"\</related>"))
 		+ (if filter_token(card.notes) != "" then remove_empty(convert_token(filter_token(card.notes))))
 		+"\n    "+"\</card>"
 	}
 	write_token := {
+		generators := get_link_related(card)
 		"\n    "+"\<card>"
 		# Name
 		+"\n      "+"\<name>"+xml_escape(strip_card_name(card_name())+(if options.append_Set_Code_To_Tokens then " " + setcode else ""))+"\</name>"
@@ -296,9 +334,13 @@ script:
 		# Reverse Related
 		#if there is a !related block in the cards notes, set up the reverse-related XML elements
 		+ (if filter_related(card.notes) != "" then remove_empty(convert_related(filter_related(card.notes))))
+		+ (for each generator in generators do ("\n      \<reverse-related>"+xml_escape(strip_card_name(generator))+"\</reverse-related>"))
 		+"\n    "+"\</card>"
 	}
 	write_flip := {
+		back := get_back_face(card)
+		front := get_front_face(card)
+		tokens := get_link_token(card)
 		"\n    "+"\<card>"
 		# Name
 		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))
@@ -366,7 +408,14 @@ script:
 			 else "1")
 			+"\</tablerow>"
 		# Rules Text
-		+"\n      "+"\<text>"+xml_escape(card_rules_text()+"\n--- \n"+card_rules_text_2())+"\</text>"
+		+"\n      "+"\<text>"+xml_escape(card_rules_text()+"\n--- \n"+card_rules_text_2())
+		+ (if back  != nil then "\n---\n(Back): "+xml_escape(strip_card_name(back.name)) else "")
+		+ (if front != nil then "\n---\n(Front): "+xml_escape(strip_card_name(front.name)) else "")
+		+"\</text>"
+		# Name of the related cards
+		+ (if back  != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(back.name))+"\</related>" else "")
+		+ (if front != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(front.name))+"\</related>" else "")
+		+ (for each token in tokens do ("\n      \<related>"+xml_escape(strip_card_name(token))+"\</related>"))
 		+ (if filter_token(card.notes) != "" then remove_empty(convert_token(filter_token(card.notes))))
 		+"\n    "+"\</card>"
 	}
@@ -462,6 +511,9 @@ script:
 		filter_text@(match:"•")
 
 	write_walker := {
+		back := get_back_face(card)
+		front := get_front_face(card)
+		tokens := get_link_token(card)
 		"\n    "+"\<card>"
 		# Name
 		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
@@ -510,7 +562,13 @@ script:
 			+card.loyalty_cost_4
 			+(if card.loyalty_cost_4 !="" then ": ")
 			+(if contains(paragraph_count(card.rule_text), match:"•••") then split_text(match:"\n", card.rule_text).3)))
+		+ (if back  != nil then "\n---\n(Back): "+xml_escape(strip_card_name(back.name)) else "")
+		+ (if front != nil then "\n---\n(Front): "+xml_escape(strip_card_name(front.name)) else "")
 		+"\</text>"
+		# Name of the related cards
+		+ (if back  != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(back.name))+"\</related>" else "")
+		+ (if front != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(front.name))+"\</related>" else "")
+		+ (for each token in tokens do ("\n      \<related>"+xml_escape(strip_card_name(token))+"\</related>"))
 		+ (if filter_token(card.notes) != "" then remove_empty(convert_token(filter_token(card.notes))))
 		+"\n    "+"\</card>"
 	}
@@ -831,6 +889,9 @@ script:
 		+"\n    "+"\</card>"
 	}
 	write_leveler := {
+		back := get_back_face(card)
+		front := get_front_face(card)
+		tokens := get_link_token(card)
 		"\n    "+"\<card>"
 		# Name
 		+"\n      "+"\<name>"+xml_escape(options.append_String_To_Names+strip_card_name(card_name()))+"\</name>"
@@ -878,7 +939,13 @@ script:
 		+"\nLEVEL " + card.level_2
 		 +(if card.pt_3 != "" then "\n"+card.pt_3)
 		 +"\n"+card.rule_text_3)
+		+ (if back  != nil then "\n---\n(Back): "+xml_escape(strip_card_name(back.name)) else "")
+		+ (if front != nil then "\n---\n(Front): "+xml_escape(strip_card_name(front.name)) else "")
 		+"\</text>"
+		# Name of the related cards
+		+ (if back  != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(back.name))+"\</related>" else "")
+		+ (if front != nil then "\n      \<related attach=\"transform\">"+xml_escape(strip_card_name(front.name))+"\</related>" else "")
+		+ (for each token in tokens do ("\n      \<related>"+xml_escape(strip_card_name(token))+"\</related>"))
 		+ (if filter_token(card.notes) != "" then remove_empty(convert_token(filter_token(card.notes))))
 		+"\n    "+"\</card>"
 	}
@@ -953,4 +1020,4 @@ script:
 	if (chosen(options.rarities_to_export, choice:"token") and options.tokens_In_Separate_XML) then write_text_file(file:set.set_code + " Tokens" + ".xml", to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"4\">\n  <cards>\n"+write_all_tokens+"\n\n  </cards>\n</cockatrice_carddatabase>"))
 
 	#other cards
-	to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"4\">\n  <sets>\n    <set>\n      <name>"+setcode+"</name>\n      <longname>"+xml_escape(set.title)+"</longname>\n      <settype>"+xml_escape(options.cockatrice_Set_Type)+"</settype>\n    </set>\n  </sets>\n  <cards>\n"+write_cards+if (chosen(options.rarities_to_export, choice:"token") and not(options.tokens_In_Separate_XML)) then ("\n\n    <!-->Tokens</-->\n"+write_all_tokens)+"\n\n  </cards>\n</cockatrice_carddatabase>")
+	to_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cockatrice_carddatabase version=\"4\">\n  <sets>\n    <set>\n      <name>"+setcode+"</name>\n      <longname>"+xml_escape(set.title)+"</longname>\n      <settype>"+xml_escape(options.cockatrice_Set_Type)+"</settype>\n    </set>\n  </sets>\n  <cards>\n"+write_cards+(if chosen(options.rarities_to_export, choice:"token") and not(options.tokens_In_Separate_XML) then "\n\n    <!-->Tokens</-->\n"+write_all_tokens else "")+"\n\n  </cards>\n</cockatrice_carddatabase>")
