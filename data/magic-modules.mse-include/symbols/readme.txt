@@ -177,8 +177,9 @@ transform_symbol_disabled_3 := { true }
 #### Your symbol must be white on the blank's black background. Save as a PNG into a folder. You may save multiple of these symbols there.
 #### Then go to "Tools" menu > "Transformation Symbols...". Select the folder you saved your image in. Click OK.
 #### This will create a sub folder in that folder named "shape", containing the converted version of all symbols in the folder.
+#### (If you are making a rim and not a symbol, disable the "Erase Rim" option before clicking OK, otherwise leave it enabled.)
 
-#### For custom symbols, move this folder to "data/magic-mainframe-extras.mse-include/" or a subfolder inside
+#### For custom symbols, move this "shape" folder to "data/magic-mainframe-extras.mse-include/" or a subfolder inside.
 #### An example is provided, the link "examples/symbols/weather.png" will load "weather.png" or "shape/weather.png" as needed.
 #### For new built-in symbols, add the converted images to "data/magic-modules.mse-include/symbols/icon/shape/",
-#### And remember to update the "choices" file and the require_exclusive_choice list in transform_symbol_script in "magic.mse-game/script"
+#### And remember to update the "choices" file and the require_exclusive_choice list in transform_symbol_script in "magic.mse-game/script".
