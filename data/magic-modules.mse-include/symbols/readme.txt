@@ -123,7 +123,7 @@ transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
 #### making a folder containing the 8 variants (w u b r g m c a),
 #### make a single PNG image file with the same name as that folder.
 
-#### If the modal symbols need to use the same background as the normal ones:
+#### If the modal symbols need to use the same background and textures as the normal ones:
 transform_symbol_modal_uses_normal_background := { true }
 
 #### If you need to move the icon placement within the symbol image:
@@ -146,6 +146,15 @@ transform_symbol_offset_height_1 := { 0 }
 #### You can increase/decrease the amount by which they do:
 name_transform_symbol_offset_left_1 := { 0 }
 casting_cost_transform_symbol_offset_left_1 := { 0 }
+
+#### To change how blending works for multicolor cards:
+#### This should return either "white" (colored), black (gold), or "mask"
+#### If mask, add a mask image file in the template folder called "multicolor_blend_transform.png"
+transform_symbol_multicolor_blend :=	{ "white" }
+
+#### Same for artifact and hybrid:
+transform_symbol_hybrid_blend :=		{ "white" }
+transform_symbol_artifact_blend :=		{ "white" }
 
 #### For the other faces on DFCs use:
 transform_symbol_offset_top_2 := { 0 }
