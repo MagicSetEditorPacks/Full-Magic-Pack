@@ -47,9 +47,6 @@ transform_symbol_icon_has_shadow()
 #### Is the symbol on the right of the card (true or false)
 transform_symbol_is_right()
 
-#### Is the symbol icon mirrored (true or false, default false)
-transform_symbol_is_mirrored()
-
 #### Each part of the symbol has default values.
 #### The icon shape defaults to "front triangle" if it's a front face (that is, when it is linked to a back face),
 #### "back triangle" if it's a back face, and "none" otherwise. To override this behavior, redefine this function:
