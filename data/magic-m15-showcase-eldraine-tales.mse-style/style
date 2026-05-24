@@ -26,7 +26,7 @@ card width:			744
 card height:		1039
 card dpi:			297
 
-### blanks by GenevensiS
+### blanks by desdemona and GenevensiS
 ### code by GenevensiS
 
 ############################################################## Extra scripts
@@ -110,7 +110,8 @@ init script:
 		ubstamprim:		"stamprim/ub/",
 		textbox:		"textbox/",
 		identity:		"/magic-modules.mse-include/indicators/",
-		pt:				"pt/"
+		pt:				"pt/",
+		nyx:			"nyx/"
 	]
 	template_suffix :=
 	[
@@ -121,6 +122,7 @@ init script:
 		textbox:		"textbox.png",
 		identity:		"identity.png"
 		pt:				"pt.png",
+		nyx:			"nyx.png"
 	]
 	template := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + template_suffix[type] }
@@ -131,6 +133,7 @@ init script:
 	card_ptbox :=		{ color_background(input: card.card_color, type: "pt",			base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white",	multicolor_blend: "white") }
 	card_stamprim :=	{ color_background(input: card.card_color, type: "stamprim",	base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white",	multicolor_blend: "black") }
 	card_ubstamprim :=	{ color_background(input: card.card_color, type: "ubstamprim",	base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white",	multicolor_blend: "black", blend_type:"stamprim") }
+	card_nyx :=			{ color_background(input: card.card_color, type: "nyx",			base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white",	multicolor_blend: "mask") }
 	
 	opacity_textbox_image :=
 	{
@@ -154,7 +157,13 @@ init script:
 	is_promo := { styling.promo }
 	
 	is_unsorted := { styling.remove_from_autocount }
-
+	
+	is_nyx :=
+	{
+		styling.nyx_stars == "yes" or
+		(styling.nyx_stars == "if enchantment" and lang_setting("is_enchantment")(card.super_type)) or
+		(styling.nyx_stars == "if legendary" and lang_setting("is_legendary")(card.super_type))
+	}
 	
 	chop_top := { split := split_comma(styling.chop_text_box); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -1500) else 0 }
 	chop_bot := { split := split_comma(styling.chop_text_box); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: -1500) else 0 }
@@ -192,6 +201,15 @@ styling field:
 	type:			text
 	name:			textbox opacity percentage
 	description:	Set the opacity percentage for the rules textbox. Opaque is 100, transparent is 0, default is 70.
+styling field:
+	type:			choice
+	name:			nyx stars
+	description:	Use the nyx stars overlay?
+	choice:			yes
+	choice:			if enchantment
+	choice:			if legendary
+	choice:			no
+	initial:		no
 styling field:
 	type:			choice
 	name:			PT color scheme
@@ -380,6 +398,13 @@ extra card field:
 	show statistics:	false
 extra card field:
 	type:				choice
+	name:				nyx
+	script:				card.card_color
+	editable:			false
+	save value:			false
+	show statistics:	false
+extra card field:
+	type:				choice
 	name:				pt box
 	script:				card.card_color
 	editable:			false
@@ -430,6 +455,15 @@ extra card style:
 		z index:			100
 		render style:		image
 		image:				{ opacity_textbox_image() }
+	nyx:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			700
+		visible:			{ is_nyx() }
+		render style:		image
+		image:				{ card_nyx() }
 	pt box:
 		left:				0
 		top:				0
