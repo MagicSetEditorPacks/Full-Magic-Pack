@@ -6,10 +6,10 @@ depends on:
 #### Add this, unindented in the styling fields section:
 include file: /magic-modules.mse-include/crowns/styling_fields
 #### And this, unindented, before the card style section:
-include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/crowns/card_fields
 #### For DFC or TFC templates, instead override the faces_coordinates function, and use:
-include file: /magic-modules.mse-include/corners/card_fields_dfc
-include file: /magic-modules.mse-include/corners/card_fields_tfc
+include file: /magic-modules.mse-include/crowns/card_fields_dfc
+include file: /magic-modules.mse-include/crowns/card_fields_tfc
 
 #### Finally, the template script must be adjusted like so:
 
