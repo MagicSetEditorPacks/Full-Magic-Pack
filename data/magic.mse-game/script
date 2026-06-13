@@ -3376,12 +3376,12 @@ transform_symbol_default :=
 transform_symbol_default_position :=
 {
 	if get_front_face(card) != nil
-	and not contains(input, match: "modal")
+	and not transform_symbol_is_modal(input)
 	then "right" else "left"
 }
 transform_symbol_default_background :=
 {
-	if contains(input, match: "modal") and not transform_symbol_modal_uses_normal_background()
+	if transform_symbol_is_modal(input) and not transform_symbol_modal_uses_normal_background()
 	then "colored" else "black"
 }
 transform_symbol_default_rim :=
@@ -3540,6 +3540,7 @@ transform_symbol_icon :=
 	else														"white"
 }
 transform_symbol_is_empty := match@(match: ", none$")
+transform_symbol_is_modal := { contains(input, match: "modal") }
 transform_symbol_is_right :=
 {
 	chosen(input, choice: "position right")
@@ -3660,8 +3661,8 @@ transform_symbol_icon_image :=
 			width:width+2*transform_symbol_icon_offset_width(transform_field),
 			height:height+2*transform_symbol_icon_offset_height(transform_field)
 		),
-		offset_x: transform_symbol_icon_offset_width(transform_field)-transform_symbol_icon_offset_left(transform_field),
-		offset_y: transform_symbol_icon_offset_height(transform_field)-transform_symbol_icon_offset_top(transform_field),
+		offset_x: transform_symbol_icon_offset_width(transform_field)  - transform_symbol_icon_offset_left(transform_field) * (if transform_right and not transform_modal then -1 else 1),
+		offset_y: transform_symbol_icon_offset_height(transform_field) - transform_symbol_icon_offset_top(transform_field),
 		width:width,
 		height:height
 	)
@@ -3671,7 +3672,7 @@ transform_symbol_icon_image :=
 	icon_image := combine_blend(image1: color_image, image2: shape_image, combine: "lightmap relative")
 	
 	#### Mirror
-	mirror := transform_right and contains(transform_shape, match: "modal") # modal icons need to be flipped by default because they are not centered
+	mirror := transform_right and transform_modal # modal icons need to be flipped by default because they are not centered
 	if transform_mirror_icon then mirror := not mirror
 	if mirror then icon_image := flip_image(icon_image, horizontal: true)
 	
@@ -3685,8 +3686,8 @@ transform_symbol_template :=
 	rim :=			transform_symbol_rim(transform_field)
 	background :=	transform_symbol_background(transform_field)
 	
-	variant := if transform_symbol_modal_uses_normal_background(transform_field) or not contains(transform_shape, match: "modal") then "normal" else transform_shape
-	if (background == "none" or transform_symbol_modal_uses_normal_background(transform_field)) and contains(transform_shape, match: "modal") then transform_shape := transform_shape + " centered"
+	variant := if transform_symbol_modal_uses_normal_background(transform_field) or not transform_modal then "normal" else transform_shape
+	if (background == "none" or transform_symbol_modal_uses_normal_background(transform_field)) and transform_modal then transform_shape := transform_shape + " centered"
 	
 	image := transform_symbol_icon_image(width:width, height:height, variant:variant)
 	
@@ -3740,6 +3741,7 @@ transform_symbol_image :=
 			transform_shadow_icon :=		transform_symbol_icon_has_shadow(transform_field)
 			transform_mirror_icon :=		transform_symbol_icon_has_mirror(transform_field)
 			transform_right :=				transform_symbol_is_right(transform_field)
+			transform_modal :=				transform_symbol_is_modal(transform_field)
 			transform_folder :=				transform_symbol_image_folder(transform_field)
 			if not ends_dash(transform_folder) then transform_folder := transform_folder + "/"
 			
