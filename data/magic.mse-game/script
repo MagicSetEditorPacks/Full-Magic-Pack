@@ -2389,6 +2389,131 @@ all_classes := {
 		else ""
 }
 ############################################################## Modal DFC flag hints
+reminder_type_default :=
+{
+	if not transform_symbol_is_modal(card.transformation) then "" else (
+	other_face := get_back_face(card)
+	if other_face == nil then other_face := get_front_face(card)
+	if other_face == nil then ""
+	else if remove_tags(other_face.sub_type) != "" then other_face.sub_type
+	else main_type(other_face.super_type))
+}
+reminder_type_script := { value }
+reminder_type_font := { type_font() }
+reminder_type_font_size :=
+{
+	face_map := face_coordinates_map(1)
+	10 * max(face_map.width, face_map.height) / 523
+}
+reminder_type_font_color := { if reminder_uses_light_variant() then "black" else "white" }
+reminder_type_symbol_font := { styling.text_box_mana_symbols or else "magic-mana-small.mse-symbol-font" }
+reminder_type_symbol_font_size := { reminder_type_font_size() }
+reminder_type_top :=	{ face_map := face_coordinates_map(1); 467	* face_map.height / 523	+ reminder_offset_top()		+ reminder_offset_height()/2	+ reminder_type_offset_top() }
+reminder_type_left :=	{ face_map := face_coordinates_map(1); 26	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()/2		+ reminder_type_offset_left() }
+reminder_type_height :=	{ face_map := face_coordinates_map(1); 18	* face_map.height / 523																+ reminder_type_offset_height() }
+reminder_type_width :=
+{
+	face_map := face_coordinates_map(1)
+	scale := face_map.width / 375.0
+	134	* scale +
+	reminder_type_offset_width() -
+	if card_style.reminder_cost.content_width > 0 and not reminder_cost_disabled() then card_style.reminder_cost.content_width + 3 * scale else 0
+}
+
+reminder_cost_default :=
+{
+	if not transform_symbol_is_modal(card.transformation) then "" else (
+	other_face := get_back_face(card)
+	if other_face == nil then other_face := get_front_face(card)
+	if other_face == nil then ""
+	else if remove_tags(other_face.sub_type) != "" or other_face.casting_cost != "" then other_face.casting_cost
+	else mana_ability(other_face.rule_text))
+}
+reminder_cost_script := { "<sym-auto>" + to_upper(remove_tag(value, tag: "<sym-auto")) + "</sym-auto>" }
+reminder_cost_font := { name_font() }
+reminder_cost_font_size :=
+{
+	face_map := face_coordinates_map(1)
+	10 * max(face_map.width, face_map.height) / 523
+}
+reminder_cost_font_color := { if reminder_uses_light_variant() then "black" else "white" }
+reminder_cost_symbol_font := { styling.text_box_mana_symbols or else "magic-mana-small.mse-symbol-font" }
+reminder_cost_symbol_font_size := { reminder_cost_font_size() }
+reminder_cost_top :=	{ face_map := face_coordinates_map(1); 467	* face_map.height / 523	+ reminder_offset_top()		+ reminder_offset_height()/2	+ reminder_cost_offset_top() }
+reminder_cost_right :=	{ face_map := face_coordinates_map(1); 160	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()/2		+ reminder_cost_offset_left() }
+reminder_cost_height :=	{ face_map := face_coordinates_map(1); 18	* face_map.height / 523																+ reminder_cost_offset_height() }
+reminder_cost_width :=
+{
+	face_map := face_coordinates_map(1)
+	scale := face_map.width / 375.0
+	min(134 * scale, max(40 * scale, card_style.reminder_cost.content_width)) +
+	reminder_cost_offset_width()
+}
+
+reminder_box_default :=
+{
+	other_face := get_back_face(card)
+	if other_face == nil then other_face := get_front_face(card)
+	if other_face == nil then card.card_color
+	else if is_default(other_face.card_color) then card_color(casting_cost: other_face.casting_cost, rules_text: other_face.rule_text, type: other_face.super_type, watermark: other_face.watermark, card_name: other_face.name, default: "colorless", margin_code: "color1") # on load we may catch this field while it's empty, in that case we need to calculate its default value ourselves
+	else other_face.card_color
+}
+reminder_box_image :=
+{
+	template := reminder_box_template
+	land_template := reminder_box_template
+	color_background(
+		input:				card.reminder_box,
+		type:				"reminder",
+		base_hybrid:		card_hybrid,
+		multicolor_blend:	reminder_multicolor_blend(),
+		hybrid_blend:		reminder_hybrid_blend(),
+		artifact_blend:		reminder_artifact_blend()
+	)
+}
+reminder_box_template :=
+{
+	folder := reminder_image_folder()
+	if not ends_dash(folder) then folder := folder + "/"
+	variant := if reminder_uses_light_variant() then "light" else "dark"
+	
+	color_name := variant + "/" + input + ".png"
+	noncolor_name := variant + ".png"
+	#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
+	if		exists_in_package(folder + color_name)		then	folder									+ color_name
+	else if	exists_in_package(folder + noncolor_name)	then	folder									+ noncolor_name
+	else														"/magic-modules.mse-include/reminders/"	+ color_name
+}
+reminder_box_left :=		{ face_map := face_coordinates_map(1); 8	* face_map.width / 375	+ reminder_offset_left() }
+reminder_box_top :=			{ face_map := face_coordinates_map(1); 464	* face_map.height / 523	+ reminder_offset_top() }
+reminder_box_width :=		{ face_map := face_coordinates_map(1); 170	* face_map.width / 375	+ reminder_offset_width() }
+reminder_box_height :=		{ face_map := face_coordinates_map(1); 24	* face_map.height / 523	+ reminder_offset_height() }
+reminder_box_is_visible :=	{ (remove_tags(card.reminder_type) != "" or remove_tags(card.reminder_cost) != "") and not reminder_disabled() }
+
+reminder_offset_top := { 0 }
+reminder_offset_left := { 0 }
+reminder_offset_width := { 0 }
+reminder_offset_height := { 0 }
+reminder_disabled := { false }
+reminder_image_folder := { "/magic-modules.mse-include/reminders/" }
+reminder_uses_light_variant := { get_front_face(card) != nil }
+
+reminder_type_offset_top := { 0 }
+reminder_type_offset_left := { 0 }
+reminder_type_offset_width := { 0 }
+reminder_type_offset_height := { 0 }
+reminder_type_disabled := { false }
+
+reminder_cost_offset_top := { 0 }
+reminder_cost_offset_left := { 0 }
+reminder_cost_offset_width := { 0 }
+reminder_cost_offset_height := { 0 }
+reminder_cost_disabled := { false }
+
+reminder_multicolor_blend := { "black" }
+reminder_hybrid_blend := { "white" }
+reminder_artifact_blend := { "white" }
+
 auto_flags := {true}
 front_modal_hint := {
 	if not auto_flags() then ["", ""]
@@ -3746,7 +3871,7 @@ transform_symbol_image :=
 			if not ends_dash(transform_folder) then transform_folder := transform_folder + "/"
 			
 			template := transform_symbol_template
-			colored_lands := false
+			land_template := transform_symbol_template
 			color_background(
 				input:				card_color_field(face),
 				type:				"transform",
