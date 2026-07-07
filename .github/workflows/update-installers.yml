@@ -60,6 +60,24 @@ jobs:
                     before = os.environ["GITHUB_BEFORE_SHA"]
                     after = os.environ["GITHUB_AFTER_SHA"]
 
+                    ## Ensure the "before" commit is available locally.
+                    if subprocess.run(
+                        ["git", "cat-file", "-e", f"{before}^{{commit}}"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    ).returncode != 0:
+                        subprocess.check_call(
+                            [
+                                "git",
+                                "fetch",
+                                "--no-tags",
+                                "--depth=1",
+                                "origin",
+                                before,
+                            ]
+                        )
+
+                    ## Compute diff
                     changed = subprocess.check_output(
                         [
                             "git",
@@ -69,9 +87,10 @@ jobs:
                             after,
                         ],
                         text=True,
+                        stderr=subprocess.STDOUT,
                     ).splitlines()
 
-                    #### Iterate on the packages (folders that end in ".mse-*")
+                    #### Iterate on the packages in the data folder (folders that end in ".mse-*")
                     with installer_list.open("w", encoding="utf-8", newline="\n") as l:
                     
                         for package in sorted(data.iterdir()):
@@ -211,5 +230,5 @@ jobs:
                         exit 0
                     }
 
-                    git commit -m "Update installers"
+                    git commit -m "[Job] Update installers"
                     git push
