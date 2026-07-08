@@ -36,28 +36,16 @@ jobs:
           GITHUB_BEFORE_SHA: ${{ github.event.before }}
           GITHUB_AFTER_SHA: ${{ github.sha }}
         run: |
+          import sys
           import os
           import re
           import time
           import shutil
+          import zipfile
           import subprocess
           from pathlib import Path
 
-          #### Set up some context
-          root = Path.cwd()
-          data = root / "data"
-          installer_list = root / "packages.txt"
-          installer_repo = root / "installer-pack"
-
-          keys = {
-              "short name",
-              "full name",
-              "icon",
-              "installer group",
-              "version",
-          }
-
-          #### Get a list of packages that have changes in the push that triggered this job
+          #### Get a list of packages that have changed in the push that triggered this job
           before = os.environ["GITHUB_BEFORE_SHA"]
           after = os.environ["GITHUB_AFTER_SHA"]
 
@@ -84,7 +72,7 @@ jobs:
                   ]
               )
               print(f"::notice::checked out before commit in {time.time() - t0:.1f}s.")
-          
+
           ## Compute diff (transmit errors)
           t0 = time.time()
           changed = subprocess.check_output(
@@ -100,9 +88,70 @@ jobs:
           ).splitlines()
           print(f"::notice::computed diff in {time.time() - t0:.1f}s.")
 
-          #### Iterate on the packages in the data folder (folders that end in ".mse-*")
+          #### Set up some context
+          keys = {
+              "short name",
+              "full name",
+              "icon",
+              "installer group",
+              "version",
+          }
+
+          root = Path.cwd()
+          exe = root / "mse.exe"
+          exe2 = root / "magicseteditor.exe"
+          changelog = root / "changelog.txt"
+          data = root / "data"
+          installer_repo = root / "installer-pack"
+          installer_list = root / "packages.txt"
+
           with installer_list.open("w", encoding="utf-8", newline="\n") as l:
 
+              #### Check for exe
+              if not exe.is_file():
+                  print(f"::error::executable {exe.name} not found in root folder.")
+                  sys.exit(1)
+              if not exe2.is_file():
+                  print(f"::error::executable {exe2.name} not found in root folder.")
+                  sys.exit(1)
+
+              #### Write exe entry in the installer list
+              exe_version = subprocess.check_output(
+                  [
+                      "powershell",
+                      "-NoProfile",
+                      "-Command",
+                      "(Get-Item '" + exe.name + "').VersionInfo.FileVersion",
+                  ],
+                  cwd=root,
+                  text=True,
+              ).strip()
+
+              l.write(f"installer:\n")
+              l.write(f"	url:				https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/magicseteditor.zip\n")
+              l.write(f"	downloadable:		true\n")
+              l.write(f"	package:\n")
+              l.write(f"		name:				Magic Set Editor\n")
+              l.write(f"		version:			{exe_version}\n")
+              l.write(f"		installer group:	Magic Set Editor\n")
+              l.write(f"		short name:			Magic Set Editor\n")
+              l.write(f"		full name:			Application\n")
+
+              #### Check if exe has changed, if so rebuild the zip archive
+              if exe.name in changed or exe2.name in changed:
+                  zip_path = root / "magicseteditor.zip"
+
+                  with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                      zf.write(exe, arcname=exe.name)
+                      zf.write(exe2, arcname=exe2.name)
+                      if not changelog.exists():
+                          print(f"::warning::{changelog.name} not found in root folder.")
+                      else:
+                          zf.write(changelog, arcname=changelog.name)
+
+                  shutil.copy2(zip_path, installer_repo / zip_path.name)
+
+              #### Iterate on the packages in the data folder (folders that end in ".mse-*")
               for package in sorted(data.iterdir()):
 
                   if not package.is_dir():
@@ -150,26 +199,27 @@ jobs:
                   found_keys['short name'] = found_keys.get("short name", found_keys.get("full name", package.name))
                   found_keys['full name'] = found_keys.get("full name", found_keys.get("short name", package.name))
 
-                  #### Write the package's entry in the installer list
-                  l.write(f"installer:\n")
-                  l.write(f"	url:				https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.mse-installer\n")
-                  l.write(f"	downloadable:		true\n")
-                  l.write(f"	package:\n")
-                  l.write(f"		name:				{package.name}\n")
-                  l.write(f"		version:			{found_keys['version']}\n")
-                  l.write(f"		installer group:	{found_keys['installer group']}\n")
-                  l.write(f"		short name:			{found_keys['short name']}\n")
+                  #### Write the package's entry
+                  entry =         f"installer:\n"
+                  entry = entry + f"	url:				https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.mse-installer\n"
+                  entry = entry + f"	downloadable:		true\n"
+                  entry = entry + f"	package:\n"
+                  entry = entry + f"		name:				{package.name}\n"
+                  entry = entry + f"		version:			{found_keys['version']}\n"
+                  entry = entry + f"		installer group:	{found_keys['installer group']}\n"
+                  entry = entry + f"		short name:			{found_keys['short name']}\n"
                   if found_keys['full name'] != found_keys['short name']:
-                      l.write(f"		full name:			{found_keys['full name']}\n")
+                      entry = entry + f"		full name:			{found_keys['full name']}\n"
                   if "icon" in found_keys:
                       if (package / found_keys['icon']).is_file():
-                          l.write(f"		icon url:			https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.icon.png\n")
+                          entry = entry + f"		icon url:			https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.icon.png\n"
                       else:
                           print(f"::error::icon file {found_keys['icon']} not found for package {package.name}.")
-                          del found_keys['icon']
+                          continue
 
                   ## Write what the package depends on
                   with package_file.open(encoding="utf-8") as f:
+                      parse_failure = -1
                       lines = f.readlines()
                       for i, line in enumerate(lines):
 
@@ -181,14 +231,32 @@ jobs:
                           key, value = line.split(":", 1)
 
                           if key == "depends on":
-                              no_value = value.strip() == ""
-                              if no_value and i + 2 >= len(lines):
-                                  print(f"::error::can't parse dependency on line {i} of package {package.name}.")
-                                  continue
-                              l.write(f"		{line}\n")
-                              if no_value:
-                                  l.write(f"		{lines[i + 1].rstrip("\r\n")}\n")
-                                  l.write(f"		{lines[i + 2].rstrip("\r\n")}\n")
+                              entry = entry + f"		{line}\n"
+
+                              if value.strip() == "":
+
+                                  if i + 2 >= len(lines):
+                                      parse_failure = i
+                                      break
+
+                                  line2 = lines[i + 1].rstrip("\r\n")
+
+                                  if "version" not in line2 and "package" not in line2:
+                                      parse_failure = i+1
+                                      break
+
+                                  line3 = lines[i + 2].rstrip("\r\n")
+
+                                  if "version" not in line3 and "package" not in line3:
+                                      parse_failure = i+2
+                                      break
+
+                                  entry = entry + f"		{line2}\n"
+                                  entry = entry + f"		{line3}\n"
+
+                      if parse_failure >= 0:
+                          print(f"::error::can't parse dependency on line {parse_failure} of package {package.name}.")
+                          continue
 
                   #### Check if this package has changed
                   package_prefix = f"data/{package.name}/".replace("\\", "/")
@@ -204,7 +272,7 @@ jobs:
                           t0 = time.time()
                           subprocess.run(
                               [
-                                  str(root / "mse.exe"),
+                                  str(exe),
                                   "--create-installer",
                                   package.name,
                                   installer_name,
@@ -229,15 +297,18 @@ jobs:
                               )
 
                       except subprocess.TimeoutExpired:
-                          print(f"::error::mse.exe timed out building {package.name} (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder).")
+                          print(f"::error::{exe.name} timed out building {package.name} (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder).")
                           continue
                       except subprocess.CalledProcessError as e:
-                          print(f"::error::mse.exe failed building {package.name} (exit code {e.returncode}).")
+                          print(f"::error::{exe.name} failed building {package.name} (exit code {e.returncode}).")
                           continue
                       except OSError as e:
                           print(f"::error::failed to copy installer/icon for {package.name}: {e}")
                           continue
-          
+
+                  #### Write the package's entry in the installer list
+                  l.write(entry)
+
           #### Copy the installer list to the Installer-Pack repo
           shutil.copy2(installer_list, installer_repo / installer_list.name)
 
