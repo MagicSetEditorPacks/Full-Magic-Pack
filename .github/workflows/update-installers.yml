@@ -1,234 +1,259 @@
 name: Update installers
 
 on:
-    push:
-        branches:
-            - main
+  push:
+    branches:
+      - main
 
 permissions:
-    contents: read
-    
+  contents: read
+
 jobs:
-    update-installers:
-        runs-on: windows-latest
+  update-installers:
+    runs-on: windows-latest
 
-        steps:
-            - name: Checkout Full-Magic-Pack
-                uses: actions/checkout@v4
-                with:
-                    fetch-depth: 2
-            
-            - name: Checkout Installer-Pack
-                uses: actions/checkout@v4
-                with:
-                  repository: MagicSetEditorPacks/Installer-Pack
-                  token: ${{ secrets.INSTALLER_PACK_TOKEN }}
-                  path: installer-pack
-            
-            - name: Set up Python
-                uses: actions/setup-python@v5
-                with:
-                    python-version: "3.12"
+    steps:
+      - name: Checkout Full-Magic-Pack
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
 
-            - name: Generate installers
-                shell: python
-                env:
-                    GITHUB_BEFORE_SHA: ${{ github.event.before }}
-                    GITHUB_AFTER_SHA: ${{ github.sha }}
-                run: |
-                    import os
-                    import re
-                    import shutil
-                    import subprocess
-                    from pathlib import Path
+      - name: Checkout Installer-Pack
+        uses: actions/checkout@v6
+        with:
+          repository: MagicSetEditorPacks/Installer-Pack
+          token: ${{ secrets.INSTALLER_PACK_TOKEN }}
+          path: installer-pack
 
-                    #### Set up some context
-                    root = Path.cwd()
-                    data = root / "data"
-                    installer_list = root / "packages.txt"
-                    installer_repo = root / "installer-pack"
-                    
-                    keys = {
-                        "short name",
-                        "full name",
-                        "icon",
-                        "installer group",
-                        "version",
-                    }
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
 
-                    #### Get a list of packages that have changes in the push that triggered this job
-                    before = os.environ["GITHUB_BEFORE_SHA"]
-                    after = os.environ["GITHUB_AFTER_SHA"]
+      - name: Generate installers
+        shell: python
+        env:
+          GITHUB_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_AFTER_SHA: ${{ github.sha }}
+        run: |
+          import os
+          import re
+          import time
+          import shutil
+          import subprocess
+          from pathlib import Path
 
-                    ## Ensure the "before" commit is available locally.
-                    if subprocess.run(
-                        ["git", "cat-file", "-e", f"{before}^{{commit}}"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    ).returncode != 0:
-                        subprocess.check_call(
-                            [
-                                "git",
-                                "fetch",
-                                "--no-tags",
-                                "--depth=1",
-                                "origin",
-                                before,
-                            ]
-                        )
+          #### Set up some context
+          root = Path.cwd()
+          data = root / "data"
+          installer_list = root / "packages.txt"
+          installer_repo = root / "installer-pack"
 
-                    ## Compute diff
-                    changed = subprocess.check_output(
-                        [
-                            "git",
-                            "diff",
-                            "--name-only",
-                            before,
-                            after,
-                        ],
-                        text=True,
-                        stderr=subprocess.STDOUT,
-                    ).splitlines()
+          keys = {
+              "short name",
+              "full name",
+              "icon",
+              "installer group",
+              "version",
+          }
 
-                    #### Iterate on the packages in the data folder (folders that end in ".mse-*")
-                    with installer_list.open("w", encoding="utf-8", newline="\n") as l:
-                    
-                        for package in sorted(data.iterdir()):
-                        
-                            if not package.is_dir():
-                                continue
+          #### Get a list of packages that have changes in the push that triggered this job
+          before = os.environ["GITHUB_BEFORE_SHA"]
+          after = os.environ["GITHUB_AFTER_SHA"]
 
-                            match = re.fullmatch(r"(.+)\.mse-(.+)", package.name)
+          ## Ensure the "before" commit is available locally (ignore errors)
+          t0 = time.time()
+          if subprocess.run(
+              [
+                  "git",
+                  "cat-file",
+                  "-e",
+                  f"{before}^{{commit}}",
+              ],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          ).returncode != 0:
+              subprocess.check_call(
+                  [
+                      "git",
+                      "fetch",
+                      "--no-tags",
+                      "--depth=1",
+                      "origin",
+                      before,
+                  ]
+              )
+              print(f"::notice::checked out before commit in {time.time() - t0:.1f}s.")
+          
+          ## Compute diff (transmit errors)
+          t0 = time.time()
+          changed = subprocess.check_output(
+              [
+                  "git",
+                  "diff",
+                  "--name-only",
+                  before,
+                  after,
+              ],
+              text=True,
+              stderr=subprocess.STDOUT,
+          ).splitlines()
+          print(f"::notice::computed diff in {time.time() - t0:.1f}s.")
 
-                            if not match:
-                                continue
+          #### Iterate on the packages in the data folder (folders that end in ".mse-*")
+          with installer_list.open("w", encoding="utf-8", newline="\n") as l:
 
-                            package_file = package / match.group(2)
+              for package in sorted(data.iterdir()):
 
-                            if not package_file.exists():
-                                print(f"::warning::file {package_file} is missing in package {package.name}.")
-                                continue
+                  if not package.is_dir():
+                      continue
 
-                            #### Get the header keys we need
-                            found_keys = {}
+                  match = re.fullmatch(r"(.+)\.mse-(.+)", package.name)
 
-                            with package_file.open(encoding="utf-8") as f:
-                                for i, line in enumerate(f):
+                  if not match:
+                      continue
 
-                                    line = line.rstrip("\r\n")
+                  package_type = match.group(2)
+                  package_file = package / package_type
 
-                                    if ":" not in line:
-                                        continue
+                  if not package_file.exists():
+                      print(f"::error::file {package_type} is missing in package {package.name}.")
+                      continue
 
-                                    key, value = line.split(":", 1)
+                  #### Get the header keys we need
+                  found_keys = {}
 
-                                    if key in keys:
-                                        found_keys[key] = value.strip()
-                            
-                            if "version" not in found_keys:
-                                print(f"::warning::no version specified for package {package.name}.")
-                                found_keys['version'] = "0.0.0"
+                  with package_file.open(encoding="utf-8") as f:
+                      for i, line in enumerate(f):
 
-                            if "installer group" not in found_keys:
-                                print(f"::warning::no installer group specified for package {package.name}.")
-                                found_keys['installer group'] = "Unknown/" + package.name
+                          line = line.rstrip("\r\n")
 
-                            if "short name" not in found_keys and "full name" not in found_keys:
-                                print(f"::warning::no short or full name specified for package {package.name}.")
+                          if ":" not in line:
+                              continue
 
-                            found_keys['short name'] = found_keys.get("short name", found_keys.get("full name", package.name))
-                            found_keys['full name'] = found_keys.get("full name", found_keys.get("short name", package.name))
-                            
-                            #### Write the package's entry in the installer list
-                            l.write(f"installer:\n")
-                            l.write(f"	url:				https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.mse-installer\n")
-                            l.write(f"	downloadable:		true\n")
-                            l.write(f"	package:\n")
-                            l.write(f"		name:				{package.name}\n")
-                            l.write(f"		version:			{found_keys['version']}\n")
-                            l.write(f"		installer group:	{found_keys['installer group']}\n")
-                            l.write(f"		short name:			{found_keys['short name']}\n")
-                            if found_keys['full name'] != found_keys['short name']:
-                                l.write(f"		full name:			{found_keys['full name']}\n")
-                            if "icon" in found_keys and (package / found_keys['icon']).is_file():
-                                l.write(f"		icon url:			https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.icon.png\n")
-                            
-                            #### Write what the package depends on
-                            with package_file.open(encoding="utf-8") as f:
-                                lines = f.readlines()
-                                for i, line in enumerate(lines):
+                          key, value = line.split(":", 1)
 
-                                    line = line.rstrip("\r\n")
+                          if key in keys:
+                              found_keys[key] = value.strip()
 
-                                    if ":" not in line:
-                                        continue
+                  if "version" not in found_keys:
+                      print(f"::warning::no version specified for package {package.name}.")
+                      found_keys['version'] = "0.0.0"
 
-                                    key, value = line.split(":", 1)
+                  if "installer group" not in found_keys:
+                      print(f"::warning::no installer group specified for package {package.name}.")
+                      found_keys['installer group'] = "Unknown/" + package.name
 
-                                    if key == "depends on":
-                                        no_value = value.strip() == ""
-                                        if no_value and i + 2 >= len(lines):
-                                            print(f"::warning::can't parse dependency on line {i} of package {package.name}.")
-                                            continue
-                                        l.write(f"		{line}\n")
-                                        if no_value:
-                                            l.write(f"		{lines[i + 1]}\n")
-                                            l.write(f"		{lines[i + 2]}\n")
-                            
-                            #### Check if this package has changed
-                            package_prefix = f"data/{package.name}/".replace("\\", "/")
-                            package_changed = any(
-                                path.replace("\\", "/").startswith(package_prefix)
-                                for path in changed
-                            )
-                            if package_changed:
-                                #### Rebuild the installer
-                                installer_name = package.name + ".mse-installer"
-                                
-                                subprocess.check_call(
-                                    [
-                                        str(root / "mse.exe"),
-                                        "--create-installer",
-                                        package.name,
-                                        installer_name,
-                                    ],
-                                    cwd=root,
-                                )
-                                
-                                #### Copy the installer to the Installer-Pack repo
-                                shutil.copy2(
-                                    root / installer_name,
-                                    installer_repo / installer_name,
-                                )
-                                
-                                #### Copy the icon to the Installer-Pack repo
-                                if "icon" in found_keys:
-                                    icon_file = package / found_keys['icon']
+                  if "short name" not in found_keys and "full name" not in found_keys:
+                      print(f"::warning::no short or full name specified for package {package.name}.")
 
-                                    if icon_file.is_file():
-                                        shutil.copy2(
-                                            icon_file,
-                                            installer_repo / (package.name + ".icon.png"),
-                                        )
-                                    else:
-                                        print(f"::warning::icon file {found_keys['icon']} not found for package {package.name}.")
+                  found_keys['short name'] = found_keys.get("short name", found_keys.get("full name", package.name))
+                  found_keys['full name'] = found_keys.get("full name", found_keys.get("short name", package.name))
 
-                    #### Copy the installer list to the Installer-Pack repo
-                    shutil.copy2(installer_list, installer_repo / installer_list.name)
+                  #### Write the package's entry in the installer list
+                  l.write(f"installer:\n")
+                  l.write(f"	url:				https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.mse-installer\n")
+                  l.write(f"	downloadable:		true\n")
+                  l.write(f"	package:\n")
+                  l.write(f"		name:				{package.name}\n")
+                  l.write(f"		version:			{found_keys['version']}\n")
+                  l.write(f"		installer group:	{found_keys['installer group']}\n")
+                  l.write(f"		short name:			{found_keys['short name']}\n")
+                  if found_keys['full name'] != found_keys['short name']:
+                      l.write(f"		full name:			{found_keys['full name']}\n")
+                  if "icon" in found_keys:
+                      if (package / found_keys['icon']).is_file():
+                          l.write(f"		icon url:			https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.icon.png\n")
+                      else:
+                          print(f"::error::icon file {found_keys['icon']} not found for package {package.name}.")
+                          del found_keys['icon']
 
-            - name: Commit and push
-                working-directory: installer-pack
-                shell: pwsh
-                run: |
-                    git config user.name "github-actions[bot]"
-                    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  ## Write what the package depends on
+                  with package_file.open(encoding="utf-8") as f:
+                      lines = f.readlines()
+                      for i, line in enumerate(lines):
 
-                    git add .
+                          line = line.rstrip("\r\n")
 
-                    if (git diff --cached --quiet) {
-                        Write-Host "No changes to commit."
-                        exit 0
-                    }
+                          if ":" not in line:
+                              continue
 
-                    git commit -m "[Job] Update installers"
-                    git push
+                          key, value = line.split(":", 1)
+
+                          if key == "depends on":
+                              no_value = value.strip() == ""
+                              if no_value and i + 2 >= len(lines):
+                                  print(f"::error::can't parse dependency on line {i} of package {package.name}.")
+                                  continue
+                              l.write(f"		{line}\n")
+                              if no_value:
+                                  l.write(f"		{lines[i + 1].rstrip("\r\n")}\n")
+                                  l.write(f"		{lines[i + 2].rstrip("\r\n")}\n")
+
+                  #### Check if this package has changed
+                  package_prefix = f"data/{package.name}/".replace("\\", "/")
+                  package_changed = any(
+                      path.replace("\\", "/").startswith(package_prefix)
+                      for path in changed
+                  )
+                  if package_changed:
+                      #### Rebuild the installer
+                      installer_name = package.name + ".mse-installer"
+
+                      try:
+                          t0 = time.time()
+                          subprocess.run(
+                              [
+                                  str(root / "mse.exe"),
+                                  "--create-installer",
+                                  package.name,
+                                  installer_name,
+                              ],
+                              cwd=root,
+                              timeout=30,
+                              check=True,
+                          )
+                          print(f"::notice::rebuilt installer for {package.name} in {time.time() - t0:.1f}s.")
+
+                          #### Copy the installer to the Installer-Pack repo
+                          shutil.copy2(
+                              root / installer_name,
+                              installer_repo / installer_name,
+                          )
+
+                          #### Copy the icon to the Installer-Pack repo
+                          if "icon" in found_keys:
+                              shutil.copy2(
+                                  package / found_keys['icon'],
+                                  installer_repo / (package.name + ".icon.png"),
+                              )
+
+                      except subprocess.TimeoutExpired:
+                          print(f"::error::mse.exe timed out building {package.name} (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder).")
+                          continue
+                      except subprocess.CalledProcessError as e:
+                          print(f"::error::mse.exe failed building {package.name} (exit code {e.returncode}).")
+                          continue
+                      except OSError as e:
+                          print(f"::error::failed to copy installer/icon for {package.name}: {e}")
+                          continue
+          
+          #### Copy the installer list to the Installer-Pack repo
+          shutil.copy2(installer_list, installer_repo / installer_list.name)
+
+      - name: Commit and push
+        working-directory: installer-pack
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if (git diff --cached --quiet) {
+              Write-Host "No changes to commit."
+              exit 0
+          }
+
+          git commit -m "[Job] Update installers"
+          git push
