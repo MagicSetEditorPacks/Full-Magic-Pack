@@ -1,4 +1,4 @@
-name: Update installers
+name: Sync Other Repos
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  update-installers:
+  sync-repos:
     runs-on: windows-latest
 
     steps:
@@ -18,11 +18,25 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Checkout Main-Magic-Pack
+        uses: actions/checkout@v6
+        with:
+          repository: G-e-n-e-v-e-n-s-i-S/test-main
+          token: ${{ secrets.SYNCING_ACTIONS_TOKEN }}
+          path: main-pack
+
+      - name: Checkout Basic-Magic-Pack
+        uses: actions/checkout@v6
+        with:
+          repository: G-e-n-e-v-e-n-s-i-S/test-basic
+          token: ${{ secrets.SYNCING_ACTIONS_TOKEN }}
+          path: basic-pack
+
       - name: Checkout Installer-Pack
         uses: actions/checkout@v6
         with:
-          repository: MagicSetEditorPacks/Installer-Pack
-          token: ${{ secrets.INSTALLER_PACK_TOKEN }}
+          repository: G-e-n-e-v-e-n-s-i-S/test-dst
+          token: ${{ secrets.SYNCING_ACTIONS_TOKEN }}
           path: installer-pack
 
       - name: Set up Python
@@ -30,7 +44,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Generate installers
+      - name: Sync Repos
         shell: python
         env:
           GITHUB_BEFORE_SHA: ${{ github.event.before }}
@@ -71,7 +85,7 @@ jobs:
                       before,
                   ]
               )
-              print(f"::notice::checked out before commit in {time.time() - t0:.1f}s.")
+              print(f"::notice::before commit checked out in {time.time() - t0:.1f}s.")
 
           ## Compute diff (transmit errors)
           t0 = time.time()
@@ -86,7 +100,7 @@ jobs:
               text=True,
               stderr=subprocess.STDOUT,
           ).splitlines()
-          print(f"::notice::computed diff in {time.time() - t0:.1f}s.")
+          print(f"::notice::diff computed in {time.time() - t0:.1f}s.")
 
           #### Set up some context
           keys = {
@@ -100,8 +114,29 @@ jobs:
           root = Path.cwd()
           exe = root / "mse.exe"
           exe2 = root / "magicseteditor.exe"
+          com = root / "mse.com"
+          com2 = root / "magicseteditor.com"
           changelog = root / "changelog.txt"
+          readme = root / "README.md"
+          fonts = root / "Magic - Fonts"
           data = root / "data"
+
+          main_repo = root / "main-pack"
+          main_repo_data = main_repo / "data"
+          main_repo_packages = {
+              p.name
+              for p in main_repo_data.iterdir()
+              if p.is_dir() and re.fullmatch(r".+\.mse-.+", p.name)
+          }
+
+          basic_repo = root / "basic-pack"
+          basic_repo_data = basic_repo / "data"
+          basic_repo_packages = {
+              p.name
+              for p in basic_repo_data.iterdir()
+              if p.is_dir() and re.fullmatch(r".+\.mse-.+", p.name)
+          }
+
           installer_repo = root / "installer-pack"
           installer_list = root / "packages.txt"
 
@@ -114,6 +149,21 @@ jobs:
               if not exe2.is_file():
                   print(f"::error::executable {exe2.name} not found in root folder.")
                   sys.exit(1)
+              com_exists = com.is_file()
+              com2_exists = com2.is_file()
+              changelog_exists = changelog.is_file()
+              readme_exists = readme.is_file()
+              fonts_exists = fonts.exists()
+              if not com_exists:
+                  print(f"::warning::executable {com.name} not found in root folder.")
+              if not com2_exists:
+                  print(f"::warning::executable {com2.name} not found in root folder.")
+              if not changelog_exists:
+                  print(f"::warning::file {changelog.name} not found in root folder.")
+              if not readme_exists:
+                  print(f"::warning::file {readme.name} not found in root folder.")
+              if not fonts_exists:
+                  print(f"::warning::folder {fonts.name} not found in root folder.")
 
               #### Write exe entry in the installer list
               exe_version = subprocess.check_output(
@@ -137,19 +187,79 @@ jobs:
               l.write(f"		short name:			Magic Set Editor\n")
               l.write(f"		full name:			Application\n")
 
-              #### Check if exe has changed, if so rebuild the zip archive
-              if exe.name in changed or exe2.name in changed:
+              #### Check if exe has changed
+              exe_changed = exe.name in changed or exe2.name in changed
+              if exe_changed:
+                  #### Update the main pack
+                  t0 = time.time()
+                  shutil.copy2(exe, main_repo / exe.name)
+                  shutil.copy2(exe2, main_repo / exe2.name)
+                  if com_exists:
+                      shutil.copy2(com, main_repo / com.name)
+                  if com2_exists:
+                      shutil.copy2(com2, main_repo / com2.name)
+                  if changelog_exists:
+                      shutil.copy2(changelog, main_repo / changelog.name)
+                  if readme_exists:
+                      shutil.copy2(readme, main_repo / readme.name)
+                  print(f"::notice::exe files synced into Main-Magic-Pack in {time.time() - t0:.1f}s.")
+
+                  #### Update the basic pack
+                  t0 = time.time()
+                  shutil.copy2(exe, basic_repo / exe.name)
+                  shutil.copy2(exe2, basic_repo / exe2.name)
+                  if com_exists:
+                      shutil.copy2(com, basic_repo / com.name)
+                  if com2_exists:
+                      shutil.copy2(com2, basic_repo / com2.name)
+                  if changelog_exists:
+                      shutil.copy2(changelog, basic_repo / changelog.name)
+                  if readme_exists:
+                      shutil.copy2(readme, basic_repo / readme.name)
+                  print(f"::notice::exe files synced into Basic-Magic-Pack in {time.time() - t0:.1f}s.")
+
+              #### Check if fonts have changed
+              fonts_prefix = f"{fonts.name}/".replace("\\", "/")
+              fonts_changed = any(p.replace("\\", "/").startswith(fonts_prefix) for p in changed)
+              if fonts_changed and fonts_exists:
+                  #### Update the main pack
+                  t0 = time.time()
+                  main_repo_fonts = main_repo / "fonts"
+                  if main_repo_fonts.exists():
+                      shutil.rmtree(main_repo_fonts)
+                  shutil.copytree(fonts, main_repo_fonts)
+                  print(f"::notice::folder {fonts.name} synced into Main-Magic-Pack in {time.time() - t0:.1f}s.")
+
+                  #### Update the basic pack
+                  t0 = time.time()
+                  basic_repo_fonts = basic_repo / "fonts"
+                  if basic_repo_fonts.exists():
+                      shutil.rmtree(basic_repo_fonts)
+                  shutil.copytree(fonts, basic_repo_fonts)
+                  print(f"::notice::folder {fonts.name} synced into Basic-Magic-Pack in {time.time() - t0:.1f}s.")
+
+              #### Rebuild the zip archive
+              if exe_changed or fonts_changed:
+                  t0 = time.time()
                   zip_path = root / "magicseteditor.zip"
 
                   with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                       zf.write(exe, arcname=exe.name)
                       zf.write(exe2, arcname=exe2.name)
-                      if not changelog.exists():
-                          print(f"::warning::{changelog.name} not found in root folder.")
-                      else:
-                          zf.write(changelog, arcname=changelog.name)
+                      if com_exists:
+                         zf.write(com, arcname=com.name)
+                      if com2_exists:
+                         zf.write(com2, arcname=com2.name)
+                      if changelog_exists:
+                         zf.write(changelog, arcname=changelog.name)
+                      if readme_exists:
+                         zf.write(readme, arcname=readme.name)
+                      for font_file in (fonts).rglob("*"):
+                          if font_file.is_file():
+                              zf.write(font_file, arcname=str(Path(fonts.name) / font_file.relative_to(fonts)))
 
                   shutil.copy2(zip_path, installer_repo / zip_path.name)
+                  print(f"::notice::exe archive rebuilt into Installer-Pack in {time.time() - t0:.1f}s.")
 
               #### Iterate on the packages in the data folder (folders that end in ".mse-*")
               for package in sorted(data.iterdir()):
@@ -166,7 +276,7 @@ jobs:
                   package_file = package / package_type
 
                   if not package_file.exists():
-                      print(f"::error::file {package_type} is missing in package {package.name}.")
+                      print(f"::error::file {package_type} not found in package {package.name}.")
                       continue
 
                   #### Get the header keys we need
@@ -186,15 +296,15 @@ jobs:
                               found_keys[key] = value.strip()
 
                   if "version" not in found_keys:
-                      print(f"::warning::no version specified for package {package.name}.")
+                      print(f"::warning::header 'version' not found in package {package.name}.")
                       found_keys['version'] = "0.0.0"
 
                   if "installer group" not in found_keys:
-                      print(f"::warning::no installer group specified for package {package.name}.")
+                      print(f"::warning::header 'installer group' not found in package {package.name}.")
                       found_keys['installer group'] = "Unknown/" + package.name
 
                   if "short name" not in found_keys and "full name" not in found_keys:
-                      print(f"::warning::no short or full name specified for package {package.name}.")
+                      print(f"::warning::headers 'short name' and 'full name' not found in package {package.name}.")
 
                   found_keys['short name'] = found_keys.get("short name", found_keys.get("full name", package.name))
                   found_keys['full name'] = found_keys.get("full name", found_keys.get("short name", package.name))
@@ -214,7 +324,7 @@ jobs:
                       if (package / found_keys['icon']).is_file():
                           entry = entry + f"		icon url:			https://github.com/MagicSetEditorPacks/Installer-Pack/raw/refs/heads/main/{package.name}.icon.png\n"
                       else:
-                          print(f"::error::icon file {found_keys['icon']} not found for package {package.name}.")
+                          print(f"::error::icon file {found_keys['icon']} not found in package {package.name}.")
                           continue
 
                   ## Write what the package depends on
@@ -255,16 +365,29 @@ jobs:
                                   entry = entry + f"		{line3}\n"
 
                       if parse_failure >= 0:
-                          print(f"::error::can't parse dependency on line {parse_failure} of package {package.name}.")
+                          print(f"::error::dependency malformed on line {parse_failure} in package {package.name}.")
                           continue
 
                   #### Check if this package has changed
                   package_prefix = f"data/{package.name}/".replace("\\", "/")
-                  package_changed = any(
-                      path.replace("\\", "/").startswith(package_prefix)
-                      for path in changed
-                  )
+                  package_changed = any(p.replace("\\", "/").startswith(package_prefix) for p in changed)
                   if package_changed:
+                      #### Update the main pack if necessary
+                      if package.name in main_repo_packages:
+                          t0 = time.time()
+                          main_repo_package = main_repo_data / package.name
+                          shutil.rmtree(main_repo_package)
+                          shutil.copytree(package, main_repo_package)
+                          print(f"::notice::package {package.name} synced into Main-Magic-Pack in {time.time() - t0:.1f}s.")
+
+                      #### Update the basic pack if necessary
+                      if package.name in basic_repo_packages:
+                          t0 = time.time()
+                          basic_repo_package = basic_repo_data / package.name
+                          shutil.rmtree(basic_repo_package)
+                          shutil.copytree(package, basic_repo_package)
+                          print(f"::notice::package {package.name} synced into Basic-Magic-Pack in {time.time() - t0:.1f}s.")
+
                       #### Rebuild the installer
                       installer_name = package.name + ".mse-installer"
 
@@ -281,13 +404,13 @@ jobs:
                               timeout=30,
                               check=True,
                           )
-                          print(f"::notice::rebuilt installer for {package.name} in {time.time() - t0:.1f}s.")
 
                           #### Copy the installer to the Installer-Pack repo
                           shutil.copy2(
                               root / installer_name,
                               installer_repo / installer_name,
                           )
+                          print(f"::notice::installer for package {package.name} rebuilt into Installer-Pack in {time.time() - t0:.1f}s.")
 
                           #### Copy the icon to the Installer-Pack repo
                           if "icon" in found_keys:
@@ -297,13 +420,13 @@ jobs:
                               )
 
                       except subprocess.TimeoutExpired:
-                          print(f"::error::{exe.name} timed out building {package.name} (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder).")
+                          print(f"::error::{exe.name} timed out building installer for package {package.name} (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder).")
                           continue
                       except subprocess.CalledProcessError as e:
-                          print(f"::error::{exe.name} failed building {package.name} (exit code {e.returncode}).")
+                          print(f"::error::{exe.name} failed building installer for package {package.name} (exit code {e.returncode}).")
                           continue
                       except OSError as e:
-                          print(f"::error::failed to copy installer/icon for {package.name}: {e}")
+                          print(f"::error::failed to copy installer/icon for package {package.name}: {e}")
                           continue
 
                   #### Write the package's entry in the installer list
@@ -312,9 +435,12 @@ jobs:
           #### Copy the installer list to the Installer-Pack repo
           shutil.copy2(installer_list, installer_repo / installer_list.name)
 
-      - name: Commit and push
-        working-directory: installer-pack
+      - name: Commit and push Main-Magic-Pack
+        working-directory: main-pack
         shell: pwsh
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -326,5 +452,51 @@ jobs:
               exit 0
           }
 
-          git commit -m "[Job] Update installers"
+          $commitUrl = "https://github.com/$env:GITHUB_REPOSITORY/commit/$env:GITHUB_SHA"
+
+          git commit -m "[Job] Sync with Full-Magic-Pack" -m "Triggered by $commitUrl"
+          git push
+
+      - name: Commit and push Basic-Magic-Pack
+        working-directory: basic-pack
+        shell: pwsh
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if (git diff --cached --quiet) {
+              Write-Host "No changes to commit."
+              exit 0
+          }
+
+          $commitUrl = "https://github.com/$env:GITHUB_REPOSITORY/commit/$env:GITHUB_SHA"
+
+          git commit -m "[Job] Sync with Full-Magic-Pack" -m "Triggered by $commitUrl"
+          git push
+
+      - name: Commit and push Installer-Pack
+        working-directory: installer-pack
+        shell: pwsh
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if (git diff --cached --quiet) {
+              Write-Host "No changes to commit."
+              exit 0
+          }
+
+          $commitUrl = "https://github.com/$env:GITHUB_REPOSITORY/commit/$env:GITHUB_SHA"
+
+          git commit -m "[Job] Sync with Full-Magic-Pack" -m "Triggered by $commitUrl"
           git push
