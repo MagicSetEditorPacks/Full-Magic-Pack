@@ -51,6 +51,14 @@ init script:
 		vertical: {0},
 		italic: {"MPlantin-Italic"}
 	]
+	swap_fonts_body2_default :=
+	[
+		name: {"MPlantin"},
+		size: {54.0*dpi_factor()},
+		color: {"black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
 	
 	typeline_offset_top_1 := { 0 }
 	typeline_offset_left_1 := { 0 }
@@ -63,6 +71,14 @@ init script:
 	[
 		name: {"Beleren Bold"},
 		size: {(52.0 - max(0, (length(to_text(card.type)) - typeline_character_limit) / 2))*dpi_factor()},
+		color: {"black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type2_default :=
+	[
+		name: {"Beleren Bold"},
+		size: {(40.0 - max(0, (length(to_text(card.type_2)) - typeline_character_limit) / 2))*dpi_factor()},
 		color: {"black"},
 		vertical: {0},
 		italic: {""}
@@ -113,6 +129,14 @@ init script:
 		vertical: {0},
 		italic: {""}
 	]
+	swap_fonts_name2_default :=
+	[
+		name: {"Beleren Bold"},
+		size: {48.0*dpi_factor()},
+		color: {"black"},
+		vertical: {0},
+		italic: {""}
+	]
 	
 	card_stamp_offset_top_1 := { dpi_factor() * (if stamp_shape() == "triangle" then 12 else 4) }
 	
@@ -123,7 +147,9 @@ init script:
 		pt:			"pt/",
 		stamp:		"stamp/",
 		crown:		"crown/",
-		identity:	"/magic-modules.mse-include/indicators/"
+		identity:	"/magic-modules.mse-include/indicators/",
+		single_page: "page/single/",
+		double_page: "page/double/"
 	]
 	template_suffix :=
 	[
@@ -132,7 +158,9 @@ init script:
 		pt:			"pt.png",
 		crown:		"crown.png",
 		stamp:		"stamp.png",
-		identity:	"identity.png"
+		identity:	"identity.png",
+		single_page: ".png",
+		double_page: ".png"
 	]
 	template :=
 	{
@@ -147,7 +175,8 @@ init script:
 	card_crown :=		{ color_background(input: card.card_color, type: "crown",		base_hybrid: card_hybrid,	multicolor_blend: "white",	hybrid_blend: "white",	artifact_blend: "white") }
 	module_alias :=		{ color_background(input: card.card_color, type: "alias",		base_hybrid: card_hybrid,	multicolor_blend: "white",	hybrid_blend: "white",	artifact_blend: "white") }
 	card_stamp :=		{ color_background(input: card.card_color, type: "stamp",		base_hybrid: card_hybrid,	multicolor_blend: "white",	hybrid_blend: "white",	artifact_blend: "white") }
-	
+	card_single_page := { color_background(input: card.card_color_2, type:"single_page",base_hybrid: card_hybrid,	multicolor_blend: "white",	hybrid_blend: "white",	artifact_blend: "white") }
+	card_double_page := { color_background(input: card.card_color_2, type:"double_page",base_hybrid: card_hybrid,	multicolor_blend: "white",	hybrid_blend: "white",	artifact_blend: "white") }
 	pure_colors :=
 	{
 		sort_text(
@@ -231,6 +260,17 @@ init script:
 	# Use the vehicle frame
 	is_vehicle := { styling.vehicle_frame == "yes" or (styling.vehicle_frame == "if vehicle" and lang_setting("is_vehicle")(card.sub_type)) }
 
+	# Adventure shape
+	card_shape := { if is_adventure() then "adventure" else "normal" }
+	is_adventure := { not chosen(extra_card.adventure_style, choice:"none") }
+	adv_left := {chosen(extra_card.adventure_style, choice:"left") }
+	adv_right := {chosen(extra_card.adventure_style, choice:"right") }
+	adv_double := {chosen(extra_card.adventure_style, choice:"name and type") }
+	adv_style_filter := {
+		input := require_exclusive_choice(input, choices: "none, left, right")
+		input := require_exclusive_choice(input, choices: "name and type,name only")
+		input
+	}
 ############################################################## Extra style options
 
 styling field:
@@ -286,7 +326,7 @@ include file: /magic-modules.mse-include/information/styling_fields
 
 include file: /magic-modules.mse-include/symbol-fonts/styling_fields
 
-include file: /magic-modules.mse-include/fonts/styling_fields
+include file: /magic-modules.mse-include/fonts/styling_fields_dfc
 
 ############################################################## Card fields
 
@@ -327,7 +367,15 @@ card style:
 		popup style:		in place
 		image:				{ card_background() }
 		mask:				card_mask.png
-	
+	card color 2:
+		left:				{ dpi_factor() * (if adv_left() then 64 else 720) }
+		top:				{ dpi_factor() * 1300 }
+		width:				{ dpi_factor() * 704 }
+		height:				{ dpi_factor() * (if is_adventure() then 640 else 0) }
+		z index:			210
+		render style:		image
+		popup style:		in place
+		image:				{ if adv_double() then card_double_page() else card_single_page() }
 	############################# Nameline
 	alias:
 		left:		{ alias_left_1() }
@@ -415,11 +463,11 @@ card style:
 	
 	############################# Text box
 	text:
-		left:				{ dpi_factor() * 140 }
+		left:				{ dpi_factor() * (if adv_left() then 768 else 120) }
 		top:				{ dpi_factor() * 1350 + chop_top() + body_font_vertical() }
-		right:				{ dpi_factor() * 1360 - chop_right() }
+		right:				{ dpi_factor() * (if adv_right() then 720 else 1360) - chop_right() }
 		bottom:				{ dpi_factor() * 1896 - chop_bottom() - if reminder_box_is_visible() then 44 * dpi_factor() else 0 }
-		z index:			900
+		z index:			905
 		line height hard:	1.2
 		line height line:	1.5
 		line height soft:	0.9
@@ -457,6 +505,79 @@ card style:
 			size:				{ pt_font_size() }
 			color:				{ pt_font_color() }
 			separator color:	red
+	############################ Adventure
+	name 2:
+		left:				{ dpi_factor() * (if adv_left() then 112 else 760) }
+		top:				{ dpi_factor() * 1332 }
+		width:				{ (dpi_factor() * 620) - max(40, card_style.casting_cost_2.content_width) }
+		height:				{ dpi_factor() * (if is_adventure() then 80 else 0) }
+		alignment:			middle shrink-overflow
+		z index:			900
+		font:
+			name: 			{ name2_font() }
+			italic name: 	{ name2_font_italic() }
+			size: 			{ name2_font_size() }
+			color: 			{ name2_font_color() }
+	casting cost 2:
+		right:				{ dpi_factor() * (if adv_left() then 732 else 1388) }
+		top:				{ dpi_factor() * 1324 }
+		width:				{ max(40, card_style.casting_cost_2.content_width) }
+		height:				{ dpi_factor() * (if is_adventure() then 80 else 0) }
+		alignment:			middle right
+		always symbol:		true
+		z index:			910
+		font:
+			name: 			{ name2_font() }
+			italic name: 	{ name2_font_italic() }
+			size: 			{ name2_font_size() / 2 }
+			color: 			{ name2_font_color() }
+		symbol font:
+			name:			{ styling.casting_cost_mana_symbols }
+			size:			{ name2_font_size() }
+			alignment:		middle right
+	type 2:
+		left:				{ dpi_factor() * (if adv_left() then 112 else 760) }
+		top:				{ dpi_factor() * 1420 }
+		width:				{ dpi_factor() * 620 }
+		height:				{ dpi_factor() * (if is_adventure() and adv_double() then 60 else 0) }
+		alignment:			middle shrink-overflow
+		z index:			900
+		font:
+			name: 			{ type2_font() }
+			italic name: 	{ type2_font_italic() }
+			size: 			{ type2_font_size() }
+			color: 			{ type2_font_color() }
+	text 2:
+		left:				{ dpi_factor() * (if adv_left() then 112 else 768) }
+		top:				{ dpi_factor() * (if adv_double() then 1520 else 1444) + chop_top() + body_font_vertical() }
+		right:				{ dpi_factor() * (616 + (if adv_left() then 112 else 768)) - chop_right() }
+		bottom:				{ dpi_factor() * 1896 - chop_bottom() - if reminder_box_is_visible() then 44 * dpi_factor() else 0 }
+		z index:			900
+		line height hard:	1.2
+		line height line:	1.5
+		line height soft:	0.9
+		line height hard max:	1.3
+		line height line max:	1.6
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		font:
+			name:				{ body2_font() }
+			italic name:		{ body2_font_italic() }
+			size:				{ body2_font_size() }
+			scale down to:		10
+			color:				{ body2_font_color() }
+		symbol font:
+			name:				{ styling.text_box_mana_symbols }
+			size:				{ body2_font_size() }
+			scale down to:		10
+		visible: { is_adventure() }
 
 ############################################################## Extra card fields
 extra card field:
@@ -516,7 +637,23 @@ extra card field:
 	editable:			false
 	save value:			false
 	show statistics:	false
-
+extra card field:	
+	type:				multiple choice
+	name:				adventure style
+	editable:			true
+	save value:			true
+	choice:
+		name: none
+		line below: true
+	choice: left
+	choice:
+		name: right
+		line below: true
+	choice: name and type
+	choice: name only
+	initial: none
+	script: adv_style_filter(value)
+	description: Set the Adventure style
 extra card style:
 	pt box:
 		left:				0
@@ -612,3 +749,10 @@ extra card style:
 			mythic rare:		rarity/mythic.png
 			special:			rarity/special.png
 			masterpiece:		rarity/masterpiece.png
+	adventure style:
+		left: 0
+		top: { dpi_factor() * 1300 }
+		width: 50
+		height: 50
+		z index: 1000
+		render style: hidden
