@@ -1,35 +1,37 @@
-﻿mse version: 2.0.0
-game: magic
-short name: Hedron
-full name: Zendikar Showcase
-icon: card-sample.png
-installer group: magic/m15 style/normal cards
-position hint: 095
+﻿mse version:		2.0.0
+game: 				magic
+short name: 		Hedron
+full name: 			Zendikar Showcase
+icon: 				card-sample.png
+installer group: 	magic/m15 style/normal cards
+position hint: 		095
 
-version: 2024-09-01
+version: 			2024-09-01
 depends on:
-	package: magic.mse-game
-	version: 2014-06-25
+	package: 		magic.mse-game
+	version: 		2014-06-25
 depends on:
-	package: magic-default-image.mse-include
-	version: 2007-09-23
+	package: 		magic-default-image.mse-include
+	version: 		2007-09-23
 depends on:
-	package: magic-modules.mse-include
-	version: 2024-10-01
+	package: 		magic-modules.mse-include
+	version: 		2024-10-01
 depends on:
-	package: magic-mana-large.mse-symbol-font
-	version: 2007-09-23
+	package: 		magic-mana-large.mse-symbol-font
+	version: 		2007-09-23
 depends on:
-	package: magic-mana-small.mse-symbol-font
-	version: 2007-09-23
+	package: 		magic-mana-small.mse-symbol-font
+	version: 		2007-09-23
 depends on:
-	package: magic-mainframe-extras.mse-include
-	version: 2007-09-23
+	package:		magic-mainframe-extras.mse-include
+	version: 		2007-09-23
 
-card width: 375
-card height: 523
-card dpi: 150
-####### images from digiman
+card width: 		375
+card height: 		523
+card dpi: 			150
+
+### images from digiman
+
 ############################################################## Extra scripts
 init script:
 	# Load scripts for image box
@@ -65,155 +67,81 @@ init script:
 	hybrid_previews := "land,hybrid"
 	crown_background :=		{ color_background(type:"crown",	base_hybrid:card_hybrid,	hybrid_blend: "white",	artifact_blend: "black",	multicolor_blend: "white") }
 	hedron_background :=	{ color_background(type:"card2",	base_hybrid:card_hybrid,	hybrid_blend: "white",	artifact_blend: "black",	multicolor_blend: "black") }
-
-	# Use the normal tap symbol
-	mana_t := {
-		if      styling.tap_symbol == "old"        then "old"
-		else if styling.tap_symbol == "diagonal T" then "older"
-		else                                            "new"
-	}
 	
-	# Use guild mana symbols?
-	guild_mana := { styling.use_guild_mana_symbols }
+	pt_colors := { if styling.PT_color_scheme == "canon" then pt_colors_canon() else styling.PT_color_scheme }
+	pt_colors_canon := { if contains(card.card_color, match: "hybrid") then "land" else "gold" }
 	
-	# Is the card a promo card?
 	is_promo := { styling.promo }
-	is_legend := {set.auto_legends and lang_setting("is_legendary")(card.super_type) }
-	mana_sort := {
-		if styling.unsorted_casting_cost then
-			input
-		else
-			sort_text@(order: "XYZI[0123456789]HSCA(WUBRG)")()
-	}
-	ancestral_mana := { styling.ancestral_mana_symbols }
-	is_unsorted := {styling.remove_from_autocount}
+	
+	is_unsorted := { styling.remove_from_autocount }
+	
+	is_crowned := { styling.legend_crown == "yes" or (styling.legend_crown == "if legendary" and lang_setting("is_legendary")(card.super_type)) }
+	
+	chop_top := { split := split_comma(styling.chop_text_box); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -1500) else 0 }
+	chop_bot := { split := split_comma(styling.chop_text_box); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1500, minimum: -1500) else 0 }
+	
+	popout_left := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -500) else 0 }
+	popout_top := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, maximum: 2000, minimum: -500) else 0 }
+	popout_width := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
+	popout_height := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
 
-	chop_top := {to_number(pull_comma_array(styling.text_chops, cell:0, end:false))}
-	chop_bot := {to_number(pull_comma_array(styling.text_chops, cell:1, end:false))}
-	chop_correction := { chop_bot() }
-	shrink_type := {if styling.shrink_typeline_text != "" then to_number(styling.shrink_typeline_text) else 0}
-	shrink_name := {if styling.shrink_name_text != "" then to_number(styling.shrink_name_text) else 0}
-	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
-	un_png := replace@(match:".png", replace: "")
-	is_vehicle := {lang_setting("is_vehicle")(card.sub_type)}
-	watermark_include := "/magic-modules.mse-include/watermarks"
+	foil_mask_added_sections := {
+		output := []
+		if card.pt != "" then output := output + ["foil_mask_pt.png"]
+		if is_crowned() then output := output + ["foil_mask_crown.png"]
+		output
+	}@(face:1)
 
-	alias_mask := { alias_src + "masks/remove_color.png" }
+	#alias_mask := { alias_src + "masks/remove_color.png" }
 	alias_offset_top_1 := {-3}
-############################################################## Set info fields
-set info style:
-	symbol:
-		variation:
-			name: invertedcommon
-			border radius: 0.10
-			fill type: solid
-			fill color:   rgb(255,255,255)
-			border color: rgb(0,0,0)
+	
+	watermark_include := "/magic-modules.mse-include/watermarks"
 ############################################################## Extra style options
+
 styling field:
-	type: text
-	name: text chops
-	description: Format as "X,Y". Shrinks textbox X pixels from the top and Y from bottom.
+	type:			text
+	name:			popout image coordinates
+	description:	The coordinates for the popout image field, formatted as "left,top,width,height". Used to make the illustration jump in front of the frame.
+
+include file: /magic-modules.mse-include/texts/styling_fields
+
 styling field:
-	type: text
-	name: shrink name text
-	description: Shrinks name X pixels
+	type:			choice
+	name:			PT color scheme
+	description:	Use the selected color scheme for the PT box on two color cards. Canon is "land" on hybrid cards, "gold" otherwise.
+	choice:			canon
+	choice:			gold
+	choice:			hybrid
+	choice:			colored
+	choice:			land
+	initial:		canon
 styling field:
-	type: text
-	name: shrink typeline text
-	description: Shrinks type X pixels
+	type:			choice
+	name:			legend crown
+	description:	Use the legend crown?
+	choice:			yes
+	choice:			if legendary
+	choice:			no
+	initial:		if legendary
+
+include file: /magic-modules.mse-include/stamps/styling_fields
+
 include file: /magic-modules.mse-include/rarities/styling_fields
+
+include file: /magic-modules.mse-include/watermarks/styling_fields
+
 styling field:
-	type: boolean
-	name: remove from autocount
-	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial: no
-styling field:
-	type: boolean
-	name: grey hybrid name
-	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
-styling field:
-	type: boolean
-	name: unsorted casting cost
-	description: Disables automatic mana symbol sorting.
-	initial: no
-styling field:
-	type: boolean
-	name: ancestral mana symbols
-	description: Enables ancestral's modified generic mana.
-	initial: no
-styling field:
-	type: boolean
-	name: colored multicolor land name
-	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
-styling field:
-	type: boolean
-	name: use guild mana symbols
-	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
-	initial: no
-styling field:
-	type: choice
-	name: tap symbol
-	description: What tap and untap symbols should be used on cards?
-	initial: modern
-	choice: modern
-	choice: old
-	choice: diagonal T
-styling field:
-	type: package choice
-	name: text box mana symbols
-	match: magic-mana-*.mse-symbol-font
-	initial: magic-mana-small.mse-symbol-font
-styling field:
-	type: choice
-	name: center text
-	description: When to center text (short text only means only on one-line cards with no flavor text)
-	choice: always
-	choice: short text only
-	choice: never
-	initial: never
-styling field:
-	type: boolean
-	name: promo
-	description: Is this card a promo card, with the "P" rarity?
-	initial: no
-styling field:
-	type: boolean
-	name: masterpiece
-	description: Is this card a Masterpiece?
-	initial: no
-styling field:
-	type: boolean
-	name: inverted common symbol
-	description: Should the common rarity symbol be inverted, like in Coldsnap?
-	initial: no
-styling field:
-	type: package choice
-	name: overlay
-	description: Should there be an overlay applied, such as foil?
-	match: magic-overlay-*.mse-include
-	required: false
-styling style:
-	use guild mana symbols:
-		choice images:
-			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
-			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
-	tap symbol:
-		render style: both
-		choice images:
-			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
-			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
-			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
-	center text:
-		render style: both
-		choice images:
-			always:          /magic.mse-game/icons/center-all-text.png
-			short text only: /magic.mse-game/icons/center-short-text.png
-			never:           /magic.mse-game/icons/center-no-text.png
-	inverted common symbol:
-		choice images:
-			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
-			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+
+include file: /magic-modules.mse-include/information/styling_fields
+
+include file: /magic-modules.mse-include/symbol-fonts/styling_fields
+
+include file: /magic-modules.mse-include/fonts/styling_fields
 ############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
@@ -250,13 +178,13 @@ card style:
 		left: 32
 		top: 30
 		right:  { 341 - card_style.casting_cost.content_width }
-		height: {23 - 0.5*shrink_name()}
+		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
 		z index: 900
 		font:
 			name: Beleren Bold
-			size: {16 - shrink_name()}
+			size: 16
 			color: {if contains(card.card_color match:"artifact") or (contains(card.card_color match:"white") and not contains(card.card_color match:"multicolor")) then "black" else "white"}
 	casting cost:
 		right: 346
@@ -294,15 +222,15 @@ card style:
 		image: { module_identity() }
 	type:
 		left: { if has_identity() then "46" else "28" }
-		top: {shrink_type() + 296 }
+		top: 296
 		width: { (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
-		height: { 20 - shrink_type() }
+		height: 20
 		alignment: top shrink-overflow
 		z index: 900
 		padding top: 2
 		font:
 			name: Beleren Bold
-			size: {13 - shrink_type()}
+			size: 13
 			color: {if contains(card.card_color match:"artifact") or (contains(card.card_color match:"white") and not contains(card.card_color match:"multicolor")) then "black" else "white"}
 			separator color: red
 	rarity:

@@ -1,29 +1,29 @@
-﻿mse version: 2.0.0
-game: magic
-short name: JP Archives
-full name: Strixhaven Showcase
-icon: card-sample.png
-position hint: 095
+﻿mse version: 		2.0.0
+game: 				magic
+short name: 		JP Archives
+full name: 			Strixhaven Showcase
+icon: 				card-sample.png
+position hint: 		095
 
-version: 2024-09-01
+version: 			2024-09-01
 depends on:
-	package: magic.mse-game
-	version: 2014-06-25
+	package: 		magic.mse-game
+	version: 		2014-06-25
 depends on:
-	package: magic-default-image.mse-include
-	version: 2007-09-23
+	package: 		magic-default-image.mse-include
+	version: 		2007-09-23
 depends on:
-	package: magic-modules.mse-include
-	version: 2024-10-01
+	package: 		magic-modules.mse-include
+	version: 		2024-10-01
 depends on:
-	package: magic-mana-large.mse-symbol-font
-	version: 2007-09-23
+	package: 		magic-mana-large.mse-symbol-font
+	version: 		2007-09-23
 depends on:
-	package: magic-mana-small.mse-symbol-font
-	version: 2007-09-23
+	package: 		magic-mana-small.mse-symbol-font
+	version: 		2007-09-23
 depends on:
-	package: magic-mainframe-extras.mse-include
-	version: 2007-09-23
+	package: 		magic-mainframe-extras.mse-include
+	version: 		2007-09-23
 
 card width: 375
 card height: 523
@@ -275,32 +275,21 @@ init script:
 		else                                            "new"
 	}
 	
-	# Use guild mana symbols?
-	guild_mana := { styling.use_guild_mana_symbols }
-	
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	is_legend := {set.auto_legends and lang_setting("is_legendary")(card.super_type) }
-	mana_sort := {
-		if styling.unsorted_casting_cost then
-			input
-		else
-			sort_text@(order: "XYZI[0123456789]HSCA(WUBRG)")()
-	}
-	ancestral_mana := { styling.ancestral_mana_symbols }
 	is_unsorted := {styling.remove_from_autocount}
 
-	chop_top := {to_number(pull_comma_array(styling.text_chops, cell:0, end:false))}
-	chop_bot := {to_number(pull_comma_array(styling.text_chops, cell:1, end:false))}
-	chop_correction := { chop_bot() }
-	shrink_type := {if styling.shrink_typeline_text != "" then to_number(styling.shrink_typeline_text) else 0}
-	shrink_name := {if styling.shrink_name_text != "" then to_number(styling.shrink_name_text) else 0}
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
 	jp_name_length := {card_style.name.content_height * length(card.name)}
 	## TODO
 	shown_cr := {if set.automatic_copyright then set.copyright != "" else card.copyright != ""}
 	
+	popout_left := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.0 != "" then clamp(split.0, maximum: 1500, minimum: -500) else 0 }
+	popout_top := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, maximum: 2000, minimum: -500) else 0 }
+	popout_width := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
+	popout_height := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
+
 	enlarge_in_pixels :=
 	{
 		widthf := to_number(current_width)
@@ -358,6 +347,8 @@ init script:
 		img
 	}
 	
+	watermark_include := "/magic-modules.mse-include/watermarks"
+	
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -373,118 +364,37 @@ styling field:
 	name: language
 	choice: English
 	choice: Japanese
-styling field:
-	type: text
-	name: text chops
-	description: Format as "X,Y". Shrinks textbox X pixels from the top and Y from bottom.
+
+include file: /magic-modules.mse-include/texts/styling_fields
+
 styling field:
 	type: text
 	name: shorten textbox
 	description: Shrinks textbox frame X pixels from the top.
+
 styling field:
-	type: text
-	name: shrink name text
-	description: Shrinks name X pixels
+	type:			text
+	name:			popout image coordinates
+	description:	The coordinates for the popout image field, formatted as "left,top,width,height". Used to make the illustration jump in front of the frame.
+
+include file: /magic-modules.mse-include/stamps/styling_fields
+
+include file: /magic-modules.mse-include/rarities/styling_fields
+
+include file: /magic-modules.mse-include/watermarks/styling_fields
+
 styling field:
-	type: text
-	name: shrink typeline text
-	description: Shrinks type X pixels
-styling field:
-	type: text
-	name: popout image style
-	description: The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
-styling field:
-	type: boolean
-	name: remove from autocount
-	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial: no
-styling field:
-	type: boolean
-	name: unsorted casting cost
-	description: Disables automatic mana symbol sorting.
-	initial: no
-styling field:
-	type: boolean
-	name: ancestral mana symbols
-	description: Enables ancestral's modified generic mana.
-	initial: no
-styling field:
-	type: boolean
-	name: use guild mana symbols
-	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
-	initial: no
-styling field:
-	type: choice
-	name: tap symbol
-	description: What tap and untap symbols should be used on cards?
-	initial: modern
-	choice: modern
-	choice: old
-	choice: diagonal T
-styling field:
-	type: package choice
-	name: text box mana symbols
-	match: magic-mana-*.mse-symbol-font
-	initial: magic-mana-small.mse-symbol-font
-styling field:
-	type: package choice
-	name: casting cost mana symbols
-	match: magic-mana-*.mse-symbol-font
-	initial: magic-mana-small-strixhaven.mse-symbol-font
-styling field:
-	type: choice
-	name: center text
-	description: When to center text (short text only means only on one-line cards with no flavor text)
-	choice: always
-	choice: short text only
-	choice: never
-	initial: never
-styling field:
-	type: boolean
-	name: promo
-	description: Is this card a promo card, with the "P" rarity?
-	initial: no
-styling field:
-	type: boolean
-	name: inverted common symbol
-	description: Should the common rarity symbol be inverted, like in Coldsnap?
-	initial: no
-styling field:
-	type: color
-	name: copyright text color
-	description: Color of the copyright, illustrator, and set code text.
-	choice: white
-	choice: black
-	initial: white
-	allow custom: true
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
+
+include file: /magic-modules.mse-include/information/styling_fields
+
+include file: /magic-modules.mse-include/symbol-fonts/styling_fields
+
 include file: /magic-modules.mse-include/fonts/styling_fields
-styling field:
-	type: package choice
-	name: overlay
-	description: Should there be an overlay applied, such as foil?
-	match: magic-overlay-*.mse-include
-	required: false
-styling style:
-	use guild mana symbols:
-		choice images:
-			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
-			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
-	tap symbol:
-		render style: both
-		choice images:
-			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
-			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
-			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
-	center text:
-		render style: both
-		choice images:
-			always:          /magic.mse-game/icons/center-all-text.png
-			short text only: /magic.mse-game/icons/center-short-text.png
-			never:           /magic.mse-game/icons/center-no-text.png
-	inverted common symbol:
-		choice images:
-			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
-			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 ############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
@@ -552,10 +462,10 @@ card style:
 		z index: 100
 		default: {default_image(card.card_color)}
 	mainframe image:
-		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
-		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
-		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
-		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
+		left:				{ popout_left() }
+		top:				{ popout_top() }
+		width:				{ popout_width() }
+		height:				{ popout_height() }
 		z index: 1000
 
 	############################# Card type
