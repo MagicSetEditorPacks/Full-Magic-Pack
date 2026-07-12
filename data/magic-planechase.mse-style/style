@@ -84,15 +84,22 @@ init script:
 	alt_text_script :=
 	{
 		count := abilities_count()
-		if		count == 4 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text)
-		else if	count == 3 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
-		else if	count == 2 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text)
-		else 					forward_editor(field: card.level_1_text)
+		if is_phenom() then (
+			if		count == 4 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.flavor_text)
+			else if	count == 3 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.flavor_text)
+			else if	count == 2 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.flavor_text)
+			else 					forward_editor(field: card.level_1_text)
+		) else (
+			if		count == 4 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text)
+			else if	count == 3 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
+			else if	count == 2 then	combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text)
+			else 					forward_editor(field: card.level_1_text)
+		)
 	}
 	
 	margin_left :=
 	{
-		if not styling.chaos_symbol or text_alignment() == "middle center" then 0 else (
+		if not has_chaos() or text_alignment() == "middle center" then 0 else (
 		count := abilities_count()
 		if		input == "lv1" then	(if count == 1 then 900 else 0)
 		else if	input == "lv2" then	(if count == 2 then 900 else 0)
@@ -133,7 +140,7 @@ init script:
 	
 	chaos_symbol_height :=
 	{
-		if not styling.chaos_symbol then 0 else (
+		if not has_chaos() then 0 else (
 		count := abilities_count()-1
 		if count == 0 then 60 else
 		clamp(card_style.text.bottom - textbox_top(count) - 10, minimum: 0, maximum: 60))
@@ -144,7 +151,7 @@ init script:
 	}
 	chaos_symbol_top :=
 	{
-		if not styling.chaos_symbol then 1200
+		if not has_chaos() then 1200
 		else textbox_center(abilities_count()-1) - chaos_symbol_height()/2
 	}
 	
@@ -213,6 +220,15 @@ init script:
 		if styling.flat_copyright then set_code_left() + card_style.set_code.content_width + 6 else max(532, 744 - (card_style.illustrator_brush.width + card_style.illustrator.content_width + 4)/2)
 	}
 	rarity_code := { "" }
+	
+	is_phenom := {
+		styling.phenomenon == "yes"
+		or (styling.phenomenon == "auto" and lang_setting("is_phenomenon")(card.super_type))
+	}
+	has_chaos := {
+		styling.chaos_symbol == "yes"
+		or (styling.chaos_symbol == "auto" and not is_phenom())
+	}
 
 ############################################################## Extra style options
 styling field:
@@ -278,10 +294,20 @@ styling field:
 	choice:			4
 	initial:		2
 styling field:
-	type:			boolean
+	type:			choice
+	name:			phenomenon
+	choice:			auto
+	choice:			yes
+	choice:			no
+	description:	Should this card use the Phenomenon text instead?
+
+styling field:
+	type:			choice
 	name:			chaos symbol
 	description:	Should the last ability have a chaos symbol to it's left.
-	initial:		yes
+	choice:			auto
+	choice:			yes
+	choice:			no
 styling field:
 	type:			text
 	name:			custom chaos symbol
@@ -726,7 +752,7 @@ extra card style:
 		width:				{ chaos_symbol_width() }
 		height:				{ chaos_symbol_height() }
 		z index:			900
-		visible:			{ styling.chaos_symbol }
+		visible:			{ has_chaos() }
 		render style:		image
 		image:
 			script:
