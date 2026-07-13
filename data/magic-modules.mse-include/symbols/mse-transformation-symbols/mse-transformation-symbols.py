@@ -29,6 +29,10 @@ directoryArg = File('directory',
 					_('Directory where files are loaded'),
 					action = Gimp.FileChooserAction.CREATE_FOLDER,
 					noneOK = False)
+eraseArg = Boolean('erase_rim',
+					_('Erase Rim'),
+					_('Enable if making a symbol, disable if making a rim.'),
+					True)
 
 runMode = Gimp.RunMode.INTERACTIVE
 
@@ -52,6 +56,7 @@ def run(procedure: Gimp.ImageProcedure,
 	directory = directoryArg.getArgValue(config)
 	directory_path = directory.get_path()
 	directory_name = os.path.basename(directory_path)
+	erase_rim = eraseArg.getArgValue(config)
 
 	#### Create save directory
 	save_directory: Gio.File = fileFromPathComponents([directory_path]+['shape'])
@@ -100,15 +105,16 @@ def run(procedure: Gimp.ImageProcedure,
 	layers = load_layer_group.get_children()
 
 	#### Erase the rim
-	image.select_ellipse(Gimp.ChannelOps.REPLACE, 137, 137, 432, 432)
-	Gimp.Selection.invert(image)
-	Gimp.context_set_foreground(black)
-	for layer in layers:
-		layer.set_visible(True)
-		Gimp.displays_flush()
-		layer.edit_fill(Gimp.FillType.FOREGROUND)
-		Gimp.displays_flush()
-		layer.set_visible(False)
+	if erase_rim:
+		image.select_ellipse(Gimp.ChannelOps.REPLACE, 137, 137, 432, 432)
+		Gimp.Selection.invert(image)
+		Gimp.context_set_foreground(black)
+		for layer in layers:
+			layer.set_visible(True)
+			Gimp.displays_flush()
+			layer.edit_fill(Gimp.FillType.FOREGROUND)
+			Gimp.displays_flush()
+			layer.set_visible(False)
 
 	Gimp.context_set_foreground(grey)
 	for layer in layers:
@@ -192,6 +198,7 @@ class DescriptionClass(HelpedPlugin):
 			run,
 			args = [
 				directoryArg,
+				eraseArg,
 			],
 			menuLabel = _('Transformation Symbols...'),
 			menuPath = ['<Image>/Tools/[MSE]'],

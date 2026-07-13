@@ -24,7 +24,7 @@ depends on:
 
 card width:			744
 card height:		1039
-card dpi:			297
+card dpi:			297.6
 
 ### blanks by GenevensiS
 ### code by GenevensiS
@@ -62,6 +62,38 @@ init script:
 		italic: {""}
 	]
 	
+	reminder_image_folder := { "/" + stylesheet.folder_name + ".mse-style/reminder/" }
+	reminder_uses_light_variant := { true }
+	reminder_offset_left := { -15.8 }
+	reminder_offset_top := { -34.7 }
+	reminder_offset_width := { -35 }
+	reminder_offset_height := { 51 }
+	reminder_type_offset_top := { 13 }
+	reminder_type_offset_left := { 29 }
+	reminder_type_offset_width := { -37 }
+	reminder_type_font := { body_font() }
+	reminder_cost_offset_top := { 14 }
+	reminder_cost_offset_left := { -12 }
+	reminder_cost_font := { body_font() }
+	
+	information_offset_top_1 := { if reminder_box_is_visible() then 14 else 0 }
+	information_copyright_offset_top_1 := { if reminder_box_is_visible() then -14 else 0 }
+	
+	transform_symbol_image_folder := { "/" + stylesheet.folder_name + ".mse-style/transform/" }
+	transform_symbol_modal_uses_normal_background := { true }
+	transform_symbol_default_background := { "none" }
+	transform_symbol_default_rim := { "none" }
+	transform_symbol_default_icon := { "colored" }
+	#transform_symbol_default_icon_bevel := { true }
+	transform_symbol_offset_left_1 := { -11 }
+	transform_symbol_offset_top_1 := { -22 }
+	transform_symbol_offset_width_1 := { 0 }
+	transform_symbol_offset_height_1 := { 0 }
+	transform_symbol_icon_offset_left := { 0 }
+	transform_symbol_icon_offset_top := { 0 }
+	transform_symbol_icon_offset_width := { if contains(card.transformation, match: "triangle") then 26 else 16 }
+	transform_symbol_icon_offset_height := { if contains(card.transformation, match: "triangle") then 26 else 16 }
+	
 	swap_fonts_name_default :=
 	[
 		name: {"Saddlebag AllCaps"},
@@ -77,7 +109,9 @@ init script:
 	old_card_hybrid := card_hybrid
 	card_hybrid_2 :=
 	{
-		masked_blend(mask: "special_blend_card.png", dark: template(colors.0), light: template(colors.1))
+		mask :=	if type == "reminder" then "special_blend_reminder.png"
+				else "special_blend_card.png"
+		masked_blend(mask: mask, dark: template(colors.0), light: template(colors.1))
 	}
 	horizontal_card_hybrid :=
 	[
@@ -158,7 +192,13 @@ init script:
 	popout_top := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.1 != "" then clamp(split.1, maximum: 2000, minimum: -500) else 0 }
 	popout_width := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.2 != "" then clamp(split.2, maximum: 1500, minimum: 0) else 0 }
 	popout_height := { split := split_comma(styling.popout_image_coordinates); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 2000, minimum: 0) else 0 }
-
+	
+	art_left :=		{ if styling.stretch_image_to_whole_card then 0								else 79 }
+	art_top :=		{ if styling.stretch_image_to_whole_card then 0								else 239 }
+	art_width :=	{ if styling.stretch_image_to_whole_card then stylesheet.card_width + 1		else 586 }
+	art_height :=	{ if styling.stretch_image_to_whole_card then stylesheet.card_height + 1	else 396 }
+	art_mask :=		{ crop("image_mask.png", offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_height()) }
+	
 	alias_colors := {
 		[
 			w: rgb(248, 245, 231),
@@ -184,6 +224,7 @@ init script:
 	}
 	alias_offset_top_1 := {124}
 	alias_offset_width_1 := {-8}
+
 ############################################################## Extra style options
 
 styling field:
@@ -274,6 +315,8 @@ include file: /magic-modules.mse-include/fonts/styling_fields
 
 ############################################################## Card fields
 
+include file: /magic-modules.mse-include/reminders/card_fields
+
 include file: /magic-modules.mse-include/information/card_fields
 
 include file: /magic-modules.mse-include/stamps/card_fields
@@ -285,6 +328,8 @@ include file: /magic-modules.mse-include/watermarks/card_fields
 include file: /magic-modules.mse-include/separators/card_fields
 
 include file: /magic-modules.mse-include/typelines/card_fields
+
+include file: /magic-modules.mse-include/symbols/card_fields
 
 include file: /magic-modules.mse-include/alias/card_fields
 
@@ -359,12 +404,11 @@ card style:
 	#		color:				black
 	############################# Image
 	image:
-		left:				{ if styling.stretch_image_to_whole_card then 0							else 80 }
-		top:				{ if styling.stretch_image_to_whole_card then 0							else 240 }
-		width:				{ if styling.stretch_image_to_whole_card then stylesheet.card_width		else 584 }
-		height:				{ if styling.stretch_image_to_whole_card then stylesheet.card_height	else 394 }
+		left:				{ art_left() }
+		top:				{ art_top() }
+		width:				{ art_width() }
+		height:				{ art_height() }
 		z index:			0
-		#mask:				{ if styling.stretch_image_to_whole_card then "image_mask_full.png" else "" }
 	mainframe image:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
@@ -376,12 +420,12 @@ card style:
 		left:				56
 		top:				{ 682 + chop_top() + (if is_stamped() then 3 else 0) + body_font_vertical() }
 		right:				688
-		bottom:				{ 947 - chop_bot() - if is_stamped() then 12 else 0 }
+		bottom:				{ 947 - chop_bot() - if reminder_box_is_visible() then 29 else if is_stamped() then 12 else 0 }
 		z index:			900
-		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height hard:	1.2
 		line height line:	1.5
 		line height soft:	0.9
-		line height hard max:	{ if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height hard max:	1.3
 		line height line max:	1.6
 		alignment:
 			script:
@@ -439,6 +483,13 @@ extra card field:
 	save value:			false
 	show statistics:	false
 	choice:				foil layer
+extra card field:
+	type:				choice
+	name:				card transform
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card transform
 
 extra card style:
 	pt box:
@@ -475,3 +526,12 @@ extra card style:
 		visible:			{ styling.overlay != "none" and styling.overlay != "" }
 		render style:		image
 		image:				{ if styling.overlay == "" then "" else styling.overlay + "/overlay.png" }
+	card transform:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			889
+		visible:			{ not transform_symbol_is_empty(card.transformation) }
+		render style:		image
+		image:				{ if transform_symbol_is_right(card.transformation) then flip_image("transform.png", horizontal: true) else "transform.png" }
