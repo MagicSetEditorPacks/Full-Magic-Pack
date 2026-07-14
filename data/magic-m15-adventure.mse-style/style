@@ -1,4 +1,4 @@
-﻿mse version: 2.0.0
+mse version: 2.0.0
 game: magic
 short name: M15 Adventure
 full name: Mainframe
@@ -35,6 +35,7 @@ card dpi: 150
 ###### Cleanup and coding by cajun
 ###### Reverse Adventures by BA Start
 ###### Omen Styling by Nora3a
+###### Omen Styling improvements by Aresiel
 ############################################################## Extra scripts
 init script:
 	# Load scripts for image box
@@ -195,10 +196,21 @@ init script:
 	chop_correction2 := { 0 }
 	is_unsorted := {styling.remove_from_autocount}
 	
-	shrink_type := {if styling.shrink_typeline_text != "" then to_number((if comma_count(styling.shrink_typeline_text) == "" then styling.shrink_typeline_text else split_text(match:",", styling.shrink_typeline_text).0)) else 0 }
-	shrink_name := {if styling.shrink_name_text != "" then to_number((if comma_count(styling.shrink_name_text) == "" then styling.shrink_name_text else split_text(match:",", styling.shrink_name_text).0)) else 0 }
-	shrink_type2 := {if styling.shrink_typeline_text != "" then to_number((if comma_count(styling.shrink_typeline_text) != "" then split_text(match:",", styling.shrink_typeline_text).1)) else 0 }
-	shrink_name2 := {if styling.shrink_name_text != "" then to_number((if comma_count(styling.shrink_name_text) != "" then split_text(match:",", styling.shrink_name_text).1)) else 0 }
+	shrink_abstract := {
+		spl := split_comma(styling["shrink_{input}_text"])
+		if page == 3 and length(spl) >= 3 then to_number_lax(spl.2)
+		else if page > 1 then to_number_lax(spl.1 or else 0)
+		else to_number_lax(spl.0)
+	}
+	
+	shrink_name := { shrink_abstract("name", page:1) }
+	shrink_name2 := { shrink_abstract("name", page:2) }
+	shrink_name3 := { shrink_abstract("name", page:3) }
+	
+	shrink_type := { shrink_abstract("typeline", page:1) }
+	shrink_type2 := { shrink_abstract("typeline", page:2) }
+	shrink_type3 := { shrink_abstract("typeline", page:3) }
+	
 	use_evobar := {contains(styling.other_options, match:"pokemon evobar")}
 	is_skinned := {contains(styling.other_options, match:"godzilla style alias")}
 
@@ -212,6 +224,12 @@ init script:
 		vertical: {0},
 		italic: {""}
 	]
+	name3_font_size := {
+		swap_font_size(
+			src: swap_fonts_name2_src(), 
+			font_size: swap_fonts_name2_default.size()
+		) - shrink_name3()
+	}
 	swap_fonts_type2_default := [
 		name: {"Beleren Bold"},
 		size: {11},
@@ -219,6 +237,12 @@ init script:
 		vertical: {0},
 		italic: {""}
 	]
+	type3_font_size := {
+		swap_font_size(
+			src: swap_fonts_type2_src(), 
+			font_size: swap_fonts_type2_default.size()
+		) - shrink_type3()
+	}
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {16},
@@ -382,6 +406,17 @@ init script:
 	page_1_flat := {page_flat(page_1_side())}
 	page_2_flat := {page_flat(page_2_side())}
 	page_3_flat := {page_flat(page_3_side())}
+	page_omen := {
+		str := if input == "none" then ""
+			else if is_reversed() then styling[reverser[input] + "_style"]
+			else styling[input + "_style"]
+			
+		if is_spot() then false else contains(str, match:"omen")
+	}
+	page_1_omen := {page_omen(page_1_side())}
+	page_2_omen := {page_omen(page_2_side())}
+	page_3_omen := {page_omen(page_3_side())}
+	
 	page_top := [
 		"double": 375,
 		"omen_double": 375,
@@ -408,7 +443,7 @@ init script:
 		"right": [
 			"page": 188,
 			"name_left": 197,
-			"name_right": 28,
+			"name_right": 347,
 			"cost": 345,
 			"type": 197,
 			"text": 190,
@@ -733,10 +768,10 @@ card style:
 			color: { name_font_color() }
 	name 2:
 		left: { page_coords[page_2_side()]["name_left"] }
-		top: { (if is_spot() or not page_2_flat() then 330 else 328) + (if is_spot() then 2 else 0)+ name2_font_vertical()}
+		top: { (if is_spot() then 330 else if page_2_flat() then 329 else 331) + name2_font_vertical() }
 		right: { page_coords[page_2_side()]["name_right"] - card_style.casting_cost_2.content_width }
-		height: { 20 - shrink_name2() }
-		alignment: bottom shrink-overflow
+		height: { 20 }
+		alignment: middle shrink-overflow
 		z index: 2
 		font:
 			name: { name2_font() }
@@ -745,15 +780,15 @@ card style:
 			color: { name2_font_color() }
 	name 3:
 		left: { page_coords[page_3_side()]["name_left"] }
-		top: { (if is_spot() or not page_3_flat() then 330 else 328) + (if is_spot() then 2 else 0)+ name2_font_vertical()}
+		top: { (if is_spot() then 330 else if page_3_flat() then 329 else 331) + name2_font_vertical() }
 		right: { page_coords[page_3_side()]["name_right"] - card_style.casting_cost_3.content_width }
-		height: {if page_style(page_3_side()) == "null" then 0 else 20 - shrink_name2() }
-		alignment: bottom shrink-overflow
+		height: {if page_style(page_3_side()) == "null" then 0 else 20 }
+		alignment: middle shrink-overflow
 		z index: 2
 		font:
 			name: { name2_font() }
 			italic name: { name2_font_italic() }
-			size: { name2_font_size() }
+			size: { name3_font_size() }
 			color: { name2_font_color() }
 	alias: 
 		left: {if is_skinned() then 45 else 33}
@@ -786,8 +821,8 @@ card style:
 		z index: 2
 		padding top: 0
 	casting cost 2:
-		right: {page_coords[page_2_side()]["cost"]}
-		top: { if page_style(page_2_side()) == "omen_double" then 330 else if is_spot() then 330 else if page_2_flat() then 328 else 329}
+		right: {page_coords[page_2_side()]["cost"] + (if page_2_side() == "right" and page_2_omen() then 4 else 0)}
+		top: { if page_2_omen() then 330 else if is_spot() then 330 else if page_2_flat() then 328 else 329}
 		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
 		height: 23
 		alignment: middle right
@@ -799,8 +834,8 @@ card style:
 		z index: 2
 		padding top: 0
 	casting cost 3:
-		right: {page_coords[page_3_side()]["cost"]}
-		top: { if page_style(page_3_side()) == "omen_double" then 330 else if is_spot() then 330 else if page_3_flat() then 328 else 329}
+		right: {page_coords[page_3_side()]["cost"] + (if page_3_omen() then 4 else 0)}
+		top: { if page_3_omen() then 330 else if is_spot() then 330 else if page_3_flat() then 328 else 329}
 		width: { max(30, card_style.casting_cost_3.content_width) + 5 }
 		height: {if page_style(page_3_side()) == "null" then 0 else 23}
 		alignment: middle right
@@ -855,10 +890,10 @@ card style:
 		image: {module_identity()}
 	type 2:
 		left: {page_coords[page_2_side()]["type"] + (if has_identity_2() then 20 else 0)}
-		top: { if page_style(page_2_side()) == "omen_double" then 3 + shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352) else shrink_type2() + (if is_spot() or not page_2_flat() then 353 else 352)}
+		top: { (if is_spot() then 354 else if page_2_flat() then 351 else if page_2_omen() then 355 else 352) + (shrink_type2()/2) }
 		width: {155 - (if has_identity_2() then 20 else 0)}
-		height: { if page_style(page_2_side()) == "double" then 20 - shrink_type2() else if page_style(page_2_side()) == "omen_double" then 20 - shrink_type2() else 0}
-		alignment: top shrink-overflow
+		height: { if contains(page_style(page_2_side()), match:"double") then 20 - shrink_type2() else 0}
+		alignment: bottom shrink-overflow
 		z index: 1
 		padding top: 2
 		font:
@@ -869,16 +904,16 @@ card style:
 			separator color: red
 	type 3:
 		left: {page_coords[page_3_side()]["type"] + (if has_identity_2() then 20 else 0)}
-		top: { if page_style(page_3_side()) == "omen_double" then 3 + shrink_type2() + (if is_spot() or not page_3_flat() then 353 else 352) else shrink_type2() + (if is_spot() or not page_3_flat() then 353 else 352)}
+		top: { (if is_spot() then 354 else if page_3_flat() then 351 else if page_3_omen() then 355 else 352) + (shrink_type3()/2) }
 		width: {155 - (if has_identity_2() then 20 else 0)}
-		height: { if page_style(page_3_side()) == "double" then 20 - shrink_type2() else if page_style(page_3_side()) == "omen_double" then 20 - shrink_type2() else 0}
-		alignment: top shrink-overflow
+		height: { if contains(page_style(page_2_side()), match:"double") then 20 - shrink_type3() else 0}
+		alignment: bottom shrink-overflow
 		z index: 1
 		padding top: 2
 		font:
 			name: { type2_font() }
 			italic name: { type2_font_italic() }
-			size: { type2_font_size() }
+			size: { type3_font_size() }
 			color: { type2_font_color() }
 			separator color: red
 	rarity:
@@ -904,7 +939,7 @@ card style:
 			color: { body_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: 13
+			size: { body_font_size() }
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
@@ -935,7 +970,7 @@ card style:
 			color: { body_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: 14
+			size: { body_font_size() }
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
@@ -966,7 +1001,7 @@ card style:
 			color: { body_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: 13
+			size: { body_font_size() }
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
