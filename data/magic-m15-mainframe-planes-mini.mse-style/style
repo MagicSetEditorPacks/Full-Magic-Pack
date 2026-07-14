@@ -1,0 +1,379 @@
+﻿mse version: 2.1.2
+game: magic
+short name: Planechase
+full name: Mini Mainframe
+installer group: Magic Planes/normal style
+icon: card-sample.png
+position hint: 090
+
+version: 2024-09-23
+depends on:
+	package: magic.mse-game
+	version: 2018-06-01
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2009-08-10
+depends on:
+	package: magic-mainframe-extras.mse-include
+	version: 2018-01-01
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-10-01
+
+card width: 523
+card height: 375
+card dpi: 150
+#By Cajun
+############################################################## Extra scripts
+init script:
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		italic: {""},
+		size: {13},
+		color: {"black"},
+		vertical: {0}
+	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		italic: {""},
+		size: {10},
+		color: {"black"},
+		vertical: {0}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		italic: {"MPlantin-Italic"},
+		size: { t := to_number_lax(styling.font_size); if t > 0 then t else 10 },
+		color: {"black"},
+		vertical: {0}
+	]
+
+	is_unsorted := {styling.remove_from_autocount}
+
+	is_nom := {contains(card.super_type, match:"Phenomenon") }
+	is_old_frame := { chosen(styling.options, choice:"old frame") }
+
+	alt_text := { not is_nom() }
+	alt_text_script := {
+		combined_editor(field1:card.rule_text, separator1:"<line>\n</line>", field2:card.rule_text_2)
+	}
+	card_name_for_face := {
+		if (set.CARDNAME_replacement == "card's type" xor reverse)
+			then (
+				ty := to_lower(cardname_type(card["type"]))
+				if ty == "" then "this"
+				else "this " + ty
+			)
+		else if set.CARDNAME_replacement == "card's alias" and card["alias"] != ""
+			then card["alias"]
+		else card["name"]
+	}@(reverse:false)
+	
+	is_loaded := { card_style.text.layout.separator[0] or else 0 > 0 }
+	top_box_height := {
+		if is_loaded()
+			then card_style.text.layout.separator[0]
+		else 45
+	}
+	bottom_box_height := {
+		90 - top_box_height()
+	}
+
+	built_frame_mask := {
+		double_mask := if is_old_frame() then "old_mask.png" else "plane_mask.png"
+		filter := "new_filter.png"
+		
+		## crop the filter
+		cropped := slice_crop (
+			filter,
+			height: 375,
+			width: 523,
+			distance: top_box_height()+375+4
+		)
+		
+		masked_blend(dark:invert_image(double_mask), light:cropped, mask:double_mask)
+	}
+	
+	card_shape := { "mini plane card" }
+	
+	margin_left := {
+		if input == "text2" then 310 else 0
+	}
+	text_filter := text_filter + { apply_margins(input, name: margin_code) }
+
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: multiple choice
+	name: options
+	choice: old frame
+styling field:
+	type: text
+	name: font size
+	description: Set the maximum font size. Default is 16.
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-small.mse-symbol-font
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: old
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+include file: /magic-modules.mse-include/fonts/styling_fields
+styling style:
+	options:
+		render style: checklist
+		direction: vertical
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-small.mse-symbol-font/mana_t.png
+			old:        /magic-mana-small.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-small.mse-symbol-font/mana_t_older.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+include file: /magic-modules.mse-include/corners/card_fields
+card style:
+	############################# Name line
+	name:
+		left: 		84
+		top: 		20
+		width: 		354
+		height: 	23
+		alignment: 	bottom center shrink-overflow
+		z index: 	900
+		font:
+			name: 	{ name_font() }
+			italic name: { name_font_italic() }
+			size: 	{ name_font_size () }
+			color: 	{ name_font_color() }
+	############################# Image
+	image:
+		left: 		14
+		top: 		13
+		width: 		494
+		height:		349
+		z index:	0
+		mask: 		{ "guideline.png" }
+	############################# Card type
+	type:
+		left: 		114
+		top: 		243
+		width:		294
+		height: 	23
+		alignment: 	bottom center shrink-overflow
+		z index: 	2
+		font:
+			name: 	{ type_font() }
+			italic name: 	{ type_font_italic() }
+			size: 	{ type_font_size() }
+			color: 	{ type_font_color() }
+	rarity:
+		right: 		408
+		top: 		253
+		width:		28
+		height: 	14
+		z index: 	2
+		render style: image
+		alignment: middle right
+		include file: /magic-modules.mse-include/rarities/choice_images
+	############################# Text box
+	text:
+		left: 		62
+		width: 		411
+		top:		268
+		height: 	90
+		font:
+			name: 	{ body_font() }
+			italic name: { body_font_italic() }
+			size: 	{ body_font_size() }
+			color: 	{ body_font_color() }
+			scale down to: 6
+		symbol font:
+			name: 	{ styling.text_box_mana_symbols }
+			size: 	{ body_font_size() }
+		alignment: middle left
+		z index: 900
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+		line height hard max: 1.3
+		line height line max: 1.6
+	############################# Copyright stuff
+	card code:
+		left: 		{ if is_old_frame() then 161 else 49 }
+		top: 		362
+		width: 		81
+		height: 	12
+		z index: 	1
+		font:
+			name: 	Relay-Medium
+			size: 	6.25
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+			weight: bold
+	set code:
+		left: 		{ (if is_old_frame() then 165 else 52) + card_style.card_code.content_width }
+		top: 		362
+		width: 		34
+		height: 	2
+		z index: 	900
+		font:
+			name: 	Relay-Medium
+			size: 	6.25
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+			weight: bold
+	illustrator:
+		left: 		{ if is_old_frame() then 222 else card_style.set_code.left + card_style.set_code.content_width + 18 }
+		top: 		{ if is_old_frame() then 354 else 362 }
+		width: 		92
+		height: 	7
+		z index: 	900
+		alignment: 	{ if is_old_frame() then "center" else "left" }
+		font:
+			name: 	Beleren Small Caps Bold
+			size: 	6
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+	copyright:
+		right:		{ if is_old_frame() then 385 else 474 }
+		top: 		364
+		width: 		{ if set.automatic_copyright then 0 else 130 }
+		height: 	7
+		z index: 	900
+		alignment: 	middle right shrink-overflow
+		font:
+			name: 	MPlantin
+			size: 	7
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+			weight: bold
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: background
+	editable: false
+	save value: false
+	choice: frame
+extra card field:
+	type: choice
+	name: chaos symbol
+	editable: false
+	save value: false
+	choice: frame
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: text
+	name: auto copyright
+	script: set.copyright
+	save value: false
+	editable: false
+	show statistics: false
+extra card field:
+	type: choice
+	name: artist arrow
+	save value: false
+	choice: white
+	editable: false
+extra card field:
+	type: choice
+	name: flavor bar
+	choice: bar
+	editable: false
+	save value: false
+	show statistics: false
+extra card style:
+	background:
+		left: 		0
+		top: 		0
+		width: 		523
+		height: 	375
+		z index: 	0
+		render style: image
+		image: 		{ if is_old_frame() then "old_card.png" else "card.png" }
+		mask:		{ if is_nom() then "" else built_frame_mask() }
+	chaos symbol:
+		left: 		62
+		top: 		{ 268 + top_box_height() + 0.5*bottom_box_height() - 11 }
+		width: 		{ 1.15*min(22, bottom_box_height()) }
+		height: 	{ min(22, bottom_box_height()) }
+		z index: 	720
+		visible:	{ not is_nom() }
+		render style: image
+		image: /magic-mana-small.mse-symbol-font/mana_chaos.png
+	artist arrow:
+		left: 		{ if is_old_frame() then 256 - card_style.illustrator.content_width * 0.5 else card_style.set_code.left + card_style.set_code.content_width + 5 }
+		top: 		{ if is_old_frame() then 356 else 364 }
+		width: 		10
+		height: 	6
+		z index: 	6
+		render style: image
+		image: 		artist_arrow.png
+	auto copyright:
+		right:		{ if is_old_frame() then 385 else 474 }
+		top: 		364
+		width: 		{ if set.automatic_copyright then 130 else 0 }
+		height: 	7
+		z index: 	900
+		alignment: 	middle right shrink-overflow
+		font:
+			name: 	Matrix
+			size: 	7
+			color: 	{ styling.copyright_text_color or else set.copyright_text_color }
+			weight: bold
+	flavor bar:
+		left: 		0
+		top: 		{ bar_equation() }
+		width: 		523
+		height: 	1
+		z index: 	1
+		render style: image
+		image: 		bar.png
+		visible: 	{ card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar and is_nom() }
