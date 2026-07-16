@@ -335,7 +335,15 @@ is_back_face :=
 	get_front_face(card) != nil
 	or length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0
 }
-
+is_linked_dfc :=
+{
+	get_front_face(card) != nil or get_back_face(card) != nil
+}
+is_linked_meld :=
+{
+	length(get_cards_from_link(card, linked_relation:"Meld Result")) > 0
+	or length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0
+}
 get_linked_card_name :=
 {
 	name := get_card_from_uid(card["linked_card_{input}"] or else "").name or else ""
@@ -3561,10 +3569,45 @@ typesymbol_type := { typesymbol_for(type) }
 ############ Default behavior (input is the value of the field)
 transform_symbol_default :=
 {
-	if		get_back_face(card) != nil	then	"front triangle"
-	else if	get_front_face(card) != nil	then	"back triangle"
-	else										"none"
+	front_face := get_front_face(card)
+	if front_face != nil
+		then transform_symbol_counterpart(front_face, fallback:"back triangle")
+	else if get_back_face(card) != nil
+		then "front triangle"
+	else "none"
 }
+transform_symbol_counterpart :=
+{
+	front := [
+		"front triangle",
+		"day",
+		"moon",
+		"closed fan",
+		"sparker",
+		"modal front",
+		"comedy",
+		"custom symbol one",
+		"custom symbol three"
+	]
+	back := [
+		"back triangle",
+		"night",
+		"eldrazi",
+		"open fan",
+		"aetherprint",
+		"modal back",
+		"tragedy",
+		"custom symbol two",
+		"custom symbol four"
+	]
+	shape := transform_symbol_shape(input.transformation)
+	front_pos := position(of:shape, in:front)
+	back_pos := position(of:shape, in:back)
+	if front_pos >= 0 then back[front_pos]
+	else if back_pos >= 0 then front[back_pos]
+	else if fallback != "" then fallback
+	else shape
+}@(fallback:"")
 transform_symbol_default_position :=
 {
 	if get_front_face(card) != nil
