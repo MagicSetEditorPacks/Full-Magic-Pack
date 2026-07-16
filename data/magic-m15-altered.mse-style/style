@@ -112,8 +112,7 @@ init script:
 		miracle_snow: "/magic-modules.mse-include/trims/miracle/snow/"
 		beyond: "/magic-modules.mse-include/trims/beyond/"
 		draft: "/magic-modules.mse-include/trims/draft/"
-		node: "nodes/"
-		node_shifted: "nodes/shifted/"
+		node: "/magic-modules.mse-include/cards/375 nodes/"
 		puma: "puma/"
 		puma_shift: "puma/shifted/"
 		curtains: "curtains/"
@@ -150,8 +149,7 @@ init script:
 		miracle_fnm: "miracle.png"
 		miracle_snow: "miracle.png"
 		miracle_beyond: "miracle.png"
-		node: "node.png"
-		node_shifted: "node.png"
+		node: ".png"
 		curtains: "card.png"
 		beyond:"beyond.png"
 		
@@ -418,12 +416,10 @@ init script:
 	
 	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
 	#### other pieces
-	node_base := { color_background(type:"node",     base_hybrid:card_hybrid, folder:"nodes/") }
-	node_shift := { color_background(type:"node_shifted",     base_hybrid:card_hybrid, folder:"nodes/", blend_type:"node") }
-	node_img := { 
-		if is_devoid() and not is_legend() then "nodes/devoidnode.png"
-		else if is_planeshifted() then node_shift()
-		else node_base()
+	node_img := { color_background(type:"node",     base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
+	node_mask := {
+		base := template_prefix["node"]+"mask.png"
+		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
 	}
 	
 	puma_base := { color_background(type:"puma", base_hybrid:card_hybrid, folder:"puma/") }
@@ -504,7 +500,7 @@ init script:
 	crown_img := {
 		img := crown_main()
 		if not transform_symbol_is_empty(card.transformation) then
-			img := set_mask(image:img, mask:"nodes/mask.png")
+			img := set_mask(image:img, mask:node_mask())
 		if is_borderless() and is_frameless() and is_miracle() then
 			img := set_mask(image:img, mask:"frame_masks/crown_miracle_borderless.png")
 		if (is_devoid() or uses_expanded_art() or is_puma()) and is_skinned() then 
@@ -538,12 +534,19 @@ init script:
 			standard: "/magic-modules.mse-include/cards/375 m15 simple/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 		][base_card()]
 	}
+	node_template := {
+		right_hand := transform_symbol_is_right(card.transformation)
+		base := template_prefix["node"] + (if is_planeshifted() then "shifted/" else "") + input + ".png"
+		if is_devoid() and not is_legend() then base := "devoid/node.png"
+		if right_hand then flip_image(base, horizontal: true) else base
+	}
 	# this goes at the very end
 	harder_script := [
 		crown: module_crown_template_patch,
 		card: mainframe_card_base
 		custom_border: custom_border_image,
 		alt_nyx: alt_nyx_template
+		node: node_template
 	]
 
 	#### mask scripts
@@ -657,7 +660,7 @@ init script:
 		) - (-chop_top()) + body_font_vertical()
 	}
 	bottom_of_textbox := {
-		(if is_map() then 475 else 481) - chop_bot()
+		(if is_map() then 475 else 481) - chop_bot() - (if reminder_box_is_visible() then 18 else 0)
 	}
 
 	#### other settings
@@ -1084,6 +1087,10 @@ init script:
 		else
 			combined_editor(field1: card.rule_text, separator: "<line>\n</line>", field2: card.flavor_text)
 	}
+	
+	transform_symbol_image_folder := { "/magic-modules.mse-include/cards/375 nodes/" }
+	transform_symbol_offset_top_1 := {if is_devoid() then 0 else -1 }
+	reminder_disabled := { not is_linked_dfc() }
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1344,6 +1351,7 @@ include file: /magic-modules.mse-include/separators/card_fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -1373,13 +1381,11 @@ card style:
 			script:
 				if center_map()
 					then 55
-				else if is_map() and not transform_symbol_is_empty(card.transformation)
-					then 65
 				else if is_map()
 					then 60
-				else if card.card_symbol != "none" and not transform_symbol_is_empty(card.transformation)
+				else if card.card_symbol != "none" and transform_symbol_active_left(card.transformation)
 					then 78
-				else if not transform_symbol_is_empty(card.transformation)
+				else if transform_symbol_active_left(card.transformation)
 					then 58
 				else if card.card_symbol != "none"
 					then 50
@@ -1391,7 +1397,7 @@ card style:
 					else if is_clear() or clear_tops() then 31
 					else 30
 				) + name_font_vertical()
-		right:  { if center_map() then 320 else (if is_map() then 320 else 341) - card_style.casting_cost.content_width }
+		right:  { if center_map() then 320 else (if is_map() then 320 else 341) - card_style.casting_cost.content_width - (if not is_map() and transform_symbol_active_right(card.transformation) then 26 else 0) }
 		height: { 23 - (0.5 * shrink_name()) }
 		alignment: {if center_map() then "center bottom shrink-overflow" else "left bottom shrink-overflow" }
 		padding bottom: 0
@@ -1419,7 +1425,7 @@ card style:
 			weight: {if use_evobar() then "italic" else "bold"}
 			color: 	{if use_evobar() then "black" else "white"}
 	casting cost:
-		right: 	{ if is_map() then 327 else 346}
+		right: 	{ (if is_map() then 327 else 346) - (if transform_symbol_active_right(card.transformation) then ( if is_map() then 4 else 28 ) else 0) }
 		top: 	{ if is_map() then 27 else 29}
 		width: 	{ max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -2539,7 +2545,7 @@ extra card style:
 		render style: image
 		image: { season_background() }
 		visible: { is_season() }
-		mask: { if not transform_symbol_is_empty(card.transformation) then "nodes/mask.png" else "" }
+		mask: { if not transform_symbol_is_empty(card.transformation) then node_mask() else "" }
 	mutbar:
 		z index: 730
 		left: 28
@@ -2558,8 +2564,8 @@ extra card style:
 		visible: {is_legend() and card.border_color == rgb(200,200,200) and not uses_expanded_art()}
 	node:
 		left: 0
-		top: 0
-		height: 63
+		top: { if is_devoid() then 1 else 0 }
+		height: 523
 		width: 375
 		z index: 610
 		render style: image
