@@ -329,6 +329,18 @@ has_required_stylesheets :=
 	)
 	missing == 0
 }
+
+is_back_face :=
+{
+	get_front_face(card) != nil
+	or length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0
+}
+
+get_linked_card_name :=
+{
+	name := get_card_from_uid(card["linked_card_{input}"] or else "").name or else ""
+	if name == "" then "LINK{input}NAME" else name
+}
 ############################################################## For the user
 #### Remove card codes
 cc_filter := replace@(match:"^[CURMSL][WUBRGMZACL][0-9]+ ?[-—]? ?", replace:"")
@@ -1827,19 +1839,35 @@ text_filter :=
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-printname></atom-printname>"
 	) +
-	#### step 3b : expand shortcut word LEGENDNAME
+	#### step 3c : expand shortcut word LEGENDNAME
 	replace@(
 		match: "LEGENDNAME>?",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-legname></atom-legname>"
 	) +
-	#### step 3b : expand shortcut word AUTOREM
+	#### step 3d : expand shortcut word AUTOREM
 	replace@(
 		match: "AUTOREM>?",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-autorem></atom-autorem>"
 	) +
-	#### step 3bb : debug atom fields
+	#### step 3d : expand shortcut word LINK#NAME
+	replace@(
+		match: "LINK([1-4])NAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname\\1></atom-linkname\\1>"
+	) +
+	replace@(
+		match: "LINKNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname1></atom-linkname1>"
+	) +
+	replace@(
+		match: "MELDNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname2></atom-linkname2>"
+	) +
+	#### step 3f : debug atom fields
 	replace@(
 		match: "<atom-name>([^<]+)</atom-(card|print)",
 		replace: "<atom-\\2name>\\1</atom-\\2"
@@ -1848,7 +1876,7 @@ text_filter :=
 		match: "<atom-name>",
 		replace: ""
 	) +
-	#### step 3c : fill in atom fields
+	#### step 3g : fill in atom fields
 	tag_contents@(
 		tag: "<atom-cardname>",
 		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
@@ -1885,6 +1913,12 @@ text_filter :=
 			out := tag_contents(out,
 				tag: "<atom-insert"+x+">",
 				contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
+			)
+		
+		for x from 1 to 4 do
+			out := tag_contents(out,
+				tag: "<atom-linkname"+x+">",
+				contents: { "<nospellcheck>" + get_linked_card_name(x) + "</nospellcheck>" }
 			)
 		out
 	} +
