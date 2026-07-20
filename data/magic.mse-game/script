@@ -4260,8 +4260,8 @@ a_height :=						{ face := loyalty_face(); face_coordinates_map(face).height }
 r_width :=						{ face := loyalty_face(); face_coordinates_map(face).width/375 }
 r_height :=						{ face := loyalty_face(); face_coordinates_map(face).height/523 }
 
-to_744_width :=					{ input/a_width()*744 }
-to_744_height :=				{ input/a_height()*1039 }
+to_744_width :=					{ input*744/a_width() }
+to_744_height :=				{ input*1039/a_height() }
 
 loyalty_left :=					{ round_near((if contains(loyalty_box_field(instance), match: "defense") then 323 else 313) * r_width() + a_left() + loyalty_offset_left() - loyalty_offset_width()) }
 loyalty_top :=					{ round_near(472 * r_height() + a_top() + loyalty_offset_top() - loyalty_offset_height()) }
@@ -4306,7 +4306,12 @@ loyalty_colon_r_height :=		{ 21 * r_height() }
 loyalty_colon_r_correction :=	{ -3 * r_height() }
 loyalty_colon_font_size :=		{ 13 * (loyalty_colon_r_height() + 2*loyalty_cost_offset_height())/21 }
 
-loyalty_stripe_separator_top :=		{ (loyalty_ability_bottom(input) + loyalty_ability_top(input+1) - loyalty_stripe_separator_height())/2 + loyalty_separator_move(input) }
+loyalty_stripe_separator_top :=
+{
+	if input < 1 then a_top()
+	else if input >= loyalty_abilities_count(active:true) then a_bottom() - loyalty_stripe_separator_height() - 1
+	else (loyalty_ability_bottom(input) + loyalty_ability_top(input+1) - loyalty_stripe_separator_height())/2 + loyalty_separator_move(input)
+}
 loyalty_stripe_separator_height :=	{ 8.06 * r_height() }
 
 loyalty_cost_move :=
@@ -4385,29 +4390,19 @@ loyalty_stripe_separator_mask :=
 	mask_path := to_string(mask) or else ""
 	is_default :=		mask_path == "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 					or	mask_path == "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
-	if is_default then
-	(
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: to_744_height(loyalty_stripe_separator_top(input) - a_top()),
-			width: 744,
-			height: to_744_height(loyalty_stripe_separator_height()),
-			max_x: 744,
-			max_y: 1039
-		)
-	)
-	else
-	(
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: loyalty_stripe_separator_top(input) - a_top(),
-			width: a_width(),
-			height: loyalty_stripe_separator_height(),
-			max_x: a_width(),
-			max_y: a_height()
-		)
+	if is_default then mask :=	resize_image(
+									mask,
+									width: a_width(),
+									height: a_height()
+								)
+	crop_safe(
+		mask,
+		offset_x: 0,
+		offset_y: loyalty_stripe_separator_top(input) - a_top(),
+		width: a_width(),
+		height: loyalty_stripe_separator_height(),
+		max_x: a_width(),
+		max_y: a_height()
 	)
 }
 loyalty_stripe_mask :=
@@ -4416,36 +4411,23 @@ loyalty_stripe_mask :=
 	mask_path := to_string(mask) or else ""
 	is_default :=		mask_path == "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 					or	mask_path == "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
-	if is_default then
-	(
-		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
-		top := to_744_height(top - a_top())
-		height := to_744_height(height)
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: top,
-			width: 744,
-			height: height,
-			max_x: 744,
-			max_y: 1039
-		)
-	)
-	else
-	(
-		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
-		top := top - a_top()
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: top,
-			width: a_width(),
-			height: height,
-			max_x: a_width(),
-			max_y: a_height()
-		)
+	if is_default then mask :=	resize_image(
+									mask,
+									width: a_width(),
+									height: a_height()
+								)
+	separator_index := (input-1)*2
+	separator_height := loyalty_stripe_separator_height()
+	stripe_top := loyalty_stripe_separator_top(separator_index)
+	stripe_height := loyalty_stripe_separator_top(separator_index + 1) - stripe_top + separator_height
+	crop_safe(
+		mask,
+		offset_x: 0,
+		offset_y: stripe_top,
+		width: a_width(),
+		height: stripe_height,
+		max_x: a_width(),
+		max_y: a_height()
 	)
 }
 loyalty_stripe_alpha_default := { "40" }
@@ -4466,18 +4448,36 @@ loyalty_stripe_separator_image :=
 }
 loyalty_stripe_image :=
 {
+	result :=	resize_image(
+					"/magic-modules.mse-include/loyalty/stripe.png",
+					width: a_width(),
+					height: 36*a_height()/1039
+				)
+	
 	color := if instance <= 1 then (styling.stripes_color or else rgb(255,255,255)) else (styling["stripes_color_" + instance] or else rgb(255,255,255))
-	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else loyalty_stripe_alpha_default()) else (styling["stripes_opacity_percentage_" + instance] or else loyalty_stripe_alpha_default())
-	set_alpha(
-		recolor_image(
-			"/magic-modules.mse-include/loyalty/color.png",
-			color: color
-		),
-		alpha: get_alpha_percentage(
-			alpha,
-			default: loyalty_stripe_alpha_default()
-		)
-	)
+	result :=	recolor_image(
+					result,
+					color: color
+				)
+	
+	alpha_default := loyalty_stripe_alpha_default()
+	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else alpha_default) else (styling["stripes_opacity_percentage_" + instance] or else alpha_default)
+	result :=	set_alpha(
+					result,
+					alpha: get_alpha_percentage(alpha, default: alpha_default)
+				)
+	
+	separator_index := (input-1)*2
+	separator_height := loyalty_stripe_separator_height()
+	stripe_height := loyalty_stripe_separator_top(separator_index + 1) - loyalty_stripe_separator_top(separator_index) + separator_height
+	result :=	nine_slice_image(
+					result,
+					width: a_width(),
+					height: stripe_height,
+					top: separator_height,
+					bottom: separator_height
+				)
+	result
 }
 loyalty_textbox_background_alpha_default := { "70" }
 loyalty_textbox_background_image :=
