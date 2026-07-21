@@ -161,7 +161,7 @@ init script:
 	
 	card_mask :=
 	{
-		type_mask := crop("typeline_mask.png", offset_x: 0, offset_y: 400-move_typeline(), width: 744, height: 1039)
+		type_mask := crop("typeline" + (if mainframe_walker() then "_walker" else "") + "_mask.png", offset_x: 0, offset_y: 400-move_typeline(), width: 744, height: 1039)
 		combine_blend(image1: "card_mask.png", image2: type_mask, combine: "add")
 	}
 	
@@ -173,37 +173,67 @@ init script:
 	
 	card_border_mask :=
 	{
+		walker := mainframe_walker()
 		base_mask := if not transform_symbol_is_empty(card.transformation) and not transform_symbol_is_right(card.transformation) then "border_card_transform_mask.png" else "border_card_mask.png"
 		crown_mask := if not transform_symbol_is_empty(card.transformation) and transform_symbol_is_right(card.transformation) then "border_crown_transform_mask.png" else "border_crown_mask.png"
-		type_mask := crop("border_typeline_mask.png", offset_x: 0, offset_y: 400-move_typeline(), width: 744, height: 1039)
+		type_mask := crop("border_typeline" + (if walker then "_walker" else "") + "_mask.png", offset_x: 0, offset_y: 400-move_typeline(), width: 744, height: 1039)
 		stamp_mask := if not is_stamped() then "border_nonstamp_mask.png" else if stamp_shape() == "triangle" then "border_stamptriangle_mask.png" else "border_stamp_mask.png"
 		stamp_back_mask := if stamp_shape() == "triangle" then "border_stamptriangle_background_mask.png" else "border_stamp_background_mask.png"
-		pt_mask := if card.pt != "" then "border_pt_mask.png" else "border_nonpt_mask.png"
+		pt_mask := if card.pt != "" and not walker then "border_pt_mask.png" else "border_nonpt_mask.png"
 		pt_back_mask := "border_pt_background_mask.png"
+		ability_mask := "border_walker_ability_mask.png"
+		ability_bottom_mask := "border_walker_ability_bottom_mask.png"
 		
 		result := combine_blend(image1: base_mask, image2: stamp_mask, combine: "add")
 		result := combine_blend(image1: result, image2: type_mask, combine: "add")
 		result := combine_blend(image1: result, image2: pt_mask, combine: "add")
 		if is_crowned() then result := combine_blend(image1: result, image2: crown_mask, combine: "add")
+		if walker then (
+			result := insert_image(base_image: result, inserted_image: resize_image(ability_mask, width:744, height: 207 - move_typeline()), offset_x: 0, offset_y: 708 + move_typeline())
+			result := insert_image(base_image: result, inserted_image: ability_bottom_mask, offset_x: 0, offset_y: 915)
+		)
 		if is_stamped() and styling.border != "no" then result := combine_blend(image1: result, image2: stamp_back_mask, combine: "add")
-		if card.pt != "" and styling.border != "no" then result := combine_blend(image1: result, image2: pt_back_mask, combine: "add")
+		if card.pt != "" and not walker and styling.border != "no" then result := combine_blend(image1: result, image2: pt_back_mask, combine: "add")
 		result
 	}
 	
 	complete_card_image :=
 	{
+		walker := mainframe_walker()
 		base_mask := if not transform_symbol_is_empty(card.transformation) and not transform_symbol_is_right(card.transformation) then "card_transform.png" else "card.png"
 		crown_mask := if not transform_symbol_is_empty(card.transformation) and transform_symbol_is_right(card.transformation) then "crown_transform.png" else "crown.png"
-		type_mask := crop("typeline.png", offset_x: 0, offset_y: 400-move_typeline(), width: 744, height: 1039)
+		type_mask := crop("typeline" + (if walker then "_walker" else "") + ".png", offset_x: 0, offset_y: 400-move_typeline(), width: 744, height: 1039)
 		stamp_mask := if not is_stamped() then "nonstamp.png" else if stamp_shape() == "triangle" then "stamptriangle.png" else "stamp.png"
-		pt_mask := if card.pt != "" then "pt.png" else "nonpt.png"
+		pt_mask := if card.pt != "" and not walker then "pt.png" else "nonpt.png"
+		ability_mask := "walker_ability_mask.png"
 		
 		result := insert_image(base_image: base_mask, inserted_image: stamp_mask, offset_x: 0, offset_y: 0)
 		result := insert_image(base_image: result, inserted_image: type_mask, offset_x: 0, offset_y: 0)
 		result := insert_image(base_image: result, inserted_image: pt_mask, offset_x: 0, offset_y: 0)
 		if is_crowned() then result := insert_image(base_image: result, inserted_image: crown_mask, offset_x: 0, offset_y: 0)
+		if walker then result := insert_image(base_image: result, inserted_image: resize_image(ability_mask, width:744, height: 209 - move_typeline()), offset_x: 0, offset_y: 708 + move_typeline())
 		recolor_image(result, color: styling[color_name_map[input] + "_color"])
 	}
+	
+	include file: /magic-modules.mse-include/loyalty/init_script
+	loyalty_boxes_image_folder := { "/" + stylesheet.folder_name + ".mse-style/loyalty/" }
+	loyalty_cost_box_shadow_default := { false }
+	loyalty_colon_stroke := { true }
+	loyalty_cost_offset_text_margin_1 := { 10 }
+	loyalty_cost_offset_top_1 := { 2 }
+	loyalty_cost_offset_left_1 := { 36 }
+	loyalty_cost_text_offset_top_1 := { 2 }
+	loyalty_textbox_mask :=
+	{
+		bottom := "textbox_bottom_mask.png"
+		top := crop("textbox_top_mask.png", offset_x:0, offset_y: 291 - move_typeline(), width: 744, height: 748 + move_typeline())
+		insert_image(base_image: bottom, inserted_image: top, offset_x:0, offset_y:0)
+	}
+	loyalty_abilities_count_real := loyalty_abilities_count
+	loyalty_abilities_count := {
+		if mainframe_walker() then loyalty_abilities_count_real(instance:instance, active:active) else 0
+	}@(active:false, instance:1)
+	mainframe_walker := { lang_setting("is_planeswalker")(card.type) }
 
 ############################################################## Extra style options
 
@@ -285,7 +315,7 @@ styling field:
 	type:			slider
 	name:			move typeline
 	description:	Move the typeline up or down
-	minimum:		-400
+	minimum:		-330
 	maximum:		210
 	initial:		0
 
@@ -307,6 +337,59 @@ styling field:
 	choice:			if legendary
 	choice:			no
 	initial:		if legendary
+
+styling field:
+	type:			choice
+	name:			number of textboxes
+	description:	Number of textboxes for abilities and passives. MODIFY CONTENTS OF TEXTBOXES IF THIS HAS TROUBLE UPDATING AFTER BEING CHANGED.
+	choice:			automatic
+	choice:			1
+	choice:			2
+	choice:			3
+	choice:			4
+	choice:			5
+	choice:			6
+	choice:			7
+	choice:			8
+	initial:		automatic
+styling field:
+	type:			text
+	name:			move separators
+	description:	Moves the limits between abilities down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5"
+styling field:
+	type:			text
+	name:			move loyalty costs
+	description:	Moves loyalty costs down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5,6"
+styling field:
+	type:			slider
+	name:			textbox opacity percentage
+	description:	Set the opacity percentage for textboxes. Opaque is 100, transparent is 0, default is 0.
+styling field:
+	type:			color
+	name:			textbox color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(255,255,255)
+styling field:
+	type:			slider
+	name:			stripes opacity percentage
+	description:	Set the opacity percentage for stripes separating abilities. Opaque is 100, transparent is 0, default is 0.
+styling field:
+	type:			color
+	name:			stripes color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(0,0,0)
 
 include file: /magic-modules.mse-include/rarities/styling_fields
 
@@ -390,6 +473,8 @@ include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
 
 include file: /magic-modules.mse-include/watermarks/card_fields
+
+include file: /magic-modules.mse-include/loyalty/card_fields
 
 card style:
 	############################# Background stuff
@@ -526,11 +611,11 @@ card style:
 		right:				679
 		bottom:				{ 952 - chop_bot() - if reminder_box_is_visible() then 32 else if is_stamped() then 8 else 0 }
 		z index:			900
-		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
-		line height line:	1.5
 		line height soft:	0.9
-		line height hard max:	{ if is_modal(card.rule_text) then 1.0 else 1.3 }
-		line height line max:	1.6
+		line height hard:	1.2
+		line height line:	{ if mainframe_walker() then 2.0 else 1.5 }
+		line height hard max:	1.3
+		line height line max:	{ if mainframe_walker() then 2.1 else 1.6 }
 		alignment:			{ alignment_script() }
 		font:
 			name:				{ body_font() }
@@ -552,7 +637,7 @@ card style:
 	pt:
 		left:				596
 		top:				{ 932 + pt_font_vertical() }
-		width:				92
+		width:				{ if mainframe_walker() then 0 else 92 }
 		height:				45
 		z index:			900
 		alignment:			center middle shrink-overflow
