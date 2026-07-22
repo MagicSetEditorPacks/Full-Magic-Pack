@@ -332,8 +332,13 @@ has_required_stylesheets :=
 
 is_back_face :=
 {
-	get_front_face(card) != nil
-	or length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0
+	if get_front_face(card) != nil then true ## basic back face
+	else (
+		meld_base := get_cards_from_link(card, linked_relation:"Meld Base").0 or else nil
+		if meld_base != nil and length(get_cards_from_link(meld_base, linked_relation:"Meld Base")) == 0
+			then true ## safe meld
+		else false ## unsafe meld or normal card		
+	)
 }
 is_linked_dfc :=
 {
@@ -348,6 +353,13 @@ get_linked_card_name :=
 {
 	name := get_card_from_uid(card["linked_card_{input}"] or else "").name or else ""
 	if name == "" then "LINK{input}NAME" else name
+}
+get_linked_card_index :=
+{
+	front := get_front_face(card)
+	linked := if front != nil then front
+				else get_cards_from_link(card, linked_relation:"Meld Base").0 or else nil
+	card_index(card:linked)
 }
 ############################################################## For the user
 #### Remove card codes
@@ -980,6 +992,8 @@ sort_name :=
 set_filter := {
 	if is_unsorted() then 
 		{ is_unsorted() }
+	else if is_back_face() then
+		{ is_back_face() }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" }
 	else if card.shape == "rulestip" then
@@ -991,9 +1005,9 @@ set_filter := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not token_shape(card.shape) and not is_masterpiece() }
+		{ not is_unsorted() and not is_back_face() and not token_shape(card.shape) and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
+		{ not is_unsorted() and not is_back_face() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not is_masterpiece() }
 }
@@ -1003,6 +1017,8 @@ set_filter := {
 set_filter_under_partition := {
 	if is_unsorted() then 
 		{ is_unsorted() }
+	else if is_back_face() then
+		{ is_back_face() }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" and not over_partition() }
 	else if card.shape == "rulestip" then
@@ -1014,9 +1030,9 @@ set_filter_under_partition := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) and not over_partition() }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and not is_back_face() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and not is_back_face() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not over_partition() and not is_masterpiece() }
 }
@@ -1026,12 +1042,18 @@ card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:fal
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
 #### the raw numbers, these aren't typically used directly
 card_number := {
+	index := if is_back_face() then get_linked_card_index()
+		else card_index()
+	
+	index + 1 + to_number(card_number_offset())
+}
+card_index := {
 	position (
 		of: card
 		in: set
 		order_by: { partition_index() + rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
 		filter:   set_filter()
-	) + 1 + to_number(card_number_offset())
+	)
 }
 card_count := {
 	number_of_items(in: set, filter: set_filter_under_partition()) + to_number(set_number_offset())
