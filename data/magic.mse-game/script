@@ -2741,17 +2741,30 @@ verify_watermark_image := {
 	else (
 		wm_link := array.0
 		wm_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+wm_link)
-		if not wm_exists then (
+		if not wm_exists and can_import then (
+			path := get_mse_path() + "/data/magic-mainframe-extras.mse-include/"
+			img := import_image((path+wm_link) or else (path+"examples/symbol/discovery.png"))
+			wm_dim := dimensions_of(img)
+			wm_width := wm_dim.0
+			wm_height := wm_dim.1
+			if (wm_width > 1024 or wm_height > 1024)
+				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
+			else if wm_width != 55
+				then wm_link + ",File loaded,{wm_width}x{wm_height}px"
+			else wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
+		)
+		else if not wm_exists then (
 			wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
 		) else (
-			wm_width := width_of("/magic-mainframe-extras.mse-include/"+wm_link)
-			wm_height := height_of("/magic-mainframe-extras.mse-include/"+wm_link)
+			wm_dim := dimensions_of("/magic-mainframe-extras.mse-include/"+wm_link)
+			wm_width := wm_dim.0
+			wm_height := wm_dim.1
 			if (wm_width > 1024 or wm_height > 1024)
 				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
 			else wm_link + ",File found,{wm_width}x{wm_height}px"
 		)
 	)
-}
+}@(can_import:true)
 custom_watermark_link := {
 	field := set["custom_watermark_"+input]
 	array := split_comma(field)
@@ -3032,6 +3045,7 @@ build_custom_watermark_blend := {
 		else custom_watermark_link(input, long:true)
 	array := split_comma(info)
 	link := array.0
+	if (array.1 or else "" == "File loaded") then link := import_image(get_mse_path() + "/data" + link)
 	l := 500
 	h := 500
 	if length(array) > 1 then (
@@ -5322,7 +5336,14 @@ verify_symbol_image := {
 		sym_link := array.0
 		sym_pad := array.3 or else ""
 		sym_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+sym_link)
-		if not sym_exists then (
+		if not sym_exists and can_import then (
+			path := get_mse_path() + "/data/magic-mainframe-extras.mse-include/"
+			img := import_image((path+sym_link) or else (path+"examples/symbol/discovery.png"))
+			sym_width := width_of(img)
+			if sym_width != 55
+				then sym_link + ",File loaded,{sym_width},{sym_pad}"
+			else sym_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload," + sym_pad
+		) else if not sym_exists then (
 			sym_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload," + sym_pad
 		) else (
 			sym_width := width_of("/magic-mainframe-extras.mse-include/"+sym_link)
@@ -5333,7 +5354,7 @@ verify_symbol_image := {
 			sym_link + ",File found,{sym_width},{sym_pad}"
 		)
 	)
-}
+}@(can_import:true)
 
 custom_symbol_slug := {
 	style_src := styling["custom_symbol_{input}"] or else styling["custom_symbol_{english_number(input)}"] or else styling.custom_symbol or else ""
@@ -5348,6 +5369,8 @@ custom_symbol_image := {
 	array := split_comma(src)
 	if not has_png(array.0) or (array.1 or else "" == "Not found")
 		then "/magic-modules.mse-include/symbols/not found.png"
+	else if (array.1 or else "" == "File loaded")
+		then import_image(get_mse_path() + "/data/magic-mainframe-extras.mse-include/" + array.0)
 	else (
 		link := "/magic-mainframe-extras.mse-include/" + array.0
 		if array.3 or else "" == "+" then link := enlarge(link, border_size:0.189)
