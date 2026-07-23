@@ -145,19 +145,41 @@ init script:
 	
 	alignment_script :=
 	{
-		if	(styling.center_text == "short text only" and
-			not contains(match:"\n", card.rule_text) and
-			card.flavor_text == "<i-flavor></i-flavor>" and
-			card_style.text.content_lines <= 2) or
-			styling.center_text == "always"
-		then "middle center"
-		else "top left"
+		if		mainframe_walker()
+		then	"middle left"
+		else if	(styling.center_text == "short text only" and
+				not contains(match:"\n", card.rule_text) and
+				card.flavor_text == "<i-flavor></i-flavor>" and
+				card_style.text.content_lines <= 2) or
+				styling.center_text == "always"
+		then	"middle center"
+		else	"top left"
 	}
 	
 	move_typeline :=
 	{
 		to_number_lax(styling.move_typeline)
 	}
+	
+	include file: /magic-modules.mse-include/loyalty/init_script
+	loyalty_boxes_image_folder := { "/" + stylesheet.folder_name + ".mse-style/loyalty/" }
+	loyalty_cost_box_shadow_default := { false }
+	loyalty_colon_stroke := { true }
+	loyalty_cost_offset_text_margin_1 := { 10 }
+	loyalty_cost_offset_top_1 := { 2 }
+	loyalty_cost_offset_left_1 := { 36 }
+	loyalty_cost_text_offset_top_1 := { 2 }
+	loyalty_textbox_mask :=
+	{
+		bottom := "textbox_bottom_mask.png"
+		top := crop("textbox_top_mask.png", offset_x:0, offset_y: 331 - move_typeline(), width: 744, height: 708 + move_typeline())
+		insert_image(base_image: bottom, inserted_image: top, offset_x:0, offset_y:0)
+	}
+	loyalty_abilities_count_real := loyalty_abilities_count
+	loyalty_abilities_count := {
+		if mainframe_walker() then loyalty_abilities_count_real(instance:instance, active:active) else 0
+	}@(active:false, instance:1)
+	mainframe_walker := { lang_setting("is_planeswalker")(card.type) }
 
 ############################################################## Extra style options
 
@@ -203,6 +225,59 @@ styling field:
 	name:			hide rarity
 	initial:		yes
 	description:	Hide the rarity symbol?
+
+styling field:
+	type:			choice
+	name:			number of textboxes
+	description:	Number of textboxes for abilities and passives. MODIFY CONTENTS OF TEXTBOXES IF THIS HAS TROUBLE UPDATING AFTER BEING CHANGED.
+	choice:			automatic
+	choice:			1
+	choice:			2
+	choice:			3
+	choice:			4
+	choice:			5
+	choice:			6
+	choice:			7
+	choice:			8
+	initial:		automatic
+styling field:
+	type:			text
+	name:			move separators
+	description:	Moves the limits between abilities down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5"
+styling field:
+	type:			text
+	name:			move loyalty costs
+	description:	Moves loyalty costs down by this many pixels. Use negatives to move up. Formatted as "1,2,3,4,5,6"
+styling field:
+	type:			slider
+	name:			textbox opacity percentage
+	description:	Set the opacity percentage for textboxes. Opaque is 100, transparent is 0, default is 0.
+styling field:
+	type:			color
+	name:			textbox color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(255,255,255)
+styling field:
+	type:			slider
+	name:			stripes opacity percentage
+	description:	Set the opacity percentage for stripes separating abilities. Opaque is 100, transparent is 0, default is 0.
+styling field:
+	type:			color
+	name:			stripes color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(0,0,0)
 
 include file: /magic-modules.mse-include/rarities/styling_fields
 
@@ -287,6 +362,8 @@ include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
 
 include file: /magic-modules.mse-include/watermarks/card_fields
+
+include file: /magic-modules.mse-include/loyalty/card_fields
 
 card style:
 	############################# Background stuff
@@ -421,11 +498,11 @@ card style:
 		right:				679
 		bottom:				{ 952 - chop_bot() - if reminder_box_is_visible() then 30 else if is_stamped() then 8 else 0 }
 		z index:			900
-		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
-		line height line:	1.5
 		line height soft:	0.9
-		line height hard max:	{ if is_modal(card.rule_text) then 1.0 else 1.3 }
-		line height line max:	1.6
+		line height hard:	1.2
+		line height line:	{ if mainframe_walker() then 2.0 else 1.5 }
+		line height hard max:	1.3
+		line height line max:	{ if mainframe_walker() then 2.1 else 1.6 }
 		alignment:			{ alignment_script() }
 		font:
 			name:				{ body_font() }
@@ -447,7 +524,7 @@ card style:
 	pt:
 		left:				593
 		top:				{ 910 + pt_font_vertical() }
-		width:				92
+		width:				{ if mainframe_walker() then 0 else 92 }
 		height:				45
 		z index:			900
 		alignment:			center middle shrink-overflow
