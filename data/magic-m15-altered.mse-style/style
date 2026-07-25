@@ -509,10 +509,16 @@ init script:
 		img
 	}
 	
+	clear_image_path := {
+		"/magic-modules.mse-include/cards/375 m15 simple/xcard"
+		+ (if is_notched() then "_notched" else "")
+		+ ".png"
+	}
+	
 	card_background := {
 		bc := base_card()
 		if bc == "clear"
-			then "/magic-modules.mse-include/cards/375 m15 simple/xcard.png"
+			then clear_image_path()
 		else color_background(
 			type:"card",
 			base_hybrid:card_hybrid,
@@ -523,7 +529,7 @@ init script:
 		[
 			map: "/magic-modules.mse-include/cards/746 maps/" + input + (if land then "l" else "") + "card.png",
 			devoid: "devoid/" + input + "card.png",
-			clear: "/magic-modules.mse-include/cards/375 m15 simple/xcard.png",
+			clear: clear_image_path(),
 			energy: "energies/" + input + "card.png",
 			fullart: "dka/" + input + (if land then "l" else "") + "card.jpg"
 			fnm: "fnm/" + input + "card.png"
@@ -536,6 +542,7 @@ init script:
 	}
 	node_template := {
 		right_hand := transform_symbol_is_right(card.transformation)
+		if is_clear() then input := "x"
 		base := template_prefix["node"] + (if is_planeshifted() then "shifted/" else "") + input + ".png"
 		if is_devoid() and not is_legend() then base := "devoid/node.png"
 		if right_hand then flip_image(base, horizontal: true) else base
@@ -667,7 +674,7 @@ init script:
 	use_flash_dot := { styling.use_flash_dot and (lang_setting("is_instant")(card.super_type) or contains(card.type, match:"Flash"))}
 	is_promo := { styling.promo }
 	is_unsorted := {styling.remove_from_autocount}
-	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
+	is_skinned := { card.alias != "" and not use_evobar() }
 	use_vorthos := {((not is_leveler() or lone_pt()) and card.pt != "") or chosen(styling.other_options, choice:"vorthos box")}
 	is_tarot := {chosen(styling.other_options, choice:"text watermarks")}
 	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar")}
@@ -975,15 +982,19 @@ init script:
 	}
 	
 	tri_stamp := {
-		if is_map() or is_clear() or is_thbland()
+		if is_map() or is_thbland()
 			then template_prefix["ubstamp"] + "_stamp.png"
+		else if is_clear()
+			then template_prefix["ubstamp"] + "xstamp.png"
 		else if is_devoid()
 			then template_prefix["ubstamp"] + "devoid.png"
 		else module_ubstamp()
 	}
 	round_stamp := {
-		if is_map() or is_clear() or is_thbland()
+		if is_map() or is_thbland()
 			then template_prefix["stamp"] + "_stamp.png"
+		else if is_clear()
+			then template_prefix["stamp"] + "xstamp.png"
 		else if is_devoid()
 			then template_prefix["stamp"] + "devoid.png"
 		else module_stamp()
@@ -992,8 +1003,6 @@ init script:
 		sh := stamp_shape()
 		if is_map() and sh == "triangle"
 			then 472
-		else if is_clear()
-			then (if sh == "triangle" then 472 else 473)
 		else if is_thbland()
 			then 472
 		else 471
@@ -1005,7 +1014,6 @@ init script:
 			then false
 		else true
 	}
-	card_symbol_offset_top_1 := { if is_clear() then 1 else 0 }
 	
 	override_clear := replace@(match:"</color>(</b></code>)?", replace: "")+
 		replace@(match:"(<code><b>)?<color:black>", replace: "")
@@ -1088,9 +1096,40 @@ init script:
 			combined_editor(field1: card.rule_text, separator: "<line>\n</line>", field2: card.flavor_text)
 	}
 	
+	old_alias_colors := alias_colors
+	shifted_alias_colors := {
+		[
+			w: rgb(249, 247, 232),
+			u: rgb(6, 115, 184),
+			b: rgb(39, 38, 36),
+			r: rgb(233, 107, 48),
+			g: rgb(6, 120, 69),
+			a: rgb(176, 150, 133),
+			m: rgb(229, 203, 106),
+			c: rgb(173, 151, 137)
+		][input]
+	}
+	alias_colors := {
+		if is_devoid() and not is_legend()
+			then rgb(241, 236, 221)
+		else if is_clear() or clear_tops()
+			then rgb(232, 231, 231)
+		else if is_planeshifted()
+			then shifted_alias_colors(input)
+		else old_alias_colors(input)
+	}
 	transform_symbol_image_folder := { "/magic-modules.mse-include/cards/375 nodes/" }
 	transform_symbol_offset_top_1 := {if is_devoid() then 0 else -1 }
 	reminder_disabled := { not is_linked_dfc() }
+	
+	force_notched := { chosen(styling.other_options, choice:"transform notch") }
+	has_modal := match@(match:"modal")
+	notched_front_face := {
+		get_back_face(card) != nil and not has_modal(card.transformation)
+	}
+	is_notched := {
+		force_notched() or notched_front_face()
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1165,7 +1204,6 @@ styling field:
 	name: other options
 	description: Other frame options
 	choice: prerelease stamp
-	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: ancestral generic mana
 	choice: override-style text
@@ -1185,6 +1223,7 @@ styling field:
 	choice: inverted d20
 	choice: de-fullart special frames
 	choice: popunder art
+	choice: transform notch
 	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns, auto ub, auto spacecraft
 styling field:
 	type: text
@@ -1394,7 +1433,6 @@ card style:
 			script:
 				(
 					if is_map() then 27
-					else if is_clear() or clear_tops() then 31
 					else 30
 				) + name_font_vertical()
 		right:  { if center_map() then 320 else (if is_map() then 320 else 341) - card_style.casting_cost.content_width - (if not is_map() and transform_symbol_active_right(card.transformation) then 26 else 0) }
@@ -1411,11 +1449,11 @@ card style:
 			shadow displacement x: -1
 			shadow displacement y: 1
 	alias:
-		left:	{if is_skinned() then 45 else if is_map() then 15 else 33}
-		top: 	{if is_map() then 58 else 53}
-		width: 	{if is_skinned() then 285 else if use_evobar() then max(100, card_style.alias.content_width) else 0}
+		left:	{ if use_evobar() then (if is_map() then 15 else 33) else 38.5 }
+		top: 	{if is_map() then 58 else if use_evobar() then 53 else if is_devoid() then 57 else 55}
+		width: 	{if use_evobar() then max(100, card_style.alias.content_width) else 298 }
 		height: 20
-		alignment: { (if is_skinned() then "center" else "") + "bottom shrink-overflow"}
+		alignment: { (if use_evobar() then "" else "center") + "middle shrink-overflow"}
 		padding bottom: 0
 		z index: 900
 		font:
@@ -1533,8 +1571,8 @@ card style:
 		z index: 899
 	############################# Card type
 	indicator:
-		left: { if is_map() then 18 else 31 + (if is_season() then 12 else 0) + (if is_clear() then 2 else 0) + (if use_flash_dot() then 3 else 0) }
-		top:  { if is_map() or is_clear() then 298 else if is_thbland() then 449 else if is_dka() then 332 else 300 }
+		left: { if is_map() then 18 else 31 + (if is_season() then 12 else 0) + (if use_flash_dot() then 3 else 0) }
+		top:  { if is_map() then 298 else if is_thbland() then 449 else if is_dka() then 332 else 300 }
 		width: 17
 		height: 17
 		z index: 800
@@ -1542,8 +1580,8 @@ card style:
 		visible: { has_identity() }
 		image: { module_identity() }
 	type:
-		left: 	{ if is_map() then 85 else 32 + (if is_season() then 12 else 0) + (if has_identity() then 20 else 0) + (if is_clear() then 4 else 0) + (if use_flash_dot() then 3 else 0) }
-		top: 	{ (if is_map() then 297.5 else if is_devoid() then 295 else if is_clear() then 294 else if is_thbland() then 444 else if is_dka() then 329 else 296) + shrink_type() + type_font_vertical() }
+		left: 	{ if is_map() then 85 else 32 + (if is_season() then 12 else 0) + (if has_identity() then 20 else 0) + (if use_flash_dot() then 3 else 0) }
+		top: 	{ (if is_map() then 297.5 else if is_devoid() then 295 else if is_thbland() then 444 else if is_dka() then 329 else 296) + shrink_type() + type_font_vertical() }
 		width: 	{ if is_map() then 205 else (if has_identity() then 290 else 310) - rare_width() - (if is_season() then 12 else 0) }
 		height: { (if is_map() then 18 else 20) - shrink_type() }
 		alignment: { if is_map() then "center top shrink-overflow" else "top shrink-overflow" }
@@ -1560,7 +1598,7 @@ card style:
 			separator color: red
 	rarity:
 		right:	{ (if is_map() then 199 else if is_scrolls() then 334 else 344) + rarity_user_offset_left(styling.rarity_offsets or else "") }
-		top: 	{ (if is_map() then 53 else if is_devoid() then 296 else if is_clear() then 295 else if is_thbland() then 445 else if is_dka() then 329 else 297) + rarity_user_offset_top(styling.rarity_offsets or else "") }
+		top: 	{ (if is_map() then 53 else if is_devoid() then 296 else if is_thbland() then 445 else if is_dka() then 329 else 297) + rarity_user_offset_top(styling.rarity_offsets or else "") }
 		width: 	{ if set.shorten_types_for_rarity then 44 + rarity_user_offset_width(styling.rarity_offsets or else "") else 0 }
 		height: {22 + rarity_user_offset_height(styling.rarity_offsets or else "")}
 		z index: 950
@@ -2294,7 +2332,7 @@ extra card style:
 		z index: 199
 		render style: image
 		popup style: in place
-		image: /magic-modules.mse-include/cards/375 m15 simple/xcard.png
+		image: { clear_image_path() }
 		mask: { if is_dka() then "frame_masks/clear_tops_dka_mask2.png" }
 	evobar:
 		left: {if is_map() then 15 else 27}
@@ -2315,14 +2353,14 @@ extra card style:
 		image: /magic-modules.mse-include/extras/evobar/evobar_tip.png
 		visible: {use_evobar()}
 	alias bar:
-		left: 38
-		top: { if uses_clear_frame() or clear_tops() then 59 else 57}
+		left: 38.5
+		top: { if is_devoid() then 59 else 57 }
 		width: 298
-		height: 21
+		height: 20
 		z index: 880
 		render style: image
-		image: {if is_devoid() and not is_legend() then template_prefix["alias"]+"devoidalias.png" else if is_clear() or clear_tops() then template_prefix["alias"]+"xalias.png" else module_alias()}
-		visible: {is_skinned() and not use_evobar()}
+		image: { module_alias() }
+		visible: {is_skinned()}
 		mask: { if is_legend() and (is_devoid() or uses_expanded_art() or is_puma()) then "frame_masks/bl_alias_mask.png" else "" }
 	scrolls:
 		left: 0
@@ -2570,7 +2608,7 @@ extra card style:
 		z index: 610
 		render style: image
 		image: { node_img() }
-		visible: {not is_map() and not is_clear() and not transform_symbol_is_empty(card.transformation)}
+		visible: {not is_map() and not transform_symbol_is_empty(card.transformation)}
 	crown:
 		left: 0
 		top: {if is_devoid() then 1 else 0}
