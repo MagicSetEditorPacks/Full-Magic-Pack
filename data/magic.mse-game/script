@@ -33,7 +33,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2025-02-01 Template Pack 3.1.e: Mainframe Battles - Prototype"}
+version_date := {"2025-02-01 Template Pack 3.1.0: Mainframe Battles"}
 version := version_date
 ############################################################## Common filters
 ############################################################## Utility
@@ -1317,6 +1317,7 @@ actionize := replace@(match:"(activate|ante|cast|choose|create|destroy|discard|d
 	+replace@(match:"(attach)", replace:"\\1es")
 	+replace@(match:"scry", replace:"scries")
 	+replace@(match:"your", replace:"their")
+	+replace@(match:"you", replace:"they")
 
 #### determine if a reminder text should refer to this card or that card
 this_or_that := {
@@ -2808,19 +2809,33 @@ verify_watermark_image := {
 	if not has_png(array.0)
 		then array.0
 	else (
-		wm_link := array.0
+		wm_link := trim(array.0)
 		wm_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+wm_link)
-		if not wm_exists then (
+		if not wm_exists and can_import then (
+			user_path := get_mse_path() + "/data/magic-mainframe-extras.mse-include/"+wm_link
+			fallback := get_mse_path() + "/data/magic.mse-game/icons/choice-no.png"
+			img := import_image(user_path) or else import_image(fallback)
+			wm_dim := dimensions_of(img)
+			wm_width := wm_dim.0
+			wm_height := wm_dim.1
+			if (wm_width > 1024 or wm_height > 1024)
+				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
+			else if wm_width > 32
+				then wm_link + ",File loaded,{wm_width}x{wm_height}px"
+			else wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
+		)
+		else if not wm_exists then (
 			wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
 		) else (
-			wm_width := width_of("/magic-mainframe-extras.mse-include/"+wm_link)
-			wm_height := height_of("/magic-mainframe-extras.mse-include/"+wm_link)
+			wm_dim := dimensions_of("/magic-mainframe-extras.mse-include/"+wm_link)
+			wm_width := wm_dim.0
+			wm_height := wm_dim.1
 			if (wm_width > 1024 or wm_height > 1024)
 				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
 			else wm_link + ",File found,{wm_width}x{wm_height}px"
 		)
 	)
-}
+}@(can_import:true)
 custom_watermark_link := {
 	field := set["custom_watermark_"+input]
 	array := split_comma(field)
@@ -3101,6 +3116,7 @@ build_custom_watermark_blend := {
 		else custom_watermark_link(input, long:true)
 	array := split_comma(info)
 	link := array.0
+	if (array.1 or else "" == "File loaded") then link := import_image(get_mse_path() + "/data" + link)
 	l := 500
 	h := 500
 	if length(array) > 1 then (
@@ -4214,6 +4230,7 @@ use_tall_walker_frame_2 :=
 	else false
 }
 loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
+loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
 loyalty_cost_field :=
 {
 	input := loyalty_clean_margin_code(input)
@@ -4227,12 +4244,13 @@ loyalty_cost_box_field :=
 loyalty_cost_box_default :=
 {
 	cost := loyalty_cost_field(margin_code)
+	shadow := if loyalty_cost_box_shadow_default() then ", shadow" else ""
 	if cost == "" then "none"
-	else if	contains(cost, match: "+") then	"+, shadow"
-	else if	contains(cost, match: "-") then	"-, shadow"
-	else									"0, shadow"
+	else if	contains(cost, match: "+") then	"+" + shadow
+	else if	contains(cost, match: "-") then	"-" + shadow
+	else									"0" + shadow
 }
-loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
+loyalty_cost_box_shadow_default := { true }
 loyalty_cost_box_image :=
 {
 	shape := remove_comma(loyalty_cost_box_field(input + (instance-1)*8))
@@ -4260,10 +4278,12 @@ loyalty_box_default :=
 	margin_code := loyalty_clean_margin_code(margin_code)
 	loyalty := loyalty_field(margin_code)
 	if loyalty == "" then "none" else (
+	shadow := if loyalty_box_shadow_default() then ", shadow" else ""
 	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
-	if is_battle(type) or contains(card_shape(), match: "battle") then "defense"
-	else "loyalty")
+	if is_battle(type) or contains(card_shape(), match: "battle") then "defense" + shadow
+	else "loyalty" + shadow)
 }
+loyalty_box_shadow_default := { false }
 loyalty_box_image :=
 {
 	shape := remove_comma(loyalty_box_field(instance))
@@ -4290,6 +4310,11 @@ loyalty_cost_offset_left_1 := { 0 }
 loyalty_cost_offset_width_1 := { 0 }
 loyalty_cost_offset_height_1 := { 0 }
 
+loyalty_cost_text_offset_top_1 := { 0 }
+loyalty_cost_text_offset_left_1 := { 0 }
+loyalty_cost_text_offset_width_1 := { 0 }
+loyalty_cost_text_offset_height_1 := { 0 }
+
 loyalty_cost_offset_text_margin_1 := { 0 }
 
 loyalty_textbox_mask_1 :=
@@ -4298,6 +4323,8 @@ loyalty_textbox_mask_1 :=
 	+ (if use_tall_walker_frame_1() then "_tall" else "")
 	+ "_mask.png"
 }
+
+loyalty_colon_stroke_1 := { false }
 
 loyalty_face_2 := { 2 }
 loyalty_text_field_2 := { 2 }
@@ -4313,6 +4340,11 @@ loyalty_cost_offset_left_2 := { 0 }
 loyalty_cost_offset_width_2 := { 0 }
 loyalty_cost_offset_height_2 := { 0 }
 
+loyalty_cost_text_offset_top_2 := { 0 }
+loyalty_cost_text_offset_left_2 := { 0 }
+loyalty_cost_text_offset_width_2 := { 0 }
+loyalty_cost_text_offset_height_2 := { 0 }
+
 loyalty_cost_offset_text_margin_2 := { 0 }
 
 loyalty_textbox_mask_2 :=
@@ -4321,6 +4353,8 @@ loyalty_textbox_mask_2 :=
 	+ (if use_tall_walker_frame_2() then "_tall" else "")
 	+ "_mask.png"
 }
+
+loyalty_colon_stroke_2 := { false }
 
 loyalty_face_3 := { 3 }
 loyalty_text_field_3 := { 3 }
@@ -4336,6 +4370,11 @@ loyalty_cost_offset_left_3 := { 0 }
 loyalty_cost_offset_width_3 := { 0 }
 loyalty_cost_offset_height_3 := { 0 }
 
+loyalty_cost_text_offset_top_3 := { 0 }
+loyalty_cost_text_offset_left_3 := { 0 }
+loyalty_cost_text_offset_width_3 := { 0 }
+loyalty_cost_text_offset_height_3 := { 0 }
+
 loyalty_cost_offset_text_margin_3 := { 0 }
 
 loyalty_textbox_mask_3 :=
@@ -4344,6 +4383,8 @@ loyalty_textbox_mask_3 :=
 	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
 }
+
+loyalty_colon_stroke_3 := { false }
 
 loyalty_face := { if instance <= 1 then loyalty_face_1() else if instance == 2 then loyalty_face_2() else loyalty_face_3() }
 loyalty_text_field := { if instance <= 1 then loyalty_text_field_1() else if instance == 2 then loyalty_text_field_2() else loyalty_text_field_3() }
@@ -4359,9 +4400,16 @@ loyalty_cost_offset_left := { if instance <= 1 then loyalty_cost_offset_left_1()
 loyalty_cost_offset_width := { if instance <= 1 then loyalty_cost_offset_width_1() else if instance == 2 then loyalty_cost_offset_width_2() else loyalty_cost_offset_width_3() }
 loyalty_cost_offset_height := { if instance <= 1 then loyalty_cost_offset_height_1() else if instance == 2 then loyalty_cost_offset_height_2() else loyalty_cost_offset_height_3() }
 
+loyalty_cost_text_offset_top := { if instance <= 1 then loyalty_cost_text_offset_top_1() else if instance == 2 then loyalty_cost_text_offset_top_2() else loyalty_cost_text_offset_top_3() }
+loyalty_cost_text_offset_left := { if instance <= 1 then loyalty_cost_text_offset_left_1() else if instance == 2 then loyalty_cost_text_offset_left_2() else loyalty_cost_text_offset_left_3() }
+loyalty_cost_text_offset_width := { if instance <= 1 then loyalty_cost_text_offset_width_1() else if instance == 2 then loyalty_cost_text_offset_width_2() else loyalty_cost_text_offset_width_3() }
+loyalty_cost_text_offset_height := { if instance <= 1 then loyalty_cost_text_offset_height_1() else if instance == 2 then loyalty_cost_text_offset_height_2() else loyalty_cost_text_offset_height_3() }
+
 loyalty_cost_offset_text_margin := { if instance <= 1 then loyalty_cost_offset_text_margin_1() else if instance == 2 then loyalty_cost_offset_text_margin_2() else loyalty_cost_offset_text_margin_3() }
 
 loyalty_textbox_mask := { if instance <= 1 then loyalty_textbox_mask_1() else if instance == 2 then loyalty_textbox_mask_2() else loyalty_textbox_mask_3() }
+
+loyalty_colon_stroke := { if instance <= 1 then loyalty_colon_stroke_1() else if instance == 2 then loyalty_colon_stroke_2() else loyalty_colon_stroke_3() }
 
 #### All these functions are implicitly passed and passing the 'instance' argument:
 a_left :=						{ face := loyalty_face(); face_coordinates_map(face).left }
@@ -4372,8 +4420,8 @@ a_height :=						{ face := loyalty_face(); face_coordinates_map(face).height }
 r_width :=						{ face := loyalty_face(); face_coordinates_map(face).width/375 }
 r_height :=						{ face := loyalty_face(); face_coordinates_map(face).height/523 }
 
-to_744_width :=					{ input/a_width()*744 }
-to_744_height :=				{ input/a_height()*1039 }
+to_744_width :=					{ input*744/a_width() }
+to_744_height :=				{ input*1039/a_height() }
 
 loyalty_left :=					{ round_near((if contains(loyalty_box_field(instance), match: "defense") then 323 else 313) * r_width() + a_left() + loyalty_offset_left() - loyalty_offset_width()) }
 loyalty_top :=					{ round_near(472 * r_height() + a_top() + loyalty_offset_top() - loyalty_offset_height()) }
@@ -4386,10 +4434,10 @@ loyalty_box_top :=				{ 457 * r_height() + a_top() + loyalty_offset_top() - loya
 loyalty_box_width :=			{ 64 * r_width() + 2*loyalty_offset_width() }
 loyalty_box_height :=			{ 52.5 * r_height() + 2*loyalty_offset_height() }
 
-loyalty_cost_left :=			{ round_near(loyalty_ability_left() - 24 * r_width() + loyalty_cost_offset_left() - loyalty_cost_offset_width()) }
-loyalty_cost_top :=				{ round_near(loyalty_ability_center(input) - loyalty_cost_r_height()/2 + loyalty_cost_r_correction(input) + loyalty_cost_move(input) + loyalty_cost_offset_top() - loyalty_cost_offset_height()) }
-loyalty_cost_width :=			{ loyalty_cost_r_width() + 2*loyalty_cost_offset_width() }
-loyalty_cost_height :=			{ if loyalty_abilities_count() >= input then loyalty_cost_r_height() + 2*loyalty_cost_offset_height() else 0 }
+loyalty_cost_left :=			{ round_near(loyalty_ability_left() - 24 * r_width() + loyalty_cost_offset_left() + loyalty_cost_text_offset_left() - loyalty_cost_offset_width()) }
+loyalty_cost_top :=				{ round_near(loyalty_ability_center(input) - loyalty_cost_r_height()/2 + loyalty_cost_r_correction(input) + loyalty_cost_move(input) + loyalty_cost_offset_top() + loyalty_cost_text_offset_top() - loyalty_cost_offset_height()) }
+loyalty_cost_width :=			{ loyalty_cost_r_width() + loyalty_cost_text_offset_width() + 2*loyalty_cost_offset_width() }
+loyalty_cost_height :=			{ if loyalty_abilities_count() >= input then loyalty_cost_r_height() + loyalty_cost_text_offset_height() + 2*loyalty_cost_offset_height() else 0 }
 loyalty_cost_r_width :=			{ 24 * r_width() }
 loyalty_cost_r_height :=		{ 20 * r_height() }
 loyalty_cost_r_correction :=
@@ -4418,7 +4466,12 @@ loyalty_colon_r_height :=		{ 21 * r_height() }
 loyalty_colon_r_correction :=	{ -3 * r_height() }
 loyalty_colon_font_size :=		{ 13 * (loyalty_colon_r_height() + 2*loyalty_cost_offset_height())/21 }
 
-loyalty_stripe_separator_top :=		{ (loyalty_ability_bottom(input) + loyalty_ability_top(input+1) - loyalty_stripe_separator_height())/2 + loyalty_separator_move(input) }
+loyalty_stripe_separator_top :=
+{
+	if input < 1 then a_top()
+	else if input >= loyalty_abilities_count(active:true) then a_bottom() - loyalty_stripe_separator_height() - 1
+	else (loyalty_ability_bottom(input) + loyalty_ability_top(input+1) - loyalty_stripe_separator_height())/2 + loyalty_separator_move(input)
+}
 loyalty_stripe_separator_height :=	{ 8.06 * r_height() }
 
 loyalty_cost_move :=
@@ -4497,29 +4550,19 @@ loyalty_stripe_separator_mask :=
 	mask_path := to_string(mask) or else ""
 	is_default :=		mask_path == "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 					or	mask_path == "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
-	if is_default then
-	(
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: to_744_height(loyalty_stripe_separator_top(input) - a_top()),
-			width: 744,
-			height: to_744_height(loyalty_stripe_separator_height()),
-			max_x: 744,
-			max_y: 1039
-		)
-	)
-	else
-	(
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: loyalty_stripe_separator_top(input) - a_top(),
-			width: a_width(),
-			height: loyalty_stripe_separator_height(),
-			max_x: a_width(),
-			max_y: a_height()
-		)
+	if is_default then mask :=	resize_image(
+									mask,
+									width: a_width(),
+									height: a_height()
+								)
+	crop_safe(
+		mask,
+		offset_x: 0,
+		offset_y: loyalty_stripe_separator_top(input) - a_top(),
+		width: a_width(),
+		height: loyalty_stripe_separator_height(),
+		max_x: a_width(),
+		max_y: a_height()
 	)
 }
 loyalty_stripe_mask :=
@@ -4528,36 +4571,23 @@ loyalty_stripe_mask :=
 	mask_path := to_string(mask) or else ""
 	is_default :=		mask_path == "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 					or	mask_path == "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
-	if is_default then
-	(
-		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
-		top := to_744_height(top - a_top())
-		height := to_744_height(height)
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: top,
-			width: 744,
-			height: height,
-			max_x: 744,
-			max_y: 1039
-		)
-	)
-	else
-	(
-		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
-		top := top - a_top()
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: top,
-			width: a_width(),
-			height: height,
-			max_x: a_width(),
-			max_y: a_height()
-		)
+	if is_default then mask :=	resize_image(
+									mask,
+									width: a_width(),
+									height: a_height()
+								)
+	separator_index := (input-1)*2
+	separator_height := loyalty_stripe_separator_height()
+	stripe_top := loyalty_stripe_separator_top(separator_index)
+	stripe_height := loyalty_stripe_separator_top(separator_index + 1) - stripe_top + separator_height
+	crop_safe(
+		mask,
+		offset_x: 0,
+		offset_y: stripe_top,
+		width: a_width(),
+		height: stripe_height,
+		max_x: a_width(),
+		max_y: a_height()
 	)
 }
 loyalty_stripe_alpha_default := { "40" }
@@ -4578,18 +4608,36 @@ loyalty_stripe_separator_image :=
 }
 loyalty_stripe_image :=
 {
+	result :=	resize_image(
+					"/magic-modules.mse-include/loyalty/stripe.png",
+					width: a_width(),
+					height: 36*a_height()/1039
+				)
+	
 	color := if instance <= 1 then (styling.stripes_color or else rgb(255,255,255)) else (styling["stripes_color_" + instance] or else rgb(255,255,255))
-	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else loyalty_stripe_alpha_default()) else (styling["stripes_opacity_percentage_" + instance] or else loyalty_stripe_alpha_default())
-	set_alpha(
-		recolor_image(
-			"/magic-modules.mse-include/loyalty/color.png",
-			color: color
-		),
-		alpha: get_alpha_percentage(
-			alpha,
-			default: loyalty_stripe_alpha_default()
-		)
-	)
+	result :=	recolor_image(
+					result,
+					color: color
+				)
+	
+	alpha_default := loyalty_stripe_alpha_default()
+	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else alpha_default) else (styling["stripes_opacity_percentage_" + instance] or else alpha_default)
+	result :=	set_alpha(
+					result,
+					alpha: get_alpha_percentage(alpha, default: alpha_default)
+				)
+	
+	separator_index := (input-1)*2
+	separator_height := loyalty_stripe_separator_height()
+	stripe_height := loyalty_stripe_separator_top(separator_index + 1) - loyalty_stripe_separator_top(separator_index) + separator_height
+	result :=	nine_slice_image(
+					result,
+					width: a_width(),
+					height: stripe_height,
+					top: separator_height,
+					bottom: separator_height
+				)
+	result
 }
 loyalty_textbox_background_alpha_default := { "70" }
 loyalty_textbox_background_image :=
@@ -5432,21 +5480,29 @@ verify_symbol_image := {
 	if not has_png(array.0)
 		then array.0
 	else (
-		sym_link := array.0
-		sym_pad := array.3 or else ""
+		sym_link := trim(array.0)
+		sym_pad := trim(array.3 or else "")
 		sym_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+sym_link)
-		if not sym_exists then (
+		if not sym_exists and can_import then (
+			user_path := get_mse_path() + "/data/magic-mainframe-extras.mse-include/"+sym_link
+			fallback := get_mse_path() + "/data/magic.mse-game/icons/choice-no.png"
+			img := import_image(user_path) or else import_image(fallback)
+			sym_width := width_of(img)
+			if sym_width <= 512 and sym_pad == "" then sym_pad := "+"
+			if sym_width <= 32
+				then sym_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload," + sym_pad
+			else sym_link + ",File loaded,{sym_width}px,{sym_pad}"
+		) else if not sym_exists then (
 			sym_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload," + sym_pad
 		) else (
 			sym_width := width_of("/magic-mainframe-extras.mse-include/"+sym_link)
-			sym_pad := array.3 or else ""
 			if (sym_width <= 512) then (
 				if sym_pad == "" then sym_pad := "+"
 			)
-			sym_link + ",File found,{sym_width},{sym_pad}"
+			sym_link + ",File found,{sym_width}px,{sym_pad}"
 		)
 	)
-}
+}@(can_import:true)
 
 custom_symbol_slug := {
 	style_src := styling["custom_symbol_{input}"] or else styling["custom_symbol_{english_number(input)}"] or else styling.custom_symbol or else ""
@@ -5461,6 +5517,8 @@ custom_symbol_image := {
 	array := split_comma(src)
 	if not has_png(array.0) or (array.1 or else "" == "Not found")
 		then "/magic-modules.mse-include/symbols/not found.png"
+	else if (array.1 or else "" == "File loaded")
+		then import_image(get_mse_path() + "/data/magic-mainframe-extras.mse-include/" + array.0)
 	else (
 		link := "/magic-mainframe-extras.mse-include/" + array.0
 		if array.3 or else "" == "+" then link := enlarge(link, border_size:0.189)
