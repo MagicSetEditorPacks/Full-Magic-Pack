@@ -254,7 +254,7 @@ init script:
 		and remove_tags(card.text) == "\n"
 	}
 	is_dka := {
-		chosen(styling.frames, choice:"fullart") and not uses_clear_frame()
+		chosen(styling.frames, choice:"fullart")
 	}
 	#### PUMA, Mutate, Prototype add things on top
 	is_puma := {
@@ -332,7 +332,7 @@ init script:
 	}
 	is_curtains := {contains(card.notes, match:"!curtain")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
-	clear_tops := {chosen(styling.other_options, choice:"clear tops") and not is_puma() and not uses_expanded_art()}
+	clear_tops := {chosen(styling.other_options, choice:"clear tops") and not is_puma() and not uses_expanded_art() and not is_devoid() }
 	mask_trims_for_devoid := {chosen(styling.other_options, choice:"avoid covering devoid")}
 	base_card := {
 		if is_devoid()
@@ -377,6 +377,7 @@ init script:
 	}
 
 	notch_image := { color_background(type:"notch_card", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+
 	miracle_plate_base := { color_background(type:"miracle", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
 	miracle_plate_snow := { color_background(type:"miracle_snow", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
@@ -507,12 +508,36 @@ init script:
 	
 	card_background := {
 		bc := base_card()
-		if bc == "clear"
-			then clear_image_path()
-		else color_background(
+		base := if bc == "clear"
+					then clear_image_path()
+				else simple_card_background()
+		if is_dka() and (is_clear() or is_devoid()) then base := dka_scripted_frame(base:base)
+		if clear_tops() then base := prep_clear_tops(base:base)
+		## if is_notched() then base :=
+		base
+	}
+	simple_card_background := {
+		color_background(
 			type:"card",
 			base_hybrid:card_hybrid,
 			folder: if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
+		)
+	}
+	dka_scripted_frame := {
+		clipped := set_mask(image:base, mask:"masks/dka_remove.png")
+		typeline := set_mask(image:base, mask:"masks/dka_add.png")
+		typeline := crop_image(typeline, height:100, width:375, offset_x:0, offset_y:238)
+		insert_image(
+			base_image:clipped,
+			inserted_image: typeline,
+			offset_x: 0,
+			offset_y: 270
+		)
+	}
+	prep_clear_tops := {
+		set_mask(
+			image: base,
+			mask: "frame_masks/clear_tops_mask.png"
 		)
 	}
 	mainframe_card_base := {
@@ -568,14 +593,12 @@ init script:
 			then "frame_masks/borderless_frameless" + (if is_miracle() then "_miracle" else "") + ".png"
 		else if uses_expanded_art()
 			then "frame_masks/borderless.png"
-		else if clear_tops()
-			then "frame_masks/clear_tops" + (if is_dka() then "_dka" else "") + "_mask.png"
 		else if is_dka()
 			then "frame_masks/dka.png"
 		else "frame_masks/frame_mask" + (if is_puma() then "_puma" else "") + (if is_mutate() then "_mutate" else "") + ".png"
 	}
 	image_mask_script := {
-		if uses_clear_frame() then "image_masks/clear.png"
+		if uses_clear_frame() then "image_masks/clear" + (if is_dka() then "_dka" else "") + ".png"
 		else if is_thbland() then "image_masks/energy.png"
 		else if uses_expanded_art() then "image_masks/guide_borderless" + (if is_dka() then "_dka" else "") + ".png"
 		else if mutate_image() then
@@ -2278,16 +2301,6 @@ extra card style:
 			size: 90
 			color: {rgba(0,0,0,40)}
 
-	clear top frame:
-		left:	0
-		top:	0
-		width:	{if clear_tops() then 375 else 0}
-		height:	523
-		z index: 199
-		render style: image
-		popup style: in place
-		image: { clear_image_path() }
-		mask: { if is_dka() then "frame_masks/clear_tops_dka_mask2.png" }
 	evobar:
 		left: 29
 		top: 59
@@ -2394,7 +2407,7 @@ extra card style:
 		render style: image
 		image: { notch_image() }
 		z index: 510
-		visible: { is_notched() }
+		visible: { false }
 		mask: { template_prefix["notch_card"] + "notch_mask.png" }
 
 	lvl label 0:
@@ -2660,3 +2673,13 @@ extra card style:
 		z index: 600
 		image: transparent_borderless.png
 		visible: { is_transparent_borderless() }
+	clear top frame:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		image: { clear_image_path() }
+		mask: frame_masks/clear_tops_mask_inv.png
+		visible: { clear_tops() }
+		z index: 199
+		render style: image
