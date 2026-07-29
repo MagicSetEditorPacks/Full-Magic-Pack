@@ -120,7 +120,8 @@ init script:
 		
 		proto_box: "/magic-modules.mse-include/protoboxes/box/",
 		proto_cost: "/magic-modules.mse-include/protoboxes/cost/",
-		proto_pt: "/magic-modules.mse-include/protoboxes/pt/"
+		proto_pt: "/magic-modules.mse-include/protoboxes/pt/",
+		multiply: "/magic-modules.mse-include/cards/375 multiply/"
 	]
 	template_suffix := [
 		card: "card.jpg",
@@ -173,6 +174,8 @@ init script:
 		proto_box: "box.png",
 		proto_cost: "cost.png",
 		proto_pt: "pt.png"
+		
+		multiply: ".png"
 	]
 	template := { 
 		if type_name(harder_script[type] or else nil) != type_name(nil)
@@ -213,7 +216,8 @@ init script:
 		draft: true,
 		curtains: true,
 		spacept: true,
-		circle: true
+		circle: true,
+		multiply: true
 	]
 	
 	#### Devoid and Clear using floating frames but still use trims
@@ -405,6 +409,7 @@ init script:
 				base_hybrid: card_hybrid,
 				folder: template_prefix["miracle"]
 			)
+			if is_multiplied() then img := multiply_image(base:img, multiply_mask: template_prefix["miracle"] + "mask_point.png")
 			if is_scrolls() then set_mask(image:img, mask: template_prefix["miracle"] + "mask_point.png") else img
 		)
 	}
@@ -513,7 +518,7 @@ init script:
 				else simple_card_background()
 		if is_dka() and (is_clear() or is_devoid()) then base := dka_scripted_frame(base:base)
 		if clear_tops() then base := prep_clear_tops(base:base)
-		## if is_notched() then base :=
+		if is_multiplied() then base := multiply_back_face(base:base)
 		base
 	}
 	simple_card_background := {
@@ -522,6 +527,10 @@ init script:
 			base_hybrid:card_hybrid,
 			folder: if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
 		)
+	}
+	multiply_background := {
+		c := if is_clear() then "artifact" else card.card_color
+		color_background(c, type:"multiply", base_hybrid:card_hybrid, hybrid_blend:"white", multicolor_blend:"white", artifact_blend:"white")
 	}
 	dka_scripted_frame := {
 		clipped := set_mask(image:base, mask:"masks/dka_remove.png")
@@ -538,6 +547,21 @@ init script:
 		set_mask(
 			image: base,
 			mask: "frame_masks/clear_tops_mask.png"
+		)
+	}
+	multiply_back_face := {
+		multiply_mask := (if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]) + "hybrid_blend_card.png"
+		multiply_image()
+	}
+	multiply_image := {
+		combine_blend(
+			combine: "multiply",
+			image1: base,
+			image2: masked_blend(
+				mask: multiply_mask,
+				light: template_prefix["multiply"] + "white.png",
+				dark: multiply_background()
+			)
 		)
 	}
 	mainframe_card_base := {
@@ -1122,6 +1146,9 @@ init script:
 	}
 	is_notched := {
 		(force_notched() or notched_front_face()) and not is_thbland()
+	}
+	is_multiplied := {
+		get_front_face(card) != nil and not has_modal(card.transformation)
 	}
 ############################################################## Set info fields
 set info style:
