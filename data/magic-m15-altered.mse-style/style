@@ -73,7 +73,9 @@ init script:
 	#### base template
 	template_prefix := [
 		card: "/magic-modules.mse-include/cards/375 m15 simple/",
-		notch_card: "/magic-modules.mse-include/cards/375 m15 cut/notched/",
+		notch_card: "notches/",
+		notch_fnm: "notches/fnm/",
+		notch_dka: "notches/dka/",
 		pt: "/magic-modules.mse-include/pts/375 m15/",
 		fnm_pt: "/magic-modules.mse-include/pts/375 m15/paradox/",
 		inv_pt: "/magic-modules.mse-include/pts/375 m15/inverted/",
@@ -125,7 +127,9 @@ init script:
 	]
 	template_suffix := [
 		card: "card.jpg",
-		notch_card: "card.jpg",
+		notch_card: ".png",
+		notch_fnm: ".png",
+		notch_dka: ".png",
 		pt: "pt.png",
 		fnm_pt: "pt.png",
 		inv_pt: "pt.png",
@@ -217,7 +221,10 @@ init script:
 		curtains: true,
 		spacept: true,
 		circle: true,
-		multiply: true
+		multiply: true,
+		notch_card: true,
+		notch_fnm: true,
+		notch_dka: true
 	]
 	
 	#### Devoid and Clear using floating frames but still use trims
@@ -382,7 +389,9 @@ init script:
 	}
 
 	notch_image := { color_background(type:"notch_card", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-
+	notch_image_fnm := { color_background(type:"notch_fnm", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	notch_image_dka := { color_background(type:"notch_dka", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	
 	miracle_plate_base := { color_background(type:"miracle", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
 	miracle_plate_snow := { color_background(type:"miracle_snow", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
@@ -530,14 +539,30 @@ init script:
 		lair := is_transparent_borderless()
 		dka := is_dka()
 		if thb then fl := false
-		if semi_trans then bl := false
-		if semi_trans then fl := false
+		if semi_trans then (
+			bl := false;
+			fl := false;
+			notched := false
+		)
 		
 		### apply the notch 
-		
+		if notched then (
+			mask_base := ""
+			notch_img := if is_fnm()
+					then notch_image_fnm()
+				else notch_image()
+
+			if mask_base != "" then base := set_mask(image:base, mask:mask_base)
+			base := insert_image(
+				base_image: base,
+				inserted_image: notch_img,
+				offset_x: 0,
+				offset_y: 0
+			)
+		)
 		### DKA handling
 		if dka then (
-			## clear/devoid mask themselves for bigger image box
+			## clear/devoid mask themselves for bigger image window
 			if semi_trans
 				then base := dka_scripted_frame(base:base)
 			## others make the textbox semi-transparent
@@ -2481,16 +2506,6 @@ extra card style:
 		z index: 310
 		visible: { not uses_expanded_art() and is_vehicle() }
 		mask: { main_trim_mask() }
-	notch:
-		left: 0
-		top: 0
-		width: 375
-		height: 523
-		render style: image
-		image: { notch_image() }
-		z index: 510
-		visible: { false }
-		mask: { template_prefix["notch_card"] + "notch_mask.png" }
 
 	lvl label 0:
 		left: {if box_leveler() then 8 else if loy_leveler() then 48 else 21}
