@@ -126,7 +126,6 @@ init script:
 		proto_box: "/magic-modules.mse-include/protoboxes/box/",
 		proto_cost: "/magic-modules.mse-include/protoboxes/cost/",
 		proto_pt: "/magic-modules.mse-include/protoboxes/pt/",
-		multiply: "/magic-modules.mse-include/cards/375 multiply/"
 	]
 	template_suffix := [
 		card: "card.jpg",
@@ -184,8 +183,6 @@ init script:
 		proto_box: "box.png",
 		proto_cost: "cost.png",
 		proto_pt: "pt.png"
-		
-		multiply: ".png"
 	]
 	template := { 
 		if type_name(harder_script[type] or else nil) != type_name(nil)
@@ -227,7 +224,6 @@ init script:
 		curtains: true,
 		spacept: true,
 		circle: true,
-		multiply: true,
 		notch_card: true,
 		notch_fnm: true,
 		notch_inv: true,
@@ -431,7 +427,7 @@ init script:
 				base_hybrid: card_hybrid,
 				folder: template_prefix["miracle"]
 			)
-			if is_multiplied() then img := multiply_image(base:img, multiply_mask: template_prefix["miracle"] + "mask_point.png")
+			if is_multiplied() then img := color_multiply(image:img, multiply_mask: template_prefix["miracle"] + "mask_point.png", width:375, height:523)
 			if is_scrolls() then img := set_mask(image:img, mask: template_prefix["miracle"] + "mask_point.png")
 			if is_borderless() and is_frameless() then set_mask(image:img, mask:"frame_masks/miracle_semitrans.png")
 			img
@@ -543,8 +539,8 @@ init script:
 		### DKA/Mutate/Borderless Resize
 		### PUMA
 		### Lair
-		### Clear Tops
 		### Multiply
+		### Clear Tops
 		
 		notched := is_notched()
 		semi_trans := is_clear() or is_devoid()
@@ -613,7 +609,6 @@ init script:
 		)
 		
 		### translucent textbox handling (DKA, Mutate, Lair)
-		## TODO how does LairMutate combo work
 		if dka 
 			then (
 				## clear/devoid mask themselves for bigger image window
@@ -622,7 +617,7 @@ init script:
 				## others make the textbox semi-transparent
 				else base := set_mask(image:base, mask:"frame_masks/dka" + (if notched then "_notched" else "") + ".png")
 			)
-		else if is_mutate() and not semi_trans
+		else if is_mutate() and not semi_trans and not lair
 			then base := set_mask(image:base, mask:"frame_masks/mutate.png")
 
 		if lair
@@ -639,18 +634,18 @@ init script:
 					mask: "frame_masks/semitrans" + (if notched then "_notched" else "") + ".png"
 				)
 			)
+		
+		### multiply back face
+		if is_multiplied() then base := color_multiply(
+			image:base, width: 375, height: 523,
+			multiply_mask: (if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]) + "hybrid_blend_card.png"
+		)
+
 		### fade the top for clear tops
 		if clear_tops() then base := prep_clear_tops(base:base)
 		
-		### apply back face plate multiply effect
-		if is_multiplied() then base := multiply_back_face(base:base)
-		
 		### click masks are applied as the field mask
 		base
-	}
-	multiply_background := {
-		c := if is_clear() then "artifact" else card.card_color
-		color_background(c, type:"multiply", base_hybrid:card_hybrid, hybrid_blend:"white", multicolor_blend:"white", artifact_blend:"white")
 	}
 	dka_scripted_frame := {
 		clipped := set_mask(image:base, mask:"masks/dka_remove.png")
@@ -667,21 +662,6 @@ init script:
 		set_mask(
 			image: base,
 			mask: "frame_masks/clear_tops_mask.png"
-		)
-	}
-	multiply_back_face := {
-		multiply_mask := (if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]) + "hybrid_blend_card.png"
-		multiply_image()
-	}
-	multiply_image := {
-		combine_blend(
-			combine: "multiply",
-			image1: base,
-			image2: masked_blend(
-				mask: multiply_mask,
-				light: template_prefix["multiply"] + "white.png",
-				dark: multiply_background()
-			)
 		)
 	}
 	mainframe_card_base := {
