@@ -550,6 +550,7 @@ init script:
 		thb := is_thbland()
 		lair := is_transparent_borderless()
 		dka := is_dka()
+		spacecraft := auto_station() and not mini_arts()
 		if thb then fl := false
 		if semi_trans then (
 			bl := false;
@@ -571,11 +572,12 @@ init script:
 		# borderless/frameless
 		# puma
 		
-		##TODO reinstate spacecraft
 		borderless_mask := if thb
 				then (if bl then "border_mask_inv" else "")
 			else if dka
 				then (if bl or fl then "borderless_dka" else "")
+			else if spacecraft
+				then "spacecraft" + (if bl then "_borderless" else "")
 			else if bl or fl
 				then "borderless"
 			else if is_puma()
@@ -590,6 +592,7 @@ init script:
 		### apply the notch 
 		if notched then (
 			mask_base := ""
+			mask_notch := ""
 			notch_img := if dka
 				then notch_image_dka()
 				else if is_fnm()
@@ -603,6 +606,8 @@ init script:
 				else notch_image()
 
 			if mask_base != "" then base := set_mask(image:base, mask:mask_base)
+			if mask_notch != "" then notch_img := set_mask(image:notch_img, mask:mask_notch)
+			
 			base := insert_image(
 				base_image: base,
 				inserted_image: notch_img,
@@ -611,7 +616,7 @@ init script:
 			)
 		)
 		
-		### translucent textbox handling (DKA, Mutate, Lair)
+		### translucent textbox handling (Spacecraft, DKA, Mutate, Lair)
 		if dka 
 			then (
 				## clear/devoid mask themselves for bigger image window
@@ -619,6 +624,10 @@ init script:
 					then base := dka_scripted_frame(base:base)
 				## others make the textbox semi-transparent
 				else base := set_mask(image:base, mask:"frame_masks/dka" + (if notched then "_notched" else "") + ".png")
+			)
+		else if spacecraft
+			then (
+				base := set_mask(image:base, mask:"frame_masks/spacecraft_text" + (if notched then "_notched" else "") + ".png")
 			)
 		else if is_mutate() and not semi_trans and not lair
 			then base := set_mask(image:base, mask:"frame_masks/mutate.png")
@@ -704,25 +713,6 @@ init script:
 		+ (if is_legend() then "crown_border" else "border_mask")
 		+ (if card.border_color == rgb(200,200,200) then "_silver" else "")
 		+ ".png" 
-	}
-	frame_mask_script := {
-		if auto_station() and not mini_arts()
-			then "frame_masks/spacecraft" + (if uses_clear_frame() then "_clear" else if is_borderless() then "_borderless" else "") + ".png"
-		else if uses_clear_frame()
-			then "frame_masks/clear_frame_mask.png"
-		else if is_thbland()
-			then "frame_masks/energy.png"
-		else if uses_expanded_art() and is_dka()
-			then "frame_masks/borderless_dka.png"
-		else if is_transparent_borderless()
-			then "frame_masks/borderless_transparent.png"
-		else if is_borderless() and is_frameless()
-			then "frame_masks/borderless_frameless" + (if is_miracle() then "_miracle" else "") + ".png"
-		else if uses_expanded_art()
-			then "frame_masks/borderless.png"
-		else if is_dka()
-			then "frame_masks/dka.png"
-		else "frame_masks/frame_mask" + (if is_puma() then "_puma" else "") + (if is_mutate() then "_mutate" else "") + ".png"
 	}
 	image_mask_script := {
 		if uses_clear_frame() then "image_masks/clear" + (if is_dka() then "_dka" else "") + ".png"
