@@ -253,35 +253,34 @@ color_multiply := {
 		hybrid_blend: "black",
 		multicolor_blend: "black"
 	)
+	resized_alpha := resized_color
 	steps := to_int(iterate)
-	half := iterate > steps
-	resized_half := if half then blend_multiply_template("gray") else nil
+	alpha := iterate - steps
+	if alpha < 0.1 then alpha := 0
+	if alpha > 0 then steps := steps + 1
 	if multiply_mask != "" then (
-		resized_white := blend_multiply_template("white");
-		if steps > 0 then resized_color := masked_blend(
+		resized_white := blend_multiply_template("white")
+		resized_color := masked_blend(
 			mask: multiply_mask,
 			light: resized_white,
 			dark: resized_color
 		);
-		if half then resized_half := masked_blend(
+		if alpha > 0 then resized_alpha := masked_blend(
 			mask: multiply_mask,
 			light: resized_white,
-			dark: resized_half
+			dark: resized_alpha
 		);
 	)
 	
 	for x from 1 to steps do (
+		if alpha > 0 and x == steps
+			then resized_color := resized_alpha
 		image := combine_blend(
 			combine: "multiply",
 			image1: image,
 			image2: resized_color
 		)
 		"dummy return"
-	)
-	if half then image := combine_blend(
-		combine: "multiply",
-		image1: image,
-		image2: resized_half
 	)
 	image
 }@(multiply_mask:"", iterate:1)
