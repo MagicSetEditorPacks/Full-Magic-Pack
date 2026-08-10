@@ -536,12 +536,15 @@ init script:
 	}
 	
 	card_background := {
-		### the base blended frame
-		base := color_background(
-				type:"card",
-				base_hybrid:card_hybrid,
-				folder: if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
-			)
+		### base
+		### borderless/frameless mask
+		### translucent miracle
+		### notch
+		### DKA/Mutate/Borderless Resize
+		### PUMA
+		### Lair
+		### Clear Tops
+		### Multiply
 		
 		notched := is_notched()
 		semi_trans := is_clear() or is_devoid()
@@ -557,6 +560,36 @@ init script:
 			notched := false
 		)
 		
+		### the base blended frame
+		base := color_background(
+				type:"card",
+				base_hybrid:card_hybrid,
+				folder: if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
+			)
+		
+		### apply borderless variants
+		# spacecraft (+borderless)
+		# thbland
+		# dka
+		# borderless/frameless
+		# puma
+		
+		##TODO reinstate spacecraft
+		borderless_mask := if thb
+				then (if bl then "border_mask_inv" else "")
+			else if dka
+				then (if bl or fl then "borderless_dka" else "")
+			else if bl or fl
+				then "borderless"
+			else if is_puma()
+				then "puma"
+			else ""
+		
+		if borderless_mask != "" then base := set_mask(image:base, mask:"frame_masks/{borderless_mask}.png")
+		
+		### special handling for borderless-frameless-miracle
+		if bl and fl and is_miracle() then base := set_mask(image:base, mask:template_prefix["miracle"] + "mask_point.png")
+			
 		### apply the notch 
 		if notched then (
 			mask_base := ""
@@ -578,51 +611,34 @@ init script:
 				offset_y: 0
 			)
 		)
-		### DKA handling
-		if dka then (
-			## clear/devoid mask themselves for bigger image window
-			if semi_trans
-				then base := dka_scripted_frame(base:base)
-			## others make the textbox semi-transparent
-			else base := set_mask(image:base, mask:"frame_masks/dka" + (if notched then "_notched" else "") + ".png")
-		)
-		### non-DKA Mutate handling
-		else if is_mutate() and not semi_trans then base := set_mask(image:base, mask:"frame_masks/mutate.png")
 		
-		### apply borderless variants
-		# spacecraft (+borderless)
-		# borderless thbland
-		# borderless/frameless dka
-		# borderless+frameless+inverted
-		# borderless/frameless
-		# puma
-		borderless_mask := if thb
-				then (if bl then "border_mask_inv" else "")
-			else if dka
-				then (if bl or fl then "borderless_dka" else "")
-			else if lair
-				then "secret_lair"
-			else if bl and fl
-				then "borderless_frameless"
-			else if bl or fl
-				then "borderless"
-			else if is_puma()
-				then "puma"
-			else ""
-		
-		if borderless_mask != "" then base := set_mask(image:base, mask:"frame_masks/{borderless_mask}.png")
-		
-		### special handling for borderless-frameless-miracle
-		if bl and fl and is_miracle() then base := set_mask(image:base, mask:template_prefix["miracle"] + "mask_point.png")
-		
-		### swap textbox for secret lair
-		if lair then base := insert_image(
-			base_image: base,
-			inserted_image: "transparent_borderless.png",
-			offset_x: 0,
-			offset_y: 0
-		)
+		### translucent textbox handling (DKA, Mutate, Lair)
+		## TODO how does LairMutate combo work
+		if dka 
+			then (
+				## clear/devoid mask themselves for bigger image window
+				if semi_trans
+					then base := dka_scripted_frame(base:base)
+				## others make the textbox semi-transparent
+				else base := set_mask(image:base, mask:"frame_masks/dka" + (if notched then "_notched" else "") + ".png")
+			)
+		else if is_mutate() and not semi_trans
+			then base := set_mask(image:base, mask:"frame_masks/mutate.png")
 
+		if lair
+			then base := insert_image(
+				base_image: set_mask(image:base, mask:"frame_masks/secret_lair" + (if notched then "_notched" else "") + ".png")
+				inserted_image: "transparent_borderless" + (if notched then "_notched" else "") + ".png",
+				offset_x: 0,
+				offset_y: 0
+			)
+		else if bl and fl
+			then (
+				base := set_mask(
+					image:base,
+					mask: "frame_masks/semitrans" + (if notched then "_notched" else "") + ".png"
+				)
+			)
 		### fade the top for clear tops
 		if clear_tops() then base := prep_clear_tops(base:base)
 		
