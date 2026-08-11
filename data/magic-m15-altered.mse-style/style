@@ -69,6 +69,40 @@ init script:
 	# Use guild mana symbols?
 	guild_mana := { styling.use_guild_mana_symbols }
 	
+	#### Module offsets
+	#### levelers don't shift secondary with pt
+	information_secondary_shift_with_pt_1 := {
+		if is_leveler() and not (lone_pt() or starting_loyalty())
+			then false
+		else true
+	}
+	#### transform symbol
+	transform_symbol_image_folder := { "/magic-modules.mse-include/cards/375 nodes/" }
+	transform_symbol_offset_top_1 := { -1 }
+	#### modal dfc flags
+	reminder_disabled := { not is_linked_dfc() }
+	#### alias recolor
+	old_alias_colors := alias_colors
+	shifted_alias_colors := {
+		[
+			w: rgb(249, 247, 232),
+			u: rgb(6, 115, 184),
+			b: rgb(39, 38, 36),
+			r: rgb(233, 107, 48),
+			g: rgb(6, 120, 69),
+			a: rgb(176, 150, 133),
+			m: rgb(229, 203, 106),
+			c: rgb(173, 151, 137)
+		][input]
+	}
+	alias_colors := {
+		if is_devoid() or is_clear() or clear_tops()
+			then rgb(232, 231, 231)
+		else if is_planeshifted()
+			then shifted_alias_colors(input)
+		else old_alias_colors(input)
+	}
+
 	#### template images
 	#### base template
 	template_prefix := [
@@ -232,7 +266,7 @@ init script:
 		notch_dka: true
 	]
 	
-	#### Devoid and Clear using floating frames but still use trims
+	#### Devoid and Clear are translucent and muck with a couple things
 	is_devoid := {
 		chosen(styling.frames, choice:"devoid")
 	}
@@ -242,13 +276,14 @@ init script:
 	uses_clear_frame := {
 		is_clear() or is_devoid()
 	}
-	#### Frameless/Borderless apply a mask to the normal frame
+	#### Borderless/Frameless apply a mask to the base frame
 	is_borderless := {
 		chosen(styling.frames, choice:"borderless art")
 	}
 	is_frameless := {
 		chosen(styling.frames, choice:"frameless art")
 	}
+	#### Station Frame is a variant of Frameless
 	auto_station := {
 		not is_prototype() and
 		(
@@ -259,25 +294,34 @@ init script:
 	mini_arts := {
 		chosen(styling.other_options, choice:"de-fullart special frames")
 	}
+	#### uses the full card size for art
 	uses_expanded_art := {
 		is_borderless() or is_frameless() or (auto_station() and not mini_arts())
 	}
-	#### except THBLand is a special kind of frameless
+	#### THBLand is a special variant of Frameless
 	is_thbland := {
-		is_frameless()
-		and not is_inverted()
-		and not is_leveler()
-		and not is_dka()
-		and remove_tags(card.text) == "\n"
+		remove_tags(card.text) == "\n"			## Only for textless plus frameless
+		and is_frameless()
+		and not is_inverted() 					## conflict with the Secret Lair insert 
+		and not is_leveler()					## text isn't in card.text
+		and not is_dka()						## conflict with frame masking
+		and not is_puma()						## conflict with name font color
+		and not is_scrolls()					## no scroll overlay of this size
 	}
+	
+	#### DKA(Fullart) is pretty disruptive so goes up higher
 	is_dka := {
 		chosen(styling.frames, choice:"fullart")
 	}
-	#### PUMA, Mutate, Prototype add things on top
+	
+	#### PUMA, Mutate, Prototype add things on top of the base card
+	#### PUMA's borderless is incompatible with Expanded Art and DKA
 	is_puma := {
 		## todo image masks for clear+puma
 		chosen(styling.frames, choice:"puma") and not is_clear() and not uses_expanded_art() and not is_dka()
 	}
+	
+	#### Prototype fully overrides Mutate and Leveler
 	is_prototype := {
 		chosen(styling.frames, choice:"prototype")
 	}
@@ -285,12 +329,13 @@ init script:
 	is_snap_prototype := { is_prototype() }
 	## using the pt box and not the typebar
 	prototype_pt := { styling.prototype_secondary == "pt" and is_prototype() }
+	
+	## Use the Mutate second textbox and separator
+	## Mutate can stack with leveler
 	is_mutate := {
 		chosen(styling.frames, choice:"mutate") and not is_prototype()
 	}
-	mutate_image := {
-		is_mutate() and not uses_expanded_art() and not is_dka() and not uses_clear_frame() and not clear_tops()
-	}
+
 	#### Alternate card bases
 	is_fnm := {
 		chosen(styling.frames, choice:"fnm promo")
@@ -298,6 +343,7 @@ init script:
 	is_inverted := {
 		chosen(styling.frames, choice:"inverted")
 	}
+	## variant to look more like the Secret Lair frame
 	is_transparent_borderless := {
 		is_borderless() and is_frameless() and is_inverted()
 	}
@@ -308,13 +354,23 @@ init script:
 		chosen(styling.frames, choice:"snow")
 		or (lang_setting("is_snow")(card.super_type) and chosen(styling.other_options, choice:"auto snow"))
 	}
+	
 	#### Pieces
+	is_legend := {
+		chosen(styling.frames, choice:"legend")
+		or (lang_setting("is_legendary")(card.super_type) and set.auto_legends)
+	}
+	is_curtains := {
+		contains(card.notes, match:"!curtain")
+	}
 	is_season := {
 		chosen(styling.frames, choice:"season")
 	}
 	is_scrolls := {
 		chosen(styling.frames, choice:"conspiracy")
+		and not is_puma() ## PUMA overrides, defined here for font conflicts
 	}
+	
 	#### trims
 	is_draft := {
 		chosen(styling.frames, choice:"conspiracy")
@@ -327,31 +383,30 @@ init script:
 	is_miracle := {
 		chosen(styling.frames, choice:"miracle")
 	}
-	is_vehicle := {
-		chosen(styling.frames, choice:"vehicle")
-		or (chosen(styling.other_options, choice:"auto vehicles") and lang_setting("is_vehicle")(card.sub_type))
-	}
 	is_nyx := {
 		chosen(styling.frames, choice:"nyx")
 		or (lang_setting("is_enchantment")(card.super_type) and set.auto_nyx and not auto_custom_border())
 	}
-	is_leveler := {
-		not is_prototype() and (chosen(styling.frames, choice:"leveler") or auto_station())
+	is_vehicle := {
+		chosen(styling.frames, choice:"vehicle")
+		or (chosen(styling.other_options, choice:"auto vehicles") and lang_setting("is_vehicle")(card.sub_type))
 	}
-
 	is_custom_border := {
 		if chosen(styling.frames, choice:"custom border")
 			then has_png(styling.custom_border_source)
 		else auto_custom_border()
 	}
-	is_legend := {
-		chosen(styling.frames, choice:"legend")
-		or (lang_setting("is_legendary")(card.super_type) and set.auto_legends)
+
+	is_leveler := {
+		not is_prototype()
+		and (chosen(styling.frames, choice:"leveler") or auto_station())
 	}
-	is_curtains := {contains(card.notes, match:"!curtain")}
-	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
-	clear_tops := {chosen(styling.other_options, choice:"clear tops") }
+
+	is_pinned 	:= {chosen(styling.other_options, choice:"pride pinlines")}
+	clear_tops 	:= {chosen(styling.other_options, choice:"clear tops") }
 	mask_trims_for_devoid := {chosen(styling.other_options, choice:"avoid covering devoid")}
+
+	## What are we using for the base frame
 	base_card := {
 		if is_devoid()
 			then "devoid"
@@ -373,9 +428,16 @@ init script:
 			then "snow"
 		else "standard"
 	}
+	clear_image_path := {
+		"/magic-modules.mse-include/cards/375 m15 simple/xcard"
+		+ (if is_notched() then "_notched" else "")
+		+ ".png"
+	}
+
 	
-	#### trims
-	curtain_plate := { color_background(type:"curtains", base_hybrid: card_hybrid) }
+	#### color_background scripts
+	#### Trims
+	curtain_plate := { color_background(type:"curtains", base_hybrid: card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
 	ub_background := { color_background(type:"beyond", base_hybrid: card_hybrid, folder:template_prefix["ub"]) }
 	draft_trim := { color_background(type:"draft", base_hybrid: card_hybrid, folder:template_prefix["draft"])}
 	module_nyx :=	 	{ 
@@ -394,19 +456,12 @@ init script:
 		)
 	}
 
-	notch_image := { color_background(type:"notch_card", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	notch_image_fnm := { color_background(type:"notch_fnm", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	notch_image_inv := { color_background(type:"notch_inv", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	notch_image_dka := { color_background(type:"notch_dka", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	notch_image_ub := { color_background(type:"notch_ub", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	notch_image_shifted := { color_background(type:"notch_shifted", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	
-	miracle_plate_base := { color_background(type:"miracle", base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
-	miracle_plate_snow := { color_background(type:"miracle_snow", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
-	miracle_plate_shift := { color_background(type:"miracle_shifted", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
-	miracle_plate_invert := { color_background(type:"miracle_inv", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
-	miracle_plate_fnm := { color_background(type:"miracle_fnm", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
-	miracle_plate_beyond := { color_background(type:"miracle_beyond", base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_base 		:= { color_background(type:"miracle",			base_hybrid:card_hybrid, folder:template_prefix["miracle"])}
+	miracle_plate_snow 		:= { color_background(type:"miracle_snow",		base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_shift 	:= { color_background(type:"miracle_shifted",	base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_invert 	:= { color_background(type:"miracle_inv",		base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_fnm 		:= { color_background(type:"miracle_fnm",		base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
+	miracle_plate_beyond 	:= { color_background(type:"miracle_beyond",	base_hybrid:card_hybrid, folder:template_prefix["miracle"], blend_type:"miracle")}
 	miracle_plate := {
 		type := if is_fnm()
 					then "miracle_fnm"
@@ -435,25 +490,36 @@ init script:
 		)
 	}
 	
-	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
-	#### other pieces
+	custom_border_blend := { color_background(type:"custom_border", base_hybrid:card_hybrid, artifact_blend:"black", multicolor_blend:"black", hybrid_blend:"white") }
+
+	#### Transform notches
+	notch_image := { color_background(type:"notch_card", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	notch_image_fnm := { color_background(type:"notch_fnm", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	notch_image_inv := { color_background(type:"notch_inv", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	notch_image_dka := { color_background(type:"notch_dka", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	notch_image_ub := { color_background(type:"notch_ub", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	notch_image_shifted := { color_background(type:"notch_shifted", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
+	
+	#### Transform nodes
 	node_img := { color_background(type:"node",     base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
 	node_mask := {
 		base := template_prefix["node"]+"mask.png"
 		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
 	}
 	
-	puma_base := { color_background(type:"puma", base_hybrid:card_hybrid, folder:"puma/") }
-	puma_shift := { color_background(type:"puma_shift", base_hybrid:card_hybrid, folder:"puma/", blend_type:"puma") }
+	#### Puma typebar
+	puma_base := { color_background(type:"puma", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"black") }
+	puma_shift := { color_background(type:"puma_shift", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"black") }
 	puma_img := { if is_planeshifted() then puma_shift() else puma_base() }
 
 	season_background := { 
-		img := color_background(type:"season",     base_hybrid:card_hybrid)
+		img := color_background(type:"season", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"black")
 		if uses_expanded_art()
 			then set_mask(image: img, mask: "season/full_mask.png")
 		else img
 	}
 
+	#### Leveler arrow
 	arrow_img_1 := { color_background(type:"arrow", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/arrows/") }
 	arrow_img_2 := { color_background(type:"arrow2", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/arrows/", blend_type:"arrow") }
 	arrow_img_3 := { color_background(type:"arrow3", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/levels/arrows/", blend_type:"arrow") }
@@ -477,7 +543,7 @@ init script:
 		if is_planeshifted() then level_img_3_s()
 		else level_img_3()
 	}
-	
+	#### Leveler circle
 	circle_background :=  { color_background(type: "circle",  base_hybrid: flip_pt_hybrid2, folder: template_prefix["circle"], artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
 
 	#### ptbox
@@ -505,19 +571,14 @@ init script:
 		image
 	}@(multiply:0)
 
-	#### crown handling
-	crowns_folder := {
-		"/magic-modules.mse-include/crowns/375/" + (if is_planeshifted() then "shifted/" else "")
-	}
-	module_brawl_crown_template := { "/magic-modules.mse-include/crowns/375/brawl/" + (if input == "a" then "c" else input) + "crown.png" }
+	#### Legend Crown
+	## base image
 	crown_main := {
 		if is_clear() or clear_tops() or is_devoid()
 			then template_prefix["crown"] + "xcrown.png"
 		else module_crown()
 	}
-	module_crown_template_patch := {
-		module_crown_template(override: if is_borderless() or is_frameless() or is_puma() then "borderless" else if is_nyx() and chosen(styling.other_options, choice:"auto nyx crowns") then "nyx" else "")
-	}
+	## mask for transform, borderless, devoid
 	crown_img := {
 		img := crown_main()
 		if not transform_symbol_is_empty(card.transformation) then
@@ -529,13 +590,24 @@ init script:
 		
 		img
 	}
-	
-	clear_image_path := {
-		"/magic-modules.mse-include/cards/375 m15 simple/xcard"
-		+ (if is_notched() then "_notched" else "")
-		+ ".png"
+	#### Spree
+	spree_custom_template := {
+		new_color := alias_colors(input, land:land)
+		recolor_image("spree.png", color:new_color)
+	}
+	spree_image := {
+		template := spree_custom_template
+		land_template := spree_custom_template
+		color_background(
+			type:"spree",
+			base_hybrid: card_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "white"
+		)
 	}
 	
+	#### The Card, including Borderless masking, Notch, and DFC Multiply
 	card_background := {
 		### base
 		### borderless/frameless mask
@@ -570,10 +642,10 @@ init script:
 			)
 		
 		### apply borderless variants
-		# spacecraft (+borderless)
 		# thbland
 		# dka
-		# borderless/frameless
+		# spacecraft
+		# other borderless/frameless
 		# puma
 		
 		borderless_mask := if thb
@@ -620,7 +692,7 @@ init script:
 			)
 		)
 		
-		### translucent textbox handling (Spacecraft, DKA, Mutate, Lair)
+		### translucent textbox handling (DKA, Spacecraft, Mutate, Lair, BorderlessFrameless)
 		if dka 
 			then (
 				## clear/devoid mask themselves for bigger image window
@@ -658,11 +730,15 @@ init script:
 		)
 
 		### fade the top for clear tops
-		if clear_tops() then base := prep_clear_tops(base:base)
+		if clear_tops() then base := set_mask(
+			image: base,
+			mask: "frame_masks/clear_tops_mask.png"
+		)
 		
 		### click masks are applied as the field mask
 		base
 	}
+	#### mask clear into a DKA shape
 	dka_scripted_frame := {
 		clipped := set_mask(image:base, mask:"masks/dka_remove.png")
 		typeline := set_mask(image:base, mask:"masks/dka_add.png")
@@ -674,12 +750,9 @@ init script:
 			offset_y: 270
 		)
 	}
-	prep_clear_tops := {
-		set_mask(
-			image: base,
-			mask: "frame_masks/clear_tops_mask.png"
-		)
-	}
+	
+	#### Complex Template hooks
+	#### Card Base
 	mainframe_card_base := {
 		[
 			devoid: "/magic-modules.mse-include/cards/375 m15 simple/devoid/" + input + "card.png",
@@ -694,13 +767,23 @@ init script:
 			standard: "/magic-modules.mse-include/cards/375 m15 simple/" + (if land and input == "a" then "cl" else if land then input + "l" else input) + "card.jpg"
 		][base_card()]
 	}
+	#### Transform Node mirroring
 	node_template := {
 		right_hand := transform_symbol_is_right(card.transformation)
 		if uses_clear_frame() then input := "x"
 		base := template_prefix["node"] + (if is_planeshifted() then "shifted/" else "") + input + ".png"
 		if right_hand then flip_image(base, horizontal: true) else base
 	}
-	# this goes at the very end
+	#### Crown
+	module_crown_template_patch := {
+		module_crown_template(override: if is_borderless() or is_frameless() or is_puma() then "borderless" else if is_nyx() and chosen(styling.other_options, choice:"auto nyx crowns") then "nyx" else "")
+	}
+	crowns_folder := {
+		"/magic-modules.mse-include/crowns/375/" + (if is_planeshifted() then "shifted/" else "")
+	}
+	module_brawl_crown_template := { "/magic-modules.mse-include/crowns/375/brawl/" + (if input == "a" then "c" else input) + "crown.png" }
+
+	# add them to the list
 	harder_script := [
 		crown: module_crown_template_patch,
 		card: mainframe_card_base
@@ -722,7 +805,9 @@ init script:
 		if uses_clear_frame() then "image_masks/clear" + (if is_dka() then "_dka" else "") + ".png"
 		else if is_thbland() then "image_masks/energy.png"
 		else if uses_expanded_art() then "image_masks/guide_borderless" + (if is_dka() then "_dka" else "") + ".png"
-		else if mutate_image() then
+		else if is_dka() then "image_masks/guide_dka.png"
+		else if clear_tops() then ""
+		else if is_mutate() then
 			"image_masks/" + (if is_puma() then "puma_" else "") + "mutate.png"
 		else ""
 	}
@@ -804,7 +889,71 @@ init script:
 	bottom_of_textbox := {
 		481 - chop_bot() - (if reminder_box_is_visible() then 18 else 0)
 	}
-
+	### Customize fonts
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		size: {16},
+		color: {if is_scrolls() then "black" else if is_multiplied() then "white" else if uses_clear_frame() then "black" else if is_planeshifted() or is_fnm() or (is_inverted() and not is_dka()) then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {13},
+		color: {if is_scrolls() then "black" else if is_multiplied() then "white" else if uses_clear_frame() then "black" else if is_dka() or is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_snap_prototype() then 11.5 else if is_mutate() then 12 else 14},
+		color: {if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_body2_default := [
+		name: {"MPlantin"},
+		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_snap_prototype() then 11.5 else if is_mutate() then 12 else 14},
+		color: {if is_prototype() then "black" else if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+	swap_fonts_pt_default := [
+		name: {"Beleren Bold"},
+		size: {if auto_station() then 13 else 15},
+		color: {
+			if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
+			else if is_vehicle() or auto_station() then "white"
+			else "black"
+		},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_pt2_default := [
+		name: {"Beleren Bold"},
+		size: {if is_prototype() then 15 else if auto_station() then 13 else 15},
+		color: {
+			if is_prototype() then "white"
+			else if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
+			else if is_vehicle() or auto_station() then "white"
+			else "black"
+		},
+		vertical: {0},
+		italic: {""}
+	]
+	loyalty_font_size := {
+		swap_font_size(
+			src:styling.custom_pt_font, 
+			font_size: 14
+		)
+	}
+	loyalty_font_color := {
+		swap_font_color(
+			src: styling.custom_pt_font,
+			font_color: "white"
+		)
+	}
+	
 	#### other settings
 	use_flash_dot := { styling.use_flash_dot and (lang_setting("is_instant")(card.super_type) or contains(card.type, match:"Flash"))}
 	is_promo := { styling.promo }
@@ -890,6 +1039,7 @@ init script:
 	}
 	no_roll := {if styling.d20_dividers == "all breaks" then 1 else if rolls_start(input) == 0 then 1 else 0}
 	invert_rolls := {if chosen(styling.other_options, choice:"inverted d20") then 1 else 0}
+
 	#### levelers
 	box_leveler := { styling.level_containers == "pt boxes" }
 	loy_leveler := { styling.level_containers == "loyalty boxes" }
@@ -1047,98 +1197,7 @@ init script:
 		else if input == "four" then lv_4_height()
 		else 0
 	}
-	### Customize fonts
-	swap_fonts_name_default := [
-		name: {"Beleren Bold"},
-		size: {16},
-		color: {if is_multiplied() and not is_scrolls() then "white" else if uses_clear_frame() then "black" else if is_planeshifted() or is_fnm() or (is_inverted() and not is_dka()) then "white" else "black"},
-		vertical: {0},
-		italic: {""}
-	]
-	swap_fonts_type_default := [
-		name: {"Beleren Bold"},
-		size: {13},
-		color: {if is_multiplied() and not is_scrolls() then "white" else if uses_clear_frame() then "black" else if is_dka() or is_puma() or is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
-		vertical: {0},
-		italic: {""}
-	]
-	swap_fonts_body_default := [
-		name: {"MPlantin"},
-		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_snap_prototype() then 11.5 else if is_mutate() then 12 else 14},
-		color: {if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
-		vertical: {0},
-		italic: {"MPlantin-Italic"}
-	]
-	swap_fonts_body2_default := [
-		name: {"MPlantin"},
-		size: {if styling.font_cap != "" then to_number(styling.font_cap) else if is_snap_prototype() then 11.5 else if is_mutate() then 12 else 14},
-		color: {if is_prototype() then "black" else if is_dka() or is_fnm() or is_inverted() then "white" else "black"},
-		vertical: {0},
-		italic: {"MPlantin-Italic"}
-	]
-	swap_fonts_pt_default := [
-		name: {"Beleren Bold"},
-		size: {if auto_station() then 13 else 15},
-		color: {
-			if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
-			else if is_vehicle() or auto_station() then "white"
-			else "black"
-		},
-		vertical: {0},
-		italic: {""}
-	]
-	swap_fonts_pt2_default := [
-		name: {"Beleren Bold"},
-		size: {if is_prototype() then 15 else if auto_station() then 13 else 15},
-		color: {
-			if is_prototype() then "white"
-			else if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
-			else if is_vehicle() or auto_station() then "white"
-			else "black"
-		},
-		vertical: {0},
-		italic: {""}
-	]
-	loyalty_font_size := {
-		swap_font_size(
-			src:styling.custom_pt_font, 
-			font_size: 14
-		)
-	}
-	loyalty_font_color := {
-		swap_font_color(
-			src: styling.custom_pt_font,
-			font_color: "white"
-		)
-	}
-	
-	tri_stamp := {
-		if is_thbland()
-			then template_prefix["ubstamp"] + "_stamp.png"
-		else if uses_clear_frame()
-			then template_prefix["ubstamp"] + "xstamp.png"
-		else module_ubstamp()
-	}
-	round_stamp := {
-		if is_thbland()
-			then template_prefix["stamp"] + "_stamp.png"
-		else if uses_clear_frame()
-			then template_prefix["stamp"] + "xstamp.png"
-		else module_stamp()
-	}
-	stamp_top := {
-		if is_thbland()
-			then 472
-		else 471
-	}
 
-	#### Module offsets
-	information_secondary_shift_with_pt_1 := {
-		if is_leveler() and not (lone_pt() or starting_loyalty())
-			then false
-		else true
-	}
-	
 	override_clear := replace@(match:"</color>(</b></code>)?", replace: "")+
 		replace@(match:"(<code><b>)?<color:black>", replace: "")
 	override_filter := replace@(match:"\\[([^\\]]+)]", replace: "<code><b><color:black>[\\1]</color></b></code>")
@@ -1220,30 +1279,7 @@ init script:
 			combined_editor(field1: card.rule_text, separator: "<line>\n</line>", field2: card.flavor_text)
 	}
 	
-	old_alias_colors := alias_colors
-	shifted_alias_colors := {
-		[
-			w: rgb(249, 247, 232),
-			u: rgb(6, 115, 184),
-			b: rgb(39, 38, 36),
-			r: rgb(233, 107, 48),
-			g: rgb(6, 120, 69),
-			a: rgb(176, 150, 133),
-			m: rgb(229, 203, 106),
-			c: rgb(173, 151, 137)
-		][input]
-	}
-	alias_colors := {
-		if is_devoid() or is_clear() or clear_tops()
-			then rgb(232, 231, 231)
-		else if is_planeshifted()
-			then shifted_alias_colors(input)
-		else old_alias_colors(input)
-	}
-	transform_symbol_image_folder := { "/magic-modules.mse-include/cards/375 nodes/" }
-	transform_symbol_offset_top_1 := { -1 }
-	reminder_disabled := { not is_linked_dfc() }
-	
+	#### DFC support
 	force_notched := { chosen(styling.other_options, choice:"transform notch") }
 	has_modal := match@(match:"modal")
 	notched_front_face := {
@@ -1268,21 +1304,6 @@ init script:
 		else back.pt
 	}
 	
-	spree_custom_template := {
-		new_color := alias_colors(input, land:land)
-		recolor_image("spree.png", color:new_color)
-	}
-	spree_image := {
-		template := spree_custom_template
-		land_template := spree_custom_template
-		color_background(
-			type:"spree",
-			base_hybrid: card_hybrid,
-			artifact_blend: "white",
-			hybrid_blend: "white",
-			multicolor_blend: "white"
-		)
-	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1616,7 +1637,7 @@ card style:
 			italic name: { name_font_italic() }
 			size: { name_font_size() }
 			color: { name_font_color() }
-			shadow color: {if is_planeshifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
+			shadow color: {if not is_scrolls() and (is_planeshifted() or is_fnm()) then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 	alias:
@@ -1687,7 +1708,7 @@ card style:
 					then 15
 				else if is_dka()
 					then 23
-				else if mutate_image()
+				else if is_mutate()
 					then 22
 				else 29
 		top:
@@ -1703,20 +1724,21 @@ card style:
 					then 345
 				else if is_dka()
 					then 328 + (if is_notched() then 3 else 0)
-				else if mutate_image()
+				else if is_mutate()
 					then 330
 				else 316
 		height:
 			script:
 				if uses_clear_frame() or uses_expanded_art()
 					then 523
-				else if clear_tops() and is_dka()
-					then 483
-				else if clear_tops()
-					then 291
+				else if clear_tops() then (
+					if is_dka() then 483
+					else if is_mutate() then 394
+					else 291
+				)
 				else if is_dka()
 					then 423
-				else if mutate_image()
+				else if is_mutate()
 					then 334
 				else if is_puma()
 					then 265
@@ -1759,7 +1781,7 @@ card style:
 			italic name: { type_font_italic() }
 			size: { type_font_size() }
 			color: { type_font_color() }
-			shadow color: {if is_dka() or is_puma() or is_planeshifted() or is_fnm() then "black" else rgba(0,0,0,0)}
+			shadow color: {if is_puma() then "black" else if is_scrolls() then rgba(0,0,0,0) else if is_dka() or is_planeshifted() or is_fnm() then "black" else rgba(0,0,0,0)}
 			shadow displacement x: -1
 			shadow displacement y: 1
 			separator color: red
@@ -2896,7 +2918,7 @@ extra card style:
 			color: {rgb(45,45,45)}
 			separator color: red
 	spree:
-		z index: 600
+		z index: 810
 		left: 0
 		top: 0
 		width: { if transform_symbol_active_right(card.transformation) then 0 else 375 }
