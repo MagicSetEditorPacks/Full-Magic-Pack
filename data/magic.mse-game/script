@@ -240,8 +240,9 @@ internal_crop := {
 ## image - image to multiply
 ## height - height of image
 ## width - width of image
-## multiply mask - optional mask, only multiply white areas
+## multiply mask - optional mask, only multiply black areas
 ## iterate - optional number of times to multiply
+## this multiplies "backwards" so we can get gradients
 color_multiply := {
 	resized_color := if length(input) == 1 then blend_multiply_template(input) else color_background(
 		input,
@@ -262,29 +263,34 @@ color_multiply := {
 		alpha := 0
 	)
 	
-	if multiply_mask != "" then (
+	if multiply_mask != "" or alpha > 0 then
 		resized_white := blend_multiply_template("white")
+	if alpha > 0 then
+		resized_alpha := insert_image(
+			base_image: resized_white,
+			inserted_image: resized_alpha,
+			offset_x: 0,
+			offset_y: 0
+		)
+	if multiply_mask != "" then (
 		resized_color := masked_blend(
 			mask: multiply_mask,
 			light: resized_white,
 			dark: resized_color
 		);
-		if alpha > 0 then resized_alpha := insert_image(
-			base_image: resized_white,
-			inserted_image: set_mask(
-				image: resized_alpha,
-				mask: invert_image(multiply_mask)
-			),
-			offset_x: 0,
-			offset_y: 0
+		if alpha > 0 then
+			resized_alpha := masked_blend(
+			mask: multiply_mask,
+			light: resized_white,
+			dark: resized_alpha
 		)
 	)
 	
 	for x from 1 to steps do (
 		image := combine_blend(
 			combine: "multiply",
-			image1: image,
-			image2: (if alpha > 0 and x == steps then resized_alpha else resized_color)
+			image1: (if alpha > 0 and x == steps then resized_alpha else resized_color)
+			image2: image,
 		)
 		"dummy return"
 	)

@@ -483,7 +483,8 @@ init script:
 	#### ptbox
 	choose_ptbox := {
 		### Station overrules Vehicle
-		if auto_station()
+		spacecraft := auto_station()
+		image := if spacecraft
 			then color_background(type:"spacept", base_hybrid:pt_hybrid, folder:template_prefix["spacept"], blend_type:"pt", artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white")
 		### Vehicle overrules clear
 		else if is_vehicle()
@@ -499,7 +500,10 @@ init script:
 		else if is_planeshifted()
 			then color_background(type:"shifted_pt", base_hybrid:pt_hybrid, folder:template_prefix["shifted_pt"], blend_type:"pt")
 		else module_ptbox()
-	}
+		if is_multiplied() then multiply := multiply + 1
+		if multiply > 0 and not spacecraft then image := color_multiply(iterate:multiply, width:135, height:76, multiply_mask:template_prefix["pt"] + "multiply_mask.png")
+		image
+	}@(multiply:0)
 
 	#### crown handling
 	crowns_folder := {
@@ -771,16 +775,23 @@ init script:
 	chop_top := {
 		if styling.chop_top == ""
 			then 0
-		else if comma_count(styling.chop_top) == "," or comma_count(styling.chop_top) == ",,"
-			then to_number(split_text(match:",", styling.chop_top).0) or else 0
-		else to_number(styling.chop_top) or else 0
+		else if length(comma_count(styling.chop_top)) > 0
+			then to_number_lax(split_comma(styling.chop_top).0) or else 0
+		else to_number_lax(styling.chop_top) or else 0
 	}
 	chop_bot := {
-		if comma_count(styling.chop_top) == ",,"
-			then to_number(split_text(match:",", styling.chop_top).1) or else 0
+		if length(comma_count(styling.chop_top)) > 0
+			then to_number_lax(split_comma(styling.chop_top).1) or else 0
 		else if styling.chop_bottom == ""
 			then 0
-		else to_number(styling.chop_bottom) or else 0
+		else to_number_lax(styling.chop_bottom) or else 0
+	}
+	chop_right := {
+		if length(comma_count(styling.chop_top)) > 1
+			then to_number_lax(split_comma(styling.chop_top).2) or else 0
+		else if length(comma_count(styling.chop_bottom)) > 0
+			then to_number_lax(split_comma(styling.chop_bottom).1) or else 0
+		else 0
 	}
 	top_of_textbox := {
 		(
@@ -1069,7 +1080,7 @@ init script:
 		name: {"Beleren Bold"},
 		size: {if auto_station() then 13 else 15},
 		color: {
-			if is_planeshifted() or is_fnm() or is_inverted() then "white"
+			if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
 			else if is_vehicle() or auto_station() then "white"
 			else "black"
 		},
@@ -1081,7 +1092,7 @@ init script:
 		size: {if is_prototype() then 15 else if auto_station() then 13 else 15},
 		color: {
 			if is_prototype() then "white"
-			else if is_planeshifted() or is_fnm() or is_inverted() then "white"
+			else if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
 			else if is_vehicle() or auto_station() then "white"
 			else "black"
 		},
@@ -1249,6 +1260,13 @@ init script:
 		styling.meld_bar == "yes"
 		or (styling.meld_bar == "for melds" and length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0)
 	}
+	back_face_hint := {
+		back := get_back_face(card) or else nil
+		if back == nil or styling.back_face_hint == "none" then ""
+		else if styling.back_face_hint == "PT, Loyalty, Defense" and back.loyalty != ""
+			then back.loyalty
+		else back.pt
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1277,12 +1295,8 @@ styling field:
 	description: Shrinks the textbox X pixels from the bottom.
 styling field:
 	type: text
-	name: shrink name text
-	description: Reduces the name text N points.
-styling field:
-	type: text
-	name: shrink typeline text
-	description: Reduces the typeline text N points.
+	name: popout image style
+	description: The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
 styling field:
 	type: multiple choice
 	name: frames
@@ -1310,14 +1324,6 @@ styling field:
 	choice: snow
 	choice: custom border
 styling field:
-	type: text
-	name: custom border source
-	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
-styling field:
-	type: text
-	name: popout image style
-	description: The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
-styling field:
 	type: multiple choice
 	name: other options
 	description: Other frame options
@@ -1344,20 +1350,47 @@ styling field:
 	initial: avoid covering devoid, auto vehicles, auto snow, auto nyx crowns, auto ub, auto spacecraft
 styling field:
 	type: text
-	name: custom symbol
-	description: Uses a custom Lesson symbol from data/magic-mainframe-extras.mse-include
-	script: verify_symbol_image(value, can_import:false)
+	name: shrink name text
+	description: Reduces the name text N points.
 styling field:
 	type: text
-	name: card watermark
-	description: Filename in magic-mainframe-extras to use for standalone card watermark
-	script: verify_watermark_image(value, can_import:false)
-include file: /magic-modules.mse-include/crowns/styling_fields
+	name: shrink typeline text
+	description: Reduces the typeline text N points.
 styling field:
 	type: boolean
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
 	initial: no
+include file: /magic-modules.mse-include/rarities/styling_fields
+include file: /magic-modules.mse-include/fonts/styling_fields
+styling field:
+	type: info
+	name: Leveler Options
+styling field:
+	type: choice
+	name: level containers
+	choice: arrows
+	choice: station
+	choice: pt boxes
+	choice: loyalty boxes
+	choice: circles
+	description: What should be used to hold the "LEVEL X" text?
+styling field:
+	type: text
+	name: level label
+	description: Change the level label. default is "LEVEL". Secondary lables can be added after a comma, "1,2,3,"
+styling field:
+	type: text
+	name: arrow or bullet offsets
+	description: Formatted as 1,2,3,. Move the level arrow down X pixels. Use negative to move up.
+styling field:
+	type: text
+	name: level offset
+	description: Formatted as 1,2,3,. Move the level boundaries down X pixels. Use negative to move up. For 4 equal levels, use -14,-25,-38,
+styling field:
+	type: text
+	name: font cap
+	description: Caps the font size of all text boxes to allow consistent sizes. Default is 14.
 styling field:
 	type: choice
 	name: d20 dividers
@@ -1369,42 +1402,50 @@ styling field:
 	choice: all breaks +3
 	description: Do dice levels normally, off, on all linebreaks, on all but the first linebreak, etc.
 styling field:
-	type: choice
-	name: level containers
-	choice: arrows
-	choice: station
-	choice: pt boxes
-	choice: loyalty boxes
-	choice: circles
-styling field:
-	type: text
-	name: level label
-	description: Change the level label. default is "LEVEL". Secondary lables can be added after a comma, "1,2,3,"
-styling field:
-	type: text
-	name: font cap
-	description: Caps the font size of all text boxes to allow consistent sizes. Default is 14.
-styling field:
-	type: text
-	name: arrow or bullet offsets
-	description: Formatted as 1,2,3,. Move the level arrow down X pixels. Use negative to move up.
-styling field:
-	type: text
-	name: level offset
-	description: Formatted as 1,2,3,. Move the level boxes down X pixels. Use negative to move up. For 4 equal levels, use -14,-25,-38,
+	type: info
+	name: Prototype Options
 styling field:
 	type: choice
 	name: prototype secondary
 	choice: pt
 	choice: type
+	description: Use a PT Box or a Type Bar for Prototypes?
+styling field:
+	type: info
+	name: DFC Options
+styling field:
+	type: choice
+	name: back face hint
+	choice: PTs only
+	choice: PT, Loyalty, Defense
+	choice: none
+	description: What should be displayed in the transform notch hint?
 styling field:
 	type: choice
 	name: meld bar
 	choice: for melds
 	choice: yes
 	choice: no
-include file: /magic-modules.mse-include/rarities/styling_fields
-include file: /magic-modules.mse-include/fonts/styling_fields
+	description: Use the divider for Meld back faces?
+styling field:
+	type: info
+	name: Custom icons, card-level
+styling field:
+	type: text
+	name: custom border source
+	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
+styling field:
+	type: text
+	name: custom symbol
+	description: Uses a custom Lesson symbol from data/magic-mainframe-extras.mse-include
+	script: verify_symbol_image(value, can_import:false)
+styling field:
+	type: text
+	name: card watermark
+	description: Filename in magic-mainframe-extras to use for standalone card watermark
+	script: verify_watermark_image(value, can_import:false)
+include file: /magic-modules.mse-include/crowns/styling_fields
+
 styling field:
 	type: choice
 	name: hybrid name
@@ -1720,7 +1761,7 @@ card style:
 		left: 	{ if (card.level_0 != "" or card.level_1 != "" or card.level_2 != "") then 75 else 29 }
 		top: 	{ top_of_textbox() }
 		bottom: { bottom_of_textbox() }
-		width:	{ if is_leveler() then 0 else 314 + (if (card.level_0 != "" or card.level_1 != "" or card.level_2 != "") then -46 else 0) }
+		width:	{ if is_leveler() then 0 else 314 + (if (card.level_0 != "" or card.level_1 != "" or card.level_2 != "") then -46 else 0) - chop_right() }
 		font:
 			name: { body_font() }
 			italic name: { body_font_italic() }
@@ -2007,10 +2048,10 @@ card style:
 		height: {leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
-			name: {pt_font()}
-			italic name: {pt_font_italic()}
-			size: {pt_font_size()}
-			color: {pt_font_color()}
+			name: {pt2_font()}
+			italic name: {pt2_font_italic()}
+			size: {pt2_font_size()}
+			color: {pt2_font_color()}
 			separator color: red
 			shadow color: {if is_planeshifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -2023,10 +2064,10 @@ card style:
 		height: {if card_style.level_4_text.height < 10 and card.pt_7 == "" then 0 else leveler_pt_height()}
 		alignment: center middle shrink-overflow
 		font:
-			name: {pt_font()}
-			italic name: {pt_font_italic()}
-			size: {pt_font_size()}
-			color: {pt_font_color()}
+			name: {pt2_font()}
+			italic name: {pt2_font_italic()}
+			size: {pt2_font_size()}
+			color: {pt2_font_color()}
 			separator color: red
 			shadow color: {if is_planeshifted() or is_fnm() then rgb(0,0,0) else rgba(0,0,0,0)}
 			shadow displacement x: -1
@@ -2353,6 +2394,12 @@ extra card field:
 	choice: meld
 	editable: false
 	save value: false
+extra card field:
+	type: text
+	name: back face hint
+	script: back_face_hint()
+	editable: false
+	save value: false
 extra card style:
 	pt box:
 		left: { if is_leveler() and not lone_pt() then leveler_ptbox_left() else 285 }
@@ -2371,7 +2418,7 @@ extra card style:
 		z index: 840
 		visible: { card.pt_2 != "" and not is_prototype() }
 		render style: image
-		image: { combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_1.png", combine: "multiply") }
+		image: { choose_ptbox(multiply:0.33) }
 	pt box 3:
 		left: {leveler_ptbox_left()}
 		top: { l3_center() - 15 + leveler_ptbox_top_offset()}
@@ -2380,7 +2427,7 @@ extra card style:
 		z index: 840
 		visible: { card.pt_3 != "" }
 		render style: image
-		image: {combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_2.png", combine: "multiply")}
+		image: { choose_ptbox(multiply:0.67) }
 	pt box 4:
 		left: {leveler_ptbox_left()}
 		top: { l4_center() - 15 + leveler_ptbox_top_offset()}
@@ -2389,7 +2436,7 @@ extra card style:
 		z index: 840
 		visible: { card.pt_7 != "" }
 		render style: image
-		image: {combine_blend(image1: choose_ptbox(), image2: template_prefix["pt"]+"ptbox_multiply_3.png", combine: "multiply")}
+		image: { choose_ptbox(multiply:1) }
 	loyalty box:
 		right: 362
 		top: 466
@@ -2805,3 +2852,17 @@ extra card style:
 		image: meldbar.png
 		visible: {use_meld_bar()}
 		z index: 1100
+	back face hint:
+		z index: 650
+		right: 347
+		top: 446
+		width: 30
+		height: 12
+		alignment: bottom right
+		visible: { is_notched() }
+		font:
+			name: ModMatrix
+			size: 12
+			weight: bold
+			color: {rgb(45,45,45)}
+			separator color: red
