@@ -250,39 +250,35 @@ color_multiply := {
 		base_hybrid: card_hybrid,
 		template: blend_multiply_template,
 		land_template: blend_multiply_template,
-		artifact_blend: "black",
-		hybrid_blend: "black",
-		multicolor_blend: "black"
+		artifact_blend: artifact_blend,
+		hybrid_blend: hybrid_blend,
+		multicolor_blend: multicolor_blend
 	)
 	steps := to_int(iterate)
 	alpha := iterate - steps
 	if alpha >= 0.01 then (
 		steps := steps + 1
-		resized_alpha := set_alpha(resized_color)
 	) else (
 		alpha := 0
 	)
-	
-	if multiply_mask != "" or alpha > 0 then
+	masked := type_of(multiply_mask) == "image" or multiply_mask != ""
+	if masked or alpha > 0 then
 		resized_white := blend_multiply_template("white")
-	if alpha > 0 then
-		resized_alpha := insert_image(
-			base_image: resized_white,
-			inserted_image: resized_alpha,
-			offset_x: 0,
-			offset_y: 0
-		)
-	if multiply_mask != "" then (
+
+	if masked then (
 		resized_color := masked_blend(
 			mask: multiply_mask,
 			light: resized_white,
 			dark: resized_color
-		);
-		if alpha > 0 then
-			resized_alpha := masked_blend(
-			mask: multiply_mask,
-			light: resized_white,
-			dark: resized_alpha
+		)
+	)
+	
+	if alpha > 0 then (
+		resized_alpha := insert_image(
+			base_image: resized_white,
+			inserted_image: set_alpha(resized_color),
+			offset_x: 0,
+			offset_y: 0
 		)
 	)
 	
@@ -295,7 +291,7 @@ color_multiply := {
 		"dummy return"
 	)
 	image
-}@(multiply_mask:"", iterate:1)
+}@(multiply_mask:"", iterate:1, artifact_blend:"black", hybrid_blend:"black", multicolor_blend:"black")
 blend_multiply_template := {
 	resize_image("/magic-modules.mse-include/multiply/{input}.png", width:width, height:height)
 }
