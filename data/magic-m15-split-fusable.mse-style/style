@@ -52,6 +52,10 @@ init script:
 		beyond: "/magic-modules.mse-include/trims/beyond/",
 		pt: "/magic-modules.mse-include/pts/375 m15/"
 		identity: "/magic-modules.mse-include/indicators/",
+		transform_left_modal: "transform_left/modal/",
+		transform_left_normal: "transform_left/normal/",
+		transform_right_modal: "transform_right/modal/",
+		transform_right_normal: "transform_right/normal/",
 		texture: "texture/"
 	]
 	template_suffix := [
@@ -66,6 +70,10 @@ init script:
 		beyond: "beyond.png",
 		pt: "pt.png",
 		identity: "identity.png",
+		transform_left_modal: "card.png",
+		transform_left_normal: "card.png",
+		transform_right_modal: "card.png",
+		transform_right_normal: "card.png",
 		texture:"texture.png",
 	]
 	template := { 
@@ -236,6 +244,58 @@ init script:
 			then set_mask(image: fuse_right_background(), mask:"shadow_mask.png")
 		else fuse_right_background()
 	}
+	
+	transform_left_background :=
+	{
+		mode := if transform_symbol_is_modal(card.transformation) then "modal" else "normal"
+		if left_clear()
+		then "transform_left/" + mode + "/xcard.png"
+		else color_background(
+			type: "transform_left_" + mode,
+			base_hybrid: cropped_card_hybrid,
+			offset_x:-5,
+			offset_y:0,
+			width:49,
+			height:37,
+			face_width:241,
+			face_height:345,
+			multicolor_blend: "white",
+			hybrid_blend: "white",
+			artifact_blend: "white",
+		)
+	}
+	transform_right_background :=
+	{
+		mode := if transform_symbol_is_modal(card.transformation) then "modal" else "normal"
+		if right_clear()
+		then "transform_right/" + mode + "/xcard.png"
+		else color_background(
+			type: "transform_right_" + mode,
+			base_hybrid: cropped_card_hybrid,
+			offset_x:197,
+			offset_y:0,
+			width:48,
+			height:35,
+			face_width:241,
+			face_height:345,
+			multicolor_blend: "white",
+			hybrid_blend: "white",
+			artifact_blend: "white",
+		)
+	}
+	
+	transform_symbol_offset_left_1 := { if transform_symbol_is_right(card.transformation) then -15 else -21 }
+	transform_symbol_offset_top_1 := { -2 }
+	transform_symbol_offset_width_1 := { 0 }
+	transform_symbol_offset_height_1 := { 0 }
+	transform_symbol_icon_offset_width := { 0 }
+	transform_symbol_icon_offset_height := { 0 }
+	
+	name_transform_symbol_offset_left_1 := { -2 }
+	casting_cost_transform_symbol_offset_left_1 := { -2 }
+	
+	information_offset_top_1 := { 1 }
+	
 	room_cover := { 
 		if left_clear()
 			then "rooms/xcover.png"
@@ -441,40 +501,18 @@ init script:
 			then 211
 		else 148
 	}
-	image_mask := {
-		tb := is_borderless()
-		bl := borderless_frames()
-		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
-		tag := if tb and uses_fuse_arrows() then (if clear then "_bl" else "_arrow") else if tb and bl then "_bl" else if clear then "_clear" else ""
-		room_style := styling.room_images
-		rm := is_room()
-		
-		if is_short_room() then if input == "right" then "rooms/image_mask_right_short.png" else ""
-		else if rm then (
-			if room_style == "one image" and input == "left"
-				then "rooms/image_mask{tag}.png"
-			else "rooms/image_mask_{input}{tag}.png"
-		)
-		else if bl and room_style == "one image" and input == "left"
-			then "normal/image_mask_bl.png"
-		else if bl and room_style == "one image"
-			then ""
-		else if bl
-			then "normal/image_mask_{input}_bl.png"
-		else if tb and clear and uses_fuse_arrows()
-			then "normal/image_mask_{input}_bl.png"
-		else if clear
-			then "normal/image_mask_{input}_clear.png"
-		else if tb and room_style == "one image" and input == "left"
-			then "normal/image_mask.png"
-		else if tb and room_style == "one image"
-			then "normal/image_mask.png"
-		else if tb
-			then "normal/image_mask_{input}.png"
-		else ""
-		
+	image_mask :=
+	{
+		if input.width < 1 then "" else
+		crop_image("image_mask.png", offset_x:input.left, offset_y:input.top, width:input.width, height:input.height)
 	}
-
+	
+	card_mask :=
+	{
+		base := if is_borderless() then "normal/borderless_clear_mask.png" else "normal/normal_mask.png"
+		if is_room() then combine_blend(image1:base, image2:"normal/room_" + input + "_mask.png", combine: "multiply") else base
+	}
+	
 	is_room := {
 		chosen(styling.frames, choice:"room") or lang_setting("is_room")(card.sub_type)
 	}
@@ -501,7 +539,7 @@ init script:
 	right_clear := {
 		chosen(styling.frames, choice:"clear colorless") and card.card_color_2 == "colorless" and (not is_room() or card.card_color == "colorless")
 	}
-
+	
 	floating_frame := {
 		bl := is_borderless()
 		rm := is_room()
@@ -791,6 +829,8 @@ include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/separators/card_fields_dfc
+include file: /magic-modules.mse-include/symbols/card_fields
+
 card style:
 	############################# Background stuff
 	border color:
@@ -798,28 +838,28 @@ card style:
 		top : 0
 		width:	523
 		height:	375
-		z index: 550
+		z index: 510
 		mask: { border_mask_script() }
 	card color:
 		left:	31
 		top:	13
 		width:	241
 		height:	345
-		z index: 100
+		z index: 210
 		render style: image
 		popup style: in place
-		image: { if left_clear() or borderless_frames() then "" else module_card() }
-		mask: { if is_room() then "normal/left_mask.png" else ""}
+		image: { if left_clear() or borderless_frames() then floating_frame(side:"left") else module_card() }
+		mask: { card_mask("left") }
 	card color 2:
 		left:	272
 		top:	13
 		width:	241
 		height:	345
-		z index: 100
+		z index: 210
 		render style: image
 		popup style: in place
-		image: { if right_clear() or borderless_frames() then "" else module_card() }
-		mask: { if is_room() then "normal/right_mask.png" else ""}
+		image: { if right_clear() or borderless_frames() then floating_frame(side:"right") else module_card() }
+		mask: { card_mask("right") }
 	############################# Name line
 	name:
 		left: { if card.card_symbol == "none" then 52 else 68 }
@@ -903,17 +943,17 @@ card style:
 		top: { if is_borderless() then 0 else if left_clear() then 13 else 49 }
 		width: { image_width("left") }
 		height:	{ image_height("left") }
-		z index: 510
+		z index: 0
 		default: {default_image(card.card_color)}
-		mask: { image_mask("left") }
+		mask: { image_mask(card_style.image) }
 	image 2:
 		left: { if is_borderless() then 258 else if right_clear() then (if is_room() then 258 else 272) else if not is_room() then 291 else 258 }
 		top: { if is_borderless() then 0 else if right_clear() then 13 else 49 }
 		width: { image_width("right") }
 		height:	{ image_height("right") }
-		z index: 511
+		z index: 1
 		default: {default_image(card.card_color_2)}
-		mask: { image_mask("right") }
+		mask: { image_mask(card_style.image_2) }
 	mainframe image:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
@@ -925,8 +965,8 @@ card style:
 		top: { if is_borderless() then 0 else 49 }
 		width: { if (is_room() or is_borderless()) and styling.room_images == "three images" then 50 else 0 }
 		height: { if is_borderless() then 375 else if is_short_room() then 149 else 211 }
-		z index: 520
-		mask: { if is_short_room() then "" else "rooms/image_mask_middle" + (if not is_room() then "_fuse" else if is_borderless() then (if uses_fuse_arrows() then "_arrow" else "_bl") else "") + ".png" }
+		z index: 2
+		mask: { image_mask(card_style.mainframe_image_2) }
 	############################# Card type
 	indicator:
 		left: 50
@@ -1103,7 +1143,7 @@ card style:
 		top:	330
 		width:	60
 		height:	28
-		z index: 910
+		z index: 920
 		alignment: center middle shrink-overflow
 		font:
 			name: {pt_font()}
@@ -1201,18 +1241,6 @@ extra card field:
 	save value: false
 extra card field:
 	type: choice
-	name: floating frame left
-	script: card.card_color
-	editable: false
-	save value: false
-extra card field:
-	type: choice
-	name: floating frame right
-	script: card.card_color_2
-	editable: false
-	save value: false
-extra card field:
-	type: choice
 	name: card texture
 	script: card.card_color
 	editable: false
@@ -1224,17 +1252,25 @@ extra card field:
 	editable: false
 	save value: false
 extra card field:
-	type: choice
-	name: patch
-	choice: patch
-	editable: false
-	save value: false
-extra card field:
 	type: color
 	name: spillblock
 	script: styling.room_backfill
 	editable: false
 	save value: false
+extra card field:
+	type: choice
+	name: transform left
+	editable: false
+	save value: false
+	show statistics: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: transform right
+	editable: false
+	save value: false
+	show statistics: false
+	script: card.card_color_2
 
 extra card style:
 	fuse_bridge:
@@ -1323,50 +1359,23 @@ extra card style:
 		top:	13
 		width:	241
 		height:	345
-		z index: 90
+		z index: 200
 		render style: image
 		popup style: in place
-		image: { if is_borderless() or left_clear() then "" else if left_nyx() then module_nyx() else if is_beyond() then beyond_background() else texture_background() }
+		visible: { not is_borderless() }
+		image: { if left_clear() then "texture/xtexture.png" else if left_nyx() then module_nyx() else if is_beyond() then beyond_background() else texture_background() }
+		mask: { if is_room() then "texture/room_left_mask.png" else "texture/normal_mask.png" }
 	card texture 2:
 		left:	272
 		top:	13
 		width:	241
 		height:	345
-		z index: 90
+		z index: 200
 		render style: image
 		popup style: in place
-		image: { if is_borderless() or right_clear() then "" else if right_nyx() then module_nyx() else if is_beyond() then beyond_background() else texture_background() }
-	floating frame left:
-		left:	31
-		top:	13
-		width:	241
-		height:	345
-		z index: 530
-		render style: image
-		popup style: in place
-		image: { floating_frame(side:"left") }
-		visible: { left_clear() or borderless_frames() }
-		mask: { if is_room() and left_clear() then "normal/left_mask.png" else ""}
-	floating frame right:
-		left:	272
-		top:	13
-		width:	241
-		height:	345
-		z index: 530
-		render style: image
-		popup style: in place
-		image: { floating_frame(side:"right") }
-		visible: { right_clear() or borderless_frames() }
-		mask: { if is_room() and right_clear() then "normal/left_mask.png" else ""}
-	patch:
-		left: 254
-		top: 224
-		width: 36
-		height: 36
-		z index: 480
-		render style: image
-		image: rooms/patch.png
-		visible: { borderless_frames() and is_room() and not left_clear() }
+		visible: { not is_borderless() }
+		image: { if right_clear() then "texture/xtexture.png" else if right_nyx() then module_nyx() else if is_beyond() then beyond_background() else texture_background() }
+		mask: { if is_room() then "texture/room_right_mask.png" else "texture/normal_mask.png" }
 	spillblock:
 		left: 46
 		top: 202
@@ -1393,3 +1402,21 @@ extra card style:
 		render style: image
 		image: {module_ptbox()}
 		visible: { card.pt_2 != "" }
+	transform left:
+		left:				26
+		top:				13
+		width:				49
+		height:				37
+		z index:			500
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ transform_left_background() }
+	transform right:
+		left:				469
+		top:				13
+		width:				48
+		height:				35
+		z index:			520
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ transform_right_background() }
