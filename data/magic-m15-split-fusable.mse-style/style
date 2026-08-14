@@ -37,7 +37,8 @@ card dpi:			150
 ############################################################## Extra scripts
 init script:
 	card_shape := { "fuse split" }
-	faces_coordinates := {
+	faces_coordinates :=
+	{
 		[
 			[
 				left: 0,
@@ -127,11 +128,8 @@ init script:
 	}
 	transform_left_background :=
 	{
-		mode := if transform_symbol_is_modal(card.transformation) then "modal" else "normal"
-		if left_clear()
-		then "transform_left/" + mode + "/xcard.png"
-		else color_background(
-			type: "transform_left_" + mode,
+		color_background(
+			type: "transform_left_" + modal,
 			base_hybrid: cropped_card_hybrid,
 			offset_x:-5,
 			offset_y:0,
@@ -146,11 +144,8 @@ init script:
 	}
 	transform_right_background :=
 	{
-		mode := if transform_symbol_is_modal(card.transformation) then "modal" else "normal"
-		if right_clear()
-		then "transform_right/" + mode + "/xcard.png"
-		else color_background(
-			type: "transform_right_" + mode,
+		color_background(
+			type: "transform_right_" + modal,
 			base_hybrid: cropped_card_hybrid,
 			offset_x:197,
 			offset_y:0,
@@ -164,15 +159,19 @@ init script:
 		)
 	}
 	
-	transform_symbol_offset_left_1 := { if transform_symbol_is_right(card.transformation) then -15 else -21 }
+	transform_symbol_offset_left_1 := { if transform_symbol_is_right(card.transformation) then 226 else -21 }
 	transform_symbol_offset_top_1 := { -2 }
-	transform_symbol_offset_width_1 := { 0 }
-	transform_symbol_offset_height_1 := { 0 }
-	transform_symbol_icon_offset_width := { 0 }
-	transform_symbol_icon_offset_height := { 0 }
 	
-	name_transform_symbol_offset_left_1 := { -2 }
-	casting_cost_transform_symbol_offset_left_1 := { -2 }
+	transform_symbol_offset_left_2 := { if transform_symbol_is_right(card.transformation_2) then -15 else 220 }
+	transform_symbol_offset_top_2 := { -2 }
+	
+	reminder_offset_left := { 17 }
+	reminder_offset_top := { if is_fuse() then -18 else 5 }
+	reminder_offset_width := { -66 }
+	reminder_offset_height := { 5 }
+	reminder_type_offset_left := { 26 }
+	reminder_type_offset_width := { -50 }
+	reminder_cost_offset_left := { -24 }
 	
 	card_stamp_offset_left_1 := { -5 }
 	
@@ -190,6 +189,7 @@ init script:
 	is_room :=			{ chosen(styling.frames, choice:"room")				or auto_room() }
 	is_short_room :=	{ styling.typebox_opacity_percentage > 99 and is_room() }
 	is_fuse :=			{ card.rule_text_3 != "" }
+	is_extended :=		{ is_borderless() or is_room() }
 	auto_beyond :=
 	{
 		chosen(styling.auto_frames, choice:"universes beyond") and (card.card_stamp == "universes beyond" or card.card_stamp == "flatstamped universes beyond")
@@ -227,7 +227,7 @@ init script:
 	}
 	right_nyx :=
 	{
-		chosen(styling.frames, choice:"nyx") or (if is_room() then auto_nyx(card.super_type) else auto_nyx(card.super_type_2))
+		chosen(styling.frames, choice:"nyx") or auto_nyx(if is_room() then card.super_type else card.super_type_2)
 	}
 	left_vehicle :=
 	{
@@ -235,7 +235,7 @@ init script:
 	}
 	right_vehicle :=
 	{
-		chosen(styling.frames, choice:"vehicle") or auto_vehicle(card.sub_type_2)
+		chosen(styling.frames, choice:"vehicle") or auto_vehicle(if is_room() then card.sub_type else card.sub_type_2)
 	}
 	left_snow :=
 	{
@@ -243,7 +243,7 @@ init script:
 	}
 	right_snow :=
 	{
-		chosen(styling.frames, choice:"snow") or auto_snow(card.super_type_2)
+		chosen(styling.frames, choice:"snow") or auto_snow(if is_room() then card.super_type else card.super_type_2)
 	}
 	left_clear :=
 	{
@@ -320,58 +320,51 @@ init script:
 	left_font_size := {to_number(pull_comma_array(styling.font_size_cap, end:false, cell:0, default:13))}
 	right_font_size := {to_number(pull_comma_array(styling.font_size_cap, end:false, cell:1, default:left_font_size()))}
 	
-	image_width :=
+	image_left := { if input == "left" then left_image_left() else right_image_left() }
+	image_right := { if input == "left" then left_image_right() else right_image_right() }
+	left_image_left := { if is_borderless() or left_clear() then 35 else 45 }
+	left_image_right :=
 	{
-		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
-		bl := is_borderless()
-		sr := is_short_room()
-		room_style := styling.room_images
-		if is_room() then (
-			if room_style == "one image" and input == "left"
-				then if bl then 488 else if clear then 474 else if sr then 444 else 452
-			else if room_style == "one image"
-				then 0
-			else if bl and input == "left"
-				then 251
-			else if bl
-				then 265
-			else if clear
-				then 251
-			else if sr
-				then 236
-			else 240
+		if is_borderless() then
+		(
+			if styling.room_images == "one image" then 523
+			else 286
 		)
-		else if bl and input == "left" and room_style == "one image"
-			then 488
-		else if bl and room_style == "one image"
-			then 0
-		else if bl and input == "left"
-			then 251
-		else if bl
-			then 265
-		else if clear
-			then 237
-		else if contains(styling.other_options, match:"spillover image")
-			then if input == "left" then 444 else 0
-		else 203
+		else if is_room() then
+		(
+			if styling.room_images == "one image" then
+			(
+				if right_clear() then 508
+				else 499
+			)
+			else 286
+		)
+		else if left_clear() then 267
+		else 258
 	}
-	image_height :=
+	right_image_left := { if is_extended() then 258 else if right_clear() then 277 else 286 }
+	right_image_right := { if is_borderless() then 523 else if right_clear() then 508 else 499 }
+	image_top :=
 	{
 		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
-		if is_borderless()
-			then 375
-		else if clear
-			then 345
-		else if is_short_room()
-			then 149
-		else if is_room()
-			then 211
-		else 148
+		if is_borderless() then 0
+		else if clear or styling.namebox_opacity_percentage < 100 then 16
+		else 49
+	}
+	image_bottom :=
+	{
+		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
+		type := styling.typebox_opacity_percentage < 100
+		if is_borderless() then 375
+		else if clear or styling.textbox_opacity_percentage < 100 then 355
+		else if is_room() then (if type then 260 else 197)
+		else if type then 220 else 197
 	}
 	image_mask :=
 	{
-		if input.width < 1 then "" else
-		crop_image("image_" + (if is_borderless() or is_room() then "borderless_" else "") + "mask.png", offset_x:input.left, offset_y:input.top, width:input.width, height:input.height)
+		base := "image_" + (if is_extended() then "borderless_" else "") + "mask.png"
+		if input == "right" then base := insert_image(base_image:base, inserted_image: "image_fade_mask.png", offset_x: 257, offset_y:0)
+		crop_image(base, offset_x:left, offset_y:top, width:right-left, height:bottom-top)
 	}
 	texture_mask :=
 	{
@@ -575,47 +568,47 @@ styling style:
 	other options:
 		render style: checklist
 		direction: vertical
+
 ############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/separators/card_fields_dfc
-include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields_dfc
+include file: /magic-modules.mse-include/reminders/card_fields
 
 card style:
 	############################# Background stuff
 	border color:
 		left: 0
-		top : 0
+		top: 0
 		width: 523
 		height: 375
 		z index: 210
 		mask: { "border_" + (if is_borderless() then "borderless_" else if is_room() then "room_" else "") + "mask.png" }
 	card color:
 		left: 31
-		top: 13
-		width: 482
-		height: 345
-		z index: 220
-		render style: image
+		top: 0
+		width: 241
+		height: 375
+		z index: 200
 		popup style: in place
-		image: { split_color_blend(type: "card") }
-		mask: card_mask.png
+		render style: hidden
+		mask: { "card_" + (if is_extended() then "borderless_" else "") + "mask.png" }
 	card color 2:
 		left: 272
-		top: 13
+		top: 0
 		width: 241
-		height: 345
-		z index: 221
-		render style: image
+		height: 375
+		z index: 200
 		popup style: in place
-		image: { "" }
-		mask: card_right_mask.png
+		render style: hidden
+		mask: { "card_" + (if is_extended() then "borderless_" else "") + "mask.png" }
 	############################# Name line
 	name:
-		left: { if card.card_symbol == "none" then 52 else 68 }
+		left: { if transform_symbol_active_left(card.transformation) then 78 else if card.card_symbol != "none" then 68 else 52 }
 		top: { 17 + name_font_vertical() }
-		right: { 248 - max(27,card_style.casting_cost.content_width) }
+		right: { 250 - max(27,card_style.casting_cost.content_width) - if transform_symbol_active_right(card.transformation) then 30 else 0 }
 		height: 25
 		alignment: bottom shrink-overflow
 		padding bottom: 0
@@ -626,9 +619,9 @@ card style:
 			size: { name_font_size() }
 			color: { name_font_color() }
 	name 2:
-		left: { if card.card_symbol_2 == "none" then 293 else 309 }
+		left: { if transform_symbol_active_left(card.transformation_2) then 319 else if card.card_symbol_2 != "none" then 309 else 293 }
 		top: { 17 + name_font_vertical() }
-		right: { 487 - max(27,card_style.casting_cost_2.content_width) }
+		right: { 492 - max(27,card_style.casting_cost_2.content_width) - if transform_symbol_active_right(card.transformation_2) then 30 else 0 }
 		height: 25
 		alignment: bottom shrink-overflow
 		padding bottom: 0
@@ -639,8 +632,8 @@ card style:
 			size: { name2_font_size() }
 			color: { name2_font_color() }
 	casting cost:
-		right: 254
-		top: 18
+		right: { 254 - if transform_symbol_active_right(card.transformation) then 30 else 0 }
+		top: 19
 		width: { max(24, card_style.casting_cost.content_width) + 3 }
 		height: 23
 		alignment: middle right
@@ -655,8 +648,8 @@ card style:
 		z index: 920
 		padding top: 0
 	casting cost 2:
-		right: 496
-		top: 18
+		right: { 495 - if transform_symbol_active_right(card.transformation_2) then 30 else 0 }
+		top: 19
 		width: { max(24, card_style.casting_cost_2.content_width) + 3 }
 		height: 23
 		alignment: middle right
@@ -675,7 +668,7 @@ card style:
 		top: { if card.card_symbol == "none" then 0 else 20 }
 		height: 19
 		width: 21
-		z index: 830
+		z index: 895
 		render style: image
 		include file:		/magic.mse-game/card-symbols/menu_choice_images
 		image:				{ card_symbol_image(face: 1) }
@@ -684,27 +677,28 @@ card style:
 		top: { if card.card_symbol_2 == "none" then 0 else 20 }
 		height: 19
 		width: 21
-		z index: 830
+		z index: 895
 		render style: image
 		include file:		/magic.mse-game/card-symbols/menu_choice_images
 		image:				{ card_symbol_image(face: 2) }
 	############################# Image
 	image:
-		left: { if is_borderless() or left_clear() then 35 else if is_short_room() then 50 else if is_room() then 46 else 50 }
-		top: { if is_borderless() then 0 else if left_clear() then 13 else 49 }
-		width: { image_width("left") }
-		height:	{ image_height("left") }
+		left: { image_left("left") }
+		right: { image_right("left") }
+		top: { image_top("left") }
+		bottom: { image_bottom("left") }
 		z index: 0
 		default: {default_image(card.card_color)}
-		mask: { image_mask(card_style.image) }
+		mask: { image_mask("left", left:image_left("left"), right:image_right("left"), top:image_top("left"), bottom:image_bottom("left")) }
 	image 2:
-		left: { if is_borderless() then 258 else if right_clear() then (if is_room() then 258 else 272) else if not is_room() then 291 else 258 }
-		top: { if is_borderless() then 0 else if right_clear() then 13 else 49 }
-		width: { image_width("right") }
-		height:	{ image_height("right") }
+		left: { image_left("right") }
+		right: { image_right("right") }
+		top: { image_top("right") }
+		bottom: { image_bottom("right") }
+		visible: { styling.room_images != "one image" or not is_extended() }
 		z index: 1
 		default: {default_image(card.card_color_2)}
-		mask: { image_mask(card_style.image_2) }
+		mask: { image_mask("right", left:image_left("right"), right:image_right("right"), top:image_top("right"), bottom:image_bottom("right")) }
 	mainframe image:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
@@ -713,11 +707,12 @@ card style:
 		z index: 1010
 	mainframe image 2:
 		left: 245
-		top: { if is_borderless() then 0 else 49 }
-		width: { if (is_room() or is_borderless()) and styling.room_images == "three images" then 50 else 0 }
-		height: { if is_borderless() then 375 else if is_short_room() then 149 else 211 }
+		right: 295
+		top: { image_top("") }
+		bottom: { image_bottom("") }
+		visible: { is_extended() and styling.room_images == "three images" }
 		z index: 2
-		mask: { image_mask(card_style.mainframe_image_2) }
+		mask: { image_mask("", left:245, right:295, top:image_top(""), bottom:image_bottom("")) }
 	############################# Card type
 	indicator:
 		left: 50
@@ -766,7 +761,7 @@ card style:
 			color: { type2_font_color() }
 			separator color: red
 	rarity:
-		right: { if is_room() then 496 else 255 }
+		right: { if is_room() then 494 else 254 }
 		top: { if is_room() then 204 else 203 }
 		width: 24
 		height: 14
@@ -775,7 +770,7 @@ card style:
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
 	rarity 2:
-		right: 496
+		right: 495
 		top: 203
 		width: { if is_room() then 0 else 24 }
 		height: 14
@@ -788,7 +783,7 @@ card style:
 		left: 50
 		top: { body_font_vertical() + if is_room() then 263 else 225 }
 		width: 204
-		bottom: { if is_fuse() then 332 else 353 }
+		bottom: { 353 - (if is_fuse() then 21 else 0) - (if reminder_box_is_visible() then 18 else 0) }
 		font:
 			name: { body_font() }
 			italic name: { body_font_italic() }
@@ -848,7 +843,7 @@ card style:
 		line height line max: 1.6
 	rule text 3:
 		left: { if is_room() then 60 else 50 }
-		top : { body3_font_vertical() + if is_room() then 224 else 337 }
+		top: { body3_font_vertical() + if is_room() then 224 else 337 }
 		width: { if is_room() then 424 else 444 }
 		height: { if is_room() then 36 else 16 }
 		font:
@@ -861,7 +856,7 @@ card style:
 			name: { styling.text_box_mana_symbols }
 			size: { body3_font_size() }
 		alignment: "middle center"
-		z index: 915
+		z index: 905
 		padding left:   2
 		padding right:  2
 		line height hard: 1.2
@@ -915,6 +910,7 @@ card style:
 			size: {pt_font_size()}
 			color: {pt_font_color()}
 			separator color: red
+
 ############################################################## Extra card fields
 extra card field:
 	type: choice
@@ -934,6 +930,12 @@ extra card field:
 	choice: foil
 	save value: false
 	editable: false
+extra card field:
+	type: choice
+	name: girders
+	choice: girders
+	editable: false
+	save value: false
 extra card field:
 	type: choice
 	name: namebox
@@ -1019,120 +1021,143 @@ extra card field:
 	script: card.card_color
 extra card field:
 	type: choice
+	name: transform left 2
+	editable: false
+	save value: false
+	show statistics: false
+	script: card.card_color_2
+extra card field:
+	type: choice
 	name: transform right
+	editable: false
+	save value: false
+	show statistics: false
+	script: card.card_color
+extra card field:
+	type: choice
+	name: transform right 2
 	editable: false
 	save value: false
 	show statistics: false
 	script: card.card_color_2
 
 extra card style:
+	girders:
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			220
+		render style:		image
+		popup style:		in place
+		image:				{ split_color_blend(type: "card") }
 	namebox:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		230
-		render style:	image
-		image:			{ set_alpha(split_color_blend(type: "namebox"), alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 100)) }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			230
+		render style:		image
+		image:				{ set_alpha(split_color_blend(type: "namebox", multicolor_blend: "black"), alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 100)) }
 	namepin:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		231
-		render style:	image
-		image:			{ split_color_blend(type: "namepin") }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			231
+		render style:		image
+		image:				{ split_color_blend(type: "namepin") }
 	typebox:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		230
-		render style:	image
-		image:			{ set_alpha(split_color_blend(type: "typebox", transition: if is_room() then 0.058 else 0.0001), alpha: get_alpha_percentage(styling.typebox_opacity_percentage, default: 100)) }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			230
+		render style:		image
+		image:				{ set_alpha(split_color_blend(type: "typebox", transition: if is_room() then 0.058 else 0.0001, multicolor_blend: "black"), alpha: get_alpha_percentage(styling.typebox_opacity_percentage, default: 100)) }
 	typepin:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		231
-		render style:	image
-		image:			{ split_color_blend(type: "typepin", transition: if is_room() then 0.058 else 0.0001) }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			231
+		render style:		image
+		image:				{ split_color_blend(type: "typepin", transition: if is_room() then 0.058 else 0.0001) }
 	textbox:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		220
-		render style:	image
-		image:			{ set_alpha(split_color_blend(type: "textbox"), alpha: get_alpha_percentage(styling.textbox_opacity_percentage, default: 100)) }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			220
+		render style:		image
+		image:				{ set_alpha(split_color_blend(type: "textbox"), alpha: get_alpha_percentage(styling.textbox_opacity_percentage, default: 100)) }
 	textpin:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		221
-		render style:	image
-		image:			{ split_color_blend(type: "textpin") }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			221
+		render style:		image
+		image:				{ split_color_blend(type: "textpin") }
 	fusebox:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		230
-		visible:		{ is_fuse() }
-		render style:	image
-		image:			{ set_alpha(split_color_blend(type: "fusebox", transition: 0.058), alpha: get_alpha_percentage(styling.fusebox_opacity_percentage, default: 100)) }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			230
+		visible:			{ is_fuse() }
+		render style:		image
+		image:				{ set_alpha(split_color_blend(type: "fusebox", transition: 0.058), alpha: get_alpha_percentage(styling.fusebox_opacity_percentage, default: 100)) }
 	fusepin:
-		left:			31
-		top:			13
-		width:			482
-		height:			345
-		z index:		231
-		visible:		{ is_fuse() }
-		render style:	image
-		image:			{ split_color_blend(type: "fusepin", transition: 0.058) }
+		left:				31
+		top:				13
+		width:				482
+		height:				345
+		z index:			231
+		visible:			{ is_fuse() }
+		render style:		image
+		image:				{ split_color_blend(type: "fusepin", transition: 0.058) }
 	promo label:
-		left: 50
-		top: 177
-		width: {if contains(styling.other_options, match:"prerelease stamp") then (if is_room() then 440 else 199) else 0}
-		height: 20
-		alignment: middle right
-		z index: 1030
+		left:				50
+		top:				177
+		width:				{if contains(styling.other_options, match:"prerelease stamp") then (if is_room() then 440 else 199) else 0}
+		height:				20
+		alignment:			middle right
+		z index:			1030
 		font:
-			name: ModMatrix
-			size: 12
-			color: rgb(223,169,41)
+			name:				ModMatrix
+			size:				12
+			color:				rgb(223,169,41)
 	promo label 2:
-		left: 291
-		top: 177
-		width: {if is_room() or not contains(styling.other_options, match:"prerelease stamp") then 0 else 199}
-		height: 20
-		alignment: middle right
-		z index: 1030
+		left:				291
+		top:				177
+		width:				{if is_room() or not contains(styling.other_options, match:"prerelease stamp") then 0 else 199}
+		height:				20
+		alignment:			middle right
+		z index:			1030
 		font:
-			name: ModMatrix
-			size: 12
-			color: rgb(223,169,41)
+			name:				ModMatrix
+			size:				12
+			color:				rgb(223,169,41)
 	stamp backing:
-		left: { if stamp_shape() == "round" then 46 else 45 }
-		top: 165
-		width: 46
-		height: 26
-		z index: 850
-		angle: -90
-		visible: { card.card_stamp != "none" }
-		render style: image
-		image: { recolor_image("/magic-modules.mse-include/stamps/backs/" + (if stamp_shape(field:1) == "triangle" then "triangle_stamp" else "stamp") + "_color.png", color: card.border_color) }
+		left:				{ if stamp_shape() == "round" then 46 else 45 }
+		top:				165
+		width:				46
+		height:				26
+		z index:			850
+		angle:				-90
+		visible:			{ card.card_stamp != "none" }
+		render style:		image
+		image:				{ recolor_image("/magic-modules.mse-include/stamps/backs/" + (if stamp_shape(field:1) == "triangle" then "triangle_stamp" else "stamp") + "_color.png", color: card.border_color) }
 	card texture:
-		left:	31
-		top:	13
-		width:	241
-		height:	345
-		z index: 200
-		render style: image
-		popup style: in place
-		visible: { not is_borderless() }
+		left:				31
+		top:				13
+		width:				241
+		height:				345
+		z index:			200
+		render style:		image
+		popup style:		in place
+		visible:			{ not is_borderless() }
 		image:
 			script:
 				if		left_clear()	then	"texture/x.png"
@@ -1141,16 +1166,16 @@ extra card style:
 				else if	left_snow()		then	module_snow()
 				else if	is_beyond()		then	beyond_background()
 				else							texture_background()
-		mask: { texture_mask("left") }
+		mask:				{ texture_mask("left") }
 	card texture 2:
-		left:	272
-		top:	13
-		width:	241
-		height:	345
-		z index: 200
-		render style: image
-		popup style: in place
-		visible: { not is_borderless() }
+		left:				272
+		top:				13
+		width:				241
+		height:				345
+		z index:			200
+		render style:		image
+		popup style:		in place
+		visible:			{ not is_borderless() }
 		image:
 			script:
 				if		right_clear()	then	"texture/x.png"
@@ -1159,25 +1184,25 @@ extra card style:
 				else if	right_snow()	then	module_snow()
 				else if	is_beyond()		then	beyond_background()
 				else							texture_background()
-		mask: { texture_mask("right") }
+		mask:				{ texture_mask("right") }
 	pt box:
-		left:	197
-		top:	327
-		width:	70
-		height:	42
-		z index: 720
-		render style: image
-		image: { if left_vehicle() then "/magic-modules.mse-include/pts/375 m15/vpt.png" else module_ptbox() }
-		visible: { card.pt != "" }
+		left:				197
+		top:				327
+		width:				70
+		height:				42
+		z index:			720
+		render style:		image
+		image:				{ if left_vehicle() then "/magic-modules.mse-include/pts/375 m15/vpt.png" else module_ptbox() }
+		visible:			{ card.pt != "" }
 	pt box 2:
-		left:	438
-		top:	327
-		width:	70
-		height:	42
-		z index: 720
-		render style: image
-		image: { if right_vehicle() then "/magic-modules.mse-include/pts/375 m15/vpt.png" else module_ptbox() }
-		visible: { card.pt_2 != "" }
+		left:				438
+		top:				327
+		width:				70
+		height:				42
+		z index:			720
+		render style:		image
+		image:				{ if right_vehicle() then "/magic-modules.mse-include/pts/375 m15/vpt.png" else module_ptbox() }
+		visible:			{ card.pt_2 != "" }
 	transform left:
 		left:				26
 		top:				13
@@ -1186,13 +1211,32 @@ extra card style:
 		z index:			500
 		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
 		render style:		image
-		image:				{ transform_left_background() }
+		image:				{ transform_left_background(modal: if transform_symbol_is_modal(card.transformation) then "modal" else "normal") }
+		mask:				transform_left/transform_mask.png
+	transform left 2:
+		left:				267
+		top:				13
+		width:				49
+		height:				37
+		z index:			500
+		visible:			{ (not transform_symbol_is_empty(card.transformation_2)) and (not transform_symbol_is_right(card.transformation_2)) }
+		render style:		image
+		image:				{ transform_left_background(modal: if transform_symbol_is_modal(card.transformation_2) then "modal" else "normal") }
 	transform right:
-		left:				469
+		left:				228
 		top:				13
 		width:				48
 		height:				35
 		z index:			520
 		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
 		render style:		image
-		image:				{ transform_right_background() }
+		image:				{ transform_right_background(modal: if transform_symbol_is_modal(card.transformation) then "modal" else "normal") }
+	transform right 2:
+		left:				469
+		top:				13
+		width:				48
+		height:				35
+		z index:			520
+		visible:			{ (not transform_symbol_is_empty(card.transformation_2)) and (transform_symbol_is_right(card.transformation_2)) }
+		render style:		image
+		image:				{ transform_right_background(modal: if transform_symbol_is_modal(card.transformation_2) then "modal" else "normal") }
