@@ -39,12 +39,16 @@ init script:
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
 	template_prefix := [
-		card: ""
+		card: "card/"
 		card2: ""
 		pt: "/magic-modules.mse-include/pts/375 m15/"
 		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
 		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
 		identity: "/magic-modules.mse-include/indicators/"
+		transform_left: "transform_left/normal/"
+		transform_right: "transform_right/normal/"
+		transform_left_modal: "transform_left/modal/"
+		transform_right_modal: "transform_right/modal/"
 	]
 	template_suffix := [
 		card: "card.jpg"
@@ -53,6 +57,10 @@ init script:
 		stamp: "stamp.png"
 		ubstamp: "stamp.png"
 		identity: "identity.png"
+		transform_left: "card.png"
+		transform_right: "card.png"
+		transform_left_modal: "card.png"
+		transform_right_modal: "card.png"
 	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
@@ -77,6 +85,18 @@ init script:
 	is_unsorted := {styling.remove_from_autocount}
 	information_secondary_shift_with_pt_1 := {false}
 	card_stamp_offset_top_1 := {5}
+	
+	card_transforml :=	{ color_background(input: card.card_color, type: type,	base_hybrid: cropped_card_hybrid, hybrid_blend: "white", artifact_blend: "white", multicolor_blend: "white", face_width: 375, face_height: 523, width: 49, height: 37, offset_y:23, offset_x:5) }
+	card_transformr :=	{ color_background(input: card.card_color, type: type,	base_hybrid: cropped_card_hybrid, hybrid_blend: "white", artifact_blend: "white", multicolor_blend: "white", face_width: 375, face_height: 523, width: 48, height: 36, offset_y:23, offset_x:321) }
+	
+	reminder_offset_left := { 0 }
+	reminder_offset_top := { 3 }
+	reminder_offset_width := { 0 }
+	reminder_offset_height := { 0 }
+	
+	transform_symbol_offset_left_1 := { -3 }
+	transform_symbol_offset_top_1 := { 0 }
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -182,6 +202,8 @@ styling style:
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -203,6 +225,7 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
+		image: { flip_background(top: card.card_color, bottom: card.card_color_2) }
 	card color 2:
 		left: 0
 		top: 250
@@ -213,9 +236,9 @@ card style:
 		popup style: in place
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 32 else 50 }
+		left: { (if card.card_symbol=="none" then 32 else 50) + (if transform_symbol_active_left(card.transformation) then 26 else 0) }
 		top: 30
-		right:  { 341 - card_style.casting_cost.content_width }
+		right:  { 341 - card_style.casting_cost.content_width - (if transform_symbol_active_right(card.transformation) then 29 else 0) }
 		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
@@ -238,7 +261,7 @@ card style:
 			size: 16
 			color: black
 	casting cost:
-		right: 346
+		right: { 346 - (if transform_symbol_active_right(card.transformation) then 29 else 0) }
 		top: 29
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -271,11 +294,11 @@ card style:
 		z index: 1
 		padding top: 0
 	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 26}
+		left: { (if card.card_symbol=="none" then 20 else 26) + (if transform_symbol_active_left(card.transformation) then 26 else 0) }
 		top: 29
 		height: 21
 		width: 23
-		z index: 1
+		z index: 895
 		render style: image
 		include file:		/magic.mse-game/card-symbols/menu_choice_images
 		image:				{ card_symbol_image(face: 1) }
@@ -332,7 +355,7 @@ card style:
 			separator color: red
 	type 2:
 		left: { if styling.bottom_card_color_indicator then "321" else "341" }
-		bottom: 357
+		bottom: 358
 		width: { if (card.pt_2 != "" and styling.bottom_card_color_indicator) then "220" else if card.pt_2 != "" then "240" else if styling.bottom_card_color_indicator then "290" else "310" }
 		height: 20
 		alignment: top shrink-overflow
@@ -443,9 +466,9 @@ card style:
 	############################# PT
 	pt:
 		z index: 2
-		left: 308
+		left: 312
 		top: 128
-		width: 44
+		width: 36
 		height:	28
 		alignment: center middle shrink-overflow
 		font:
@@ -455,9 +478,9 @@ card style:
 			separator color: red
 	pt 2:
 		z index: 2
-		right: 21
-		bottom: 353
-		width: 44
+		right: 25
+		bottom: 352
+		width: 36
 		height: 28
 		alignment: center middle shrink-overflow
 		angle: 180
@@ -467,12 +490,6 @@ card style:
 			color: black
 			separator color: red
 ############################################################## Extra card fields
-extra card field:
-	type: choice
-	name: frame
-	script: card.card_color + ":" + card.card_color_2
-	editable: false
-	save value: false
 extra card field:
 	type: choice
 	name: pt box
@@ -497,16 +514,22 @@ extra card field:
 	script: card.card_color_2
 	editable: false
 	save value: false
+extra card field:
+	type:				choice
+	name:				transform left
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				transform left
+extra card field:
+	type:				choice
+	name:				transform right
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				transform right
 
 extra card style:
-	frame:
-		left: 0
-		top: 0
-		width: 375
-		height: 523
-		z index: 0
-		render style: image
-		image: {flip_background(top: card.card_color, bottom: card.card_color_2)}
 	pt box:
 		left: 303
 		top: 128
@@ -544,3 +567,21 @@ extra card style:
 		render style: image
 		z index: 850
 		image: { "/magic-modules.mse-include/stamps/backs/" + (if stamp_shape() == "triangle" then "triangle_" else "") + "stamp.png" }
+	transform left:
+		left:				5
+		top:				23
+		width:				49
+		height:				37
+		z index:			500
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transforml(type: "transform_left" + if transform_symbol_is_modal(card.transformation) then "_modal" else "") }
+	transform right:
+		left:				321
+		top:				23
+		width:				48
+		height:				36
+		z index:			520
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transformr(type: "transform_right" + if transform_symbol_is_modal(card.transformation) then "_modal" else "") }
