@@ -104,7 +104,7 @@ init script:
 		transform_right_normal:	".png",
 	]
 	template :=			{ template_prefix[type]() + template_suffix[type] }
-	land_template :=	{ template_prefix[type]() + (if input != "a" and (type == "textbox" or type == "textpin") then "l" else "") + template_suffix[type] }
+	land_template :=	{ template_prefix[type]() + (if input != "a" and type == "textbox" and not is_solid("text") then "l" else "") + template_suffix[type] }
 	
 	split_color_blend :=	{ split_color_background(input_left: card.card_color, input_right: card.card_color_2, type: type, transition: transition, multicolor_blend: multicolor_blend, hybrid_blend: hybrid_blend, artifact_blend: artifact_blend) }@(transition: 0.0001, multicolor_blend: "white", hybrid_blend: "white", artifact_blend: "white")
 	
@@ -190,6 +190,7 @@ init script:
 	is_short_room :=	{ styling.typebox_opacity_percentage > 99 and is_room() }
 	is_fuse :=			{ card.rule_text_3 != "" }
 	is_extended :=		{ is_borderless() or is_room() }
+	is_back :=			{ styling.back_face == "yes" or (styling.back_face == "if linked to front face" and get_front_face(card) != nil) }
 	auto_beyond :=
 	{
 		chosen(styling.auto_frames, choice:"universes beyond") and (card.card_stamp == "universes beyond" or card.card_stamp == "flatstamped universes beyond")
@@ -255,7 +256,7 @@ init script:
 	}
 	
 	hybrid_previews := "land,hybrid"
-	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	hybrid_mask := { if styling.grey_hybrid_name then "black" else "white" }
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	is_promo := { styling.promo }
 	is_unsorted := {styling.remove_from_autocount}
@@ -346,19 +347,26 @@ init script:
 	right_image_right := { if is_borderless() then 523 else if right_clear() then 508 else 499 }
 	image_top :=
 	{
-		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
-		if is_borderless() then 0
-		else if clear or styling.namebox_opacity_percentage < 100 then 16
-		else 49
+		if is_borderless() then 0 else (
+		clear :=	if is_room() then left_clear() or right_clear()
+					else if input == "left" then left_clear()
+					else if input == "right" then right_clear()
+					else false
+		if clear or styling.namebox_opacity_percentage < 100 then 16
+		else 49)
 	}
 	image_bottom :=
 	{
-		clear := if input == "left" then left_clear() else if input == "right" then right_clear() else false
+		if is_borderless() then 375 else (
+		clear :=	if is_room() then left_clear() or right_clear()
+					else if input == "left" then left_clear()
+					else if input == "right" then right_clear()
+					else false
 		type := styling.typebox_opacity_percentage < 100
-		if is_borderless() then 375
-		else if clear or styling.textbox_opacity_percentage < 100 then 355
-		else if is_room() then (if type then 260 else 197)
-		else if type then 220 else 197
+		if clear or styling.textbox_opacity_percentage < 100 then 355
+		else if is_room() and type then 260
+		else if type then 220
+		else 197)
 	}
 	image_mask :=
 	{
@@ -381,193 +389,203 @@ init script:
 
 ############################################################## Extra style options
 styling field:
-	type: multiple choice
-	name: frames
-	choice: room
-	choice: arrows
-	choice: borderless
-	choice: clear colorless
-	choice: nyx
-	choice: vehicle
-	choice: snow
-	choice: universes beyond
+	type:			multiple choice
+	name:			frames
+	choice:			room
+	choice:			arrows
+	choice:			borderless
+	choice:			clear colorless
+	choice:			nyx
+	choice:			vehicle
+	choice:			snow
+	choice:			universes beyond
 styling field:
-	type: multiple choice
-	name: auto frames
-	choice: room
-	choice: arrows
-	choice: nyx
-	choice: vehicle
-	choice: snow
-	choice: universes beyond
-	initial: room, arrows, nyx, vehicle, snow, universes beyond
+	type:			multiple choice
+	name:			auto frames
+	choice:			room
+	choice:			arrows
+	choice:			nyx
+	choice:			vehicle
+	choice:			snow
+	choice:			universes beyond
+	initial:		room, arrows, nyx, vehicle, snow, universes beyond
 styling field:
-	type: choice
-	name: room images
-	choice: one image
-	choice: two images
-	choice: three images
+	type:			choice
+	name:			room images
+	choice:			one image
+	choice:			two images
+	choice:			three images
 styling field:
-	type: multiple choice
-	name: other options
-	choice: ancestral generic mana
-	choice: prerelease stamp
-	choice: two illustrators
-	initial: two illustrators
+	type:			multiple choice
+	name:			other options
+	choice:			ancestral generic mana
+	choice:			prerelease stamp
+	choice:			two illustrators
+	initial:		two illustrators
 styling field:
-	type: text
-	name: popout image style
-	description: The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
+	type:			text
+	name:			popout image style
+	description:	The styling instructions for the popout image field, formatted as "left,top,width,height,". The text MUST end with a comma.
 styling field:
-	type: boolean
-	name: grey hybrid name
-	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+	type:			boolean
+	name:			grey hybrid name
+	description:	Use a grey background for the name and type line on hybrid cards. This is done on real cards.
 styling field:
-	type: boolean
-	name: colored multicolor land name
-	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+	type:			boolean
+	name:			colored multicolor land name
+	description:	Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
 styling field:
-	type: choice
-	name: namebox appearance
-	description: Should the namebox be textured?
-	choice: textured
-	choice: solid color
+	type:			choice
+	name:			back face
+	description:	Use the dark back face frame?
+	choice:			yes
+	choice:			if linked to front face
+	choice:			no
+	initial:		if linked to front face
 styling field:
-	type: slider
-	name: namebox opacity percentage
-	description: Set the opacity percentage for the namebox. Opaque is 100, transparent is 0. Default is 100.
-	initial: 100
+	type:			choice
+	name:			namebox appearance
+	description:	Should the namebox be textured?
+	choice:			textured
+	choice:			solid color
 styling field:
-	type: choice
-	name: typebox appearance
-	description: Should the typebox be textured?
-	choice: textured
-	choice: solid color if room
-	choice: solid color
-	initial: solid color if room
+	type:			slider
+	name:			namebox opacity percentage
+	description:	Set the opacity percentage for the namebox. Opaque is 100, transparent is 0. Default is 100.
+	initial:		100
 styling field:
-	type: slider
-	name: typebox opacity percentage
-	description: Set the opacity percentage for the typebox. Opaque is 100, transparent is 0. Default is 100.
-	initial: 100
+	type:			choice
+	name:			typebox appearance
+	description:	Should the typebox be textured?
+	choice:			textured
+	choice:			solid color if room
+	choice:			solid color
+	initial:		solid color if room
 styling field:
-	type: choice
-	name: textbox appearance
-	description: Should the textbox be textured?
-	choice: textured
-	choice: solid color
+	type:			slider
+	name:			typebox opacity percentage
+	description:	Set the opacity percentage for the typebox. Opaque is 100, transparent is 0. Default is 100.
+	initial:		100
 styling field:
-	type: slider
-	name: textbox opacity percentage
-	description: Set the opacity percentage for the textbox. Opaque is 100, transparent is 0. Default is 100.
-	initial: 100
+	type:			choice
+	name:			textbox appearance
+	description:	Should the textbox be textured?
+	choice:			textured
+	choice:			solid color
 styling field:
-	type: choice
-	name: fusebox appearance
-	description: Should the fusebox be textured?
-	choice: textured
-	choice: solid color
+	type:			slider
+	name:			textbox opacity percentage
+	description:	Set the opacity percentage for the textbox. Opaque is 100, transparent is 0. Default is 100.
+	initial:		100
 styling field:
-	type: slider
-	name: fusebox opacity percentage
-	description: Set the opacity percentage for the fusebox. Opaque is 100, transparent is 0. Default is 100.
-	initial: 100
+	type:			choice
+	name:			fusebox appearance
+	description:	Should the fusebox be textured?
+	choice:			textured
+	choice:			solid color
 styling field:
-	type: text
-	name: font size cap
-	description: Maximum font size for both textboxes, or "X,Y" to set individual caps. Default is 13.
+	type:			slider
+	name:			fusebox opacity percentage
+	description:	Set the opacity percentage for the fusebox. Opaque is 100, transparent is 0. Default is 100.
+	initial:		100
 styling field:
-	type: choice
-	name: center text 1
-	description: When to center text on the first card (short text only means only on one-line cards with no flavor text)
-	choice: always
-	choice: short text only
-	choice: never
-	initial: never
+	type:			text
+	name:			font size cap
+	description:	Maximum font size for both textboxes, or "X,Y" to set individual caps. Default is 13.
 styling field:
-	type: choice
-	name: center text 2
-	description: When to center text on the second card (short text only means only on one-line cards with no flavor text)
-	choice: always
-	choice: short text only
-	choice: never
-	initial: never
+	type:			choice
+	name:			center text 1
+	description:	When to center text on the first card (short text only means only on one-line cards with no flavor text)
+	choice:			always
+	choice:			short text only
+	choice:			never
+	initial:		never
+styling field:
+	type:			choice
+	name:			center text 2
+	description:	When to center text on the second card (short text only means only on one-line cards with no flavor text)
+	choice:			always
+	choice:			short text only
+	choice:			never
+	initial:		never
+	
 include file: /magic-modules.mse-include/rarities/styling_fields
+
 styling field:
-	type: boolean
-	name: inverted common symbol
-	description: Should the common rarity symbol be inverted, like in Coldsnap?
-	initial: no
+	type:			boolean
+	name:			inverted common symbol
+	description:	Should the common rarity symbol be inverted, like in Coldsnap?
+	initial:		no
 styling field:
-	type: boolean
-	name: use guild mana symbols
-	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
-	initial: no
+	type:			boolean
+	name:			use guild mana symbols
+	description:	Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial:		no
 styling field:
-	type: choice
-	name: tap symbol
-	description: What tap and untap symbols should be used on cards?
-	initial: modern
-	choice: modern
-	choice: old
-	choice: diagonal T
+	type:			choice
+	name:			tap symbol
+	description:	What tap and untap symbols should be used on cards?
+	choice:			modern
+	choice:			old
+	choice:			diagonal T
+	initial:		modern
 styling field:
-	type: package choice
-	name: text box mana symbols
-	match: magic-mana-*.mse-symbol-font
-	initial: magic-mana-small.mse-symbol-font
+	type:			package choice
+	name:			text box mana symbols
+	match:			magic-mana-*.mse-symbol-font
+	initial:		magic-mana-small.mse-symbol-font
 styling field:
-	type: boolean
-	name: promo
-	description: Is this card a promo card, with the "P" rarity?
-	initial: no
+	type:			boolean
+	name:			promo
+	description:	Is this card a promo card, with the "P" rarity?
+	initial:		no
 styling field:
-	type: boolean
-	name: remove from autocount
-	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
-	initial: no
+	type:			boolean
+	name:			remove from autocount
+	description:	Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial:		no
 styling field:
-	type: package choice
-	name: overlay
-	description: Should there be an overlay applied, such as foil?
-	match: magic-overlay-*.mse-include
-	required: false
+	type:			package choice
+	name:			overlay
+	description:	Should there be an overlay applied, such as foil?
+	match:			magic-overlay-*.mse-include
+	required:		false
 styling style:
 	frames:
-		render style: checklist
-		direction: vertical
+		render style:	checklist
+		direction:		vertical
 	auto frames:
-		render style: checklist
-		direction: vertical
+		render style:	checklist
+		direction:		vertical
 	use guild mana symbols:
 		choice images:
-			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
-			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+			yes:		/magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:			/magic-mana-small.mse-symbol-font/mana_rg.png
 	tap symbol:
 		render style: both
 		choice images:
-			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
-			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
-			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+			modern:		/magic-mana-large.mse-symbol-font/mana_t.png
+			old:		/magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T:	/magic-mana-large.mse-symbol-font/mana_t_older.png
 	center text 1:
 		render style: both
 		choice images:
-			always:          /magic.mse-game/icons/center-all-text.png
-			short text only: /magic.mse-game/icons/center-short-text.png
-			never:           /magic.mse-game/icons/center-no-text.png
+			always:				/magic.mse-game/icons/center-all-text.png
+			short text only:	/magic.mse-game/icons/center-short-text.png
+			never:				/magic.mse-game/icons/center-no-text.png
 	center text 2:
 		render style: both
 		choice images:
-			always:          /magic.mse-game/icons/center-all-text.png
-			short text only: /magic.mse-game/icons/center-short-text.png
-			never:           /magic.mse-game/icons/center-no-text.png
+			always:				/magic.mse-game/icons/center-all-text.png
+			short text only:	/magic.mse-game/icons/center-short-text.png
+			never:				/magic.mse-game/icons/center-no-text.png
 	inverted common symbol:
 		choice images:
-			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
-			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+			no:			{ symbol_variation(symbol: set.symbol, variation: "common") }
+			yes:		{ symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
 	other options:
-		render style: checklist
-		direction: vertical
+		render style:	checklist
+		direction:		vertical
 
 ############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
@@ -1058,7 +1076,7 @@ extra card style:
 		height:				345
 		z index:			230
 		render style:		image
-		image:				{ set_alpha(split_color_blend(type: "namebox", multicolor_blend: "black"), alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 100)) }
+		image:				{ set_alpha(split_color_blend(type: "namebox", multicolor_blend: "black", hybrid_blend: hybrid_mask()), alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 100)) }
 	namepin:
 		left:				31
 		top:				13
@@ -1074,7 +1092,7 @@ extra card style:
 		height:				345
 		z index:			230
 		render style:		image
-		image:				{ set_alpha(split_color_blend(type: "typebox", transition: if is_room() then 0.058 else 0.0001, multicolor_blend: "black"), alpha: get_alpha_percentage(styling.typebox_opacity_percentage, default: 100)) }
+		image:				{ set_alpha(split_color_blend(type: "typebox", transition: if is_room() then 0.058 else 0.0001, multicolor_blend: "black", hybrid_blend: hybrid_mask()), alpha: get_alpha_percentage(styling.typebox_opacity_percentage, default: 100)) }
 	typepin:
 		left:				31
 		top:				13
@@ -1107,7 +1125,7 @@ extra card style:
 		z index:			230
 		visible:			{ is_fuse() }
 		render style:		image
-		image:				{ set_alpha(split_color_blend(type: "fusebox", transition: 0.058), alpha: get_alpha_percentage(styling.fusebox_opacity_percentage, default: 100)) }
+		image:				{ set_alpha(split_color_blend(type: "fusebox", transition: 0.058, multicolor_blend: "black", hybrid_blend: hybrid_mask()), alpha: get_alpha_percentage(styling.fusebox_opacity_percentage, default: 100)) }
 	fusepin:
 		left:				31
 		top:				13
