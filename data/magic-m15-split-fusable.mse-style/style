@@ -103,8 +103,26 @@ init script:
 		transform_right_modal:	".png",
 		transform_right_normal:	".png",
 	]
-	template :=			{ template_prefix[type]() + template_suffix[type] }
-	land_template :=	{ template_prefix[type]() + (if input != "a" and type == "textbox" and not is_solid("text") then "l" else "") + template_suffix[type] }
+	template :=
+	{
+		base := template_prefix[type]() + template_suffix[type]
+		multiply_folder :=	if not is_back() or not (type == "namebox" or type == "typebox" or type == "fusebox") then ""
+							else if type == "namebox" then	(if is_solid("name") then "multiply/solid/" else "multiply/texture/")
+							else if type == "typebox" then	(if is_solid("type") then "multiply/solid/" else "multiply/texture/")
+							else							(if is_solid("fuse") then "multiply/solid/" else "multiply/texture/")
+		if multiply_folder != "" then base := combine_blend(image1: base, image2: multiply_folder + template_input() + ".png", combine: "multiply")
+		base
+	}
+	land_template :=
+	{
+		base := template_prefix[type]() + (if input != "a" and type == "textbox" and not is_solid("text") then "l" else "") + template_suffix[type]
+		multiply_folder :=	if not is_back() or not (type == "namebox" or type == "typebox" or type == "fusebox") then ""
+							else if type == "namebox" then	(if is_solid("name") then "multiply/solid/" else "multiply/texture/")
+							else if type == "typebox" then	(if is_solid("type") then "multiply/solid/" else "multiply/texture/")
+							else							(if is_solid("fuse") then "multiply/solid/" else "multiply/texture/")
+		if multiply_folder != "" then base := combine_blend(image1: base, image2: multiply_folder + template_input() + ".png", combine: "multiply")
+		base
+	}
 	
 	split_color_blend :=	{ split_color_background(input_left: card.card_color, input_right: card.card_color_2, type: type, transition: transition, multicolor_blend: multicolor_blend, hybrid_blend: hybrid_blend, artifact_blend: artifact_blend) }@(transition: 0.0001, multicolor_blend: "white", hybrid_blend: "white", artifact_blend: "white")
 	
@@ -185,9 +203,9 @@ init script:
 	is_borderless :=	{ chosen(styling.frames, choice:"borderless") }
 	is_clear :=			{ chosen(styling.frames, choice:"clear colorless") }
 	is_beyond :=		{ chosen(styling.frames, choice:"universes beyond")	or auto_beyond() }
-	is_arrows :=		{ chosen(styling.frames, choice:"arrows")			or auto_arrows() }
 	is_room :=			{ chosen(styling.frames, choice:"room")				or auto_room() }
-	is_short_room :=	{ styling.typebox_opacity_percentage > 99 and is_room() }
+	is_arrows :=		{ chosen(styling.frames, choice:"arrows")			or auto_arrows() }
+	is_clear_arrows :=	{ is_arrows() and (styling.namebox_opacity_percentage < 100 or styling.typebox_opacity_percentage < 100) }
 	is_fuse :=			{ card.rule_text_3 != "" }
 	is_extended :=		{ is_borderless() or is_room() }
 	is_back :=			{ styling.back_face == "yes" or (styling.back_face == "if linked to front face" and get_front_face(card) != nil) }
@@ -264,67 +282,67 @@ init script:
 	
 	swap_fonts_name_default :=
 	[
-		name: 		{"Beleren Bold"},
-		size: 		{15},
-		color: 		{if left_clear() or not is_solid("name") then "black" else "white"},
+		name:		{"Beleren Bold"},
+		size:		{15},
+		color:		{if left_clear() then "black" else if is_solid("name") or is_back() then "white" else "black"},
 		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_type_default :=
 	[
-		name: 		{"Beleren Bold"},
-		size: 		{9},
-		color: 		{if left_clear() or not is_solid("type") then "black" else "white"},
+		name:		{"Beleren Bold"},
+		size:		{9},
+		color:		{if left_clear() then (if is_solid("type") and is_room() then "white" else "black") else if is_solid("type") or is_back() then "white" else "black"},
 		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_body_default :=
 	[
-		name: 		{"MPlantin"},
-		size: 		{ left_font_size() },
-		color: 		{if left_clear() or not is_solid("text") then "black" else "white"},
+		name:		{"MPlantin"},
+		size:		{ left_font_size() },
+		color:		{if left_clear() or not is_solid("text") then "black" else "white"},
 		italic:		{"MPlantin-Italic"},
 		vertical:	{0}
 	]
 	swap_fonts_name2_default :=
 	[
-		name: 		{"Beleren Bold"},
-		size: 		{15},
-		color: 		{if right_clear() or not is_solid("name") then "black" else "white"},
+		name:		{"Beleren Bold"},
+		size:		{15},
+		color:		{if right_clear() then "black" else if is_solid("name") or is_back() then "white" else "black"},
 		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_type2_default :=
 	[
-		name: 		{"Beleren Bold"},
-		size: 		{9},
-		color: 		{if right_clear() or not is_solid("type") then "black" else "white"},
+		name:		{"Beleren Bold"},
+		size:		{9},
+		color:		{if right_clear() then (if is_solid("type") and is_room() then "white" else "black") else if is_solid("type") or is_back() then "white" else "black"},
 		italic:		{""},
 		vertical:	{0}
 	]
 	swap_fonts_body2_default :=
 	[
-		name: 		{"MPlantin"},
-		size: 		{ right_font_size() },
-		color: 		{if right_clear() or not is_solid("text") then "black" else "white"},
+		name:		{"MPlantin"},
+		size:		{ right_font_size() },
+		color:		{if right_clear() or not is_solid("text") then "black" else "white"},
 		italic:		{"MPlantin-Italic"},
 		vertical:	{0}
 	]
 	swap_fonts_body3_default :=
 	[
-		name: 		{"MPlantin"},
-		size: 		{ if is_room() then 10 else 11 },
-		color: 		{if not is_solid("fuse") then "black" else "white"},
+		name:		{"MPlantin"},
+		size:		{11},
+		color:		{if is_solid("fuse") or is_back() then "white" else "black"},
 		italic:		{"MPlantin-Italic"},
 		vertical:	{0}
 	]
 	left_font_size := {to_number(pull_comma_array(styling.font_size_cap, end:false, cell:0, default:13))}
 	right_font_size := {to_number(pull_comma_array(styling.font_size_cap, end:false, cell:1, default:left_font_size()))}
 	
-	image_left := { if input == "left" then left_image_left() else right_image_left() }
-	image_right := { if input == "left" then left_image_right() else right_image_right() }
-	left_image_left := { if is_borderless() or left_clear() then 35 else 45 }
-	left_image_right :=
+	image_left := { if input == "left" then image_left_1() else image_left_2() }
+	image_right := { if input == "left" then image_right_1() else image_right_2() }
+	image_left_1 := { if is_borderless() or left_clear() then 35 else 45 }
+	image_right_1 :=
 	{
 		if is_borderless() then
 		(
@@ -340,11 +358,11 @@ init script:
 			)
 			else 286
 		)
-		else if left_clear() then 267
+		else if left_clear() or is_clear_arrows() then 267
 		else 258
 	}
-	right_image_left := { if is_extended() then 258 else if right_clear() then 277 else 286 }
-	right_image_right := { if is_borderless() then 523 else if right_clear() then 508 else 499 }
+	image_left_2 := { if is_extended() then 258 else if right_clear() or is_clear_arrows() then 277 else 286 }
+	image_right_2 := { if is_borderless() then 523 else if right_clear() then 508 else 499 }
 	image_top :=
 	{
 		if is_borderless() then 0 else (
@@ -483,11 +501,11 @@ styling field:
 	description:	Should the fusebox be textured?
 	choice:			textured
 	choice:			solid color
-styling field:
-	type:			slider
-	name:			fusebox opacity percentage
-	description:	Set the opacity percentage for the fusebox. Opaque is 100, transparent is 0. Default is 100.
-	initial:		100
+#styling field:
+#	type:			slider
+#	name:			fusebox opacity percentage
+#	description:	Set the opacity percentage for the fusebox. Opaque is 100, transparent is 0. Default is 100.
+#	initial:		100
 styling field:
 	type:			text
 	name:			font size cap
@@ -859,11 +877,12 @@ card style:
 		line height soft: 0.9
 		line height hard max: 1.3
 		line height line max: 1.6
+	#### Fuse box
 	rule text 3:
-		left: { if is_room() then 60 else 50 }
-		top: { body3_font_vertical() + if is_room() then 224 else 337 }
-		width: { if is_room() then 424 else 444 }
-		height: { if is_room() then 36 else 16 }
+		left: 50
+		top: { body3_font_vertical() + 337 }
+		width: 444
+		height: 16
 		font:
 			name: { body3_font() }
 			italic name: { body3_font_italic() }
@@ -873,6 +892,29 @@ card style:
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { body3_font_size() }
+		alignment: "middle center"
+		z index: 905
+		padding left:   2
+		padding right:  2
+		line height hard: 1.2
+		line height line: 1.5
+		line height soft: 0.9
+	#### Room box
+	rule text 4:
+		left: 60
+		top: 224
+		width: 424
+		height: 36
+		visible: { is_room() }
+		font:
+			name: MPlantin
+			italic name: MPlantin-Italic
+			size: 10
+			scale down to: 6
+			color: {if left_clear() then (if is_solid("type") then "white" else "black") else if is_solid("type") or is_back() then "white" else "black"}
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 10
 		alignment: "middle center"
 		z index: 905
 		padding left:   2
@@ -1125,7 +1167,8 @@ extra card style:
 		z index:			230
 		visible:			{ is_fuse() }
 		render style:		image
-		image:				{ set_alpha(split_color_blend(type: "fusebox", transition: 0.058, multicolor_blend: "black", hybrid_blend: hybrid_mask()), alpha: get_alpha_percentage(styling.fusebox_opacity_percentage, default: 100)) }
+		image:				{ split_color_blend(type: "fusebox", transition: 0.058, multicolor_blend: "black", hybrid_blend: hybrid_mask()) }
+		#image:				{ set_alpha(split_color_blend(type: "fusebox", transition: 0.058, multicolor_blend: "black", hybrid_blend: hybrid_mask()), alpha: get_alpha_percentage(styling.fusebox_opacity_percentage, default: 100)) }
 	fusepin:
 		left:				31
 		top:				13
