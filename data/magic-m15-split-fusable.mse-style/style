@@ -40,13 +40,14 @@ update cards script:
 	description: Updates styling fields
 	script:
 		room :=				chosen(styling.frames,			choice:"room") or lang_setting("is_room")(card.sub_type)
-		short_room :=		chosen(styling.other_options,	choice:"short room image") and room
+		short_room :=		chosen(styling.other_options,	choice:"short room image") or not room
 		borderless :=		chosen(styling.frames,			choice:"borderless")
 		colorless :=		chosen(styling.frames,			choice:"clear colorless")
 		spillover :=		chosen(styling.other_options,	choice: "spillover image")
 		left_clear :=		colorless and card.card_color == "colorless" and (not room or card.card_color_2 == "colorless")
 		right_clear :=		colorless and card.card_color_2 == "colorless" and (not room or card.card_color == "colorless")
 		one_image :=		if room then styling.room_images == "one image" else spillover and not borderless and not left_clear and not right_clear
+		
 		[new_card(
 			copy_from: card,
 			[
@@ -55,10 +56,10 @@ update cards script:
 				rule_text_4:				if room then card.rule_text_3 else nil,
 				styling_data:
 				[
-					auto_frames:				styling.auto_frames + if styling.use_fuse_arrows then (if styling.autoframes == "" then "" else ", ") + "arrows" else ""
-					other_options:				replace(replace(styling.other_options, match:"(, )?spillover image", replace:""), match:"(, )?short room image", replace:"")
+					auto_frames:				if styling.use_fuse_arrows then require_choice(styling.auto_frames, choices: "arrows") else remove_choice(styling.auto_frames, choices: "arrows")
+					other_options:				remove_choice(styling.other_options, choice1:"spillover image", choice2: "short room image")
 					image_layout:				if one_image then "one image" else if styling.room_images == "three images" then "three images" else "two images"
-					typebox_solid_color:		if (styling.room_backfill == rgb(0,0,0)) then rgb(0,0,2) else styling.room_backfill,
+					typebox_solid_color:		if styling.room_backfill == rgb(0,0,0) or styling.room_backfill == rgba(0,0,0,0) then rgba(0,0,0,0) else styling.room_backfill,
 					typebox_opacity_percentage:	if short_room then 100 else 80,
 					rarity_offsets:				"",
 				]
@@ -138,9 +139,9 @@ init script:
 	{
 		base := template_prefix[type]() + template_suffix[type]
 		multiply_folder :=	if not is_back()						then	""
-							else if type == "namebox"				then	(if is_solid("name") then (if styling.namebox_solid_color != rgb(0,0,2)					then "" else "multiply/solid/") else "multiply/texture/")
-							else if type == "typebox"				then	(if is_solid("type") then (if styling.typebox_solid_color != rgb(0,0,2) or is_room()	then "" else "multiply/solid/") else "multiply/texture/")
-							else if type == "fusebox"				then	(if is_solid("fuse") then (if styling.fusebox_solid_color != rgb(0,0,2)					then "" else "multiply/solid/") else "multiply/texture/")
+							else if type == "namebox"				then	(if is_solid("name") then (if styling.namebox_solid_color != rgba(0,0,0,0)				then "" else "multiply/solid/") else "multiply/texture/")
+							else if type == "typebox"				then	(if is_solid("type") then (if styling.typebox_solid_color != rgba(0,0,0,0) or is_room()	then "" else "multiply/solid/") else "multiply/texture/")
+							else if type == "fusebox"				then	(if is_solid("fuse") then (if styling.fusebox_solid_color != rgba(0,0,0,0)				then "" else "multiply/solid/") else "multiply/texture/")
 							else if type == "pt" or type == "pt2"	then	"multiply/pt/"
 							else											""
 		if multiply_folder != "" then base := combine_blend(image1: base, image2: multiply_folder + template_input() + ".png", combine: "multiply")
@@ -150,9 +151,9 @@ init script:
 	{
 		base := template_prefix[type]() + (if input != "a" and type == "textbox" and not is_solid("text") then "l" else "") + template_suffix[type]
 		multiply_folder :=	if not is_back()						then	""
-							else if type == "namebox"				then	(if is_solid("name") then (if styling.namebox_solid_color != rgb(0,0,2)					then "" else "multiply/solid/") else "multiply/texture/")
-							else if type == "typebox"				then	(if is_solid("type") then (if styling.typebox_solid_color != rgb(0,0,2) or is_room()	then "" else "multiply/solid/") else "multiply/texture/")
-							else if type == "fusebox"				then	(if is_solid("fuse") then (if styling.fusebox_solid_color != rgb(0,0,2)					then "" else "multiply/solid/") else "multiply/texture/")
+							else if type == "namebox"				then	(if is_solid("name") then (if styling.namebox_solid_color != rgba(0,0,0,0)				then "" else "multiply/solid/") else "multiply/texture/")
+							else if type == "typebox"				then	(if is_solid("type") then (if styling.typebox_solid_color != rgba(0,0,0,0) or is_room()	then "" else "multiply/solid/") else "multiply/texture/")
+							else if type == "fusebox"				then	(if is_solid("fuse") then (if styling.fusebox_solid_color != rgba(0,0,0,0)				then "" else "multiply/solid/") else "multiply/texture/")
 							else if type == "pt" or type == "pt2"	then	"multiply/pt/"
 							else											""
 		if multiply_folder != "" then base := combine_blend(image1: base, image2: multiply_folder + template_input() + ".png", combine: "multiply")
@@ -528,11 +529,11 @@ styling field:
 	description:	Set the color for the namebox when it is solid.
 	choice:
 		name:			default
-		color:			rgb(0,0,2)
+		color:			rgba(0,0,0,0)
 	choice:
 		name:			black
 		color:			rgb(0,0,0)
-	initial:		rgb(0,0,2)
+	initial:		rgba(0,0,0,0)
 styling field:
 	type:			slider
 	name:			namebox opacity percentage
@@ -552,11 +553,11 @@ styling field:
 	description:	Set the color for the typebox when it is solid.
 	choice:
 		name:			default
-		color:			rgb(0,0,2)
+		color:			rgba(0,0,0,0)
 	choice:
 		name:			black
 		color:			rgb(0,0,0)
-	initial:		rgb(0,0,2)
+	initial:		rgba(0,0,0,0)
 styling field:
 	type:			slider
 	name:			typebox opacity percentage
@@ -574,11 +575,11 @@ styling field:
 	description:	Set the color for the textbox when it is solid.
 	choice:
 		name:			default
-		color:			rgb(0,0,2)
+		color:			rgba(0,0,0,0)
 	choice:
 		name:			black
 		color:			rgb(0,0,0)
-	initial:		rgb(0,0,2)
+	initial:		rgba(0,0,0,0)
 styling field:
 	type:			slider
 	name:			textbox opacity percentage
@@ -596,11 +597,11 @@ styling field:
 	description:	Set the color for the fusebox when it is solid.
 	choice:
 		name:			default
-		color:			rgb(0,0,2)
+		color:			rgba(0,0,0,0)
 	choice:
 		name:			black
 		color:			rgb(0,0,0)
-	initial:		rgb(0,0,2)
+	initial:		rgba(0,0,0,0)
 #styling field:
 #	type:			slider
 #	name:			fusebox opacity percentage
@@ -1244,7 +1245,7 @@ extra card style:
 		render style:		image
 		image:
 			script:
-				image :=	if is_solid("name") and not (styling.namebox_solid_color == rgb(0,0,2))
+				image :=	if is_solid("name") and not (styling.namebox_solid_color == rgba(0,0,0,0))
 							then recolor_image("namebox/solid/" + variant(room: false, arrows: is_arrows()) + ".png", color: styling.namebox_solid_color)
 							else split_color_blend(type: "namebox", multicolor_blend: "black", hybrid_blend: hybrid_mask())
 				set_alpha(image, alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 100))
@@ -1265,7 +1266,7 @@ extra card style:
 		render style:		image
 		image:
 			script:
-				image :=	if is_solid("type") and not (styling.typebox_solid_color == rgb(0,0,2))
+				image :=	if is_solid("type") and not (styling.typebox_solid_color == rgba(0,0,0,0))
 							then recolor_image("typebox/solid/" + variant(room: is_room(), arrows: is_arrows()) + ".png", color: styling.typebox_solid_color)
 							else split_color_blend(type: "typebox", transition: if is_room() then 0.058 else 0.0001, multicolor_blend: "black", hybrid_blend: hybrid_mask())
 				set_alpha(image, alpha: get_alpha_percentage(styling.typebox_opacity_percentage, default: 100))
@@ -1286,7 +1287,7 @@ extra card style:
 		render style:		image
 		image:
 			script:
-				image :=	if is_solid("text") and not (styling.textbox_solid_color == rgb(0,0,2))
+				image :=	if is_solid("text") and not (styling.textbox_solid_color == rgba(0,0,0,0))
 							then recolor_image("textbox/solid/" + variant(room: is_room(), arrows: false) + ".png", color: styling.textbox_solid_color)
 							else split_color_blend(type: "textbox")
 				set_alpha(image, alpha: get_alpha_percentage(styling.textbox_opacity_percentage, default: 100))
@@ -1308,7 +1309,7 @@ extra card style:
 		render style:		image
 		image:
 			script:
-				if is_solid("fuse") and not (styling.fusebox_solid_color == rgb(0,0,2))
+				if is_solid("fuse") and not (styling.fusebox_solid_color == rgba(0,0,0,0))
 				then recolor_image("fusebox/solid/normal.png", color: styling.fusebox_solid_color)
 				else split_color_blend(type: "fusebox", transition: 0.058)
 	fusepin:
@@ -1323,9 +1324,10 @@ extra card style:
 	promo label:
 		left:				50
 		top:				177
-		width:				{if contains(styling.other_options, match:"prerelease stamp") then (if is_room() then 440 else 199) else 0}
+		width:				{ if is_room() then 440 else 199 }
 		height:				20
 		alignment:			middle right
+		visible:			{ contains(styling.other_options, match:"prerelease stamp") }
 		z index:			1030
 		font:
 			name:				ModMatrix
@@ -1334,9 +1336,10 @@ extra card style:
 	promo label 2:
 		left:				291
 		top:				177
-		width:				{if is_room() or not contains(styling.other_options, match:"prerelease stamp") then 0 else 199}
+		width:				199
 		height:				20
 		alignment:			middle right
+		visible:			{ contains(styling.other_options, match:"prerelease stamp") and not is_room() }
 		z index:			1030
 		font:
 			name:				ModMatrix
@@ -1358,9 +1361,9 @@ extra card style:
 		width:				241
 		height:				345
 		z index:			200
+		visible:			{ not is_borderless() }
 		render style:		image
 		popup style:		in place
-		visible:			{ not is_borderless() }
 		image:
 			script:
 				if		left_clear()	then	"texture/x.png"
@@ -1376,9 +1379,9 @@ extra card style:
 		width:				241
 		height:				345
 		z index:			200
+		visible:			{ not is_borderless() }
 		render style:		image
 		popup style:		in place
-		visible:			{ not is_borderless() }
 		image:
 			script:
 				if		right_clear()	then	"texture/x.png"
@@ -1412,7 +1415,7 @@ extra card style:
 		width:				49
 		height:				37
 		z index:			500
-		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
+		visible:			{ transform_symbol_active_left(card.transformation) }
 		render style:		image
 		image:				{ transform_left_background(modal: if transform_symbol_is_modal(card.transformation) then "modal" else "normal") }
 		mask:				transform_left/transform_mask.png
@@ -1422,7 +1425,7 @@ extra card style:
 		width:				49
 		height:				37
 		z index:			500
-		visible:			{ (not transform_symbol_is_empty(card.transformation_2)) and (not transform_symbol_is_right(card.transformation_2)) }
+		visible:			{ transform_symbol_active_left(card.transformation_2) }
 		render style:		image
 		image:				{ transform_left_background(modal: if transform_symbol_is_modal(card.transformation_2) then "modal" else "normal") }
 	transform right:
@@ -1431,7 +1434,7 @@ extra card style:
 		width:				48
 		height:				35
 		z index:			520
-		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
+		visible:			{ transform_symbol_active_right(card.transformation) }
 		render style:		image
 		image:				{ transform_right_background(modal: if transform_symbol_is_modal(card.transformation) then "modal" else "normal") }
 	transform right 2:
@@ -1440,6 +1443,6 @@ extra card style:
 		width:				48
 		height:				35
 		z index:			520
-		visible:			{ (not transform_symbol_is_empty(card.transformation_2)) and (transform_symbol_is_right(card.transformation_2)) }
+		visible:			{ transform_symbol_active_right(card.transformation_2) }
 		render style:		image
 		image:				{ transform_right_background(modal: if transform_symbol_is_modal(card.transformation_2) then "modal" else "normal") }
