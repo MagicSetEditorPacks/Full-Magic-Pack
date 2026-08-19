@@ -35,10 +35,10 @@ init script:
 	include file: /magic-default-image.mse-include/scripts
 	
 	template_prefix := [
-		card: "/magic-modules.mse-include/cards/375 m15 battle/"
-		namebar: "/magic-modules.mse-include/cards/375 m15 battle/namebar/"
-		notch: "/magic-modules.mse-include/cards/375 m15 battle/notch/"
-		texture: "/magic-modules.mse-include/cards/375 m15 battle/texture/"
+		card: "cards/"
+		namebar: "cards/namebar/"
+		notch: "cards/notch/"
+		texture: "cards/texture/"
 		snow: "/magic-modules.mse-include/trims/snow/"
 		nyx: "/magic-modules.mse-include/trims/nyx/"
 		pt:"/magic-modules.mse-include/pts/375 m15/"
@@ -125,31 +125,77 @@ init script:
 	is_boxed := { styling.image_style == "boxed" }
 	is_spillover := { styling.image_style == "spillover" }
 	
-	has_left_symbol := {
-		styling.transform_symbol_side == "left" and not transform_symbol_is_empty(card.transformation)
-	}
-	has_right_symbol := {
-		styling.transform_symbol_side == "right" and not transform_symbol_is_empty(card.transformation)
+	transform_side := {
+		if transform_symbol_active_left(card.transformation)
+			then "left"
+		else if transform_symbol_active_right(card.transformation)
+			then "right"
+		else ""
 	}
 	transform_symbol_offset_left_1 := {
-		if styling.transform_symbol_side == "right" then 401
-		else 0
+		if transform_side() == "right" then 1 else 0
 	}
 	
 	swap_fonts_name_default := [
 		name: {"Beleren Bold"},
 		size: {15},
-		color: {"black"},
+		color: {if is_multiplied() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {15},
-		color: {if styling.defense_style == "pt" then "black" else "white"},
+		color: {if is_multiplied() then "white" else if styling.defense_style == "pt" then "black" else "white"},
 		vertical: {0},
 		italic: {""}
 	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {13},
+		color: {if is_multiplied() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+
+	
+	#### DFC support
+	has_modal := match@(match:"modal")
+	notched_front_face := {
+		get_back_face(card) != nil and not has_modal(card.transformation)
+	}
+	is_notched := {
+		if styling.show_transform_notch == "no"
+			then false
+		else if styling.show_transform_notch == "yes"
+			then true
+		else notched_front_face()
+	}
+	#### modal dfc flags
+	reminder_disabled := { not is_linked_dfc() }
+	is_multiplied := {
+		get_front_face(card) != nil and not has_modal(card.transformation)
+	}
+	ptbox_img := {
+		image := module_ptbox(vehicle:is_vehicle())
+		if is_multiplied() then image := color_multiply(width:135, height: 76)
+		image
+	}
+	reminder_type_height :=	{ 18 }
+	reminder_type_width := { 120 }
+	reminder_cost_height :=	{ 18 }
+	reminder_cost_width := { 40 }
+	reminder_cost_right := { 160 }
+	reminder_box_width :=		{ 170 }
+	reminder_box_height :=		{ 24 }
+	
+	back_face_hint := {
+		back := get_back_face(card) or else nil
+		if back == nil or styling.back_face_hint == "none" then ""
+		else if styling.back_face_hint == "PT, Loyalty, Defense" and back.loyalty != ""
+			then back.loyalty
+		else back.pt
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -177,14 +223,17 @@ styling field:
 	description: Use an alternate symbol for the defense?
 styling field:
 	type: choice
-	name: transform symbol side
-	choice: left
-	choice: right
-	description: Should the Lesson/Transform symbol be on the left or right?
+	name: back face hint
+	choice: PTs only
+	choice: PT, Loyalty, Defense
+	choice: none
+	description: What should be displayed in the transform notch hint?
 styling field:
-	type: boolean
+	type: choice
 	name: show transform notch
-	initial: no
+	choice: if transforming
+	choice: yes
+	choice: no
 	description: Show the transform notch above defense?
 styling field:
 	type: multiple choice
@@ -306,6 +355,7 @@ include file: /magic-modules.mse-include/separators/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/watermarks/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -327,11 +377,11 @@ card style:
 		z index: 200
 		render style: image
 		popup style: in place
-		image: { module_card() }
+		image: { if is_multiplied() then color_multiply(image:module_card(), width:523, height:375, multiply_mask:"cards/hybrid_blend_card.png") else module_card() }
 		mask: frame_mask.png
 	############################# Name line
 	name:
-		left: { if has_left_symbol() then 97 else 67 }
+		left: { if transform_symbol_active_left(card.transformation) then 97 else 67 }
 		top: { 21 + name_font_vertical()}
 		width: { 410 - max(15,card_style.casting_cost.content_width) - (if not transform_symbol_is_empty(card.transformation) then 35 else 0) }
 		height: 22
@@ -345,7 +395,7 @@ card style:
 			size: { name_font_size() }
 			color: { name_font_color() }
 	casting cost:
-		right: { if has_right_symbol() then 449 else 484 }
+		right: { if transform_symbol_active_right(card.transformation) then 449 else 484 }
 		top: 20
 		width: { max(20, card_style.casting_cost.content_width) + 10 }
 		height: 23
@@ -395,7 +445,7 @@ card style:
 	rarity:
 		right: 485
 		top: 220
-		width: 44
+		width: { if get_front_face(card) != nil then 0 else 44 }
 		height: 22
 		z index: 950
 		alignment: middle right
@@ -405,7 +455,7 @@ card style:
 	text:
 		left: 63
 		top: { 252 + body_font_vertical() + chop_top() }
-		width: { (if styling.show_transform_notch and card.pt_2 != "" then 400 else 410) - chop_right() }
+		width: { (if card.pt_2 != "" and is_notched() then 400 else 410) - chop_right() }
 		bottom: { 356 - chop_bottom() }
 		font:
 			name: { body_font() }
@@ -460,21 +510,6 @@ card style:
 			size: {pt_font_size()}
 			color: {pt_font_color()}
 			separator color: red
-	pt 2:
-		z index: 910
-		right: 485
-		top: 309
-		width: 30
-		height:	12
-		alignment: bottom right
-		visible: { styling.show_transform_notch }
-		font:
-			name: Beleren Bold
-			size: 11
-			weight: bold
-			color: {rgb(45,45,45)}
-			separator color: red
-
 ############################################################## Extra card fields
 extra card field:
 	type: choice
@@ -563,6 +598,13 @@ extra card field:
 	type: color
 	name: backup border
 	script: rgb(0,0,0)
+extra card field:
+	type: text
+	name: back face hint
+	script: back_face_hint()
+	editable: false
+	save value: false
+
 extra card style:
 	defense box:
 		left: 459
@@ -590,7 +632,7 @@ extra card style:
 		z index: 720
 		visible: { card.pt != "" and styling.defense_style == "pt" }
 		render style: image
-		image: { module_ptbox(vehicle:is_vehicle()) }
+		image: { ptbox_img() }
 	foil layer:
 		left: 0
 		top : 0
@@ -606,8 +648,8 @@ extra card style:
 		height: 375
 		z index: 210
 		render style: image
-		image: { namebar_background() }
-		mask: { if transform_symbol_is_empty(card.transformation) then "" else template_prefix["namebar"] + styling.transform_symbol_side + "_symbol.png" }
+		image: { if is_multiplied() then color_multiply(image:namebar_background(), width: 523, height:375, multiply_mask:"cards/namebar/hybrid_blend_card.png") else namebar_background() }
+		mask: { if transform_symbol_is_empty(card.transformation) then "" else template_prefix["namebar"] + transform_side() + "_symbol.png" }
 	notch:
 		left: 0
 		top: 0
@@ -616,7 +658,21 @@ extra card style:
 		z index: 210
 		render style: image
 		image: { notch_background() }
-		visible: { styling.show_transform_notch }
+		visible: { is_notched() }
+	back face hint:
+		z index: 910
+		right: 485
+		top: 307
+		width: 30
+		height:	12
+		alignment: bottom right
+		visible: { is_notched() }
+		font:
+			name: ModMatrix
+			size: 12
+			weight: bold
+			color: {rgb(45,45,45)}
+			separator color: red
 	texture:
 		left: 0
 		top: 0
