@@ -70,6 +70,7 @@ init script:
 		snow: "/magic-modules.mse-include/trims/snow/",
 		alias: "/magic-modules.mse-include/extras/alias/",
 		star: "/magic-modules.mse-include/trims/star/",
+		node: "/magic-modules.mse-include/cards/375 nodes/"
 		identity: "/magic-modules.mse-include/indicators/"
 	]
 	template_suffix := [
@@ -95,6 +96,7 @@ init script:
 		alias: "alias.png",
 		snow: "snow.png",
 		star: "star.png",
+		node:"node.png",
 		identity: "identity.png"
 	]
 	template := { 
@@ -123,7 +125,8 @@ init script:
 		single_omen: true,
 		spot: true,
 		spotpage: true,
-		spotpt: true
+		spotpt: true,
+		node: true
 	]
 	watermark_include := "/magic-modules.mse-include/watermarks"
 	# Use land templates for previews because they show more contrast
@@ -144,10 +147,37 @@ init script:
 	spot_page_background := { color_background(type:"spotpage", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	spot_pt := { color_background(type:"spotpt", base_hybrid:card_hybrid, folder:"blend_masks/") }
 
-	crown_background := { color_background(type:"crown", base_hybrid: card_hybrid, folder:"blend_masks/")}
 	beyond_background := { color_background(type:"ubcard", base_hybrid: card_hybrid, folder:template_prefix["card"], blend_type:"card")}
 	devoid_background := { color_background(type:"devoid", base_hybrid: card_hybrid, folder:template_prefix["card"], blend_type:"card")}
+	
+	#### Legend Crown
+	module_crown_mask := {
+		if not transform_symbol_is_empty(card.transformation) then template_prefix["node"]+"mask.png" else ""
+	}
 
+	has_modal := match@(match:"modal")
+	is_multiplied := {
+		get_front_face(card) != nil and not has_modal(card.transformation) and not is_spot()
+	}
+	base_card_img := {
+		image := if is_spot()
+			then spot_background()
+		else if is_devoid()
+			then devoid_background()
+		else if is_clear()
+			then template_prefix["card"] + "xcard.png"
+		else if is_beyond()
+			then beyond_background()
+		else module_card()
+		if is_multiplied() then
+			image := color_multiply(width:375, height:523, multiply_mask:template_prefix["card"] + "hybrid_blend_card.png")
+		image
+	}
+	ptbox_img := {
+		image := if is_spot() then spot_pt() else module_ptbox(vehicle:is_vehicle())
+		if is_multiplied() then image := color_multiply(width:135, height:76)
+		image
+	}
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -223,6 +253,13 @@ init script:
 	card_shape := {"adventure"}
 
 	### Customize fonts
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		size: {16},
+		color: {if is_multiplied() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
 	swap_fonts_name2_default := [
 		name: {"Beleren Bold"},
 		size: {12},
@@ -252,7 +289,7 @@ init script:
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_vehicle() then "white" else "black"},
+		color: {if is_vehicle() or is_multiplied() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -473,6 +510,24 @@ init script:
 	]
 	
 	no_divider := {chosen(styling.other_options, choice:"no flat page divider")}
+	#### transform symbol
+	transform_symbol_image_folder := { "/magic-modules.mse-include/cards/375 nodes/" }
+	transform_symbol_offset_top_1 := { -1 }
+	#### modal dfc flags
+	reminder_disabled := { not is_linked_dfc() }
+	#### Transform nodes
+	node_img := { color_background(type:"node",     base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
+	node_mask := {
+		base := template_prefix["node"]+"mask.png"
+		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
+	}
+	#### Transform Node mirroring
+	node_template := {
+		right_hand := transform_symbol_is_right(card.transformation)
+		if uses_clear_frame() then input := "x"
+		base := template_prefix["node"] + input + ".png"
+		if right_hand then flip_image(base, horizontal: true) else base
+	}
 	
 	custom_border_image := {
 		src := styling.custom_border_source
@@ -493,7 +548,8 @@ init script:
 		crown: module_crown_template,
 		custom_border: custom_border_image,
 		decoration: page_decoration_template
-		alt_nyx: alt_nyx_template
+		alt_nyx: alt_nyx_template,
+		node: node_template
 	]
 ############################################################## Set info fields
 set info style:
@@ -719,6 +775,8 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/crowns/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -741,7 +799,7 @@ card style:
 		z index: 200
 		render style: image
 		popup style: in place
-		image: { if is_spot() then spot_background() else if is_devoid() then devoid_background() else if is_clear() then template_prefix["card"] + "xcard.png" else if is_beyond() then beyond_background() else module_card() }
+		image: { base_card_img() }
 		mask: { (if is_spot() then "spotlight/" else "") + "frame_mask.png" }
 	card color 2:
 		left:	{if is_spot() then 21 else page_coords[page_2_side()]["page"]}
@@ -763,9 +821,19 @@ card style:
 		visible: {left_name() and right_name()}
 	############################# Name line
 	name:
-		left: { (if is_spot() then 22 else 0) + (if card.card_symbol=="none" then 32 else 50) }
+		left:
+			script:
+				(if is_spot() then 22 else 0) + (
+					if card.card_symbol != "none" and transform_symbol_active_left(card.transformation)
+						then 78
+					else if transform_symbol_active_left(card.transformation)
+						then 58
+					else if card.card_symbol != "none"
+						then 50
+					else 32
+				)
 		top: {30 + name_font_vertical()}
-		right:  { 341 - card_style.casting_cost.content_width }
+		right:  { 341 - card_style.casting_cost.content_width - (if transform_symbol_active_right(card.transformation) then 26 else 0) }
 		height: { 23 - 0.5*shrink_name() }
 		alignment: bottom shrink-overflow
 		padding bottom: 0
@@ -814,7 +882,7 @@ card style:
 			weight: {if use_evobar() then "italic" else "bold"}
 			color: {if use_evobar() then "black" else "white"}
 	casting cost:
-		right: 346
+		right: 	{ 346 - (if transform_symbol_active_right(card.transformation) then 28 else 0) }
 		top: 29
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -927,7 +995,7 @@ card style:
 	rarity:
 		right: { if is_spot() then 342 else 344}
 		top: { if is_spot() then 299 else 297}
-		width: { if is_spot() then 22 else 44}
+		width: { if get_front_face(card) != nil then 0 else if is_spot() then 22 else 44}
 		height: 22
 		z index: 720
 		render style: image
@@ -1150,14 +1218,6 @@ extra card field:
 	show statistics: false
 extra card field:
 	type: choice
-	name: crown
-	choice: crown
-	editable: false
-	save value: false
-	show statistics: false
-	script: card.card_color
-extra card field:
-	type: choice
 	name: snow overlay
 	choice: overlay
 	editable: false
@@ -1205,15 +1265,17 @@ extra card field:
 	editable: false
 extra card field:
 	type: text
-	name: vorthos box
-	save value: true
-	editable: true
-	description: Where they put mtgstory.com on story spotlights.
-extra card field:
-	type: text
 	name: promo label
 	save value: true
 	description: The golden promo label.
+extra card field:
+	type: choice
+	name: node
+	script: card.card_color
+	editable: false
+	save value: false
+	show statistics: false
+
 extra card style:
 	color page:
 		left: {page_coords[page_1_side()]["page"]}
@@ -1261,7 +1323,7 @@ extra card style:
 		z index: 800
 		visible: { card.pt != "" }
 		render style: image
-		image: { if is_spot() then spot_pt() else module_ptbox(vehicle:is_vehicle()) }
+		image: { ptbox_img() }
 	stamp:
 		left: 159
 		top: 471
@@ -1384,3 +1446,12 @@ extra card style:
 		render style: image
 		image: {decoration_background()}
 		visible: {right_name()}
+	node:
+		left: 0
+		top: 0
+		height: 523
+		width: 375
+		z index: 610
+		render style: image
+		image: { node_img() }
+		visible: {not transform_symbol_is_empty(card.transformation)}
