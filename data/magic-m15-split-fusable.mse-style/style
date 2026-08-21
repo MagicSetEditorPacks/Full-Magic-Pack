@@ -40,7 +40,7 @@ update cards script:
 	description: Updates styling fields
 	script:
 		room :=				chosen(styling.frames,			choice:"room") or lang_setting("is_room")(card.sub_type)
-		short_room :=		chosen(styling.other_options,	choice:"short room image") or not room
+		short_room :=		chosen(styling.other_options,	choice:"short room image")
 		borderless :=		chosen(styling.frames,			choice:"borderless")
 		colorless :=		chosen(styling.frames,			choice:"clear colorless")
 		spillover :=		chosen(styling.other_options,	choice: "spillover image")
@@ -60,7 +60,7 @@ update cards script:
 					other_options:				remove_choice(styling.other_options, choice1:"spillover image", choice2: "short room image")
 					image_layout:				if one_image then "one image" else if styling.room_images == "three images" then "three images" else "two images"
 					typebox_solid_color:		if styling.room_backfill == rgb(0,0,0) then rgba(0,0,0,0) else styling.room_backfill,
-					typebox_opacity_percentage:	if short_room then 100 else 80,
+					typebox_opacity_percentage:	if short_room then "100" else nil,
 					rarity_offsets:				"",
 				]
 			]
@@ -249,7 +249,7 @@ init script:
 	is_beyond :=		{ chosen(styling.frames, choice:"universes beyond")	or auto_beyond() }
 	is_room :=			{ chosen(styling.frames, choice:"room")				or auto_room() }
 	is_arrows :=		{ chosen(styling.frames, choice:"arrows")			or auto_arrows() }
-	is_clear_arrows :=	{ is_arrows() and (styling.namebox_opacity_percentage < 100 or styling.typebox_opacity_percentage < 100) }
+	is_clear_arrows :=	{ is_arrows() and (get_alpha("name") < 1.0 or get_alpha("type") < 1.0) }
 	is_fuse :=			{ card.rule_text_3 != "" }
 	is_extended :=		{ is_borderless() or is_room() }
 	is_one_image :=		{ styling.image_layout == "one image" }
@@ -316,6 +316,12 @@ init script:
 	right_clear :=
 	{
 		is_clear() and card.card_color_2 == "colorless"
+	}
+	
+	get_alpha :=
+	{
+		if input == "type" and is_solid("type") and is_room() and is_default(styling.typebox_opacity_percentage) then 0.7
+		else get_alpha_percentage(styling[input + "box_opacity_percentage"], default: 100)
 	}
 	
 	hybrid_previews := "land,hybrid"
@@ -425,7 +431,7 @@ init script:
 					else if input == "left" then left_clear()
 					else if input == "right" then right_clear()
 					else false
-		if clear or styling.namebox_opacity_percentage < 100 then 13
+		if clear or get_alpha("name") < 1.0 then 13
 		else 49)
 	}
 	image_bottom :=
@@ -435,8 +441,8 @@ init script:
 					else if input == "left" then left_clear()
 					else if input == "right" then right_clear()
 					else false
-		type := styling.typebox_opacity_percentage < 100
-		if styling.textbox_opacity_percentage < 100 then (if is_fuse() then 334 else 355)
+		type := get_alpha("type") < 1.0
+		if get_alpha("type") < 1.0 then (if is_fuse() then 334 else 355)
 		else if clear then 331
 		else if is_room() and type then 260
 		else if type then 220
@@ -566,7 +572,7 @@ styling field:
 styling field:
 	type:			slider
 	name:			typebox opacity percentage
-	description:	Set the opacity percentage for the typebox. Opaque is 100, transparent is 0. Default is 100.
+	description:	Set the opacity percentage for the typebox. Opaque is 100, transparent is 0. Default is 70 for rooms, 100 otherwise.
 	initial:		100
 styling field:
 	type:			choice
@@ -1257,7 +1263,7 @@ extra card style:
 				image :=	if is_solid("name") and not (styling.namebox_solid_color == rgba(0,0,0,0))
 							then recolor_image("namebox/solid/" + variant(room: false, arrows: is_arrows()) + ".png", color: styling.namebox_solid_color)
 							else split_color_blend(type: "namebox", multicolor_blend: "black", hybrid_blend: hybrid_mask())
-				set_alpha(image, alpha: get_alpha_percentage(styling.namebox_opacity_percentage, default: 100))
+				set_alpha(image, alpha: get_alpha("name"))
 	namepin:
 		left:				31
 		top:				13
@@ -1278,7 +1284,7 @@ extra card style:
 				image :=	if is_solid("type") and not (styling.typebox_solid_color == rgba(0,0,0,0))
 							then recolor_image("typebox/solid/" + variant(room: is_room(), arrows: is_arrows()) + ".png", color: styling.typebox_solid_color)
 							else split_color_blend(type: "typebox", transition: if is_room() then 0.058 else 0.0001, multicolor_blend: "black", hybrid_blend: hybrid_mask())
-				set_alpha(image, alpha: get_alpha_percentage(styling.typebox_opacity_percentage, default: 100))
+				set_alpha(image, alpha: get_alpha("type"))
 	typepin:
 		left:				31
 		top:				13
@@ -1299,7 +1305,7 @@ extra card style:
 				image :=	if is_solid("text") and not (styling.textbox_solid_color == rgba(0,0,0,0))
 							then recolor_image("textbox/solid/" + variant(room: is_room(), arrows: false) + ".png", color: styling.textbox_solid_color)
 							else split_color_blend(type: "textbox")
-				set_alpha(image, alpha: get_alpha_percentage(styling.textbox_opacity_percentage, default: 100))
+				set_alpha(image, alpha: get_alpha("text"))
 	textpin:
 		left:				31
 		top:				13
