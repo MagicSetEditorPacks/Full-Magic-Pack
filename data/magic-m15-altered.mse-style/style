@@ -745,8 +745,8 @@ init script:
 			multiply_mask: (if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]) + "hybrid_blend_card.png"
 		)
 		
-		### multiply levels
-		if is_leveler() then base := color_multiply(
+		### multiply levels/backface
+		if is_leveler() or is_multiplied() then base := color_multiply(
 			image: base, width: 375, height: 523,
 			multiply_mask: multiply_levels()
 		)
@@ -761,15 +761,29 @@ init script:
 		base
 	}
 	multiply_levels := {
+		bump := 0
+		start := 1
+		end := 3
 		crop_width := if is_notched() then 375 else 346
 		level_map := [
-			[],
+			[coord:0, height:lv_1_height()],
 			[coord:lv_2_coordinate(), height:lv_2_height()],
 			[coord:lv_3_coordinate(), height:lv_3_height()],
 			[coord:lv_4_coordinate(), height:lv_4_height()]
 		]
+		if not is_leveler() then (
+			level_map := [
+				[],
+				[coord: 0, height: 152]
+			]
+			end := 1
+		)
+		if is_leveler() and is_multiplied() then (
+			start := 0
+			bump := 1
+		)
 		mask := "multiply_mask_canvas.png"
-		for x from 1 to 3 do (
+		for x from start to end do (
 			lv_info := level_map[x]
 			if lv_info.height <= 0 then "" else (
 				lv_top := 329 + lv_info.coord
@@ -783,7 +797,7 @@ init script:
 				)
 				mask := insert_image(
 					base_image: mask,
-					inserted_image: set_alpha(cropped, alpha:multi_scale[x]),
+					inserted_image: set_alpha(cropped, alpha:multi_scale[x+bump]),
 					offset_x: 0,
 					offset_y: lv_top
 				)
@@ -1188,7 +1202,7 @@ init script:
 	l3_center := {327 + lv_3_coordinate() + 0.5*lv_3_height()}
 	l4_center := {327 + lv_4_coordinate() + 0.5*lv_4_height()}
 	
-	multi_scale := [0, 0.35, 0.7, 0.9, 1.0, 1.2, 1.5, 1.8]
+	multi_scale := [0, 0.35, 0.7, 0.9, 1.0, 1.2, 1.5, 1.8, 2.0, 2,2, 2.5, 2.8, 3.0]
 	level_container := {
 		multiply := multi_scale[level]
 		if is_multiplied() then multiply := multi_scale[level+4]
