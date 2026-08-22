@@ -182,6 +182,7 @@ init script:
 	un_png := replace@(match:".png", replace: "")
 	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
 	center_pt := { contains(styling.other_options, match:"center pt")}
+	card_stamp_disabled_1 := { card.card_stamp == "none" or center_pt() }
 	remove_rarity := { contains(styling.other_options, match:"remove rarity")}
 	pre_stamp := { contains(styling.other_options, match:"prerelease")}
 	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
@@ -287,10 +288,8 @@ init script:
 	}
 	
 	harder_script := [
-		custom_border: custom_border_image,
-		alt_nyx: alt_nyx_template,
 		node: node_template
-	]
+	] + harder_script
 
 ############################################################## Set info fields
 set info style:
@@ -504,9 +503,9 @@ card style:
 		mask: { if is_archetype() then "cards/arch_mask.png" else if is_state() then "cards/state_mask.png" else shape_folder() + "framemask.png" }
 	############################# Name line
 	name:
-		left: { if is_copy() then 32 else 30}
+		left: { (if is_copy() then 32 else 30) + (if transform_symbol_active_left(card.transformation) then 26 else 0) }
 		top: { (if is_archetype() then 10 else if is_copy() then 24 else 26) + name_font_vertical()}
-		width: { 315 - (if is_copy() then card_style.casting_cost.content_width else 0)}
+		width: { 315 - (if is_copy() then card_style.casting_cost.content_width else 0) - (if not transform_symbol_is_empty(card.transformation) then if is_copy() then 26 else 52)}
 		height: {if is_archetype() then 14 else 28 - (0.5 * shrink_name())}
 		alignment: { if is_copy() or mtgo_abil() then "bottom shrink-overflow" else "bottom center"}
 		padding bottom: -2
@@ -533,7 +532,7 @@ card style:
 			weight: {if use_evobar() then "italic" else "bold"}
 			color: {if use_evobar() then "black" else "white"}
 	casting cost:
-		right: 344
+		right: { if transform_symbol_active_right(card.transformation) then 318 else 344 }
 		top: 29
 		width: { if not is_copy() then 0 else max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -710,8 +709,8 @@ card style:
 	############################# PT
 	pt:
 		z index: 900
-		left: { if center_pt() then 157.5 else 286}
-		top: {469 + pt_font_vertical()}
+		left: { if center_pt() then 157.5 else 293 }
+		top: { 467 + pt_font_vertical() }
 		width:	60
 		height:	28
 		alignment: center middle shrink-overflow
@@ -824,10 +823,10 @@ extra card field:
 	show statistics: false
 extra card style:
 	pt box:
-		left: {if center_pt() then 144 else 273 }
-		top: 466
-		width:	81
-		height:	42
+		left: {if center_pt() then 151 else 285 }
+		top: 464
+		width:	70
+		height:	39
 		z index: 720
 		visible: { card.pt != "" }
 		render style: image
@@ -959,7 +958,7 @@ extra card style:
 		width: 56
 		height: 26
 		z index: 850
-		visible: { card.card_stamp != "none" }
+		visible: { not card_stamp_disabled_1() }
 		render style: image
 		image: { stamp_img() }
 	node:
