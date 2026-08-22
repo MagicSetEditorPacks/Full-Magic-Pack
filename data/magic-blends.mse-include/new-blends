@@ -423,6 +423,45 @@ cropped_card_hybrid := [
 ]
 
 
+#### Blend a split card.
+#### First blend the left half like a normal card, then the right half,
+#### then blend both halves linearly over the transition width.
+#### So for example, if transition == 0.1, make a linear blend spanning 10% of the total width in the middle.
+#### If transition == 0.0001 then the gradient happens in less than 1 pixel, so there is effectively no gradient,
+#### but don't put transition == 0 otherwise linear_blend will throw
+split_color_background :=
+{
+	unsplit_linear_blend := linear_blend
+	linear_blend := {
+		unsplit_linear_blend(
+			x1: x1/2,
+			x2: x2/2,
+			y1: y1,
+			y2: y2,
+		)
+	}
+	left_half := color_background(input_left, type: type, base_hybrid:card_hybrid, multicolor_blend: multicolor_blend, hybrid_blend: hybrid_blend, artifact_blend: artifact_blend)
+	linear_blend := {
+		unsplit_linear_blend(
+			x1: (1+x1)/2,
+			x2: (1+x2)/2,
+			y1: y1,
+			y2: y2,
+		)
+	}
+	right_half := color_background(input_right, type: type, base_hybrid:card_hybrid, multicolor_blend: multicolor_blend, hybrid_blend: hybrid_blend, artifact_blend: artifact_blend)
+	if transition < 0.0001 then transition := 0.0001
+	unsplit_linear_blend(
+		image1: left_half,
+		image2: right_half,
+		x1: (1-transition)/2,
+		x2: (1+transition)/2,
+		y1: 0,
+		y2: 0,
+	)
+}@(transition: 0.0001)
+
+
 ########################################################################
 # P/T boxes of flip cards
 ########################################################################
@@ -1057,7 +1096,7 @@ module_nyx :=	 	{
 		folder:template_prefix["nyx"],
 	)
 }
-module_snow :=	 	{ color_background(type:"snow",		base_hybrid:card_hybrid,		folder:template_prefix["snow"]) }
+module_snow :=		{ color_background(type:"snow",		base_hybrid:card_hybrid,		folder:template_prefix["snow"]) }
 module_alias := {
 	template := alias_custom_template
 	land_template := alias_custom_land_template
