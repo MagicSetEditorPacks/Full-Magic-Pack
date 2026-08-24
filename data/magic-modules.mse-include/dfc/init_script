@@ -1,20 +1,24 @@
-	has_modal := match@(match:"modal")
-	
+	### Check if a card should have a transform notch
+	### Modal DFCs don't have one by default
+	has_modal := match@(match:"modal")	
 	is_notched := {
-		get_back_face(card) != nil and not has_modal(card.transformation)
+		force_notched()
+		or (get_back_face(card) != nil and not has_modal(card.transformation))
 	}
+	### Give the template a way to force notches without redefining above
+	force_notched := { false }
 
+	### Handle the back face styling options
+	### Counts as a back face, should be multiplied, etc
 	is_back_face := {
 		styling.back_face == "yes"
 		or (styling.back_face == "if linked to front face" and get_front_face(card) != nil)
 	}
-
-
-	use_meld_bar := {
-		styling.meld_bar == "yes"
-		or (styling.meld_bar == "for melds" and length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0)
+	### True if back face and rarity hidden
+	hidden_back_rarity := {
+		styling.hide_back_face_rarity and is_back_face()
 	}
-	
+	### What is the back face hint?
 	back_face_hint := {
 		back := get_back_face(card) or else nil
 		if back == nil or styling.back_face_hint == "none" then ""
@@ -22,3 +26,44 @@
 			then back.loyalty
 		else back.pt
 	}
+	### offsets
+	back_face_hint_offset_left   := { 0 }
+	back_face_hint_offset_top    := { 0 }
+	back_face_hint_offset_width  := { 0 }
+	back_face_hint_offset_height := { 0 }
+	### font stuff
+	back_face_hint_color := { rgb(45,45,45) }
+	back_face_stroke_radius := { 0 }
+	back_face_hint_stroke_color := { "black" }
+	### Is the meld bar active?
+	use_meld_bar := {
+		styling.meld_bar == "yes"
+		or (styling.meld_bar == "for melds" and length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0)
+	}
+
+	### Manage the color node under the transform symbol
+	### Folder to pull from
+	node_folder := { "/magic-modules.mse-include/cards/375 nodes/" }
+	### Flip the node before blending
+	node_template := {
+		base := node_folder() + input + ".png"
+		if transform_symbol_is_right(card.transformation) then flip_image(base, horizontal: true) else base
+	}
+	### The final image
+	module_node := {
+		template := node_template
+		land_template := node_template
+		color_background(
+			type: "node",
+			base_hybrid: card_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "white"
+		)
+	}
+	### The flipped mask for crowns and bookmarks
+	node_mask := {
+		base := node_folder() + "mask.png"
+		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
+	}
+	
