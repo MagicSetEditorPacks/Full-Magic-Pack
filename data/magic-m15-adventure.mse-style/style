@@ -33,7 +33,6 @@ card dpi: 150
 ###### Standard blanks by kebelqwa
 ###### Spotlight blanks by Femme Fatale
 ###### Cleanup and coding by cajun
-###### Reverse Adventures by BA Start
 ###### Omen Styling by Nora3a
 ###### Omen Styling improvements by Aresiel
 ############################################################## Update
@@ -47,12 +46,23 @@ update cards script:
 		if not has_required_stylesheets(reqs)
 			then []
 		else (
+			was_reversed := chosen(styling.other_options, choice:"reversed")
+			styling_data := []
+			if was_reversed then styling_data := [
+				other_options: remove_choice(styling.other_options, choice:"reversed"),
+				left_style: styling.right_style,
+				right_style: styling.left_style
+			]
 			[
 				new_card(
 					copy_from: card,
-					[vorthos_box: card.vorthos_box]
+					[
+						styling_data: styling_data,
+						vorthos_box: card.vorthos_box
+					]
 				)
-			)
+			]
+		)
 
 ############################################################## Extra scripts
 init script:
@@ -209,7 +219,6 @@ init script:
 	# Is the card a promo card?
 	is_promo := { styling.promo }
 	is_spot := {contains(styling.frames, match:"Spotlight")}
-	is_reversed := { not is_spot() and contains(styling.frames, match:"Reversed")}
 	is_legend :=	{ not is_spot() and auto_legend() }
 	is_vehicle :=	{ not is_spot() and (auto_vehicle()	or contains(styling.frames, match:"vehicle")) }
 	is_nyx :=		{ not is_spot() and (auto_nyx()		or contains(styling.frames, match:"nyx")) }
@@ -347,7 +356,11 @@ init script:
 			true
 		else false;
 
-		adj_color := if flip then color + ", reversed" else color
+		adj_color := if flip then (
+			if chosen(color, choice:"reversed")
+				then replace(color, match:", reversed", replace:"")
+			else color + ", reversed"
+		) else color
 
 		img := case input of
 			"name and type page": double_page_blend(adj_color),
@@ -373,23 +386,23 @@ init script:
 	}
 	named_page := contains@(match:"name")
 	left_name := {
-		style_check := if is_spot() then "name and type page" else if is_reversed() then styling.right_style else styling.left_style
+		style_check := if is_spot() then "name and type page" else styling.left_style
 		named_page(style_check)
 	}
 	right_name := {
-		style_check := if is_spot() then "none" else if is_reversed() then styling.left_style else styling.right_style
+		style_check := if is_spot() then "none" else styling.right_style
 		named_page(style_check)
 	}
 	left_page_img := {
 		page_script(
-			if is_spot() then "name and type page" else if is_reversed() then styling.right_style else styling.left_style,
+			if is_spot() then "name and type page" else styling.left_style,
 			color: (if left_name() then card.card_color_2 else card.card_color),
 			side: "left"
 		)
 	}
 	right_page_img := {
 		page_script(
-			if is_spot() then "none" else if is_reversed() then styling.left_style else styling.right_style,
+			if is_spot() then "none" else styling.right_style,
 			color: (if right_name() then (if left_name() then card.card_color_3 else card.card_color_2) else card.card_color),
 			side: "right"
 		)
@@ -406,30 +419,25 @@ init script:
 	}
 	page_2_side := {
 		## the adventure text of the card
-		## two pages, left (check reverse)
+		## two pages, left
 		## left side page, left
 		## right side page, right
 		## no pages, gone
-		if left_name() and right_name() then
-			if is_reversed() then "right" else "left"
-		else if left_name() then "left"
+		if left_name() then "left"
 		else if right_name() then "right"
 		else "none"
 	}
 	page_3_side := {
 		## the second adventure text of the card
-		## two pages, right (check reverse)
+		## two pages, right
 		## else, gone
-		if left_name() and right_name() then
-			if is_reversed() then "left" else "right"
-		else if left_name() == right_name() then
-			if is_reversed() then "left" else "right"
+		if left_name() and right_name() then "right"
+		else if left_name() == right_name() then "right"
 		else "none"
 	}
 
 	is_omen := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 		
 		if contains(str, match:"omen") then
@@ -437,10 +445,8 @@ init script:
 		else false
 	}
 	
-	reverser := ["left":"right", "right":"left"]
 	page_style := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 			
 		if is_spot() then
@@ -459,7 +465,6 @@ init script:
 	}
 	page_flat := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 			
 		if is_spot() then false else contains(str, match:"flat")
@@ -469,7 +474,6 @@ init script:
 	page_3_flat := {page_flat(page_3_side())}
 	page_omen := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 			
 		if is_spot() then false else contains(str, match:"omen")
@@ -607,7 +611,6 @@ styling field:
 	name: frames
 	description: Frames to use. Higher choices may override lower choices.
 	choice: Spotlight
-	choice: Reversed
 	choice: devoid
 	choice: clear
 	choice: nyx
@@ -981,7 +984,7 @@ card style:
 			color: { type_font_color() }
 			separator color: red
 	indicator 2:
-		left: {(if is_reversed() then 165 else 0) + (if has_identity_2() then 30 else 0)}
+		left: { if has_identity_2() then 30 else 0 }
 		top: {355 + (if is_spot() then 2 else 0) }
 		width: 15
 		height: 15
@@ -1326,7 +1329,7 @@ extra card style:
 		image: {right_page_img()}
 		visible: {not left_name() and not right_name()}
 	binding:
-		left: {if (styling.left_style == "none" and not is_reversed()) or (styling.right_style == "none" and is_reversed()) then 188 else 28 }
+		left: { if styling.left_style == "none" then 188 else 28 }
 		top: 326
 		width: {if styling.left_style == "none" or styling.right_style == "none" then 160 else 321}
 		height:{if is_spot() then 0 else 10}
