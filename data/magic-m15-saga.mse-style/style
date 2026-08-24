@@ -156,6 +156,7 @@ init script:
 	is_promo := { styling.promo }
 	# Do we use loyalty box?
 	starting_loyalty := {chosen(styling.other_options, choice:"use starting loyalty")}
+	starting_defense := {chosen(styling.other_options, choice:"use defense")}
 	# formatting
 	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
 	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
@@ -720,7 +721,7 @@ init script:
 	### so different scripts to determine where the divider is
 	class_divider := {
 		if creature_frame() and is_class() then input := input - 1
-		if card_style.text.layout.bottom > card_style.text.layout.top then 600
+		if card_style.text.bottom < card_style.text.top then 600
 		else if card_style.text.layout.separator[input] or else 0 > 0 then card_style.text.top + card_style.text.layout.separator[input]-13 else 600
 	}
 	### class level separators
@@ -730,11 +731,21 @@ init script:
 		else "dividers/level" + level_divider_slug() + ".png"
 	}
 	level_divider_slug := {
-		[
-			line: "_line",
-			cyber: "_cyber",
-			unnotched: "_bar",
-		][styling.class_levels] or else ""
+		case styling.class_levels of
+			"line": "_line",
+			"cyber": "_cyber",
+			"unnotched": "_bar",
+			"operation": operation_slug(),
+			else: "";
+	}
+	operation_slug := {
+		case remove_tags(card["level_{input}"]) of
+			"Defeated": "_bar",
+			"5 Defense": "_notch5",
+			"4 Defense": "_notch4",
+			"3 Defense": "_notch3",
+			"2 Defense": "_notch2",
+			else: "";
 	}
 	level_label_font_size := {
 		if styling.level_label_font_size != "" then styling.level_label_font_size else 11
@@ -794,6 +805,11 @@ init script:
 	
 	card_stamp_offset_top_1 := {
 		if stamp_shape(field:1) == "triangle" and not creature_frame() then 2 else 0
+	}
+	
+	information_secondary_offset_pt_left_1 := {
+		if starting_defense() or starting_loyalty() then 30
+		else 15
 	}
 
 ############################################################## Set info fields
@@ -871,6 +887,7 @@ styling field:
 	choice: creature
 	choice: custom border
 	choice: use starting loyalty
+	choice: use defense
 	choice: transform notch
 	choice: remove bookmark
 styling field:
@@ -885,6 +902,7 @@ styling field:
 	choice: unnotched
 	choice: line
 	choice: cyber
+	choice: operation
 	choice: custom
 styling field:
 	type: text
@@ -1530,7 +1548,7 @@ card style:
 		z index: 910
 		left: 293
 		top: 466
-		width: {if starting_loyalty() then 0 else 60}
+		width: {if starting_loyalty() or starting_defense() then 0 else 60}
 		height:	28
 		alignment: center middle shrink-overflow
 		font:
@@ -1540,10 +1558,10 @@ card style:
 			separator color: red
 	loyalty:
 		z index: 900
-		left: 326
-		top: 468
-		width: {if starting_loyalty() then 13.16 else 0}
-		height:	34.63
+		left: 310
+		top: 473
+		width: {if starting_loyalty() or starting_defense() then 45 else 0}
+		height:	25
 		alignment: center middle
 		font:
 			name: Beleren Bold
@@ -1864,19 +1882,18 @@ extra card style:
 		width: 70
 		height:	39
 		z index: 840
-		visible: { card.pt != "" and not starting_loyalty() }
+		visible: { card.pt != "" and not starting_loyalty() and not starting_defense() }
 		render style: image
 		image: { module_ptbox() }
 	loyalty box:
-		right: 362
-		top: 466
-		width: 60
-		height: 38
+		right: 364
+		top: 460
+		width: 64
+		height: 52
 		z index: 840
 		render style: image
-		visible: { starting_loyalty() and card.loyalty != "" }
-		choice images:
-			loyalty: /magic-modules.mse-include/loyalty/loyalty shadow.png
+		visible: { card.loyalty != "" and (starting_loyalty() or starting_defense()) }
+		image: { "/magic-modules.mse-include/loyalty/" + (if starting_defense() then "defense" else "loyalty") + " shadow.png" }
 	stamp backing:
 		left: 159
 		top:
@@ -2014,7 +2031,7 @@ extra card style:
 		height:		{ if is_saga() then 3 else 25 }
 		z index:	720
 		render style: image
-		image:		{ if is_case() then "dividers/level_line.png" else if is_class() then class_bar() else "dividers/line.png" }
+		image:		{ if is_case() then "dividers/level_line.png" else if is_class() then class_bar(2) else "dividers/line.png" }
 		visible:	{ if is_class() and remove_zwsp(card.level_2_text) == "" then false else true }
 	divider 3:
 		left:		{ if is_saga() then 29 else 188 }
@@ -2023,7 +2040,7 @@ extra card style:
 		height:		{ if is_saga() then 3 else 25 }
 		z index:	720
 		render style: image
-		image:		{ if is_class() then class_bar() else "dividers/line.png" }
+		image:		{ if is_class() then class_bar(3) else "dividers/line.png" }
 		visible:	{ if is_case() then false else if is_class() and remove_zwsp(card.level_3_text) == "" then false else true }
 	divider 4:
 		left:		{ if is_saga() then 29 else 188 }
@@ -2032,7 +2049,7 @@ extra card style:
 		height:		{ if is_saga() then 3 else 25 }
 		z index:	720
 		render style: image
-		image:		{ if is_class() then class_bar() else "dividers/line.png" }
+		image:		{ if is_class() then class_bar(4) else "dividers/line.png" }
 		visible:	{ if is_case() then false else if is_class() and remove_zwsp(card.level_4_text) == "" then false else true }
 	divider 5:
 		left:		29
