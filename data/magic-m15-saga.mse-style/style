@@ -26,6 +26,52 @@ depends on:
 card width: 375
 card height: 523
 card dpi: 150
+############################################################## Update cards
+update cards script:
+	before version: 2026-08-21
+	description: Update coordinates to offsets
+	script:
+		new_stylesheet := "magic-m15-saga.mse-style"
+		new_version := "2026-08-21"
+		reqs := [[new_stylesheet, new_version]]
+		if not has_required_stylesheets(reqs)
+			then []
+		else (
+			styling_data := styling
+			reminder_off := 0
+			## change reminder coordinate to offset from 155
+			if styling.reminder_coordinate != "" then (
+				reminder_off := styling.reminder_coordinate-155
+				styling_data := [reminder_text_offset: reminder_off]
+			)
+			if styling.chapter_textboxes != "one" and styling.chapter_divider_coordinates != "" then (
+				## change divider coordinates
+				## original 296, modifies 141
+				## original 249,343, modifies 94
+				## original 225,296,367, modifies 70
+				coordinates := split_comma(styling.chapter_divider_coordinates)
+				cells := number_of_textboxes()
+				new_heights := text_column_cell_height_array(alt_top:155+reminder_off)
+				new_str := for x from 0 to cells-2 do (
+					new_top := new_heights[x+1].top
+					given := to_number_lax(coordinates[x])
+					if given == 0 then given := new_top
+					offset := given - new_top
+					offset + ","
+				)
+				styling_data := [chapter_divider_offsets:new_str] + styling_data
+			)
+			[
+				new_card(
+					copy_from: card,
+					[
+						stylesheet: new_stylesheet,
+						stylesheet_version: new_version,
+						styling_data: styling_data
+					]
+				)
+			]
+		)
 ############################################################## Extra scripts
 init script:
 	# Should hybrids have a grey name?
@@ -719,6 +765,7 @@ init script:
 	}
 	text_column_cell_height_array := {
 		top := top_of_text_column()
+		if alt_top != nil then top := alt_top
 		bot := bottom_of_text_column()
 		available := bot - top
 		
@@ -735,7 +782,7 @@ init script:
 			total := total + base + add
 			[return]
 		)
-	}
+	}@(alt_top:nil)
 	text_column_cell_top := {
 		cells := number_of_textboxes()
 		if input > cells then 600 else text_column_cell_height_array()[input-1].top
