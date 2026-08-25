@@ -83,6 +83,7 @@ init script:
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	include file: /magic-modules.mse-include/loyalty/init_script
+	include file: /magic-modules.mse-include/dfc/init_script
 
 	template_prefix := [
 		card: "cards/"
@@ -165,7 +166,6 @@ init script:
 
 	nyx_background := { color_background(type:"nyx", base_hybrid:card_hybrid) }
 	notch_image := { color_background(type:"notch", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
-	node_image := { color_background(type:"node", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
 	snow_texture := { color_background(type:"snow", base_hybrid:card_hybrid) }
 	null_page_blend := { color_background(type:"null_page", base_hybrid:card_hybrid, folder:template_prefix["null_page"]) }
 	single_page_blend := { color_background(type:"single_page", base_hybrid:card_hybrid, folder:template_prefix["single_page"]) }
@@ -201,14 +201,14 @@ init script:
 	swap_fonts_name_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_multiplied() then "white" else "black"},
+		color: {if is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_type_default := [
 		name: {"Beleren Bold"},
 		size: {13},
-		color: {if is_multiplied() then "white" else "black"},
+		color: {if is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -329,7 +329,7 @@ init script:
 		if is_notched() then image := set_mask(mask:"cards/notch_mask.png")
 		## back face multiply
 		multiply_mask := "cards/hybrid_blend_card" + (if has_four_abilities() then "2" else "") + ".png"
-		if is_multiplied() then image := color_multiply(width: 750, height: 1047, multiply_mask:multiply_mask)
+		if is_back_face() then image := color_multiply(width: 750, height: 1047, multiply_mask:multiply_mask)
 		## clear transform mask
 		side_mask := if transform_symbol_active_left(card.transformation) then "x_node.png"
 			else if transform_symbol_active_right(card.transformation) then "x_node_right.png"
@@ -471,32 +471,16 @@ init script:
 		+ ".png"
 	}
 	loyalty_textbox_background_alpha_default := { "30" }
-	is_notched := { 
+
+	force_notched := { 
 		chosen(styling.other_options, choice:"transform notch")
-		or (get_back_face(card) != nil and not has_modal(card.transformation))
 	}
-	has_modal := match@(match:"modal")
-	is_multiplied := {
-		if is_clear() then false else
-		styling.back_face == "yes"
-		or (styling.back_face == "if linked to front face" and get_front_face(card) != nil)
-	}
+	default_back_face := is_back_face
+	is_back_face := { not is_clear() and default_back_face() }
 	nameline_offset_top_1 := {-7}
 	transform_symbol_offset_left_1 := {2}
 	#### modal dfc flags
 	reminder_disabled := { not is_linked_dfc() }
-	
-	use_meld_bar := {
-		styling.meld_bar == "yes"
-		or (styling.meld_bar == "for melds" and length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0)
-	}
-	back_face_hint := {
-		back := get_back_face(card) or else nil
-		if back == nil or styling.back_face_hint == "none" then ""
-		else if styling.back_face_hint == "PT, Loyalty, Defense" and back.loyalty != ""
-			then back.loyalty
-		else back.pt
-	}
 
 ############################################################## Set info fields
 set info style:
@@ -594,28 +578,7 @@ styling field:
 		name:			white
 		color:			rgb(255,255,255)
 	initial:		rgb(0,0,0)
-styling field:
-	type:			choice
-	name:			back face
-	description:	Use the dark back face frame?
-	choice:			yes
-	choice:			if linked to front face
-	choice:			no
-	initial:		if linked to front face
-styling field:
-	type: choice
-	name: back face hint
-	choice: none
-	choice: PTs only
-	choice: PT, Loyalty, Defense
-	description: What should be displayed in the transform notch hint?
-styling field:
-	type: choice
-	name: meld bar
-	choice: for melds
-	choice: yes
-	choice: no
-	description: Use the divider for Meld back faces?
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: text
 	name: custom mask
@@ -751,6 +714,7 @@ include file: /magic-modules.mse-include/loyalty/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
 include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -1165,29 +1129,10 @@ extra card field:
 	editable: false
 extra card field:
 	type: choice
-	name: node
-	script: card.card_color
-	save value: false
-	editable: false
-extra card field:
-	type: choice
 	name: ledge
 	choice: ledge
 	save value: false
 	editable: false
-
-extra card field:
-	type: choice
-	name: meld bar
-	choice: meld
-	editable: false
-	save value: false
-extra card field:
-	type: text
-	name: back face hint
-	script: back_face_hint()
-	editable: false
-	save value: false
 
 extra card style:
 	foil layer:
@@ -1384,15 +1329,6 @@ extra card style:
 		image: { if is_clear() then "notch/x.png" else notch_image() }
 		z index: 721
 		visible: { is_notched() }
-	node:	
-		left: 0
-		top: 0
-		width: 375
-		height: 523
-		z index: 610
-		render style: image
-		image: { node_image() }
-		visible: {not transform_symbol_is_empty(card.transformation)}
 	ledge:
 		left: 0
 		top: 0
@@ -1402,26 +1338,3 @@ extra card style:
 		render style: image
 		image: {"cards/front_ledge" + (if is_adventure() then "_long" else "") + ".png" }
 		visible: { not use_full_art() and (card.card_stamp != "none" or get_front_face(card) == nil) }
-	meld bar:
-		left: 0
-		top: 0
-		width: 375
-		height: 523
-		render style: image
-		image: meldbar.png
-		visible: {use_meld_bar()}
-		z index: 1100
-	back face hint:
-		z index: 890
-		right: 347
-		top: 446
-		width: 30
-		height: 12
-		alignment: bottom right
-		visible: { is_notched() }
-		font:
-			name: ModMatrix
-			size: 12
-			weight: bold
-			color: {rgb(45,45,45)}
-			separator color: red

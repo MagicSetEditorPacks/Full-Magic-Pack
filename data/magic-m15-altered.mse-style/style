@@ -63,7 +63,19 @@ init script:
 	include file: /magic-default-image.mse-include/scripts
 	include file: /magic-pride.mse-include/scripts
 	include file: /magic-modules.mse-include/extras/evobar/script
-
+	#### DFC support
+	include file: /magic-modules.mse-include/dfc/init_script
+	force_notched := { chosen(styling.other_options, choice:"transform notch") }
+	default_notched := is_notched
+	is_notched := {
+		default_notched() and not is_thbland()
+	}
+	node_color := { if styling.alternate_pinlines != "none" then styling.alternate_pinlines else card.card_color }
+	
+	information_secondary_offset_pt_left_1 := {
+		if starting_loyalty() then 30
+		else 15
+	}
 	#### Blend settings
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.hybrid_name == "grey" }
@@ -494,7 +506,7 @@ init script:
 				base_hybrid: card_hybrid,
 				folder: template_prefix["miracle"]
 			)
-			if is_multiplied() then img := color_multiply(image:img, multiply_mask: template_prefix["miracle"] + "mask_point.png", width:375, height:523)
+			if is_back_face() then img := color_multiply(image:img, multiply_mask: template_prefix["miracle"] + "mask_point.png", width:375, height:523)
 			if is_scrolls() then img := set_mask(image:img, mask: template_prefix["miracle"] + "mask_point.png")
 			if is_borderless() and is_frameless() then set_mask(image:img, mask:"frame_masks/miracle_semitrans.png")
 			img
@@ -510,13 +522,6 @@ init script:
 	notch_image_dka := { color_background(type:"notch_dka", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
 	notch_image_ub := { color_background(type:"notch_ub", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
 	notch_image_shifted := { color_background(type:"notch_shifted", base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white") }
-	
-	#### Transform nodes
-	node_img := { color_background(type:"node",     base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
-	node_mask := {
-		base := template_prefix["node"]+"mask.png"
-		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
-	}
 	
 	#### Puma typebar
 	puma_base := { color_background(type:"puma", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"black") }
@@ -580,7 +585,7 @@ init script:
 		else if is_planeshifted()
 			then color_background(type:"shifted_pt", base_hybrid:pt_hybrid, folder:template_prefix["shifted_pt"], blend_type:"pt")
 		else module_ptbox()
-		if is_multiplied() then multiply := multiply + 1
+		if is_back_face() then multiply := multiply + 1
 		if multiply > 0 and not spacecraft then image := color_multiply(iterate:multiply, width:135, height:76, multiply_mask:template_prefix["pt"] + "multiply_mask.png")
 		image
 	}@(multiply:0)
@@ -668,12 +673,28 @@ init script:
 			notched := false
 		)
 		
+		blend_folder := if thb then "energies/" else if dka then "dka/" else template_prefix["card"]
+		
 		### the base blended frame
 		base := color_background(
 				type:"card",
 				base_hybrid:card_hybrid,
-				folder: if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]
+				folder: blend_folder
 			)
+		if styling.alternate_pinlines != "none" then (
+			alt := color_background(
+					styling.alternate_pinlines,
+					type:"card",
+					base_hybrid:card_hybrid,
+					folder: blend_folder
+				)
+			base := insert_image(
+				base_image: base,
+				inserted_image: set_mask(image:alt, mask:blend_folder + "multicolor_blend_card.png"),
+				offset_x: 0,
+				offset_y: 0
+			)
+		)
 		
 		### apply borderless variants
 		# thbland
@@ -703,17 +724,18 @@ init script:
 		if notched then (
 			mask_base := ""
 			mask_notch := ""
+			pin_color := node_color()
 			notch_img := if dka
-				then notch_image_dka()
+				then notch_image_dka(pin_color)
 				else if is_fnm()
-					then notch_image_fnm()
+					then notch_image_fnm(pin_color)
 				else if is_inverted()
-					then notch_image_inv()
+					then notch_image_inv(pin_color)
 				else if is_beyond()
-					then notch_image_ub()
+					then notch_image_ub(pin_color)
 				else if is_planeshifted()
-					then notch_image_shifted()
-				else notch_image()
+					then notch_image_shifted(pin_color)
+				else notch_image(pin_color)
 
 			if mask_base != "" then base := set_mask(image:base, mask:mask_base)
 			if mask_notch != "" then notch_img := set_mask(image:notch_img, mask:mask_notch)
@@ -758,13 +780,13 @@ init script:
 			)
 		
 		### multiply back face
-		if is_multiplied() then base := color_multiply(
+		if is_back_face() then base := color_multiply(
 			image:base, width: 375, height: 523,
 			multiply_mask: (if is_thbland() then "energies/" else if is_dka() then "dka/" else template_prefix["card"]) + "hybrid_blend_card.png"
 		)
 		
 		### multiply levels/backface
-		if is_leveler() or is_multiplied() then base := color_multiply(
+		if is_leveler() or is_back_face() then base := color_multiply(
 			image: base, width: 375, height: 523,
 			multiply_mask: multiply_levels()
 		)
@@ -796,7 +818,7 @@ init script:
 			]
 			end := 1
 		)
-		if is_leveler() and is_multiplied() then (
+		if is_leveler() and is_back_face() then (
 			start := 0
 			bump := 1
 		)
@@ -979,14 +1001,14 @@ init script:
 	swap_fonts_name_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_scrolls() then "black" else if is_multiplied() then "white" else if uses_clear_frame() then "black" else if is_planeshifted() or is_fnm() or (is_inverted() and not is_dka()) then "white" else "black"},
+		color: {if is_scrolls() then "black" else if is_back_face() then "white" else if uses_clear_frame() then "black" else if is_planeshifted() or is_fnm() or (is_inverted() and not is_dka()) then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_type_default := [
 		name: {"Beleren Bold"},
 		size: {13},
-		color: {if is_scrolls() then "black" else if is_multiplied() then "white" else if uses_clear_frame() then "black" else if is_dka() or is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
+		color: {if is_scrolls() then "black" else if is_back_face() then "white" else if uses_clear_frame() then "black" else if is_dka() or is_planeshifted() or is_fnm() or is_inverted() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -1008,7 +1030,7 @@ init script:
 		name: {"Beleren Bold"},
 		size: {if auto_station() then 13 else 15},
 		color: {
-			if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
+			if is_planeshifted() or is_fnm() or is_inverted() or is_back_face() then "white"
 			else if is_vehicle() or auto_station() then "white"
 			else "black"
 		},
@@ -1020,7 +1042,7 @@ init script:
 		size: {if is_prototype() then 15 else if auto_station() then 13 else 15},
 		color: {
 			if is_prototype() then "white"
-			else if is_planeshifted() or is_fnm() or is_inverted() or is_multiplied() then "white"
+			else if is_planeshifted() or is_fnm() or is_inverted() or is_back_face() then "white"
 			else if is_vehicle() or auto_station() then "white"
 			else "black"
 		},
@@ -1222,7 +1244,7 @@ init script:
 	multi_scale := [0, 0.35, 0.7, 0.9, 1.0, 1.2, 1.5, 1.8, 2.0, 2,2, 2.5, 2.8, 3.0]
 	level_container := {
 		multiply := multi_scale[level]
-		if is_multiplied() then multiply := multi_scale[level+4]
+		if is_back_face() then multiply := multi_scale[level+4]
 		if loy_leveler()
 			then loyalty_image(card["level_{level}"])
 		else if box_leveler()
@@ -1378,38 +1400,6 @@ init script:
 			combined_editor(field1: card.rule_text, separator: "<line>\n</line>", field2: card.flavor_text)
 	}
 	
-	#### DFC support
-	force_notched := { chosen(styling.other_options, choice:"transform notch") }
-	has_modal := match@(match:"modal")
-	notched_front_face := {
-		get_back_face(card) != nil and not has_modal(card.transformation)
-	}
-	is_notched := {
-		(force_notched() or notched_front_face()) and not is_thbland()
-	}
-	is_multiplied := {
-		styling.back_face == "yes"
-		or (styling.back_face == "if linked to front face" and get_front_face(card) != nil)
-	}
-	
-	use_meld_bar := {
-		styling.meld_bar == "yes"
-		or (styling.meld_bar == "for melds" and length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0)
-	}
-	back_face_hint := {
-		back := get_back_face(card) or else nil
-		if back == nil or styling.back_face_hint == "none" then ""
-		else if styling.back_face_hint == "PT, Loyalty, Defense" and back.loyalty != ""
-			then back.loyalty
-		else back.pt
-	}
-	
-	information_secondary_offset_pt_left_1 := {
-		if starting_loyalty() then 30
-		else 15
-	}
-
-	
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -1555,32 +1545,7 @@ styling field:
 styling field:
 	type: info
 	name: DFC Options
-styling field:
-	type:			choice
-	name:			back face
-	description:	Use the dark back face frame?
-	choice:			yes
-	choice:			if linked to front face
-	choice:			no
-	initial:		if linked to front face
-styling field:
-	type: boolean
-	name: hide back face rarity
-	description: Hide the rarity symbol on the back face, as began in NEO.
-styling field:
-	type: choice
-	name: back face hint
-	choice: PTs only
-	choice: PT, Loyalty, Defense
-	choice: none
-	description: What should be displayed in the transform notch hint?
-styling field:
-	type: choice
-	name: meld bar
-	choice: for melds
-	choice: yes
-	choice: no
-	description: Use the divider for Meld back faces?
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: info
 	name: Custom icons, card-level
@@ -1607,6 +1572,19 @@ styling field:
 	type: boolean
 	name: colored multicolor land name
 	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: choice
+	name: alternate pinlines
+	description: Changes the pinlines to a different single color
+	choice: none
+	choice: multicolor
+	choice: white
+	choice: blue
+	choice: black
+	choice: red
+	choice: green
+	choice: colorless
+	choice: artifact
 styling field:
 	type: boolean
 	name: use guild mana symbols
@@ -1705,6 +1683,7 @@ include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
 include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -1904,7 +1883,7 @@ card style:
 		width:
 			script:
 				if (not set.shorten_types_for_rarity)
-				or (styling.hide_back_face_rarity and get_front_face(card) != nil)
+				or hidden_back_rarity()
 					then 0
 				else 44 + rarity_user_offset_width(styling.rarity_offsets or else "")
 		height: {22 + rarity_user_offset_height(styling.rarity_offsets or else "")}
@@ -2106,7 +2085,7 @@ card style:
 			name: Beleren Bold
 			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() or cir_leveler() or is_multiplied() then "white" else "black"}
+			color: {if loy_leveler() or cir_leveler() or is_back_face() then "white" else "black"}
 			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
@@ -2123,7 +2102,7 @@ card style:
 			name: Beleren Bold
 			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() or cir_leveler() or is_multiplied() then "white" else "black"}
+			color: {if loy_leveler() or cir_leveler() or is_back_face() then "white" else "black"}
 			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
@@ -2140,7 +2119,7 @@ card style:
 			name: Beleren Bold
 			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() or cir_leveler() or is_multiplied() then "white" else "black"}
+			color: {if loy_leveler() or cir_leveler() or is_back_face() then "white" else "black"}
 			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
@@ -2157,7 +2136,7 @@ card style:
 			name: Beleren Bold
 			size: {if loy_leveler() or cir_leveler() then 11 else 12 + if center_label(0) then 2 else 0}
 			weight: bold
-			color: {if loy_leveler() or cir_leveler() or is_multiplied() then "white" else "black"}
+			color: {if loy_leveler() or cir_leveler() or is_back_face() then "white" else "black"}
 			shadow color: { if loy_leveler() or cir_leveler() then rgba(0,0,0,0) else "white"}
 			shadow blur: 2
 		symbol font:
@@ -2308,7 +2287,7 @@ extra card field:
 extra card field:
 	type: choice
 	name: alias bar
-	script: card.card_color
+	script: node_color()
 	save value: false
 	editable: false
 
@@ -2478,15 +2457,8 @@ extra card field:
 	save value: false
 extra card field:
 	type: choice
-	name: node
-	script: card.card_color
-	editable: false
-	save value: false
-	show statistics: false
-extra card field:
-	type: choice
 	name: crown
-	script: card.card_color
+	script: node_color()
 	save value: false
 	editable: false
 
@@ -2511,7 +2483,7 @@ extra card field:
 extra card field:
 	type: choice
 	name: stamp backing
-	script: card.card_color
+	script: node_color()
 	save value: false
 	editable: false
 extra card field:
@@ -2538,25 +2510,6 @@ extra card field:
 	script: card.card_color_2
 	save value: false
 	editable: false
-extra card field:
-	type: choice
-	name: notch
-	script: card.card_color
-	save value: false
-	editable: false
-extra card field:
-	type: choice
-	name: meld bar
-	choice: meld
-	editable: false
-	save value: false
-extra card field:
-	type: text
-	name: back face hint
-	script: back_face_hint()
-	editable: false
-	save value: false
-
 extra card field:
 	type: choice
 	name: spree
@@ -2753,7 +2706,7 @@ extra card style:
 		font:
 			name: {if loy_leveler() then "MPlantin" else "Beleren Small Caps"}
 			size: {if loy_leveler() then 15 else if length(level_label(0)) < 8 or box_leveler() then 7 else 6}
-			color: { if is_multiplied() then "white" else "black" }
+			color: { if is_back_face() then "white" else "black" }
 			weight: {if loy_leveler() then "" else "bold"}
 		visible: {card.level_0 != "" and not cir_leveler()}
 	lvl label 1:
@@ -2766,7 +2719,7 @@ extra card style:
 		font:
 			name: {if loy_leveler() then "MPlantin" else "Beleren Small Caps"}
 			size: {if loy_leveler() then 15 else if length(level_label(1)) < 8 or box_leveler() then 7 else 6}
-			color: { if is_multiplied() then "white" else "black" }
+			color: { if is_back_face() then "white" else "black" }
 			weight: {if loy_leveler() then "" else "bold"}
 		visible: {card.level_1 != "" and not cir_leveler()}
 	lvl label 2:
@@ -2779,7 +2732,7 @@ extra card style:
 		font:
 			name: {if loy_leveler() then "MPlantin" else "Beleren Small Caps"}
 			size: {if loy_leveler() then 15 else if length(level_label(2)) < 8 or box_leveler() then 7 else 6}
-			color: { if is_multiplied() then "white" else "black" }
+			color: { if is_back_face() then "white" else "black" }
 			weight: {if loy_leveler() then "" else "bold"}
 		visible: {card.level_2 != "" and not cir_leveler()}
 	lvl label 3:
@@ -2792,7 +2745,7 @@ extra card style:
 		font:
 			name: {if loy_leveler() then "MPlantin" else "Beleren Small Caps"}
 			size: {if loy_leveler() then 15 else if length(level_label(2)) < 8 or box_leveler() then 7 else 6}
-			color: { if is_multiplied() then "white" else "black" }
+			color: { if is_back_face() then "white" else "black" }
 			weight: {if loy_leveler() then "" else "bold"}
 		visible: {card.level_3 != "" and not cir_leveler()}
 	d20 overlay 1:
@@ -2901,15 +2854,6 @@ extra card style:
 		height: 15
 		z index: 495
 		visible: {is_legend() and card.border_color == rgb(200,200,200) and not uses_expanded_art()}
-	node:
-		left: 0
-		top: 0
-		height: 523
-		width: 375
-		z index: 610
-		render style: image
-		image: { node_img() }
-		visible: {not transform_symbol_is_empty(card.transformation)}
 	crown:
 		left: 0
 		top: 0
@@ -2995,29 +2939,6 @@ extra card style:
 		visible: { clear_tops() }
 		z index: 199
 		render style: image
-	meld bar:
-		left: 0
-		top: 0
-		width: 375
-		height: 523
-		render style: image
-		image: meldbar.png
-		visible: {use_meld_bar()}
-		z index: 1100
-	back face hint:
-		z index: 650
-		right: 347
-		top: 446
-		width: 30
-		height: 12
-		alignment: bottom right
-		visible: { is_notched() }
-		font:
-			name: ModMatrix
-			size: 12
-			weight: bold
-			color: {rgb(45,45,45)}
-			separator color: red
 	spree:
 		z index: 810
 		left: 0

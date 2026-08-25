@@ -115,7 +115,7 @@ init script:
 	namebar_background := { color_background(type:"namebar",     base_hybrid:card_hybrid, folder:template_prefix["namebar"], blend_type:"card", artifact_blend:"white") }
 	notch_background := { 
 		image := color_background(type:"notch",     base_hybrid:card_hybrid, artifact_blend:"white", multicolor_blend:"white", hybrid_blend:"white")
-		if is_multiplied() then
+		if is_back_face() then
 			image := color_multiply(width:523, height:375, multiply_mask:"notch_multiply.png", iterate:0.35)
 		image
 	}
@@ -144,47 +144,31 @@ init script:
 	swap_fonts_name_default := [
 		name: {"Beleren Bold"},
 		size: {15},
-		color: {if is_multiplied() then "white" else "black"},
+		color: {if is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {15},
-		color: {if is_multiplied() then "white" else if styling.defense_style == "pt" then "black" else "white"},
+		color: {if is_back_face() then "white" else if styling.defense_style == "pt" then "black" else "white"},
 		vertical: {0},
 		italic: {""}
 	]
 	swap_fonts_type_default := [
 		name: {"Beleren Bold"},
 		size: {13},
-		color: {if is_multiplied() then "white" else "black"},
+		color: {if is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 
 	
-	#### DFC support
-	has_modal := match@(match:"modal")
-	notched_front_face := {
-		get_back_face(card) != nil and not has_modal(card.transformation)
-	}
-	is_notched := {
-		if styling.show_transform_notch == "no"
-			then false
-		else if styling.show_transform_notch == "yes"
-			then true
-		else notched_front_face()
-	}
 	#### modal dfc flags
 	reminder_disabled := { not is_linked_dfc() }
-	is_multiplied := {
-		styling.back_face == "yes"
-		or (styling.back_face == "if linked to front face" and get_front_face(card) != nil)
-	}
 	ptbox_img := {
 		image := module_ptbox(vehicle:is_vehicle())
-		if is_multiplied() then image := color_multiply(width:135, height: 76)
+		if is_back_face() then image := color_multiply(width:135, height: 76)
 		image
 	}
 	reminder_type_height :=	{ 18 }
@@ -205,12 +189,26 @@ init script:
 	
 	card_img := {
 		image := module_card()
-		if is_multiplied() then (
+		if is_back_face() then (
 			image := color_multiply(width:523, height:375, multiply_mask:"cards/hybrid_blend_card.png")
 			image := color_multiply(width:523, height:375, multiply_mask:"textbox_multiply.png", iterate:0.35)
 		)
 		image
 	}
+	
+	#### DFC support
+	include file: /magic-modules.mse-include/dfc/init_script
+	default_notched := is_notched
+	is_notched := {
+		if styling.show_transform_notch == "no"
+			then false
+		else if styling.show_transform_notch == "yes"
+			then true
+		else default_notched()
+	}
+	node_disabled := { true }
+	back_face_hint_offset_top := { 9 }
+	back_face_hint_offset_left := { -10 }
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -236,21 +234,7 @@ styling field:
 	choice: loyalty
 	choice: pt
 	description: Use an alternate symbol for the defense?
-styling field:
-	type:			choice
-	name:			back face
-	description:	Use the dark back face frame?
-	choice:			yes
-	choice:			if linked to front face
-	choice:			no
-	initial:		if linked to front face
-styling field:
-	type: choice
-	name: back face hint
-	choice: PTs only
-	choice: PT, Loyalty, Defense
-	choice: none
-	description: What should be displayed in the transform notch hint?
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: choice
 	name: show transform notch
@@ -379,6 +363,7 @@ include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/watermarks/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
 include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -621,12 +606,6 @@ extra card field:
 	type: color
 	name: backup border
 	script: rgb(0,0,0)
-extra card field:
-	type: text
-	name: back face hint
-	script: back_face_hint()
-	editable: false
-	save value: false
 
 extra card style:
 	defense box:
@@ -671,7 +650,7 @@ extra card style:
 		height: 375
 		z index: 210
 		render style: image
-		image: { if is_multiplied() then color_multiply(image:namebar_background(), width: 523, height:375, multiply_mask:"cards/namebar/hybrid_blend_card.png") else namebar_background() }
+		image: { if is_back_face() then color_multiply(image:namebar_background(), width: 523, height:375, multiply_mask:"cards/namebar/hybrid_blend_card.png") else namebar_background() }
 		mask: { if transform_symbol_is_empty(card.transformation) then "" else template_prefix["namebar"] + transform_side() + "_symbol.png" }
 	notch:
 		left: 0
@@ -682,20 +661,6 @@ extra card style:
 		render style: image
 		image: { notch_background() }
 		visible: { is_notched() }
-	back face hint:
-		z index: 910
-		right: 485
-		top: 307
-		width: 30
-		height:	12
-		alignment: bottom right
-		visible: { is_notched() }
-		font:
-			name: ModMatrix
-			size: 12
-			weight: bold
-			color: {rgb(45,45,45)}
-			separator color: red
 	texture:
 		left: 0
 		top: 0

@@ -68,6 +68,9 @@ update cards script:
 init script:
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
+	include file: /magic-modules.mse-include/dfc/init_script
+	default_is_back := is_back_face
+	is_back_face := { not is_spot() and default_is_back() }
 
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
@@ -180,13 +183,9 @@ init script:
 	
 	#### Legend Crown
 	module_crown_mask := {
-		if not transform_symbol_is_empty(card.transformation) then template_prefix["node"]+"mask.png" else ""
+		if not transform_symbol_is_empty(card.transformation) then node_mask() else ""
 	}
 
-	has_modal := match@(match:"modal")
-	is_multiplied := {
-		get_front_face(card) != nil and not has_modal(card.transformation) and not is_spot()
-	}
 	base_card_img := {
 		image := if is_spot()
 			then spot_background()
@@ -197,13 +196,13 @@ init script:
 		else if is_beyond()
 			then beyond_background()
 		else module_card()
-		if is_multiplied() then
-			image := color_multiply(width:375, height:523, multiply_mask:template_prefix["card"] + "hybrid_blend_card.png")
+		if is_back_face() then
+			image := color_multiply(width:375, height:523, multiply_mask:if is_spot() then "" else template_prefix["card"] + "hybrid_blend_card.png")
 		image
 	}
 	ptbox_img := {
 		image := if is_spot() then spot_pt() else module_ptbox(vehicle:is_vehicle())
-		if is_multiplied() then image := color_multiply(width:135, height:76)
+		if is_back_face() then image := color_multiply(width:if is_spot() then 68 else 135, height:if is_spot() then 38 else 76)
 		image
 	}
 	# Use the normal tap symbol
@@ -283,7 +282,7 @@ init script:
 	swap_fonts_name_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_multiplied() then "white" else "black"},
+		color: {if is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -300,6 +299,13 @@ init script:
 			font_size: swap_fonts_name2_default.size()
 		) - shrink_name3()
 	}
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {13},
+		color: {if is_back_face() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
 	swap_fonts_type2_default := [
 		name: {"Beleren Bold"},
 		size: {11},
@@ -316,7 +322,7 @@ init script:
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_vehicle() or is_multiplied() then "white" else "black"},
+		color: {if is_vehicle() or is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -536,12 +542,6 @@ init script:
 	transform_symbol_offset_top_1 := { -1 }
 	#### modal dfc flags
 	reminder_disabled := { not is_linked_dfc() }
-	#### Transform nodes
-	node_img := { color_background(type:"node",     base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
-	node_mask := {
-		base := template_prefix["node"]+"mask.png"
-		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
-	}
 	#### Transform Node mirroring
 	node_template := {
 		right_hand := transform_symbol_is_right(card.transformation)
@@ -682,6 +682,7 @@ styling field:
 	script: verify_watermark_image(value, can_import:false)
 include file: /magic-modules.mse-include/crowns/styling_fields
 include file: /magic-modules.mse-include/rarities/styling_fields
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: boolean
 	name: apply custom fonts
@@ -805,6 +806,7 @@ include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/symbols/card_fields
 include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -1301,13 +1303,6 @@ extra card field:
 	name: promo label
 	save value: true
 	description: The golden promo label.
-extra card field:
-	type: choice
-	name: node
-	script: card.card_color
-	editable: false
-	save value: false
-	show statistics: false
 
 extra card style:
 	color page:
@@ -1479,12 +1474,3 @@ extra card style:
 		render style: image
 		image: {decoration_background()}
 		visible: {right_name()}
-	node:
-		left: 0
-		top: 0
-		height: 523
-		width: 375
-		z index: 610
-		render style: image
-		image: { node_img() }
-		visible: {not transform_symbol_is_empty(card.transformation)}
