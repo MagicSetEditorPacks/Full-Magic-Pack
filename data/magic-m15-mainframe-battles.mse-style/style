@@ -129,6 +129,7 @@ init script:
 	is_borderless := { styling.image_style == "borderless" }
 	is_boxed := { styling.image_style == "boxed" }
 	is_spillover := { styling.image_style == "spillover" }
+	fullest_art := { is_borderless() and not styling.maintain_black_copyright_area }
 	
 	transform_side := {
 		if transform_symbol_active_left(card.transformation)
@@ -206,6 +207,32 @@ init script:
 		)
 	}
 	
+	## transparent frame
+	perc_to_color := {
+		if input == 100 then 255
+		else if input == 0 then 0
+		else to_int(2.55 * (input))
+	}
+	trans_mask := {
+		if is_spillover() or is_boxed() or styling.textbox_opacity == 100 then input
+		else if type == "text" then trans_mask_textbox()
+		else (
+			a := perc_to_color(styling.textbox_opacity)
+			mask := recolor_image("mask_parts/{type}.png", color:rgb(a, a, a))
+			set_mask(image:input)
+		)
+	}
+	trans_mask_textbox := {
+		name_part := "transform_" + (if transform_symbol_is_empty(card.transformation) then "none" else if transform_symbol_active_left(card.transformation) then "left" else "right")
+		text_part := "text" + if is_notched() then "_notched"
+		trans_mask(
+			trans_mask(
+				type: name_part
+			),
+			type: text_part
+		)
+	}
+	
 	#### DFC support
 	include file: /magic-modules.mse-include/dfc/init_script
 	default_notched := is_notched
@@ -245,14 +272,6 @@ styling field:
 	choice: loyalty
 	choice: pt
 	description: Use an alternate symbol for the defense?
-include file: /magic-modules.mse-include/dfc/styling_fields
-styling field:
-	type: choice
-	name: show transform notch
-	choice: if transforming
-	choice: yes
-	choice: no
-	description: Show the transform notch above defense?
 styling field:
 	type: multiple choice
 	name: frames
@@ -274,9 +293,24 @@ styling field:
 	choice: universes beyond
 	initial: nyx, vehicle, universes beyond
 styling field:
+	type: slider
+	name: textbox opacity
+	minimum: 0
+	maximum: 100
+	initial: 100
+	description: Opacity of the textbox for full art frames.
+styling field:
 	type: boolean
 	name: maintain black copyright area
 	initial: no
+include file: /magic-modules.mse-include/dfc/styling_fields
+styling field:
+	type: choice
+	name: show transform notch
+	choice: if transforming
+	choice: yes
+	choice: no
+	description: Show the transform notch above defense?
 styling field:
 	type: boolean
 	name: use ancestral mana symbols
@@ -387,7 +421,8 @@ card style:
 		top width:    17
 		bottom width: 18
 		z index: 170
-		mask: { if is_borderless() then "borderless_mask.png" else "border_mask.png" }
+		mask: border_mask.png
+		visible: { not is_borderless() }
 	card color:
 		left: 0
 		top: 0
@@ -396,7 +431,7 @@ card style:
 		z index: 200
 		render style: image
 		popup style: in place
-		image: { card_img() }
+		image: { trans_mask(type:"text", card_img()) }
 		mask: frame_mask.png
 	############################# Name line
 	name:
@@ -431,9 +466,9 @@ card style:
 		padding top: 0
 	############################# Image
 	image:
-		left: { if is_boxed() then 63 else 41 }
+		left: { if fullest_art() then 0 else if is_boxed() then 63 else 41 }
 		top: { if is_borderless() then 0 else if is_boxed() then 51 else if is_spillover() then 30 else 15 }
-		width: { if is_borderless() then 482 else if is_boxed() then 422 else 467 }
+		width: { if fullest_art() then 523 else if is_borderless() then 482 else if is_boxed() then 422 else 467 }
 		height: { if is_borderless() then 375 else if is_boxed() then 162 else if is_spillover() then 210 else 345 }
 		z index: 100
 		default: { default_image(card.card_color)}
@@ -614,9 +649,11 @@ extra card field:
 	name: art outline
 	script: rgb(0,0,0)
 extra card field:
-	type: color
+	type: choice
 	name: backup border
-	script: rgb(0,0,0)
+	choice: black
+	save value: false
+	editable: false
 
 extra card style:
 	defense box:
@@ -661,7 +698,7 @@ extra card style:
 		height: 375
 		z index: 210
 		render style: image
-		image: { if is_back_face() then color_multiply(image:namebar_background(), width: 523, height:375, multiply_mask:"cards/namebar/hybrid_blend_card.png") else namebar_background() }
+		image: { trans_mask(type:"name", if is_back_face() then color_multiply(image:namebar_background(), width: 523, height:375, multiply_mask:"cards/namebar/hybrid_blend_card.png") else namebar_background()) }
 		mask: { if transform_symbol_is_empty(card.transformation) then "" else template_prefix["namebar"] + transform_side() + "_symbol.png" }
 	notch:
 		left: 0
@@ -670,7 +707,7 @@ extra card style:
 		height: 375
 		z index: 210
 		render style: image
-		image: { notch_background() }
+		image: { trans_mask(type:"notch", notch_background()) }
 		visible: { is_notched() }
 	texture:
 		left: 0
@@ -696,7 +733,7 @@ extra card style:
 		height: 26
 		z index: 850
 		angle: 270
-		visible: { card.card_stamp != "none" }
+		visible: { card.card_stamp != "none" and not fullest_art() }
 		render style: image
 		image: { stamp_img() }
 	art outline:
@@ -752,10 +789,7 @@ extra card style:
 		top : 0
 		width:	523
 		height:	375
-		left width:   17
-		right width:  17
-		top width:    17
-		bottom width: 18
 		z index: 171
-		mask: borderless_mask.png
-		visible: { styling.maintain_black_copyright_area }
+		image: border.png
+		render style: image
+		visible: { not fullest_art()  }
