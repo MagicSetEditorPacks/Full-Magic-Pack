@@ -40,8 +40,6 @@ update cards script:
 		else (
 			front_card := new_card(generate_card_data(style:front_style, side:0), ignore_field_not_found: true)
 			back_card := new_card(generate_card_data(style:front_style, side:1), ignore_field_not_found: true)
-			trace("generated front card: " + front_card.uid)
-			trace("generated back card: " + back_card.uid)
 			add_link(front_card, selected_relation:"Front Face", linked_card:back_card, linked_relation:"Back Face")
 			[front_card, back_card]
 		)
@@ -77,15 +75,20 @@ init script:
 	}
 	## atoning for my sins
 	pt_handler := {
-		places := if front_leveler
-			then [["", "_2", "_3", "_7"], ["_4", "_6", "_7", "_8"]]
-			else [[""], ["_2", "_5", "_6", "_7"]]
+		places := if styling.front_style == "leveler" and styling.back_style == "leveler"
+			then [["", "_2", "_3", "_7"], ["_4", "_5", "_6", "_8"]]
+			else if styling.front_style == "leveler"
+				then [["", "_2", "_3", "_7"], ["_4"]]
+			else if styling.back_style == "leveler"
+				then [[""], ["_4", "_5", "_6", "_8"]]
+			else [[""], ["_2"]]
 		if length(places[side]) < input then nil else nil_if_empty(card["{field}{places[side][input-1]}"])
 	}
 	p_handler := {pt_handler(field:"power")}
 	t_handler := {pt_handler(field:"toughness")}
 	## make the whole new_card array
 	generate_card_data := {
+		leveler_fields := styling.front_style == "leveler" or styling.back_style == "leveler"
 		tag := ["", "_2"][side]				## card fields
 		back := ["", "back_"][side]			## only back noted
 		front := ["front", "back"][side]	## front and back noted
@@ -95,8 +98,9 @@ init script:
 		_5bump := if style == "saga"
 			then [0, 4][side]				## class costs
 			else [0, 5][side]				## leveler levels
-		_8bump := [0, 8][side]				## loyalty levels
-		front_leveler := styling.front_style == "leveler"
+		_8bump := if leveler_fields
+			then [0, 4][side]				## leveler level text
+			else [0, 8][side]				## loyalty levels
 		stylesheet_vers := stylesheet_map[style]
 		
 		card_data := [
@@ -160,11 +164,11 @@ init script:
 			level_9_text:		nil_if_empty(card["level_{17+_3bump}_text"]),
 			level_10_text:		nil_if_empty(card["level_{18+_3bump}_text"]),
 			level_11_text:		nil_if_empty(card["level_{19+_3bump}_text"]),
-			power_1: 			p_handler(1),
+			power: 				p_handler(1),
 			power_2: 			p_handler(2),
 			power_3: 			p_handler(3),
 			power_4: 			p_handler(4),
-			toughness_1: 		t_handler(1),
+			toughness:	 		t_handler(1),
 			toughness_2: 		t_handler(2),
 			toughness_3: 		t_handler(3),
 			toughness_4: 		t_handler(4),
@@ -178,6 +182,7 @@ init script:
 			additional_credit_brush_2: nil_if_check(card.additional_credit_brush_2, check:"none"),
 			additional_credit_brush_3: nil_if_check(card.additional_credit_brush_3, check:"none"),
 			the_list_icon: 		nil_if_default(card["the_list_icon{tag}"]),
+			separator: 			nil_if_default(card["separator{tag}"]),
 			partition: 			nil_if_default(card.partition),
 			custom_card_number: nil_if_empty(card.custom_card_number),
 			card_code_text: 	nil_if_empty(card["card_code_text{tag}"]),
@@ -187,6 +192,8 @@ init script:
 			reminder_type: 		nil_if_empty(extra_card["{hint}_type_hint"]),
 			reminder_cost: 		nil_if_empty(extra_card["{hint}_color_hint"])
 		]
+		
+		card_data
 	}
 	## make the styling_data array
 	generate_style_data := {
