@@ -235,6 +235,66 @@ internal_crop := {
 	)
 	else img
 }@(distance:0, distance2:0, left:nil, right:nil, top:nil, bottom:nil)
+#### add a color multiply to an image
+## input - color to multiply with
+## image - image to multiply
+## height - height of image
+## width - width of image
+## multiply mask - optional mask, only multiply black areas
+## iterate - optional number of times to multiply
+## this multiplies "backwards" so we can get gradients
+color_multiply := {
+	resized_color := if length(input) == 1 then blend_multiply_template(input) else color_background(
+		input,
+		type: "multiply",
+		base_hybrid: card_hybrid,
+		template: blend_multiply_template,
+		land_template: blend_multiply_template,
+		artifact_blend: artifact_blend,
+		hybrid_blend: hybrid_blend,
+		multicolor_blend: multicolor_blend
+	)
+	steps := to_int(iterate)
+	alpha := iterate - steps
+	if alpha >= 0.01 then (
+		steps := steps + 1
+	) else (
+		alpha := 0
+	)
+	masked := type_of(multiply_mask) == "image" or multiply_mask != ""
+	if masked or alpha > 0 then
+		resized_white := blend_multiply_template("white")
+
+	if masked then (
+		resized_color := masked_blend(
+			mask: multiply_mask,
+			light: resized_white,
+			dark: resized_color
+		)
+	)
+	
+	if alpha > 0 then (
+		resized_alpha := insert_image(
+			base_image: resized_white,
+			inserted_image: set_alpha(resized_color),
+			offset_x: 0,
+			offset_y: 0
+		)
+	)
+	
+	for x from 1 to steps do (
+		image := combine_blend(
+			combine: "multiply",
+			image1: (if alpha > 0 and x == steps then resized_alpha else resized_color)
+			image2: image,
+		)
+		"dummy return"
+	)
+	image
+}@(multiply_mask:"", iterate:1, artifact_blend:"black", hybrid_blend:"black", multicolor_blend:"black")
+blend_multiply_template := {
+	resize_image("/magic-modules.mse-include/multiply/{input}.png", width:width, height:height)
+}
 #### pad a string from the front or back or both idk i'm not your dad
 fill_len := {
 	output := to_string(input)
@@ -278,6 +338,14 @@ unique_elements := {
 	e1 := []
 	e2 := []
 	e1 := e1 + for x from 0 to length(of)-1 do if ar_position(of:of[x], in:from) == -1 then [of[x]]
+}
+
+#### exclusive_choice_chain(string, choice1:"choice", toggles:["choice", "choice"])
+#### runs exclusive choice for choice1 and each entry in toggles
+#### for when one option undoes a bunch of things that don't undo each other
+exclusive_choice_chain := {
+	for each option in toggles do input := exclusive_choice(input, choice2:option)
+	input
 }
 
 #### This blends a map of images together
@@ -329,6 +397,54 @@ has_required_stylesheets :=
 	)
 	missing == 0
 }
+
+##### Card Link Utility
+### is this the front/back of a DFC?
+is_linked_dfc :=
+{
+	get_front_face(card) != nil or get_back_face(card) != nil
+}
+### is this the catalyst/base of a Meld?
+is_linked_meld_front :=
+{
+	length(get_cards_from_link(card, linked_relation:"Meld Result")) > 0
+}
+### is this the result of a Meld?
+is_linked_meld_back :=
+{
+	length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0
+}
+### is this the catalyst/base/result of a Meld?
+is_linked_meld :=
+{
+	is_linked_meld_front(card) or is_linked_meld_back(card)
+}
+### does this take the card number from its front face instead of a new one?
+is_linked_back_face :=
+{
+	if get_front_face(card) != nil then true ## basic back face
+	else (
+		meld_base := get_cards_from_link(card, linked_relation:"Meld Base").0 or else nil
+		if meld_base != nil and length(get_cards_from_link(meld_base, linked_relation:"Meld Base")) == 0
+			then true ## safe meld
+		else false ## normal card or base/base meld, each face numbered individually
+	)
+}
+### get the front face or meld base for this card for card numbering. fallback returns itself
+get_linked_numbering_card :=
+{
+	front := get_front_face(card)
+	linked := if front != nil then front
+				else get_cards_from_link(card, linked_relation:"Meld Base").0 or else card
+	linked
+}
+### given a number, get the name of the card at that link
+get_linked_card_name :=
+{
+	name := get_card_from_uid(card["linked_card_{input}"] or else "").name or else ""
+	if name == "" then "LINK{input}NAME" else name
+}
+
 ############################################################## For the user
 #### Remove card codes
 cc_filter := replace@(match:"^[CURMSL][WUBRGMZACL][0-9]+ ?[-—]? ?", replace:"")
@@ -960,6 +1076,8 @@ sort_name :=
 set_filter := {
 	if is_unsorted() then 
 		{ is_unsorted() }
+	else if is_linked_back_face() then
+		{ is_linked_back_face() }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" }
 	else if card.shape == "rulestip" then
@@ -971,9 +1089,9 @@ set_filter := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not token_shape(card.shape) and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not is_masterpiece() }
 }
@@ -983,6 +1101,8 @@ set_filter := {
 set_filter_under_partition := {
 	if is_unsorted() then 
 		{ is_unsorted() }
+	else if is_linked_back_face() then
+		{ is_linked_back_face() }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" and not over_partition() }
 	else if card.shape == "rulestip" then
@@ -994,9 +1114,9 @@ set_filter_under_partition := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) and not over_partition() }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not over_partition() and not is_masterpiece() }
 }
@@ -1006,12 +1126,16 @@ card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:fal
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
 #### the raw numbers, these aren't typically used directly
 card_number := {
+	base := if is_linked_back_face() then card_index(card:get_linked_numbering_card()) else card_index()
+	base + 1 + to_number(card_number_offset())
+}
+card_index := {
 	position (
 		of: card
 		in: set
 		order_by: { partition_index() + rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
 		filter:   set_filter()
-	) + 1 + to_number(card_number_offset())
+	)
 }
 card_count := {
 	number_of_items(in: set, filter: set_filter_under_partition()) + to_number(set_number_offset())
@@ -1828,19 +1952,35 @@ text_filter :=
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-printname></atom-printname>"
 	) +
-	#### step 3b : expand shortcut word LEGENDNAME
+	#### step 3c : expand shortcut word LEGENDNAME
 	replace@(
 		match: "LEGENDNAME>?",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-legname></atom-legname>"
 	) +
-	#### step 3b : expand shortcut word AUTOREM
+	#### step 3d : expand shortcut word AUTOREM
 	replace@(
 		match: "AUTOREM>?",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-autorem></atom-autorem>"
 	) +
-	#### step 3bb : debug atom fields
+	#### step 3d : expand shortcut word LINK#NAME
+	replace@(
+		match: "LINK([1-4])NAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname\\1></atom-linkname\\1>"
+	) +
+	replace@(
+		match: "LINKNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname1></atom-linkname1>"
+	) +
+	replace@(
+		match: "MELDNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname2></atom-linkname2>"
+	) +
+	#### step 3f : debug atom fields
 	replace@(
 		match: "<atom-name>([^<]+)</atom-(card|print)",
 		replace: "<atom-\\2name>\\1</atom-\\2"
@@ -1849,7 +1989,7 @@ text_filter :=
 		match: "<atom-name>",
 		replace: ""
 	) +
-	#### step 3c : fill in atom fields
+	#### step 3g : fill in atom fields
 	tag_contents@(
 		tag: "<atom-cardname>",
 		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
@@ -1886,6 +2026,12 @@ text_filter :=
 			out := tag_contents(out,
 				tag: "<atom-insert"+x+">",
 				contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
+			)
+		
+		for x from 1 to 4 do
+			out := tag_contents(out,
+				tag: "<atom-linkname"+x+">",
+				contents: { "<nospellcheck>" + get_linked_card_name(x) + "</nospellcheck>" }
 			)
 		out
 	} +
@@ -2183,130 +2329,32 @@ saga_lore_count := {
 		else if input[x] == "6" then six := six +1
 		else if input[x] == "7" then seven := seven +1
 		else eight := eight +1
-	[one, two, three, four, five, six, seven]
+	[one, two, three, four, five, six, seven, eight]
 }
-#### index of given chapter number in above array
+#### index of each chapter number in above array
 #### example, 2,2,3, returns 1,2,1
-#### i tried to make this shorter but this is the only one that deigned to function
 saga_ch_placement := {
-	box1 := 0
-	box2 := 0
-	box3 := 0
-	box4 := 0
-	one := 0
-	two := 0
-	three := 0
-	four := 0
-	five := 0
-	six := 0
-	seven := 0
-	len := length(input)
-	if len >= 1 then (
-		if input[0] == "1" then (
-			box1 := box1 +1
-			one := box1+0
-		)else if input[0] == "2" then (
-			box2 := box2 +1
-			one := box2+0
-		)else if input[0] == "3" then (
-			box3 := box3 +1
-			one := box3+0
-		)else if input[0] == "4" then (
-			box4 := box4 +1
-			one := box4+0
-		)else (one := one)
-	)else (one := one)
-	if len >= 2 then (
-		if input[1] == "1" then (
-			box1 := box1 +1
-			two := box1+0
-		)else if input[1] == "2" then (
-			box2 := box2 +1
-			two := box2+0
-		)else if input[1] == "3" then (
-			box3 := box3 +1
-			two := box3+0
-		)else if input[1] == "4" then (
-			box4 := box4 +1
-			two := box4+0
-		)else (two := two)
-	)else (two := two)
-	if len >= 3 then (
-		if input[2] == "1" then (
-			box1 := box1 +1
-			three := box1+0
-		)else if input[2] == "2" then (
-			box2 := box2 +1
-			three := box2+0
-		)else if input[2] == "3" then (
-			box3 := box3 +1
-			three := box3+0
-		)else if input[2] == "4" then (
-			box4 := box4 +1
-			three := box4+0
-		)else (three := three)
-	)else (three := three)
-	if len >= 4 then (
-		if input[3] == "1" then (
-			box1 := box1 +1
-			four := box1+0
-		)else if input[3] == "2" then (
-			box2 := box2 +1
-			four := box2+0
-		)else if input[3] == "3" then (
-			box3 := box3 +1
-			four := box3+0
-		)else if input[3] == "4" then (
-			box4 := box4 +1
-			four := box4+0
-		)else (four := four)
-	)else (four := four)
-	if len >= 5 then (
-		if input[4] == "1" then (
-			box1 := box1 +1
-			five := box1+0
-		)else if input[4] == "2" then (
-			box2 := box2 +1
-			five := box2+0
-		)else if input[4] == "3" then (
-			box3 := box3 +1
-			five := box3+0
-		)else if input[4] == "4" then (
-			box4 := box4 +1
-			five := box4+0
-		)else (five := five)
-	)else (five := five)
-	if len >= 6 then (
-		if input[5] == "1" then (
-			box1 := box1 +1
-			six := box1+0
-		)else if input[5] == "2" then (
-			box2 := box2 +1
-			six := box2+0
-		)else if input[5] == "3" then (
-			box3 := box3 +1
-			six := box3+0
-		)else if input[5] == "4" then (
-			box4 := box4 +1
-			six := box4+0
-		)else (six := six)
-	)else (six := six)
-	if len >= 7 then (
-		if input[6] == "1" then (
-			box1 := box1 +1
-			seven := box1+0
-		)else if input[6] == "2" then (
-			box2 := box2 +1
-			seven := box2+0
-		)else if input[6] == "3" then (
-			box3 := box3 +1
-			seven := box3+0
-		)else if input[6] == "4" then (
-			box4 := box4 +1
-			seven := box4+0
-		)else (seven := seven)
-	)else (seven := seven)
-	[one, two, three, four, five, six, seven]
+	return := ""
+	cache_keys := ""
+	cache_values := ""
+	for x from 0 to length(input)-1 do (
+		box := input[x]
+		if box == "" then box := "0"
+		cache_position := position(of:box, in:cache_keys)
+		index := if cache_position == -1 then 1 else from_hex[cache_values[cache_position]]
+		cache_keys := box + cache_keys
+		cache_values := to_hex[index+1] + cache_values
+		return := return + index + ","
+	)
+	split_comma(return, include_empty:false)
+}
+to_hex := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
+from_hex := ["0":0, "1":1, "2":2, "3":3, "4":4, "5": 5, "6":6, "7":7, "8":8, "9":9, "a":10, "b":11, "c":12, "d":13, "e":14, "f":15]
+#### more efficient version for when we just want one
+saga_ch_placement_single := {
+	self_index := 1
+	for x from 0 to index-1 do if input[x] == input[index] then self_index := self_index + 1
+	self_index
 }
 ############################################################## Typelines
 #### Move the cursor past the separator in the p/t and type boxes
@@ -2965,6 +3013,7 @@ watermark_scripts :=
 	"other magic symbols color pie":                      { watermark_blend(h:500, l:500, wm_directory + "other/colorpie.png", face:face) }
 	"other magic symbols judge academy":                  { watermark_blend(h:500, l:500, wm_directory + "promo/judge_academy.png", face:face) }
 	"other magic symbols foretell":                       { watermark_blend(h:460, l:500, wm_directory + "other/foretell.png", face:face) }
+	"other magic symbols echoverse":          		      { watermark_blend(h:500, l:500, wm_directory + "other/echoverse.png", face:face) }
 	"other magic symbols jace consortium":                { watermark_blend(h:500, l:500, wm_directory + "other/jace-consortium.png", face:face) }
 	"other magic symbols seekers of carmot":              { watermark_blend(h:500, l:500, wm_directory + "other/seekersofcarmot.png", face:face) }
 	"other magic symbols desparked":                      { watermark_blend(h:500, l:500, wm_directory + "other/desparked.png", face:face) }
@@ -3086,6 +3135,10 @@ face_is_rotated :=
 	map := face_coordinates_map(input)
 	map.width > map.height
 }
+face_factor := {
+	map := face_coordinates_map(input)
+	min(map.width, map.height) / 375
+}
 ############################################################## Information below the textbox
 ############################################################## Global offsets
 #### To shift everything up/down:
@@ -3141,7 +3194,7 @@ set_language_script :=
 }
 #### a/b add-ons for DFCs
 card_number_tags := {
-	if contains(card.shape, match:"double")
+	if set.dfc_lettering and (is_linked_dfc() or contains(card.shape, match:"double"))
 		then ["a", "b", "b"]
 	else ["", "", ""]
 }
@@ -3181,7 +3234,7 @@ card_code_script_core := {
 #### Card code script for individual faces
 card_code_script :=
 {
-	card_code_script_core(card_code_text: card.card_code_text, face:1)
+	card_code_script_core(card_code_text: card.card_code_text, face:if get_front_face(card) != nil then 2 else 1)
 }
 card_code_script2 :=
 {
@@ -3543,10 +3596,47 @@ typesymbol_type := { typesymbol_for(type) }
 ############ Default behavior (input is the value of the field)
 transform_symbol_default :=
 {
-	if		get_back_face(card) != nil	then	"front triangle"
-	else if	get_front_face(card) != nil	then	"back triangle"
-	else										"none"
+	front_face := get_front_face(card)
+	if front_face != nil
+		then transform_symbol_counterpart(front_face, fallback:"back triangle")
+	else if get_back_face(card) != nil
+		then "front triangle"
+	else if is_linked_meld_front()
+		then "meld"
+	else "none"
 }
+transform_symbol_counterpart :=
+{
+	front := [
+		"front triangle",
+		"day",
+		"moon",
+		"closed fan",
+		"sparker",
+		"modal front",
+		"comedy",
+		"custom symbol one",
+		"custom symbol three"
+	]
+	back := [
+		"back triangle",
+		"night",
+		"eldrazi",
+		"open fan",
+		"aetherprint",
+		"modal back",
+		"tragedy",
+		"custom symbol two",
+		"custom symbol four"
+	]
+	shape := transform_symbol_shape(input.transformation)
+	front_pos := position(of:shape, in:front)
+	back_pos := position(of:shape, in:back)
+	if front_pos >= 0 then back[front_pos]
+	else if back_pos >= 0 then front[back_pos]
+	else if fallback != "" then fallback
+	else shape
+}@(fallback:"")
 transform_symbol_default_position :=
 {
 	if get_front_face(card) != nil
@@ -3722,6 +3812,14 @@ transform_symbol_is_right :=
 		chosen(input, choice: "position default")
 		and transform_symbol_default_position(input) == "right"
 	)
+}
+transform_symbol_active_left :=
+{
+	input != "" and not transform_symbol_is_empty(input) and not transform_symbol_is_right(input)
+}
+transform_symbol_active_right :=
+{
+	input != "" and not transform_symbol_is_empty(input) and transform_symbol_is_right(input)
 }
 transform_symbol_rim_has_bevel :=
 {
@@ -5115,7 +5213,7 @@ card_stamp_default := {
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
 	if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
 	
-	if field > 1
+	if field > 1 or get_front_face(card) != nil
 		then "none" #### backface doesn't have it by default
 	else stamp_behavior_checks[stamp_behavior](rare_face:is_rare(field:field), shape:shape)
 }@(field:1)
@@ -5264,6 +5362,7 @@ module_crown_template := {
 		"custom": module_custom_crown_template(),
 		else: module_legend_crown_template();
 }@(crown_type:"normal", override:"")
+module_crown_mask := {""}
 
 module_crown := { color_background(type:"crown",     base_hybrid:card_hybrid, folder:crowns_folder()) }
 module_crown_2 := { color_background(type:"crown",     base_hybrid:card_hybrid, folder:crowns_folder(), blend_type:"crown") }
@@ -6207,11 +6306,44 @@ alias_custom_template := {
 	masked_blend(dark:color, light:alias_src+"base.png", mask:alias_src+"mask.png")
 }@(land:false)
 alias_custom_land_template := {alias_custom_template(input, land:true)}
-harder_script := [
+
+evobar_min_width := 54
+evobar_tip_width := 36
+evobar_image_width := { max(evobar_min_width, input + evobar_tip_width) }
+evobar_image := {
+	src := "/magic-modules.mse-include/extras/evobar/evobar_" + (if right == true then "right" else "left") + ".png"
+	if initial_mask != nil then src := set_mask(image:src, mask:initial_mask)
+	nine_slice_image(
+		src,
+		height: 27,
+		width: evobar_image_width(input),
+		left: evobar_min_width - evobar_tip_width - 1,
+		right: evobar_tip_width,
+		top: 4,
+		bottom: 17
+	)
+}@(right:false, initial_mask:nil)
+
+template_alternate_scripts := [
 	alt_nyx: alt_nyx_template,
 	custom_border: custom_border_image,
-	alias: alias_custom_template
+	alias: alias_custom_template,
+	crown: module_crown_template
 ]
+template_mainframe :=
+{ 
+	if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
+		then template_alternate_scripts[type](input, land:false)
+	else template_prefix[type] + input + template_suffix[type]
+}
+land_template_mainframe :=
+{
+	if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
+		then template_alternate_scripts[type](input, land:true)
+	else template_prefix[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + template_suffix[type]
+}
+landless := { position(of:input in:landless_blend_types) >= 0 }
+landless_blend_types := []
 ############################################################## Card column sorting
 type_sort_script :=
 {
@@ -6304,10 +6436,11 @@ name_import_script :=
 pt_import_script :=
 {
 	text := remove_tag(tag:"<sep", remove_tag(tag:"<soft", remove_tag(tag:"<atom-sep", value)))
+	keys := ["power" + suffix, "toughness" + suffix]
+	if trim(text) == "" then make_map(keys:keys, values:["", ""]) else (
 	values := split_text(text, match: lang_setting("pt_separator"))
 	if length(values) != 2 then [] else (
-	keys := ["power" + suffix, "toughness" + suffix]
-	make_map(keys:keys, values:[trim(values[0]), trim(values[1])]))
+	make_map(keys:keys, values:[trim(values[0]), trim(values[1])])))
 }
 type_import_script :=
 {

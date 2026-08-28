@@ -11,22 +11,9 @@ include file: /magic-modules.mse-include/crowns/card_fields
 include file: /magic-modules.mse-include/crowns/card_fields_dfc
 include file: /magic-modules.mse-include/crowns/card_fields_tfc
 
-#### Finally, the template script must be adjusted like so:
-
-	template := { 
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:false)
-		else template_prefix[type] + input + template_suffix[type]
-	}
-	land_template := {
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:true)
-		else template_prefix[type] + input + (if input == "a" then "" else "l") + template_suffix[type]
-	}
-
-	harder_script := [
-		crown: module_crown_template
-	]
+#### Finally overwrite the template scripts with the mainframe alternates if you haven't already
+	template := template_mainframe
+	land_template := land_template_mainframe
 
 #### Optionally, the crowns folder can be changed. Default is
 crowns_folder := {"/magic-modules.mse-include/crowns/375/"}
