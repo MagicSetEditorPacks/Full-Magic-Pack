@@ -38,8 +38,9 @@ update cards script:
 		if not has_required_stylesheets(reqs)
 			then []
 		else (
+			popout_info := popout_crop()
 			front_card := new_card(generate_card_data(style:front_style, side:0), ignore_field_not_found: true)
-			back_card := new_card(generate_card_data(style:front_style, side:1), ignore_field_not_found: true)
+			back_card := new_card(generate_card_data(style:back_style, side:1), ignore_field_not_found: true)
 			add_link(front_card, selected_relation:"Front Face", linked_card:back_card, linked_relation:"Back Face")
 			[front_card, back_card]
 		)
@@ -56,7 +57,7 @@ init script:
 	}
 	stylesheet_map := [
 		#### Putting these 1 day before their actual version so the local update script will run after
-		planeswalker: ["magic-mainframe-planeswalker.mse-style", "2026-08-18"],
+		planeswalker: ["magic-m15-mainframe-planeswalker.mse-style", "2026-08-19"],
 		saga: ["magic-m15-saga.mse-style", "2026-08-20"],
 		map: ["magic-m15-treasure-maps.mse-style", "2026-08-25"],
 		mainframe: ["magic-m15-altered.mse-style", "2026-08-23"]
@@ -72,6 +73,9 @@ init script:
 	}
 	import_unless_default := {
 		if is_default(input) then nil else import_image(input)
+	}
+	import_unless_nil := {
+		if type_of(input) == type_of(nil) then nil else import_image(input)
 	}
 	## atoning for my sins
 	pt_handler := {
@@ -102,7 +106,7 @@ init script:
 			then [0, 4][side]				## leveler level text
 			else [0, 8][side]				## loyalty levels
 		stylesheet_vers := stylesheet_map[style]
-		
+
 		card_data := [
 			stylesheet: 		stylesheet_vers[0],
 			stylesheet_version: stylesheet_vers[1],
@@ -119,9 +123,10 @@ init script:
 			alias: 				nil_if_empty(card["alias{tag}"]),
 			casting_cost: 		card["casting_cost{tag}"],
 			card_symbol:	 	nil_if_default(card["card_symbol{tag}"]),
-			transformation: 	nil_if_check(transform_symbol_backwards_compatibility(card["transformation{tag}"]), check:"position default, background default, rim default, icon default, "),
+			transformation: 	nil_if_check(if styling.dfc_type != "transforming" then "modal {front}" else transform_symbol_backwards_compatibility(card["transformation{tag}"]), check:"position default, background default, rim default, icon default, "),
 			image: 				import_unless_default(card["image{tag}"]),
-			mainframe_image: 	import_unless_default(card["mainframe_image{tag}"]),
+			image_2:			import_unless_nil(if style == "planeswalker" then popout_info[side].image else nil),
+			mainframe_image: 	import_unless_nil(popout_info[side].image),
 			indicator: 			nil_if_default(card["indicator{tag}"]),
 			super_type: 		card["super_type{tag}"],
 			sub_type: 			card["sub_type{tag}"],
@@ -153,7 +158,7 @@ init script:
 			level_2: 			nil_if_empty(card["level_{2+_5bump}"]),
 			level_3: 			nil_if_empty(card["level_{3+_5bump}"]),
 			level_4: 			nil_if_empty(card.level_4),
-			level_1_text:		nil_if_empty(card["level_{1+_8bump}_text"]),
+			level_1_text:		nil_if_empty(if side == 1 and chosen(styling.other_options, choice:"back mutate") then card.level_9_text else card["level_{1+_8bump}_text"]),
 			level_2_text:		nil_if_empty(card["level_{2+_8bump}_text"]),
 			level_3_text:		nil_if_empty(card["level_{3+_8bump}_text"]),
 			level_4_text:		nil_if_empty(card["level_{4+_8bump}_text"]),
@@ -206,17 +211,19 @@ init script:
 		else nil
 
 		styling_data := [
-			promo: 					chosen(styling.other_options, choice:"promo"),
-			remove_from_autocount: 	chosen(styling.other_options, choice:"remove from autocount"),
+			popout_image_style:		nil_if_empty(popout_info[side].coords),
+			promo: 					if chosen(styling.other_options, choice:"promo") then "yes" else "no",
+			remove_from_autocount: 	if chosen(styling.other_options, choice:"remove from autocount") then "yes" else "no",
 			back_face: 				if side == 1 and chosen(styling.other_options, choice:"normal back face") then "no" else nil,
 			back_face_hint: 		bfh
 			meld_bar: 				if side == 1 and chosen(styling.other_options, choice:"meld back") then "yes" else nil,
 			hide_back_face_rarity: 	if chosen(styling.other_options, choice:"use backface rarity") then "no" else nil,
 			center_text: 			if chosen(styling.other_options, choice:"center {front}") then "always" else nil,
 			custom_border_source: 	styling.custom_border_source,
+			card_watermark: 		nil_if_empty(styling["card_watermark{tag}"]),
 			alt_rarity_color: 		styling.alt_rarity_color,
 			mainframe_rarity_name: 	styling.mainframe_rarity_name,
-			rarity_offets: 			styling.rarity_offsets,
+			rarity_offsets: 		styling.rarity_offsets,
 			legend_crown: 			styling.legend_crown,
 			custom_crown_location: 	styling.custom_crown_location,
 			apply_custom_fonts: 	styling.apply_custom_fonts,
@@ -260,17 +267,17 @@ init script:
 				shrink_name_text: 		shrink_name,
 				shrink_typeline_text: 	shrink_type,
 				font_cap: 				font_cap,
-				d20_dividers: 			if side == 1 then styling.d20_dividers_back else styling.d20_dividers,
-				custom_symbol: 			styling["custom_symbol_{one}"],
-				card_watermark: 		styling["card_watermark{tag}"],
-				level_label: 			styling.level_label,
-				level_containers: 		styling["level_containers{tag}"],
-				level_mana_symbols: 	styling.level_mana_symbols
+				d20_dividers: 			nil_if_default(if side == 1 then styling.d20_dividers_back else styling.d20_dividers),
+				custom_symbol: 			nil_if_empty(styling["custom_symbol_{one}"]),
+				level_label: 			nil_if_empty(styling.level_label),
+				level_containers: 		nil_if_default(styling["level_containers{tag}"]),
+				level_mana_symbols: 	nil_if_default(styling.level_mana_symbols)
 			]
 			
 			## styling.frames
 			## clear, devoid, mutate, draft ub, miracle, nyx, vehicle, leveler, snow, custom
 			frames := []
+			if chosen(styling.other_options, choice:"mythic edition") 		  then frames := frames + ["borderless art"]
 			if chosen(styling.other_options, choice:"clear {front}") 		  then frames := frames + ["clear"]
 			if chosen(styling.other_options, choice:"{front} mutate") 		  then frames := frames + ["mutate"]
 			if chosen(styling.other_options, choice:"draft matters {front}")  then frames := frames + ["draft matters"]
@@ -289,13 +296,18 @@ init script:
 			if chosen(styling.other_options, choice:"prerelease stamps") 	  then options := options + ["prerelease stamp"]
 			if chosen(styling.other_options, choice:"pokemon evobar") 		  then options := options + ["pokemon evobar"]
 			if chosen(styling.other_options, choice:"ancestral generic mana") then options := options + ["ancestral generic mana"]
+			options := options + ["avoid covering devoid"]
+			if chosen(styling.other_options, choice:"automate type frames")
+				then options := options + [ "auto vehicles", "auto snow", "auto nyx crowns", "auto ub", "auto spacecraft" ]
+			
 			if chosen(styling.other_options, choice:"regular pt on levelers") then options := options + ["regular pt on levelers"]
 			if chosen(styling.other_options, choice:"pride pinlines") 		  then options := options + ["pride pinlines"]
+			styling_data := styling_data + [other_options:join(options)]
 			
 			## leveler offsets
-			if styling["{back}stripe_coordinate"]
+			if styling["{back}stripe_coordinate"] != ""
 				then styling_data := styling_data + [level_offsets:styling["{back}stripe_coordinate"]]
-			if styling["move_{back}loyalty_costs"]
+			if styling["move_{back}loyalty_costs"] != ""
 				then styling_data := styling_data + [arrow_or_bullet_offsets:styling["move_{back}loyalty_costs"]]
 		)
 		
@@ -307,41 +319,43 @@ init script:
 				shrink_name_text: 			shrink_name,
 				shrink_typeline_text: 		shrink_type,
 				default_image_size: 		if chosen(styling.other_options, choice:"wider planeswalker images") then "no" else nil,
-				textbox_opacity_percentage: styling["textbox_opacity_percentage{tag}"],
-				textbox_color: 				styling["textbox_color{tag}"],
-				stripes_opacity_percentage: styling["stripes_opacity_percentage{tag}"],
-				stripes_color: 				styling["stripes_color{tag}"],
-				rule_text_color: 			styling["rule_text_color{tag}"]
+				textbox_opacity_percentage: nil_if_default(styling["textbox_opacity_percentage{tag}"]),
+				textbox_color: 				nil_if_default(styling["textbox_color{tag}"]),
+				stripes_opacity_percentage: nil_if_default(styling["stripes_opacity_percentage{tag}"]),
+				stripes_color: 				nil_if_default(styling["stripes_color{tag}"]),
+				rule_text_color: 			nil_if_default(styling["rule_text_color{tag}"])
 			]
 
-			## styling.override_levels
+			## styling.number_of_textboxes
 			ol := if styling["{front}_style"] == "auto-sizing planeswalker"
 					then "automatic"
 				else if styling["{front}_style"] == "4 ability planeswalker"
-					then "four abilities"
+					then "4"
 				else if styling["{front}_style"] == "3 ability planeswalker"
-					then "three abilities"
+					then "3"
 				else if styling["{front}_style"] == "2 ability planeswalker"
-					then "two abilities"
-				else "one ability"
-			styling_data := styling_data + [override_levels: ol]
+					then "2"
+				else "1"
+			styling_data := styling_data + [number_of_textboxes: ol]
 			
 			## styling.custom_mask
 			cm := styling["custom_mask{tag}"]
 			if cm != "" then styling_data := styling_data + [custom_mask:cm]
+			
+			## styling.use_tall_frame
+			if chosen(styling.other_options, choice:"force fourwalker {front}") then styling_data := styling_data + [use_tall_frame: "always"]
 
 			## styling.other_options
 			## clear, ancestral, pr stamp, unindent, med, evobar, nyx, snow, vehicle, custom border, adventure, pride, popunder, notch
 			options := []
-			if chosen(styling.other_options, choice:"force fourwalker {front}") 	then options := options + ["use taller frame"]
-			if chosen(styling.other_options, choice:"clear {front}") 				then options := options + ["clear"]
-			if chosen(styling.other_options, choice:"ancestral generic mana") 		then options := options + ["ancestral generic mana"]
-			if chosen(styling.other_options, choice:"prerelease stamps") 			then options := options + ["prerelease stamp"]
+			if chosen(styling.other_options, choice:"clear {front}") 				 then options := options + ["clear frame"]
+			if chosen(styling.other_options, choice:"ancestral generic mana") 		 then options := options + ["ancestral generic mana"]
+			if chosen(styling.other_options, choice:"prerelease stamps") 			 then options := options + ["prerelease stamp"]
 			if chosen(styling.other_options, choice:"unindent nonloyalty abilities") then options := options + ["un-indent nonloyalty abilities"]
-			if chosen(styling.other_options, choice:"mythic edition") 				then options := options + ["prerelease stamp"]
-			if chosen(styling.other_options, choice:"pokemon evobar") 				then options := options + ["pokemon evobar"]
-			if chosen(styling.other_options, choice:"custom border {front}") 		then options := options + ["custom border"]
-			if chosen(styling.other_options, choice:"pride pinlines") 				then options := options + ["pride pinlines"]
+			if chosen(styling.other_options, choice:"mythic edition") 				 then options := options + ["mythic edition fullart"]
+			if chosen(styling.other_options, choice:"pokemon evobar") 				 then options := options + ["pokemon evobar"]
+			if chosen(styling.other_options, choice:"custom border {front}") 		 then options := options + ["custom border"]
+			if chosen(styling.other_options, choice:"pride pinlines") 				 then options := options + ["pride pinlines"]
 			styling_data := styling_data + [other_options: join(options)]
 		)
 		
@@ -353,14 +367,15 @@ init script:
 				chop_text_box: 					chops,
 				shrink_name_text: 				shrink_name,
 				shrink_typeline_text: 			shrink_type,
-				class_levels: 					styling.class_levels,
-				custom_class_bar: 				styling.custom_class_bar,
-				alternate_saga_reminder: 		styling.alternate_saga_reminder,
-				custom_chapter_coordinate: 		styling.custom_chapter_coordinate,
-				custom_chapter_name: 			styling.custom_chapter_name,
-				replacement_chapter_location: 	styling.replacement_chapter_location
+				class_levels: 					nil_if_default(styling.class_levels),
+				custom_class_bar: 				nil_if_default(styling.custom_class_bar),
+				alternate_saga_reminder: 		nil_if_empty(styling.alternate_saga_reminder),
+				custom_chapter_coordinate: 		nil_if_empty(styling.custom_chapter_coordinate),
+				custom_chapter_name:	 		nil_if_empty(styling.custom_chapter_name),
+				custom_chapter_location:		nil_if_empty(styling.custom_chapter_location),
+				replacement_chapter_location: 	nil_if_empty(styling.replacement_chapter_location)
 			]
-
+			trace(styling_data.custom_chapter_coordinate)
 			## styling.chapter_textboxes
 			if styling["{front}_style"] == "2 box saga"
 				then styling_data := styling_data + [chapter_textboxes:"two"]
@@ -378,12 +393,71 @@ init script:
 				then frames := frames + ["case"]
 			if chosen(styling.other_options, choice:"custom border {front}") then frames := frames + ["custom border"]
 			if chosen(styling.other_options, choice:"clear {front}") then frames := frames + ["clear"]
+			if chosen(styling.other_options, choice:"mythic edition") then options := options + ["borderless"]
 			styling_data := styling_data + [other_options: join(frames)]
 			
-			styling_data := styling_data + [chapter_divider_coordinates: styling["{back}stripe_coordinate"]]
+			cd := styling["{back}stripe_coordinate"]
+			if cd != "" then styling_data := styling_data + [chapter_divider_coordinates: cd ]
 		)
 		
 		styling_data
+	}
+	
+	popout_crop := {
+		dimensions := dimensions_of(card.mainframe_image)
+		real_width := dimensions.0
+		real_height := dimensions.1
+		croppable := not is_default(card.mainframe_image)
+		
+		left   :=	if length(comma_count(styling.popout_image_style)) >= 3 then to_int(split_text(match:",", styling.popout_image_style).0) else 0
+		top	   := 	if length(comma_count(styling.popout_image_style)) >= 3 then to_int(split_text(match:",", styling.popout_image_style).1) else 0
+		width  := 	if length(comma_count(styling.popout_image_style)) >= 3 then to_int(split_text(match:",", styling.popout_image_style).2) else 0
+		height := 	if length(comma_count(styling.popout_image_style)) >= 3 then to_int(split_text(match:",", styling.popout_image_style).3) else 0
+		right_edge := left + width
+		
+		width_factor := real_width / width
+		height_factor := real_height / height
+		
+		max_right := 375
+		min_right := 377
+		
+		left_pop_image := nil
+		right_pop_image := nil
+		left_pop_string := nil
+		right_pop_string := nil
+		
+		if left < max_right then (
+			adjusted_width := min(max_right, right_edge) - left
+			left_pop_string := "{left},{top},{adjusted_width},{height},"
+			left_pop_image := if right_edge <= max_right then card.mainframe_image
+				else if croppable then crop_image(
+					card.mainframe_image,
+					offset_x: 0,
+					offset_y: 0,
+					width: round_up(width_factor * adjusted_width),
+					height: real_height
+				)
+				else nil
+		)
+		if right_edge > min_right then (
+			adjusted_width := right_edge - max(max_right, left)
+			adjusted_left := right_edge - min_right - adjusted_width
+			right_pop_string := "{adjusted_left},{top},{adjusted_width},{height},"
+			right_pop_image := if left >= min_right then card.mainframe_image
+				else if croppable then crop_image(
+					card.mainframe_image,
+					offset_x: to_int(width_factor * (width - adjusted_width)),
+					offset_y: 0,
+					width: round_up(width_factor*adjusted_width),
+					height: real_height
+				)
+				else nil
+		)
+		
+		[
+			[image:left_pop_image, coords:left_pop_string],
+			[image:right_pop_image, coords:right_pop_string]
+		]
 	}
 	
 	
