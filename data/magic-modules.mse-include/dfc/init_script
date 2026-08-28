@@ -1,0 +1,147 @@
+	### Check if a card should have a transform notch
+	### Modal DFCs don't have one by default
+	has_modal := match@(match:"modal")	
+	is_notched := {
+		force_notched()
+		or (get_back_face(card) != nil and not has_modal(card.transformation))
+		or (length(get_cards_from_link(card, linked_relation:"Meld Result")) > 0)
+	}
+	### Give the template a way to force notches without redefining above
+	force_notched := { false }
+
+	### Handle the back face styling options
+	### Counts as a back face, should be multiplied, etc
+	is_back_face := {
+		styling.back_face == "yes"
+		or (styling.back_face == "if linked to front face" and get_front_face(card) != nil)
+	}
+	### True if back face and rarity hidden
+	hidden_back_rarity := {
+		styling.hide_back_face_rarity and is_back_face()
+	}
+	### What is the back face hint?
+	back_face_hint := {
+		if styling.back_face_hint == "none" then "" else (
+			back := get_back_face(card) or else nil
+			if back == nil then back := get_cards_from_link(card, linked_relation:"Meld Result").0 or else nil
+			if back == nil then ""
+			else if styling.back_face_hint == "PT, Loyalty, Defense" and back.loyalty != ""
+				then back.loyalty
+			else back.pt
+		)
+	}
+	### offsets
+	back_face_hint_offset_left   := { 0 }
+	back_face_hint_offset_top    := { 0 }
+	back_face_hint_offset_width  := { 0 }
+	back_face_hint_offset_height := { 0 }
+	back_face_hint_disabled		 := { false }
+	### font stuff
+	back_face_hint_color 		 := { rgb(45,45,45) }
+	back_face_stroke_radius 	 := { 0 }
+	back_face_hint_stroke_color  := { "black" }
+
+	### Is the meld bar active?
+	use_meld_bar := {
+		styling.meld_bar == "yes"
+		or (styling.meld_bar == "for melds" and length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0)
+	}
+	meld_bar_mask := {
+		map := face_coordinates_map(face)
+		base := corners_mask()
+		dimensions := map.width + "x" + map.height
+		dimensions := corners_possible_dimensions[dimensions] or else (if map.height > map.width then "1046x750" else "750x1046")
+		dimensions := split_text(dimensions, match:"x")
+		width := to_int(dimensions.0)
+		height := to_int(dimensions.1)
+		sliver := "/magic-modules.mse-include/dfc/meld_dot.png"
+		
+		if height > width then (
+			factor := width / 375
+			gap_height := to_int(2*factor)
+			remain := height - gap_height
+			if remain mod 2 == 1 then (
+				gap_height := gap_height + 1
+				remain := remain - 1
+			)
+			halves := remain/2
+			sliver := resize_image(sliver, height: gap_height, width:width)
+			result := crop_image(
+				sliver,
+				offset_x: 0,
+				offset_y: -halves,
+				background_color: "black"
+			)
+			offset_x := 0
+			offset_y := halves + gap_height
+		) else (
+			factor := height / 375
+			gap_width := to_int(2*factor)
+			remain := width - gap_width
+			if remain mod 2 == 1 then (
+				gap_width := gap_width + 1
+				remain := remain - 1
+			)
+			halves := remain/2
+			sliver := resize_image(sliver, height:height, width:gap_width)
+			result := crop_image(
+				sliver,
+				offset_x: -halves,
+				offset_y: 0,
+				background_color: "black"
+			)
+			offset_x := halves + gap_width
+			offset_y := 0
+		)
+
+		shape := corners_field(field)
+		if shape != "none" then (
+			result := insert_image(
+				base_image: result,
+				inserted_image: base,
+				widen: false
+				offset_x: -offset_x,
+				offset_y: -offset_y
+			)
+			result := insert_image(
+				base_image: result,
+				inserted_image: base,
+				widen: false,
+				offset_x: offset_x,
+				offset_y: offset_y
+			)
+		)
+		result
+	}@(face:1)
+
+	### Manage the color node under the transform symbol
+	### Folder to pull from
+	node_folder := { "/magic-modules.mse-include/dfc/nodes/" }
+	### Flip the node before blending
+	node_template := {
+		base := node_folder() + (if has_modal(card.transformation) then "modal/" else "") + input + ".png"
+		if transform_symbol_is_right(card.transformation) then flip_image(base, horizontal: true) else base
+	}
+	### The final image
+	module_node := {
+		template := node_template
+		land_template := node_template
+		if input == "clear" then template("x")
+		else color_background(
+			type: "node",
+			base_hybrid: card_hybrid,
+			artifact_blend: "white",
+			hybrid_blend: "white",
+			multicolor_blend: "white"
+		)
+	}
+	### The flipped mask for crowns and bookmarks
+	node_mask := {
+		base := node_folder() + (if has_modal(card.transformation) then "modal/" else "") + "mask.png"
+		if transform_symbol_active_right(card.transformation) then flip_image(base, horizontal:true) else base
+	}
+	### overwrite node color script
+	node_color := { card.card_color }
+	
+	### For templates that don't use the color node
+	node_disabled := { false }
