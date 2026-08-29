@@ -452,13 +452,13 @@ has_alchemy := contains@(match:"alchemy")
 strip_card_codes := {
 	save := input
 	input := cc_filter(input)
-	input := if input == "" or input == " " then save else input
+	input := if (input == "" or input == " ") and not aggressive then save else input
 	if atom and has_alchemy(card.card_symbol)
 		then "<sym>A-</sym>" + input
 	else input
-}@(atom:false)
+}@(atom:false, aggressive:false)
 name_default := { "" }
-name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
+name_checker := {if not set.remove_card_codes then input else strip_card_codes(input, aggressive:true)}
 
 #### Print fix
 rare_width := {
@@ -6601,29 +6601,32 @@ index_of_rarity := {
 	else "J"
 }
 ############################################################## Skeleton generator
-skeleton_commons := 19
-skeleton_uncommons := 11
-skeleton_rares := 7
-skeleton_mythics := 2
-skeleton_land_commons := 1
-skeleton_land_uncommons := 5
-skeleton_land_rares := 0
-skeleton_gold_commons := 0
-skeleton_gold_uncommons := 1
-skeleton_gold_rares := 1
-skeleton_shard_commons := 0
-skeleton_shard_uncommons := 0
-skeleton_shard_rares := 0
-skeleton_wedge_commons := 0
-skeleton_wedge_uncommons := 0
-skeleton_wedge_rares := 0
-skeleton_artifact_commons := 5
-skeleton_artifact_uncommons := 5
-skeleton_artifact_rares := 0
-skeleton_blank_commons := 0
-skeleton_blank_uncommons := 5
-skeleton_blank_rares := 8
-skeleton_blank_mythics := 5
+skeleton_commons 			:= 15 ## Previously 19
+skeleton_uncommons 			:= 14 ## Previously 11
+skeleton_rares 				:= 9  ## Previously 7
+skeleton_mythics 			:= 3  ## Previously 2
+skeleton_land_commons 		:= 5  ## Previously 1
+skeleton_land_uncommons 	:= 1  ## Previously 5
+skeleton_land_rares 		:= 0
+skeleton_gold_commons 		:= 0
+skeleton_gold_uncommons 	:= 2  ## Previously 1
+skeleton_gold_rares 		:= 1
+skeleton_hybrid_commons 	:= 0
+skeleton_hybrid_uncommons 	:= 0
+skeleton_hybrid_rares 		:= 0
+skeleton_shard_commons 		:= 0
+skeleton_shard_uncommons 	:= 0
+skeleton_shard_rares 		:= 0
+skeleton_wedge_commons 		:= 0
+skeleton_wedge_uncommons 	:= 0
+skeleton_wedge_rares 		:= 0
+skeleton_artifact_commons 	:= 6
+skeleton_artifact_uncommons := 4  ## Previously 5
+skeleton_artifact_rares 	:= 0
+skeleton_blank_commons 		:= 0
+skeleton_blank_uncommons 	:= 5
+skeleton_blank_rares 		:= 5  ## Previously 8
+skeleton_blank_mythics 		:= 5
 #### generates a set of CCXX Skeleton cards for each color
 #### by insertnamehere and cajun
 skeleton_runner := {
@@ -6641,19 +6644,25 @@ skeleton_runner := {
 #### outside to make singleton scripts easier
 blank_list_5 := ["","","","",""]
 blank_list_10 := ["","","","","","","","","",""]
+mana_list_base := ["W", "U", "B", "R", "G"]
 mana_list_ally := ["WU","UB","BR","RG","GW"]
 mana_list_enemy := ["WB","UR","BG","RW","GU"]
+mana_list_ally_hybrid := ["W/U","U/B","B/R","R/G","G/W"]
+mana_list_enemy_hybrid := ["W/B","U/R","B/G","R/W","G/U"]
 mana_list_shard := ["WUB","UBR","BRG","RGW","GWU"]
 mana_list_wedge := ["WBG","URW","BGU","RWB","GUR"]
 skeleton_script := {
 	cards := [];
-	cards := cards + skeleton_runner(count:skeleton_commons);
-	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon");
-	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare");
-	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare");
+	cards := cards + skeleton_runner(count:skeleton_commons, mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon", mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare", mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare", mana_list:mana_list_base);
 	cards := cards + skeleton_runner(count:skeleton_gold_commons, prefix:"CM", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
 	cards := cards + skeleton_runner(count:skeleton_gold_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
 	cards := cards + skeleton_runner(count:skeleton_gold_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_commons, prefix:"CZ", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_uncommons, prefix:"UZ", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_rares, prefix:"RZ", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
 	cards := cards + skeleton_runner(count:skeleton_shard_commons, prefix:"CM", rarity:"common", letter_list:blank_list_5, mana_list:mana_list_shard);
 	cards := cards + skeleton_runner(count:skeleton_shard_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_5, mana_list:mana_list_shard);
 	cards := cards + skeleton_runner(count:skeleton_shard_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_5, mana_list:mana_list_shard);
@@ -6683,6 +6692,9 @@ skeleton_info := {
 	+"skeleton_gold_commons: " + skeleton_gold_commons + " (of each color pair)\n"
 	+"skeleton_gold_uncommons: " + skeleton_gold_uncommons + " (of each color pair)\n"
 	+"skeleton_gold_rares: " + skeleton_gold_rares + " (of each color pair)\n"
+	+"skeleton_hybrid_commons: " + skeleton_hybrid_commons + " (of each color pair)\n"
+	+"skeleton_hybrid_uncommons: " + skeleton_hybrid_uncommons + " (of each color pair)\n"
+	+"skeleton_hybrid_rares: " + skeleton_hybrid_rares + " (of each color pair)\n"
 	+"skeleton_artifact_commons: " + skeleton_artifact_commons + "\n"
 	+"skeleton_artifact_uncommons: " + skeleton_artifact_uncommons + "\n"
 	+"skeleton_artifact_rares: " + skeleton_artifact_rares + "\n"
