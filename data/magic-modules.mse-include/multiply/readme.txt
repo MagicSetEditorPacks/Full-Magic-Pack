@@ -1,7 +1,7 @@
 #### To use this include in a template, add the following in the template headers:
 depends on:
 	package:			magic-modules.mse-include
-	version:			2024-10-01
+	version:			2026-08-28
 
 #### This contains color values to Multiply an image, to darken elements for back faces, levelers, etc.
 #### It has two scripts defined in the base game, so nothing needs added to the style file.
