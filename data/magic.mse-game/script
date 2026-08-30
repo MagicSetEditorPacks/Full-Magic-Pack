@@ -439,6 +439,14 @@ get_linked_numbering_card :=
 				else get_cards_from_link(card, linked_relation:"Meld Base").0 or else card
 	linked
 }
+### get the back face or meld result for this card. fallback returns itself
+get_linked_numbering_card_back :=
+{
+	back := get_back_face(card)
+	linked := if back != nil then back
+				else get_cards_from_link(card, linked_relation:"Meld Result").0 or else card
+	linked
+}
 ### given a number, get the name of the card at that link
 get_linked_card_name :=
 {
@@ -478,7 +486,22 @@ has_two_names := {
 	or	contains(sh, match:"flip")
 	or	contains(sh, match:"split")
 }
-card_full_name_default := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
+card_full_name_script := {
+	## individual full name, hookable by style
+	self := card_full_name()
+	
+	## DFC/Meld faces
+	front_face := get_linked_numbering_card()
+	back_face := get_linked_numbering_card_back()
+	## check if they're usable
+	back_name := if back_face == nil or back_face == card then "" else card_full_name(card:back_face)
+	front_name := if front_face == nil or front_face == card then "" else card_full_name(card:front_face)
+	
+	## put them together
+	if back_name != "" then self + " // " + back_name
+	else if front_name != "" then self + " (" + front_name + ")"
+	else self
+}
 card_full_name := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
 #### exportname
 exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
