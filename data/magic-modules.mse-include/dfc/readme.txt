@@ -1,7 +1,7 @@
 #### To use this include in a template, add the following in the template headers:
 depends on:
 	package:			magic-modules.mse-include
-	version:			2024-10-01
+	version:			2026-08-28
 
 #### Also add this, indented, near the top of the init script section
 include file: /magic-modules.mse-include/dfc/init_script

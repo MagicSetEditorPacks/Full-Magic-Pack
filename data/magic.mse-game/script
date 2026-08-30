@@ -26,6 +26,7 @@
 #### Custom index
 #### Skeleton generator
 #### Hashes
+#### Linked DFC Compatability Scripts
 
 ############################################################## Localization
 include file: language
@@ -452,13 +453,13 @@ has_alchemy := contains@(match:"alchemy")
 strip_card_codes := {
 	save := input
 	input := cc_filter(input)
-	input := if input == "" or input == " " then save else input
+	input := if (input == "" or input == " ") and not aggressive then save else input
 	if atom and has_alchemy(card.card_symbol)
 		then "<sym>A-</sym>" + input
 	else input
-}@(atom:false)
+}@(atom:false, aggressive:false)
 name_default := { "" }
-name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
+name_checker := {if not set.remove_card_codes then input else strip_card_codes(input, aggressive:true)}
 
 #### Print fix
 rare_width := {
@@ -2478,15 +2479,18 @@ reminder_type_font_size :=
 reminder_type_font_color := { if reminder_uses_light_variant() then "black" else "white" }
 reminder_type_symbol_font := { styling.text_box_mana_symbols or else "magic-mana-small.mse-symbol-font" }
 reminder_type_symbol_font_size := { reminder_type_font_size() }
-reminder_type_top :=	{ face_map := face_coordinates_map(1); 467	* face_map.height / 523	+ reminder_offset_top()		+ reminder_offset_height()/2	+ reminder_type_offset_top() }
-reminder_type_left :=	{ face_map := face_coordinates_map(1); 26	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()/2		+ reminder_type_offset_left() }
-reminder_type_height :=	{ face_map := face_coordinates_map(1); 18	* face_map.height / 523																+ reminder_type_offset_height() }
+reminder_type_top :=	{ reminder_box_top()																											+ reminder_type_offset_top() }
+reminder_type_height :=	{ reminder_box_height()																											+ reminder_type_offset_height() }
+reminder_type_left :=	{ face_map := face_coordinates_map(1); 26	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()*0.1	+ reminder_type_offset_left() }
 reminder_type_width :=
 {
 	face_map := face_coordinates_map(1)
 	scale := face_map.width / 375.0
 	134	* scale +
 	reminder_type_offset_width() -
+	reminder_type_offset_left() +
+	reminder_cost_offset_left() +
+	reminder_offset_width()*0.8 -
 	if card_style.reminder_cost.content_width > 0 and not reminder_cost_disabled() then card_style.reminder_cost.content_width + 3 * scale else 0
 }
 
@@ -2509,9 +2513,9 @@ reminder_cost_font_size :=
 reminder_cost_font_color := { if reminder_uses_light_variant() then "black" else "white" }
 reminder_cost_symbol_font := { styling.text_box_mana_symbols or else "magic-mana-small.mse-symbol-font" }
 reminder_cost_symbol_font_size := { reminder_cost_font_size() }
-reminder_cost_top :=	{ face_map := face_coordinates_map(1); 467	* face_map.height / 523	+ reminder_offset_top()		+ reminder_offset_height()/2	+ reminder_cost_offset_top() }
-reminder_cost_right :=	{ face_map := face_coordinates_map(1); 160	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()/2		+ reminder_cost_offset_left() }
-reminder_cost_height :=	{ face_map := face_coordinates_map(1); 18	* face_map.height / 523																+ reminder_cost_offset_height() }
+reminder_cost_top :=	{ reminder_box_top()																											+ reminder_cost_offset_top() }
+reminder_cost_height :=	{ reminder_box_height()																											+ reminder_cost_offset_height() }
+reminder_cost_right :=	{ face_map := face_coordinates_map(1); 160	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()*0.9	+ reminder_cost_offset_left() }
 reminder_cost_width :=
 {
 	face_map := face_coordinates_map(1)
@@ -6601,29 +6605,32 @@ index_of_rarity := {
 	else "J"
 }
 ############################################################## Skeleton generator
-skeleton_commons := 19
-skeleton_uncommons := 11
-skeleton_rares := 7
-skeleton_mythics := 2
-skeleton_land_commons := 1
-skeleton_land_uncommons := 5
-skeleton_land_rares := 0
-skeleton_gold_commons := 0
-skeleton_gold_uncommons := 1
-skeleton_gold_rares := 1
-skeleton_shard_commons := 0
-skeleton_shard_uncommons := 0
-skeleton_shard_rares := 0
-skeleton_wedge_commons := 0
-skeleton_wedge_uncommons := 0
-skeleton_wedge_rares := 0
-skeleton_artifact_commons := 5
-skeleton_artifact_uncommons := 5
-skeleton_artifact_rares := 0
-skeleton_blank_commons := 0
-skeleton_blank_uncommons := 5
-skeleton_blank_rares := 8
-skeleton_blank_mythics := 5
+skeleton_commons 			:= 15 ## Previously 19
+skeleton_uncommons 			:= 14 ## Previously 11
+skeleton_rares 				:= 9  ## Previously 7
+skeleton_mythics 			:= 3  ## Previously 2
+skeleton_land_commons 		:= 5  ## Previously 1
+skeleton_land_uncommons 	:= 1  ## Previously 5
+skeleton_land_rares 		:= 0
+skeleton_gold_commons 		:= 0
+skeleton_gold_uncommons 	:= 2  ## Previously 1
+skeleton_gold_rares 		:= 1
+skeleton_hybrid_commons 	:= 0
+skeleton_hybrid_uncommons 	:= 0
+skeleton_hybrid_rares 		:= 0
+skeleton_shard_commons 		:= 0
+skeleton_shard_uncommons 	:= 0
+skeleton_shard_rares 		:= 0
+skeleton_wedge_commons 		:= 0
+skeleton_wedge_uncommons 	:= 0
+skeleton_wedge_rares 		:= 0
+skeleton_artifact_commons 	:= 6
+skeleton_artifact_uncommons := 4  ## Previously 5
+skeleton_artifact_rares 	:= 0
+skeleton_blank_commons 		:= 0
+skeleton_blank_uncommons 	:= 5
+skeleton_blank_rares 		:= 5  ## Previously 8
+skeleton_blank_mythics 		:= 5
 #### generates a set of CCXX Skeleton cards for each color
 #### by insertnamehere and cajun
 skeleton_runner := {
@@ -6641,19 +6648,25 @@ skeleton_runner := {
 #### outside to make singleton scripts easier
 blank_list_5 := ["","","","",""]
 blank_list_10 := ["","","","","","","","","",""]
+mana_list_base := ["W", "U", "B", "R", "G"]
 mana_list_ally := ["WU","UB","BR","RG","GW"]
 mana_list_enemy := ["WB","UR","BG","RW","GU"]
+mana_list_ally_hybrid := ["W/U","U/B","B/R","R/G","G/W"]
+mana_list_enemy_hybrid := ["W/B","U/R","B/G","R/W","G/U"]
 mana_list_shard := ["WUB","UBR","BRG","RGW","GWU"]
 mana_list_wedge := ["WBG","URW","BGU","RWB","GUR"]
 skeleton_script := {
 	cards := [];
-	cards := cards + skeleton_runner(count:skeleton_commons);
-	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon");
-	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare");
-	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare");
+	cards := cards + skeleton_runner(count:skeleton_commons, mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon", mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare", mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare", mana_list:mana_list_base);
 	cards := cards + skeleton_runner(count:skeleton_gold_commons, prefix:"CM", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
 	cards := cards + skeleton_runner(count:skeleton_gold_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
 	cards := cards + skeleton_runner(count:skeleton_gold_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_commons, prefix:"CZ", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_uncommons, prefix:"UZ", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_rares, prefix:"RZ", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
 	cards := cards + skeleton_runner(count:skeleton_shard_commons, prefix:"CM", rarity:"common", letter_list:blank_list_5, mana_list:mana_list_shard);
 	cards := cards + skeleton_runner(count:skeleton_shard_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_5, mana_list:mana_list_shard);
 	cards := cards + skeleton_runner(count:skeleton_shard_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_5, mana_list:mana_list_shard);
@@ -6683,6 +6696,9 @@ skeleton_info := {
 	+"skeleton_gold_commons: " + skeleton_gold_commons + " (of each color pair)\n"
 	+"skeleton_gold_uncommons: " + skeleton_gold_uncommons + " (of each color pair)\n"
 	+"skeleton_gold_rares: " + skeleton_gold_rares + " (of each color pair)\n"
+	+"skeleton_hybrid_commons: " + skeleton_hybrid_commons + " (of each color pair)\n"
+	+"skeleton_hybrid_uncommons: " + skeleton_hybrid_uncommons + " (of each color pair)\n"
+	+"skeleton_hybrid_rares: " + skeleton_hybrid_rares + " (of each color pair)\n"
 	+"skeleton_artifact_commons: " + skeleton_artifact_commons + "\n"
 	+"skeleton_artifact_uncommons: " + skeleton_artifact_uncommons + "\n"
 	+"skeleton_artifact_rares: " + skeleton_artifact_rares + "\n"
@@ -6845,7 +6861,141 @@ hash_nest := {
 	value
 }@(key_chain:[], func:hash_update, update:true)
 
-
+############################################################## Linked DFC Compatability Scripts
+linked_dfc_compat_map := {
+	back := get_back_face(card)
+	front := get_front_face(card)
+	if back == nil then back := card
+	if front == nil then front := card
+	if back == front then card else [
+		border_color: 		front.border_color,
+		corners: 			front.corners,
+		corners_2: 			back.corners,
+		card_color:			front.card_color,
+		card_color_2: 		back.card_color,
+		full_name: 			front.full_name,
+		name: 				front.name,
+		name_2:				back.name,
+		alias:				front.alias,
+		alias_2:			back.alias,
+		casting_cost:		front.casting_cost,
+		casting_cost_2:		back.casting_cost,
+		card_symbol:		front.card_symbol,
+		card_symbol_2:		back.card_symbol,
+		transformation:		front.transformation,
+		transformation_2:	back.transformation,
+		image:				front.image,
+		image_2:			back.image,
+		indicator:			front.indicator,
+		indicator_2:		back.indicator,
+		super_type:			front.super_type,
+		sub_type:			front.sub_type,
+		type:				front.type,
+		super_type_2:		back.super_type,
+		sub_type_2:			back.sub_type,
+		type_2:				back.type,
+		rarity:				front.rarity,
+		rarity_2:			back.rarity,
+		chapter_text:		front.chapter_text,
+		chapter_text_2:		back.chapter_text,
+		rule_text:			front.rule_text,
+		flavor_text:		front.flavor_text,
+		text:				front.text,
+		rule_text_2:		back.rule_text,
+		flavor_text_2:		back.flavor_text,
+		text_2:				back.text,
+		rule_text_3:		front.rule_text_2,
+		flavor_text_3:		front.flavor_text_2,
+		text_3:				front.text_3,
+		rule_text_4:		back.rule_text_2,
+		flavor_text_4:		back.flavor_text_2,
+		text_4:				back.text_2,
+		watermark:			front.watermark,
+		watermark_2:		back.watermark,
+		loyalty_cost_1:		front.loyalty_cost_1,
+		loyalty_cost_2:		front.loyalty_cost_2,
+		loyalty_cost_3:		front.loyalty_cost_3,
+		loyalty_cost_4:		front.loyalty_cost_4,
+		loyalty_cost_5:		front.loyalty_cost_5,
+		loyalty_cost_6:		front.loyalty_cost_6,
+		loyalty_cost_7:		front.loyalty_cost_7,
+		loyalty_cost_8:		front.loyalty_cost_8,
+		loyalty:			front.loyalty,
+		loyalty_cost_9:		front.loyalty_cost_1,
+		loyalty_cost_10:	back.loyalty_cost_2,
+		loyalty_cost_11:	back.loyalty_cost_3,
+		loyalty_cost_12:	back.loyalty_cost_4,
+		loyalty_cost_13:	back.loyalty_cost_5,
+		loyalty_cost_14:	back.loyalty_cost_6,
+		loyalty_cost_15:	back.loyalty_cost_7,
+		loyalty_cost_16:	back.loyalty_cost_8,
+		loyalty_2:			back.loyalty,
+		level_0:			front.level_0,
+		level_2:			front.level_2,
+		level_3:			front.level_3,
+		level_4:			front.level_4,
+		level_5:			back.level_0,
+		level_6:			back.level_2,
+		level_7:			back.level_3,
+		level_8:			back.level_4,
+		level_1_text:		front.level_1_text,
+		level_2_text:		front.level_2_text,
+		level_3_text:		front.level_3_text,
+		level_4_text:		front.level_4_text,
+		level_5_text:		front.level_5_text,
+		level_6_text:		front.level_6_text,
+		level_7_text:		front.level_7_text,
+		level_8_text:		front.level_8_text,
+		level_9_text:		back.level_1_text,
+		level_10_text:		back.level_2_text,
+		level_11_text:		back.level_3_text,
+		level_12_text:		back.level_4_text,
+		level_13_text:		back.level_5_text,
+		level_14_text:		back.level_6_text,
+		level_15_text:		back.level_7_text,
+		level_16_text:		back.level_8_text,
+		level_9_text:		front.level_9_text,		## class textboxes
+		level_10_text:		front.level_10_text,
+		level_11_text:		front.level_11_text,
+		level_17_text:		front.level_9_text,
+		level_18_text:		front.level_10_text,
+		level_19_text:		front.level_11_text,
+		power:				front.power,
+		toughness:			front.toughness,
+		pt:					front.pt,
+		power_2:			back.power,
+		toughness_2:		back.toughness,
+		pt_2:				back.pt,
+		illustrator:		front.illustrator,
+		illustrator_2:		back.illustrator,
+		additional_credit:	front.additional_credit,
+		additional_credit_2:front.additional_credit_2,
+		additional_credit_3:front.additional_credit_3,
+		additional_credit_4:front.additional_credit_4,
+		card_number:		front.card_number,
+		custom_card_number:	front.custom_card_number,
+		card_code_text:		front.card_code_text,
+		card_code_text_2:	back.card_code_text,
+		copyright:			front.copyright,
+		copyright_2:		back.copyright,
+		vorthos_box:		front.vorthos_box,
+		vorthos_box_2:		back.vorthos_box,
+		special_text:		front.special_text,
+		special_text_2:		back.special_text,
+		shape:				if contains(front.transformation, match:"modal") then "modal double faced" else "transform double faced",
+		notes:				front.notes + "\n" + back.notes,
+		compatability:		true,
+		card:				front,
+		card_2:				back,
+		position:			position(of:front, in:set),
+		raw_number:			card_number(card:front),
+		raw_number_2:		card_number(card:back),
+		indicator_3:		front.indicator_2,			## some script needs this for some reason
+		card_color_3:		front.card_color_2,
+		casting_cost_3:		front.casting_cost_2,
+		watermark_3:		front.watermark_2,
+	]
+}
 
 #### load the user overwrites here, doing it in game overwrites this file instead
 include file: custom_script
