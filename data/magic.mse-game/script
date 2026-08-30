@@ -26,6 +26,7 @@
 #### Custom index
 #### Skeleton generator
 #### Hashes
+#### Linked DFC Compatability Scripts
 
 ############################################################## Localization
 include file: language
@@ -62,6 +63,8 @@ un_png :=          replace@(match:".png", replace: "")
 to_title :=        replace@(match:"(^| )([A-z])([^ ]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
 to_sentence :=     replace@(match:"(^|\n)([A-z])([^\n]*)", replace:{_1+ to_upper(_2) + to_lower(_3)})
 remove_zwsp :=     replace@(match:"​", replace:"")
+
+filter_number :=   filter_text@(match:"[0-9]+")
 
 #### Replace spaces by a spacer
 separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
@@ -107,7 +110,13 @@ round_up := {
 		then to_int(input-0.99999999999998)
 	else to_int(input+0.99999999999998)
 }
-
+round_up := {
+	down := to_int(input)
+	if input != down then (
+		if input < 0 then down-1
+		else down+1
+	) else input
+}
 #### type_name("string") returns string ("string") so fix that
 #### type_name(nil) is fine
 remove_paren := replace@(match:" \\(.*", replace:"")
@@ -227,6 +236,66 @@ internal_crop := {
 	)
 	else img
 }@(distance:0, distance2:0, left:nil, right:nil, top:nil, bottom:nil)
+#### add a color multiply to an image
+## input - color to multiply with
+## image - image to multiply
+## height - height of image
+## width - width of image
+## multiply mask - optional mask, only multiply black areas
+## iterate - optional number of times to multiply
+## this multiplies "backwards" so we can get gradients
+color_multiply := {
+	resized_color := if length(input) == 1 then blend_multiply_template(input) else color_background(
+		input,
+		type: "multiply",
+		base_hybrid: card_hybrid,
+		template: blend_multiply_template,
+		land_template: blend_multiply_template,
+		artifact_blend: artifact_blend,
+		hybrid_blend: hybrid_blend,
+		multicolor_blend: multicolor_blend
+	)
+	steps := to_int(iterate)
+	alpha := iterate - steps
+	if alpha >= 0.01 then (
+		steps := steps + 1
+	) else (
+		alpha := 0
+	)
+	masked := type_of(multiply_mask) == "image" or multiply_mask != ""
+	if masked or alpha > 0 then
+		resized_white := blend_multiply_template("white")
+
+	if masked then (
+		resized_color := masked_blend(
+			mask: multiply_mask,
+			light: resized_white,
+			dark: resized_color
+		)
+	)
+	
+	if alpha > 0 then (
+		resized_alpha := insert_image(
+			base_image: resized_white,
+			inserted_image: set_alpha(resized_color),
+			offset_x: 0,
+			offset_y: 0
+		)
+	)
+	
+	for x from 1 to steps do (
+		image := combine_blend(
+			combine: "multiply",
+			image1: (if alpha > 0 and x == steps then resized_alpha else resized_color)
+			image2: image,
+		)
+		"dummy return"
+	)
+	image
+}@(multiply_mask:"", iterate:1, artifact_blend:"black", hybrid_blend:"black", multicolor_blend:"black")
+blend_multiply_template := {
+	resize_image("/magic-modules.mse-include/multiply/{input}.png", width:width, height:height)
+}
 #### pad a string from the front or back or both idk i'm not your dad
 fill_len := {
 	output := to_string(input)
@@ -272,6 +341,14 @@ unique_elements := {
 	e1 := e1 + for x from 0 to length(of)-1 do if ar_position(of:of[x], in:from) == -1 then [of[x]]
 }
 
+#### exclusive_choice_chain(string, choice1:"choice", toggles:["choice", "choice"])
+#### runs exclusive choice for choice1 and each entry in toggles
+#### for when one option undoes a bunch of things that don't undo each other
+exclusive_choice_chain := {
+	for each option in toggles do input := exclusive_choice(input, choice2:option)
+	input
+}
+
 #### This blends a map of images together
 #### i dont remember why
 #### i think i tested it for dungeons
@@ -309,6 +386,73 @@ get_alpha_percentage :=
 	else 1.0
 }
 
+has_required_stylesheets :=
+{
+	missing := 0
+	for each a in input do (
+		packaged_version := exists_as_package(a.0)
+		required_version := a.1
+		if packaged_version == nil
+		or version_is_older(packaged_version, than:required_version)
+			then missing := missing + 1;
+	)
+	missing == 0
+}
+
+##### Card Link Utility
+### is this the front/back of a DFC?
+is_linked_dfc :=
+{
+	get_front_face(card) != nil or get_back_face(card) != nil
+}
+### is this the catalyst/base of a Meld?
+is_linked_meld_front :=
+{
+	length(get_cards_from_link(card, linked_relation:"Meld Result")) > 0
+}
+### is this the result of a Meld?
+is_linked_meld_back :=
+{
+	length(get_cards_from_link(card, linked_relation:"Meld Base")) > 0
+}
+### is this the catalyst/base/result of a Meld?
+is_linked_meld :=
+{
+	is_linked_meld_front(card) or is_linked_meld_back(card)
+}
+### does this take the card number from its front face instead of a new one?
+is_linked_back_face :=
+{
+	if get_front_face(card) != nil then true ## basic back face
+	else (
+		meld_base := get_cards_from_link(card, linked_relation:"Meld Base").0 or else nil
+		if meld_base != nil and length(get_cards_from_link(meld_base, linked_relation:"Meld Base")) == 0
+			then true ## safe meld
+		else false ## normal card or base/base meld, each face numbered individually
+	)
+}
+### get the front face or meld base for this card for card numbering. fallback returns itself
+get_linked_numbering_card :=
+{
+	front := get_front_face(card)
+	linked := if front != nil then front
+				else get_cards_from_link(card, linked_relation:"Meld Base").0 or else card
+	linked
+}
+### get the back face or meld result for this card. fallback returns itself
+get_linked_numbering_card_back :=
+{
+	back := get_back_face(card)
+	linked := if back != nil then back
+				else get_cards_from_link(card, linked_relation:"Meld Result").0 or else card
+	linked
+}
+### given a number, get the name of the card at that link
+get_linked_card_name :=
+{
+	name := get_card_from_uid(card["linked_card_{input}"] or else "").name or else ""
+	if name == "" then "LINK{input}NAME" else name
+}
 
 ############################################################## For the user
 #### Remove card codes
@@ -317,13 +461,13 @@ has_alchemy := contains@(match:"alchemy")
 strip_card_codes := {
 	save := input
 	input := cc_filter(input)
-	input := if input == "" or input == " " then save else input
+	input := if (input == "" or input == " ") and not aggressive then save else input
 	if atom and has_alchemy(card.card_symbol)
 		then "<sym>A-</sym>" + input
 	else input
-}@(atom:false)
+}@(atom:false, aggressive:false)
 name_default := { "" }
-name_checker := {if not set.remove_card_codes then input else strip_card_codes(input)}
+name_checker := {if not set.remove_card_codes then input else strip_card_codes(input, aggressive:true)}
 
 #### Print fix
 rare_width := {
@@ -342,7 +486,22 @@ has_two_names := {
 	or	contains(sh, match:"flip")
 	or	contains(sh, match:"split")
 }
-card_full_name_default := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
+card_full_name_script := {
+	## individual full name, hookable by style
+	self := card_full_name()
+	
+	## DFC/Meld faces
+	front_face := get_linked_numbering_card()
+	back_face := get_linked_numbering_card_back()
+	## check if they're usable
+	back_name := if back_face == nil or back_face == card then "" else card_full_name(card:back_face)
+	front_name := if front_face == nil or front_face == card then "" else card_full_name(card:front_face)
+	
+	## put them together
+	if back_name != "" then self + " // " + back_name
+	else if front_name != "" then self + " (" + front_name + ")"
+	else self
+}
 card_full_name := { if has_two_names() then card.name + " // " + card.name_2 else card.name }
 #### exportname
 exporter_name_filter := filter_text@(match:"!exporte?r?name [^\n!]+")
@@ -568,6 +727,8 @@ mana_s := { "new" }
 small_mana_t := "mana_t.png"
 symbol_font_color := { rgb(0,0,0) }
 symbol_font_alpha := { 1.0 }
+symbol_font_baloo_color := { rgb(0,0,0) }
+symbol_font_baloo_alpha := { 1.0 }
 guild_mana :=
 {
 	styling.use_guild_mana_symbols or else false
@@ -939,6 +1100,8 @@ sort_name :=
 set_filter := {
 	if is_unsorted() then 
 		{ is_unsorted() }
+	else if is_linked_back_face() then
+		{ is_linked_back_face() }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" }
 	else if card.shape == "rulestip" then
@@ -950,9 +1113,9 @@ set_filter := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not token_shape(card.shape) and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not is_masterpiece() }
 }
@@ -962,6 +1125,8 @@ set_filter := {
 set_filter_under_partition := {
 	if is_unsorted() then 
 		{ is_unsorted() }
+	else if is_linked_back_face() then
+		{ is_linked_back_face() }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" and not over_partition() }
 	else if card.shape == "rulestip" then
@@ -973,9 +1138,9 @@ set_filter_under_partition := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) and not over_partition() }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not over_partition() and not is_masterpiece() }
 }
@@ -985,12 +1150,16 @@ card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:fal
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
 #### the raw numbers, these aren't typically used directly
 card_number := {
+	base := if is_linked_back_face() then card_index(card:get_linked_numbering_card()) else card_index()
+	base + 1 + to_number(card_number_offset())
+}
+card_index := {
 	position (
 		of: card
 		in: set
 		order_by: { partition_index() + rarity_sort() + sort_index() + sort_name(card.name) + sort_name(export_name())}
 		filter:   set_filter()
-	) + 1 + to_number(card_number_offset())
+	)
 }
 card_count := {
 	number_of_items(in: set, filter: set_filter_under_partition()) + to_number(set_number_offset())
@@ -1534,7 +1703,7 @@ inserts_values := { split_text(set.inserts+";;;;;;;;;", match:";") }
 inserts_count := { clamp(length(semicolon_count(set.inserts)), minimum:1, maximum:9) }
 custom_auto_reminder := {""}
 auto_reminder := {
-	level := filter_text(input, match:"[0-9]+")
+	level := filter_number(input)
 	if level == "" then level := "1"
 	tag := name_tag_for_level(to_number(level))
 	type_field := remove_tags(card["type"+tag])
@@ -1807,19 +1976,35 @@ text_filter :=
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-printname></atom-printname>"
 	) +
-	#### step 3b : expand shortcut word LEGENDNAME
+	#### step 3c : expand shortcut word LEGENDNAME
 	replace@(
 		match: "LEGENDNAME>?",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-legname></atom-legname>"
 	) +
-	#### step 3b : expand shortcut word AUTOREM
+	#### step 3d : expand shortcut word AUTOREM
 	replace@(
 		match: "AUTOREM>?",
 		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
 		replace: "<atom-autorem></atom-autorem>"
 	) +
-	#### step 3bb : debug atom fields
+	#### step 3d : expand shortcut word LINK#NAME
+	replace@(
+		match: "LINK([1-4])NAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname\\1></atom-linkname\\1>"
+	) +
+	replace@(
+		match: "LINKNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname1></atom-linkname1>"
+	) +
+	replace@(
+		match: "MELDNAME>?",
+		in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
+		replace: "<atom-linkname2></atom-linkname2>"
+	) +
+	#### step 3f : debug atom fields
 	replace@(
 		match: "<atom-name>([^<]+)</atom-(card|print)",
 		replace: "<atom-\\2name>\\1</atom-\\2"
@@ -1828,7 +2013,7 @@ text_filter :=
 		match: "<atom-name>",
 		replace: ""
 	) +
-	#### step 3c : fill in atom fields
+	#### step 3g : fill in atom fields
 	tag_contents@(
 		tag: "<atom-cardname>",
 		contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
@@ -1865,6 +2050,12 @@ text_filter :=
 			out := tag_contents(out,
 				tag: "<atom-insert"+x+">",
 				contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
+			)
+		
+		for x from 1 to 4 do
+			out := tag_contents(out,
+				tag: "<atom-linkname"+x+">",
+				contents: { "<nospellcheck>" + get_linked_card_name(x) + "</nospellcheck>" }
 			)
 		out
 	} +
@@ -1942,15 +2133,18 @@ text_filter :=
 	) +
 	#### step 7b : indent bullets
 	replace@(
-		match: "^(• )([^\n]+\n?)",
-		replace: {"<li><bullet>" + _1 + "</bullet>" + _2 + "</li>"}
+		match: "• ?(.*?)(<line>\n</line>|\n|<soft-line>\n</soft-line>|$)",
+		replace:
+		{
+			margin := to_int(3.1*stylesheet.card_height/523)
+			"<margin:0:0:" + margin + "><li><bullet>• </bullet>" + _1 + "</li></margin:0:0:" + margin + ">" + _2
+		}
 	) +
-	#### step 7c : clean up modals
-	{
-		if is_modal(input)
-			then bump_text(softline_ripper(input))
-		else input
-	} +
+	#### step 7c : soft-line bullets
+	replace@(
+		match: "\n(<margin[^>]+>)?<li>",
+		replace: {"<soft-line>\n</soft-line>" + _1 + "<li>"}
+	) +
 	#### step 8 : automatic capitalization, but not after "("
 	#replace@(
 	#	match: "([^ ]: |—| — )" #### preceded by this
@@ -1983,8 +2177,9 @@ text_filter :=
 ####  - makes all text italic
 flavor_text_filter_default := { "<i-flavor></i-flavor>" }
 flavor_text_filter :=
-	#### step 1 : remove italic tags
+	#### step 1 : remove tags
 	remove_tag@(tag: "<i-flavor>") +
+	remove_tag@(tag: "<error-spelling") +
 	#### step 2 : surround by <i> tags
 	{ "<i-flavor>" + input + "</i-flavor>" } +
 	#### curly quotes
@@ -2158,130 +2353,32 @@ saga_lore_count := {
 		else if input[x] == "6" then six := six +1
 		else if input[x] == "7" then seven := seven +1
 		else eight := eight +1
-	[one, two, three, four, five, six, seven]
+	[one, two, three, four, five, six, seven, eight]
 }
-#### index of given chapter number in above array
+#### index of each chapter number in above array
 #### example, 2,2,3, returns 1,2,1
-#### i tried to make this shorter but this is the only one that deigned to function
 saga_ch_placement := {
-	box1 := 0
-	box2 := 0
-	box3 := 0
-	box4 := 0
-	one := 0
-	two := 0
-	three := 0
-	four := 0
-	five := 0
-	six := 0
-	seven := 0
-	len := length(input)
-	if len >= 1 then (
-		if input[0] == "1" then (
-			box1 := box1 +1
-			one := box1+0
-		)else if input[0] == "2" then (
-			box2 := box2 +1
-			one := box2+0
-		)else if input[0] == "3" then (
-			box3 := box3 +1
-			one := box3+0
-		)else if input[0] == "4" then (
-			box4 := box4 +1
-			one := box4+0
-		)else (one := one)
-	)else (one := one)
-	if len >= 2 then (
-		if input[1] == "1" then (
-			box1 := box1 +1
-			two := box1+0
-		)else if input[1] == "2" then (
-			box2 := box2 +1
-			two := box2+0
-		)else if input[1] == "3" then (
-			box3 := box3 +1
-			two := box3+0
-		)else if input[1] == "4" then (
-			box4 := box4 +1
-			two := box4+0
-		)else (two := two)
-	)else (two := two)
-	if len >= 3 then (
-		if input[2] == "1" then (
-			box1 := box1 +1
-			three := box1+0
-		)else if input[2] == "2" then (
-			box2 := box2 +1
-			three := box2+0
-		)else if input[2] == "3" then (
-			box3 := box3 +1
-			three := box3+0
-		)else if input[2] == "4" then (
-			box4 := box4 +1
-			three := box4+0
-		)else (three := three)
-	)else (three := three)
-	if len >= 4 then (
-		if input[3] == "1" then (
-			box1 := box1 +1
-			four := box1+0
-		)else if input[3] == "2" then (
-			box2 := box2 +1
-			four := box2+0
-		)else if input[3] == "3" then (
-			box3 := box3 +1
-			four := box3+0
-		)else if input[3] == "4" then (
-			box4 := box4 +1
-			four := box4+0
-		)else (four := four)
-	)else (four := four)
-	if len >= 5 then (
-		if input[4] == "1" then (
-			box1 := box1 +1
-			five := box1+0
-		)else if input[4] == "2" then (
-			box2 := box2 +1
-			five := box2+0
-		)else if input[4] == "3" then (
-			box3 := box3 +1
-			five := box3+0
-		)else if input[4] == "4" then (
-			box4 := box4 +1
-			five := box4+0
-		)else (five := five)
-	)else (five := five)
-	if len >= 6 then (
-		if input[5] == "1" then (
-			box1 := box1 +1
-			six := box1+0
-		)else if input[5] == "2" then (
-			box2 := box2 +1
-			six := box2+0
-		)else if input[5] == "3" then (
-			box3 := box3 +1
-			six := box3+0
-		)else if input[5] == "4" then (
-			box4 := box4 +1
-			six := box4+0
-		)else (six := six)
-	)else (six := six)
-	if len >= 7 then (
-		if input[6] == "1" then (
-			box1 := box1 +1
-			seven := box1+0
-		)else if input[6] == "2" then (
-			box2 := box2 +1
-			seven := box2+0
-		)else if input[6] == "3" then (
-			box3 := box3 +1
-			seven := box3+0
-		)else if input[6] == "4" then (
-			box4 := box4 +1
-			seven := box4+0
-		)else (seven := seven)
-	)else (seven := seven)
-	[one, two, three, four, five, six, seven]
+	return := ""
+	cache_keys := ""
+	cache_values := ""
+	for x from 0 to length(input)-1 do (
+		box := input[x]
+		if box == "" then box := "0"
+		cache_position := position(of:box, in:cache_keys)
+		index := if cache_position == -1 then 1 else from_hex[cache_values[cache_position]]
+		cache_keys := box + cache_keys
+		cache_values := to_hex[index+1] + cache_values
+		return := return + index + ","
+	)
+	split_comma(return, include_empty:false)
+}
+to_hex := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
+from_hex := ["0":0, "1":1, "2":2, "3":3, "4":4, "5": 5, "6":6, "7":7, "8":8, "9":9, "a":10, "b":11, "c":12, "d":13, "e":14, "f":15]
+#### more efficient version for when we just want one
+saga_ch_placement_single := {
+	self_index := 1
+	for x from 0 to index-1 do if input[x] == input[index] then self_index := self_index + 1
+	self_index
 }
 ############################################################## Typelines
 #### Move the cursor past the separator in the p/t and type boxes
@@ -2386,6 +2483,134 @@ all_classes := {
 		else ""
 }
 ############################################################## Modal DFC flag hints
+reminder_type_default :=
+{
+	if not transform_symbol_is_modal(card.transformation) then "" else (
+	other_face := get_back_face(card)
+	if other_face == nil then other_face := get_front_face(card)
+	if other_face == nil then ""
+	else if remove_tags(other_face.sub_type) != "" then other_face.sub_type
+	else main_type(other_face.super_type))
+}
+reminder_type_script := { value }
+reminder_type_font := { type_font() }
+reminder_type_font_size :=
+{
+	face_map := face_coordinates_map(1)
+	10 * max(face_map.width, face_map.height) / 523
+}
+reminder_type_font_color := { if reminder_uses_light_variant() then "black" else "white" }
+reminder_type_symbol_font := { styling.text_box_mana_symbols or else "magic-mana-small.mse-symbol-font" }
+reminder_type_symbol_font_size := { reminder_type_font_size() }
+reminder_type_top :=	{ reminder_box_top()																											+ reminder_type_offset_top() }
+reminder_type_height :=	{ reminder_box_height()																											+ reminder_type_offset_height() }
+reminder_type_left :=	{ face_map := face_coordinates_map(1); 26	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()*0.1	+ reminder_type_offset_left() }
+reminder_type_width :=
+{
+	face_map := face_coordinates_map(1)
+	scale := face_map.width / 375.0
+	134	* scale +
+	reminder_type_offset_width() -
+	reminder_type_offset_left() +
+	reminder_cost_offset_left() +
+	reminder_offset_width()*0.8 -
+	if card_style.reminder_cost.content_width > 0 and not reminder_cost_disabled() then card_style.reminder_cost.content_width + 3 * scale else 0
+}
+
+reminder_cost_default :=
+{
+	if not transform_symbol_is_modal(card.transformation) then "" else (
+	other_face := get_back_face(card)
+	if other_face == nil then other_face := get_front_face(card)
+	if other_face == nil then ""
+	else if remove_tags(other_face.sub_type) != "" or other_face.casting_cost != "" then other_face.casting_cost
+	else mana_ability(other_face.rule_text))
+}
+reminder_cost_script := { "<sym-auto>" + to_upper(remove_tag(value, tag: "<sym-auto")) + "</sym-auto>" }
+reminder_cost_font := { name_font() }
+reminder_cost_font_size :=
+{
+	face_map := face_coordinates_map(1)
+	10 * max(face_map.width, face_map.height) / 523
+}
+reminder_cost_font_color := { if reminder_uses_light_variant() then "black" else "white" }
+reminder_cost_symbol_font := { styling.text_box_mana_symbols or else "magic-mana-small.mse-symbol-font" }
+reminder_cost_symbol_font_size := { reminder_cost_font_size() }
+reminder_cost_top :=	{ reminder_box_top()																											+ reminder_cost_offset_top() }
+reminder_cost_height :=	{ reminder_box_height()																											+ reminder_cost_offset_height() }
+reminder_cost_right :=	{ face_map := face_coordinates_map(1); 160	* face_map.width / 375	+ reminder_offset_left()	+ reminder_offset_width()*0.9	+ reminder_cost_offset_left() }
+reminder_cost_width :=
+{
+	face_map := face_coordinates_map(1)
+	scale := face_map.width / 375.0
+	min(134 * scale, max(40 * scale, card_style.reminder_cost.content_width)) +
+	reminder_cost_offset_width()
+}
+
+reminder_box_default :=
+{
+	other_face := get_back_face(card)
+	if other_face == nil then other_face := get_front_face(card)
+	if other_face == nil then card.card_color
+	else if is_default(other_face.card_color) then card_color(casting_cost: other_face.casting_cost, rules_text: other_face.rule_text, type: other_face.super_type, watermark: other_face.watermark, card_name: other_face.name, default: "colorless", margin_code: "color1") # on load we may catch this field while it's empty, in that case we need to calculate its default value ourselves
+	else other_face.card_color
+}
+reminder_box_image :=
+{
+	template := reminder_box_template
+	land_template := reminder_box_template
+	color_background(
+		input:				card.reminder_box,
+		type:				"reminder",
+		base_hybrid:		card_hybrid,
+		multicolor_blend:	reminder_multicolor_blend(),
+		hybrid_blend:		reminder_hybrid_blend(),
+		artifact_blend:		reminder_artifact_blend()
+	)
+}
+reminder_box_template :=
+{
+	folder := reminder_image_folder()
+	if not ends_dash(folder) then folder := folder + "/"
+	variant := if reminder_uses_light_variant() then "light" else "dark"
+	
+	color_name := variant + "/" + input + ".png"
+	noncolor_name := variant + ".png"
+	#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
+	if		exists_in_package(folder + color_name)		then	folder									+ color_name
+	else if	exists_in_package(folder + noncolor_name)	then	folder									+ noncolor_name
+	else														"/magic-modules.mse-include/reminders/"	+ color_name
+}
+reminder_box_left :=		{ face_map := face_coordinates_map(1); 8	* face_map.width / 375	+ reminder_offset_left() }
+reminder_box_top :=			{ face_map := face_coordinates_map(1); 464	* face_map.height / 523	+ reminder_offset_top() }
+reminder_box_width :=		{ face_map := face_coordinates_map(1); 170	* face_map.width / 375	+ reminder_offset_width() }
+reminder_box_height :=		{ face_map := face_coordinates_map(1); 24	* face_map.height / 523	+ reminder_offset_height() }
+reminder_box_is_visible :=	{ (remove_tags(card.reminder_type) != "" or remove_tags(card.reminder_cost) != "") and not reminder_disabled() }
+
+reminder_offset_top := { 0 }
+reminder_offset_left := { 0 }
+reminder_offset_width := { 0 }
+reminder_offset_height := { 0 }
+reminder_disabled := { false }
+reminder_image_folder := { "/magic-modules.mse-include/reminders/" }
+reminder_uses_light_variant := { get_front_face(card) != nil }
+
+reminder_type_offset_top := { 0 }
+reminder_type_offset_left := { 0 }
+reminder_type_offset_width := { 0 }
+reminder_type_offset_height := { 0 }
+reminder_type_disabled := { false }
+
+reminder_cost_offset_top := { 0 }
+reminder_cost_offset_left := { 0 }
+reminder_cost_offset_width := { 0 }
+reminder_cost_offset_height := { 0 }
+reminder_cost_disabled := { false }
+
+reminder_multicolor_blend := { "black" }
+reminder_hybrid_blend := { "white" }
+reminder_artifact_blend := { "white" }
+
 auto_flags := {true}
 front_modal_hint := {
 	if not auto_flags() then ["", ""]
@@ -2590,19 +2815,33 @@ verify_watermark_image := {
 	if not has_png(array.0)
 		then array.0
 	else (
-		wm_link := array.0
+		wm_link := trim(array.0)
 		wm_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+wm_link)
-		if not wm_exists then (
+		if not wm_exists and can_import then (
+			user_path := get_mse_path() + "/data/magic-mainframe-extras.mse-include/"+wm_link
+			fallback := get_mse_path() + "/data/magic.mse-game/icons/choice-no.png"
+			img := import_image(user_path) or else import_image(fallback)
+			wm_dim := dimensions_of(img)
+			wm_width := wm_dim.0
+			wm_height := wm_dim.1
+			if (wm_width > 1024 or wm_height > 1024)
+				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
+			else if wm_width > 32
+				then wm_link + ",File loaded,{wm_width}x{wm_height}px"
+			else wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
+		)
+		else if not wm_exists then (
 			wm_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload"
 		) else (
-			wm_width := width_of("/magic-mainframe-extras.mse-include/"+wm_link)
-			wm_height := height_of("/magic-mainframe-extras.mse-include/"+wm_link)
+			wm_dim := dimensions_of("/magic-mainframe-extras.mse-include/"+wm_link)
+			wm_width := wm_dim.0
+			wm_height := wm_dim.1
 			if (wm_width > 1024 or wm_height > 1024)
 				then wm_link + ",File found,Limit watermarks to 1024x1024px or smaller for color blending"
 			else wm_link + ",File found,{wm_width}x{wm_height}px"
 		)
 	)
-}
+}@(can_import:true)
 custom_watermark_link := {
 	field := set["custom_watermark_"+input]
 	array := split_comma(field)
@@ -2801,6 +3040,7 @@ watermark_scripts :=
 	"other magic symbols color pie":                      { watermark_blend(h:500, l:500, wm_directory + "other/colorpie.png", face:face) }
 	"other magic symbols judge academy":                  { watermark_blend(h:500, l:500, wm_directory + "promo/judge_academy.png", face:face) }
 	"other magic symbols foretell":                       { watermark_blend(h:460, l:500, wm_directory + "other/foretell.png", face:face) }
+	"other magic symbols echoverse":          		      { watermark_blend(h:500, l:500, wm_directory + "other/echoverse.png", face:face) }
 	"other magic symbols jace consortium":                { watermark_blend(h:500, l:500, wm_directory + "other/jace-consortium.png", face:face) }
 	"other magic symbols seekers of carmot":              { watermark_blend(h:500, l:500, wm_directory + "other/seekersofcarmot.png", face:face) }
 	"other magic symbols desparked":                      { watermark_blend(h:500, l:500, wm_directory + "other/desparked.png", face:face) }
@@ -2817,6 +3057,16 @@ watermark_scripts :=
 	"other magic symbols theros poleis akros":            { watermark_blend(wm_directory + "theros/akros.png", face:face) }
 	"other magic symbols theros poleis meletis":          { watermark_blend(wm_directory + "theros/meletis.png", face:face) }
 	"other magic symbols theros poleis setessa":          { watermark_blend(wm_directory + "theros/setessa.png", face:face) }
+	
+	"other magic symbols hero's path quest 1":            { watermark_blend(wm_directory + "herospath/quest1.png", face:face) }
+	"other magic symbols hero's path quest 2":            { watermark_blend(wm_directory + "herospath/quest2.png", face:face) }
+	"other magic symbols hero's path quest 3":            { watermark_blend(wm_directory + "herospath/quest3.png", face:face) }
+	"other magic symbols hero's path quest 4":            { watermark_blend(wm_directory + "herospath/quest4.png", face:face) }
+	"other magic symbols hero's path quest 5":            { watermark_blend(wm_directory + "herospath/quest5.png", face:face) }
+	"other magic symbols hero's path quest 6":            { watermark_blend(wm_directory + "herospath/quest6.png", face:face) }
+	"other magic symbols hero's path quest 7":            { watermark_blend(wm_directory + "herospath/quest7.png", face:face) }
+	"other magic symbols hero's path quest 8":            { watermark_blend(wm_directory + "herospath/quest8.png", face:face) }
+	"other magic symbols hero's path quest 9":            { watermark_blend(wm_directory + "herospath/quest9.png", face:face) }
 	
 	"alara symbols Bant":                                 { watermark_blend(wm_directory + "alara/bant.png", face:face) }
 	"alara symbols Esper":                                { watermark_blend(wm_directory + "alara/esper.png", face:face) }
@@ -2873,6 +3123,7 @@ build_custom_watermark_blend := {
 		else custom_watermark_link(input, long:true)
 	array := split_comma(info)
 	link := array.0
+	if (array.1 or else "" == "File loaded") then link := import_image(get_mse_path() + "/data" + link)
 	l := 500
 	h := 500
 	if length(array) > 1 then (
@@ -2910,6 +3161,10 @@ face_is_rotated :=
 {
 	map := face_coordinates_map(input)
 	map.width > map.height
+}
+face_factor := {
+	map := face_coordinates_map(input)
+	min(map.width, map.height) / 375
 }
 ############################################################## Information below the textbox
 ############################################################## Global offsets
@@ -2966,7 +3221,7 @@ set_language_script :=
 }
 #### a/b add-ons for DFCs
 card_number_tags := {
-	if contains(card.shape, match:"double")
+	if set.dfc_lettering and (is_linked_dfc() or contains(card.shape, match:"double"))
 		then ["a", "b", "b"]
 	else ["", "", ""]
 }
@@ -3006,7 +3261,7 @@ card_code_script_core := {
 #### Card code script for individual faces
 card_code_script :=
 {
-	card_code_script_core(card_code_text: card.card_code_text, face:1)
+	card_code_script_core(card_code_text: card.card_code_text, face:if get_front_face(card) != nil then 2 else 1)
 }
 card_code_script2 :=
 {
@@ -3135,11 +3390,12 @@ secondary_copyright_default := { set.secondary_copyright }
 ############################################################## Additional credit fields
 illustrator_brush_default := { "art" }
 illustrator_brush_field := { if input <= 1 then card.illustrator_brush else card["illustrator_brush_" + input] }
+illustrator_brush_color := { styling.copyright_text_color or else set.copyright_text_color }
 illustrator_brush_image :=
 {
 	shape := illustrator_brush_field(field)
 	image := "/magic-modules.mse-include/information/" + shape + ".png"
-	color := styling.copyright_text_color or else set.copyright_text_color
+	color := illustrator_brush_color()
 	recolor_image(image, color: color)
 }
 additional_credit_default := { "" }
@@ -3149,7 +3405,7 @@ additional_credit_brush_image :=
 {
 	shape := additional_credit_brush_field(field)
 	image := "/magic-modules.mse-include/information/" + shape + ".png"
-	color := styling.copyright_text_color or else set.copyright_text_color
+	color := illustrator_brush_color()
 	recolor_image(image, color: color)
 }
 ############################################################## The List
@@ -3160,7 +3416,7 @@ the_list_icon_image :=
 	shape := the_list_icon_field(field)
 	suffix := if shape == "the list" and face_coordinates_map(face).width != 375 and face_coordinates_map(face).width != 523 then " 750" else ""
 	image := "/magic-modules.mse-include/information/" + shape + suffix + ".png"
-	color := styling.copyright_text_color or else set.copyright_text_color
+	color := illustrator_brush_color()
 	recolor_image(image, color: color)
 }
 the_list_dot_image :=
@@ -3247,8 +3503,8 @@ reverse_name_for := {
 	lv := "1"
 	face := ""
 	if contains(margin_code, match:"lv") then
-		lv := filter_text(margin_code, match:"[0-9]+")
-	else face := filter_text(margin_code, match:"[0-9]+")
+		lv := filter_number(margin_code)
+	else face := filter_number(margin_code)
 	
 	card_name := if face != "" then card_name_for_face(face, reverse:true)
 					else card_name_for_level(lv, reverse:true)
@@ -3305,6 +3561,7 @@ corners_possible_dimensions :=
 	"1039x744":	"1039x744"
 	"750x1046":	"750x1046"
 	"1046x750":	"1046x750"
+	"1488x1039": "1488x1039"
 	"1500x1046": "1500x1046"
 ]
 
@@ -3315,6 +3572,12 @@ corners_disabled_3 := { false }
 ############################################################## Punchout counters
 counter_default := { "+1/+1" }
 counter_field := { if input <= 1 then card.counter else card["counter_" + input] }
+counter_color :=
+{
+	styling.symbol_color
+	or else styling.counter_symbol_color
+	or else rgb(255,255,255)
+}
 counter_image :=
 {
 	shape := replace(counter_field(field), match: "/", replace: "")
@@ -3328,13 +3591,7 @@ counter_image :=
 		else "/magic-modules.mse-include/counters/none.png"
 	)
 	else if shape == "none" then "/magic-modules.mse-include/counters/none.png"
-	else
-	(
-		color :=	styling.symbol_color
-					or else styling.counter_symbol_color
-					or else rgb(255,255,255)
-		recolor_image("/magic-modules.mse-include/counters/" + shape + ".png", color: color)
-	)
+	else recolor_image("/magic-modules.mse-include/counters/" + shape + ".png", color: counter_color())
 }
 
 ############################################################## Future Sight typesymbols
@@ -3363,67 +3620,473 @@ typesymbol_for :=
 	}
 typesymbol_type := { typesymbol_for(type) }
 ############################################################## Transform/Lesson symbols
+############ Default behavior (input is the value of the field)
 transform_symbol_default :=
 {
-	stylesheet
-	if		margin_code == "transform1" then	"none"
-	else if	margin_code == "transform2" then	"none"
-	else										"none"
+	front_face := get_front_face(card)
+	if front_face != nil
+		then transform_symbol_counterpart(front_face, fallback:"back triangle")
+	else if get_back_face(card) != nil
+		then "front triangle"
+	else if is_linked_meld_front()
+		then "meld"
+	else "none"
 }
-transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
-transform_symbol_is_mirrored :=
+transform_symbol_counterpart :=
 {
-	if input <= 1
-		then transform_symbol_mirrored_1()
-	else if input == 2
-		then transform_symbol_mirrored_2()
-	else transform_symbol_mirrored_3()
+	front := [
+		"front triangle",
+		"day",
+		"moon",
+		"closed fan",
+		"sparker",
+		"modal front",
+		"comedy",
+		"custom symbol one",
+		"custom symbol three"
+	]
+	back := [
+		"back triangle",
+		"night",
+		"eldrazi",
+		"open fan",
+		"aetherprint",
+		"modal back",
+		"tragedy",
+		"custom symbol two",
+		"custom symbol four"
+	]
+	shape := transform_symbol_shape(input.transformation)
+	front_pos := position(of:shape, in:front)
+	back_pos := position(of:shape, in:back)
+	if front_pos >= 0 then back[front_pos]
+	else if back_pos >= 0 then front[back_pos]
+	else if fallback != "" then fallback
+	else shape
+}@(fallback:"")
+transform_symbol_default_position :=
+{
+	if get_front_face(card) != nil
+	and not transform_symbol_is_modal(input)
+	then "right" else "left"
+}
+transform_symbol_default_background :=
+{
+	if transform_symbol_is_modal(input) and not transform_symbol_modal_uses_normal_background()
+	then "colored" else "black"
+}
+transform_symbol_default_rim :=
+{
+	"white"
+}
+transform_symbol_default_rim_bevel := { false }
+transform_symbol_default_rim_shadow := { false }
+transform_symbol_default_rim_shadow_color :=
+{
+	if transform_symbol_background(input) == "black" or transform_symbol_rim(input) == "black" then rgb(100,100,100) else rgb(0,0,0)
+}
+transform_symbol_default_icon :=
+{
+	if contains(input, match: "modal front") and not transform_symbol_modal_uses_normal_background()
+	then "black" else "white"
+}
+transform_symbol_default_icon_bevel := { false }
+transform_symbol_default_icon_mirror := { false }
+transform_symbol_default_icon_shadow := { false }
+transform_symbol_default_icon_shadow_color :=
+{
+	if transform_symbol_background(input) == "black" or transform_symbol_icon(input) == "black" then rgb(100,100,100) else rgb(0,0,0)
+}
+transform_symbol_default_map :=
+[
+	rim:
+	[
+		render:	{ transform_symbol_default_rim() }
+		bevel:	{ transform_symbol_default_rim_bevel() }
+		shadow:	{ transform_symbol_default_rim_shadow() }
+		mirror:	{ false }
+	]
+	icon:
+	[
+		render:	{ transform_symbol_default_icon() }
+		bevel:	{ transform_symbol_default_icon_bevel() }
+		shadow:	{ transform_symbol_default_icon_shadow() }
+		mirror:	{ transform_symbol_default_icon_mirror() }
+	]
+]
+
+transform_symbol_script :=
+{
+	input := transform_symbol_backwards_compatibility()
+	input := require_exclusive_choice(choices: "position default, position left, position right")
+	input := require_exclusive_choice(choices: "background default, background colored, background black, background white, background none")
+	if		contains(last_change, match: "rim ")	then input := transform_symbol_clean_option_choices(option: "rim")
+	else if	contains(last_change, match: "icon ")	then input := transform_symbol_clean_option_choices(option: "icon")
+	input := require_exclusive_choice(choices:	"front triangle, " +
+												"day, " +
+												"moon, " +
+												"closed fan, " +
+												"meld, " +
+												"sparker, " +
+												"back triangle, " +
+												"night, " +
+												"eldrazi, " +
+												"compass, " +
+												"open fan, " +
+												"specialized, " +
+												"aetherprint, " +
+												"none, " +
+												"lesson, " +
+												"custom symbol one, " +
+												"custom symbol two, " +
+												"custom symbol three, " +
+												"custom symbol four, " +
+												"extra comedy, " +
+												"extra tragedy, " +
+												"modal front, " +
+												"modal back, " +
+												"multitype, " +
+												"artifact, " +
+												"battle, " +
+												"creature, " +
+												"enchantment, " +
+												"fortress, " +
+												"instant, " +
+												"land, " +
+												"planeswalker, " +
+												"sorcery, " +
+												"non standard conspiracy, " +
+												"non standard dungeon, " +
+												"non standard emblem, " +
+												"non standard hero, " +
+												"non standard phenomenon, " +
+												"non standard plane, " +
+												"non standard scheme, " +
+												"non standard vanguard")
+	input
+}
+transform_symbol_backwards_compatibility :=
+	#### remove sparker and modal color options
+	replace@(match: "(sparker|modal front|modal back)( [(]colored[)])? (default|white|blue|black|red|green|multicolor|colorless|artifact)", replace: "_1") +
+	#### add new render options
+	{
+		if		not chosen(input, choice: "position default")
+			and	not chosen(input, choice: "position left")
+			and	not chosen(input, choice: "position right")
+		then "position default, background default, rim default, icon default, " + input
+		else input
+	}
+transform_symbol_clean_option_choices :=
+{
+	#### If the user selected default, remove all other choices
+	if last_change == option + " default" then replace(input, match: option + " (colored|black|white|none|shadow|bevel|mirror), ", replace: "")
+	#### If the user selected something other than default, and we were on default, populate other options so they reflect the default values
+	else if contains(input, match: option + " default") then (
+		input := replace(input, match: option + " default, ", replace: "")
+		bevel := contains(last_change, match: "bevel")
+		shadow := contains(last_change, match: "shadow")
+		mirror := contains(last_change, match: "mirror")
+		addition :=	(if bevel or shadow or mirror										then ", " + option + " " + transform_symbol_default_map[option]["render"]()	else "") +
+					(if not bevel and transform_symbol_default_map[option]["bevel"]()	then ", " + option + " bevel"												else "") +
+					(if not shadow and transform_symbol_default_map[option]["shadow"]()	then ", " + option + " shadow"												else "") +
+					(if not mirror and transform_symbol_default_map[option]["mirror"]()	then ", " + option + " mirror"												else "")
+		replace(input, match: last_change, replace: last_change + addition)
+	)
+	#### If the user selected something other than default, and we weren't on default, just require exclusive
+	else require_exclusive_choice(input, choices: option + " colored, " + option + " black, " + option + " white, " + option + " none")
+}
+
+transform_symbol_field := { if input <= 1 then card.transformation else card["transformation_" + input] }
+transform_symbol_style := { if input <= 1 then card_style.transformation else card_style["transformation_" + input] }
+
+transform_symbol_multicolor_blend :=	{ "white" }
+transform_symbol_hybrid_blend :=		{ "white" }
+transform_symbol_artifact_blend :=		{ "white" }
+
+############ Actual values, taking into account user choices (input is the value of the field)
+transform_symbol_shape :=
+	replace@(match: "^.*, ", replace: "") +
+	replace@(match: "extra |non standard ", replace: "")
+transform_symbol_background :=
+{
+	if		chosen(input, choice: "background default")	then	transform_symbol_default_background(input)
+	else if	chosen(input, choice: "background colored")	then	"colored"
+	else if	chosen(input, choice: "background black")	then	"black"
+	else if	chosen(input, choice: "background white")	then	"white"
+	else														"none"
+}
+transform_symbol_rim :=
+{
+	if		chosen(input, choice: "rim default")		then	transform_symbol_default_rim(input)
+	else if	chosen(input, choice: "rim colored")		then	"colored"
+	else if	chosen(input, choice: "rim black")			then	"black"
+	else if	chosen(input, choice: "rim white")			then	"white"
+	else														"none"
+}
+transform_symbol_icon :=
+{
+	if		chosen(input, choice: "icon default")		then	transform_symbol_default_icon(input)
+	else if	chosen(input, choice: "icon colored")		then	"colored"
+	else if	chosen(input, choice: "icon black")			then	"black"
+	else														"white"
+}
+transform_symbol_is_empty := match@(match: ", none$")
+transform_symbol_is_modal := { contains(input, match: "modal") }
+transform_symbol_is_right :=
+{
+	chosen(input, choice: "position right")
+	or (
+		chosen(input, choice: "position default")
+		and transform_symbol_default_position(input) == "right"
+	)
+}
+transform_symbol_active_left :=
+{
+	input != "" and not transform_symbol_is_empty(input) and not transform_symbol_is_right(input)
+}
+transform_symbol_active_right :=
+{
+	input != "" and not transform_symbol_is_empty(input) and transform_symbol_is_right(input)
+}
+transform_symbol_rim_has_bevel :=
+{
+	chosen(input, choice: "rim bevel")
+	or (
+		chosen(input, choice: "rim default")
+		and transform_symbol_default_rim_bevel(input)
+	)
+}
+transform_symbol_rim_has_shadow :=
+{
+	chosen(input, choice: "rim shadow")
+	or (
+		chosen(input, choice: "rim default")
+		and transform_symbol_default_rim_shadow(input)
+	)
+}
+transform_symbol_icon_has_bevel :=
+{
+	chosen(input, choice: "icon bevel")
+	or (
+		chosen(input, choice: "icon default")
+		and transform_symbol_default_icon_bevel(input)
+	)
+}
+transform_symbol_icon_has_shadow :=
+{
+	chosen(input, choice: "icon shadow")
+	or (
+		chosen(input, choice: "icon default")
+		and transform_symbol_default_icon_shadow(input)
+	)
+}
+transform_symbol_icon_has_mirror :=
+{
+	chosen(input, choice: "icon mirror")
+	or (
+		chosen(input, choice: "icon default")
+		and transform_symbol_default_icon_mirror(input)
+	)
+}
+
+############ Image creation (input is the 'template' blending function input, so: w,u,b,r,g,m,c,a)
+transform_symbol_background_image :=
+{
+	color_name := "background/" + background + "/" + variant + "/" + input + ".png"
+	noncolor_name := "background/" + background + "/" + variant + ".png"
+	#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
+	image :=	if		exists_in_package(transform_folder						+ color_name)		then	transform_folder						+ color_name
+				else if	exists_in_package(transform_folder						+ noncolor_name)	then	transform_folder						+ noncolor_name
+				else if	exists_in_package("/magic-modules.mse-include/symbols/"	+ color_name)		then	"/magic-modules.mse-include/symbols/"	+ color_name
+				else																						"/magic-modules.mse-include/symbols/"	+ noncolor_name
+	image := resize_image(image, width:width, height:height)
+	
+	if transform_right then image := flip_image(image, horizontal: true)
+	image
+}
+transform_symbol_rim_image :=
+{
+	#### Get the image that contains the texture
+	color_name :=	if rim == "colored" then "/texture/" + variant + "/" + input + ".png"
+					else "/texture/" + (if transform_bevel_rim then "off " else "pure ") + rim + ".png"
+	noncolor_name := if rim == "colored" then "/texture/" + variant + ".png" else color_name
+	#### Try to find the folder with the color variants first, fall back on the non colored file, if still no dice try the icon files, finally fall back on module files
+	color_image :=	if		exists_in_package(transform_folder + "rim" + color_name)		then	transform_folder + "rim" + color_name
+					else if	exists_in_package(transform_folder + "rim" + noncolor_name)		then	transform_folder + "rim" + noncolor_name
+					else if	exists_in_package(transform_folder + "icon" + color_name)		then	transform_folder + "icon" + color_name
+					else if	exists_in_package(transform_folder + "icon" + noncolor_name)	then	transform_folder + "icon" + noncolor_name
+					else																			"/magic-modules.mse-include/symbols/rim" + color_name
+	color_image := resize_image(color_image, width:width, height:height)
+	
+	#### Get the image that contains the shape
+	shape_name := "rim/shape/" + variant + ".png"
+	shape_image := if exists_in_package(transform_folder + shape_name) then transform_folder + shape_name else "/magic-modules.mse-include/symbols/" + shape_name
+	shape_image := resize_image(shape_image, width:width, height:height)
+	if not transform_bevel_rim then shape_image := fill_image(shape_image, color: rgb(128,128,128))
+	
+	#### Bake the texture onto the shape
+	rim_image := combine_blend(image1: color_image, image2: shape_image, combine: "lightmap relative")
+	
+	#### Mirror
+	if transform_right then rim_image := flip_image(rim_image, horizontal: true)
+	
+	#### Shadow last so the sun's position doesn't get flipped
+	if transform_shadow_rim then rim_image := add_drop_shadow(rim_image, offset_x: -0.04, offset_y: 0.03, alpha: 0.9, blur_radius: 0.01, color: transform_symbol_default_rim_shadow_color(transform_field))
+	rim_image
+}
+transform_symbol_icon_image :=
+{
+	#### Get the image that contains the texture
+	color_name :=	if icon == "colored" then "icon/texture/" + variant + "/" + input + ".png"
+					else "icon/texture/" + (if transform_bevel_icon then "off " else "pure ") + icon + ".png"
+	noncolor_name := if icon == "colored" then "icon/texture/" + variant + ".png" else color_name
+	#### Try to find the folder with the color variants first, fall back on the non colored file, finally fall back on module files
+	color_image :=	if		exists_in_package(transform_folder + color_name)	then	transform_folder + color_name
+					else if	exists_in_package(transform_folder + noncolor_name)	then	transform_folder + noncolor_name
+					else																"/magic-modules.mse-include/symbols/" + color_name
+	color_image := resize_image(color_image, width:width, height:height)
+	
+	#### Get the image that contains the shape
+	shape_name := "icon/shape/" + transform_shape + ".png"
+	shape_image := 	if transform_custom_path != ""
+						then transform_custom_path 
+					else if exists_in_package(transform_folder + shape_name)
+						then transform_folder + shape_name
+					else "/magic-modules.mse-include/symbols/" + shape_name
+	#### Offsets
+	shape_image := crop_image(
+		resize_image(
+			shape_image,
+			width:width+2*transform_symbol_icon_offset_width(transform_field),
+			height:height+2*transform_symbol_icon_offset_height(transform_field)
+		),
+		offset_x: transform_symbol_icon_offset_width(transform_field)  - transform_symbol_icon_offset_left(transform_field) * (if transform_right and not transform_modal then -1 else 1),
+		offset_y: transform_symbol_icon_offset_height(transform_field) - transform_symbol_icon_offset_top(transform_field),
+		width:width,
+		height:height
+	)
+	if not transform_bevel_icon then shape_image := fill_image(shape_image, color: rgb(128,128,128))
+	
+	#### Bake the texture onto the shape
+	icon_image := combine_blend(image1: color_image, image2: shape_image, combine: "lightmap relative")
+	
+	#### Mirror
+	mirror := transform_right and transform_modal # modal icons need to be flipped by default because they are not centered
+	if transform_mirror_icon then mirror := not mirror
+	if mirror then icon_image := flip_image(icon_image, horizontal: true)
+	
+	#### Shadow last so the sun's position doesn't get flipped
+	if transform_shadow_icon then icon_image := add_drop_shadow(icon_image, offset_x: -0.06, offset_y: 0.045, alpha: 0.9, blur_radius: 0.015, color: transform_symbol_default_icon_shadow_color(transform_field))
+	icon_image
+}
+transform_symbol_template :=
+{
+	icon :=			transform_symbol_icon(transform_field)
+	rim :=			transform_symbol_rim(transform_field)
+	background :=	transform_symbol_background(transform_field)
+	
+	variant := if transform_symbol_modal_uses_normal_background(transform_field) or not transform_modal then "normal" else transform_shape
+	if (background == "none" or transform_symbol_modal_uses_normal_background(transform_field)) and transform_modal then transform_shape := transform_shape + " centered"
+	
+	image := transform_symbol_icon_image(width:width, height:height, variant:variant)
+	
+	if rim != "none" then (
+		rim_image := transform_symbol_rim_image(width:width, height:height, variant:variant)
+		image := insert_image(base_image: rim_image, inserted_image: image, offset_x: 0, offset_y: 0)
+	)
+	if background != "none"	then (
+		background_image :=	transform_symbol_background_image(width:width, height:height, variant:variant)
+		image := insert_image(base_image: background_image, inserted_image: image, offset_x: 0, offset_y: 0)
+	)
+	
+	image
 }
 transform_symbol_image :=
 {
-	map := face_coordinates_map(face)
-	if map.width == 0 or map.height == 0
+	face_map := face_coordinates_map(face)
+	if face_map.width == 0 or face_map.height == 0
 		then ""
 	else (
-		shape := transform_symbol_field(face)
-		link := clean_transform_symbol_shape(shape)
-		if transform_symbol_is_mirrored(face) then link := flip_transform_symbol_shape(link)
-		if contains(link, match:"/default") then (
-			color := sparker_card_color(card_color_field(face))
-			link := replace(link, match:"/default", replace:"/"+color)
+		transform_field := transform_symbol_field(face)
+		transform_shape := transform_symbol_shape(transform_field)
+		
+		## check for custom icon
+		transform_custom_path := ""
+		slug := ""
+		old_custom := true
+		custom_syms := ["custom symbol one", "custom symbol two", "custom symbol three", "custom symbol four"]
+		sym_index := position(of:transform_shape in:custom_syms)
+		if sym_index >= 0 then slug := custom_symbol_slug(sym_index+1)
+		if slug != "" then (
+			fs := split_custom_directory(slug)
+			transform_custom_path := "/magic-mainframe-extras.mse-include/" + fs.directory + "shape/" + fs.filename
+			old_custom := not exists_in_package(transform_custom_path)
+			if old_custom then transform_custom_path := ""
 		)
-		case shape of
-			"none": "",
-			"custom symbol one": custom_symbol_1(),
-			"custom symbol two": custom_symbol_2(),
-			"custom symbol three": custom_symbol_3(),
-			"custom symbol four": custom_symbol_4(),
-			else: "/magic-modules.mse-include/symbols/" + link + ".png";
+
+		if		transform_shape == "none"					then ""
+		else if sym_index >= 0 and old_custom then (
+			funcs := [custom_symbol_1, custom_symbol_2, custom_symbol_3, custom_symbol_4]
+			funcs[sym_index]()
+		)
+		else (
+			transform_style :=				transform_symbol_style(face)
+			transform_multicolor_blend :=	transform_symbol_multicolor_blend(face)
+			transform_hybrid_blend :=		transform_symbol_hybrid_blend(face)
+			transform_artifact_blend :=		transform_symbol_artifact_blend(face)
+			transform_bevel_rim :=			transform_symbol_rim_has_bevel(transform_field)
+			transform_shadow_rim :=			transform_symbol_rim_has_shadow(transform_field)
+			transform_bevel_icon :=			transform_symbol_icon_has_bevel(transform_field)
+			transform_shadow_icon :=		transform_symbol_icon_has_shadow(transform_field)
+			transform_mirror_icon :=		transform_symbol_icon_has_mirror(transform_field)
+			transform_right :=				transform_symbol_is_right(transform_field)
+			transform_modal :=				transform_symbol_is_modal(transform_field)
+			transform_folder :=				transform_symbol_image_folder(transform_field)
+			if not ends_dash(transform_folder) then transform_folder := transform_folder + "/"
+			
+			template := transform_symbol_template
+			land_template := transform_symbol_template
+			color_background(
+				input:				card_color_field(face),
+				type:				"transform",
+				base_hybrid:		cropped_card_hybrid,
+				multicolor_blend:	transform_multicolor_blend
+				hybrid_blend:		transform_hybrid_blend
+				artifact_blend:		transform_artifact_blend
+				offset_x:			transform_style.left,
+				offset_y:			transform_style.top,
+				width:				transform_style.width,
+				height:				transform_style.height,
+				face_width:			face_map.width,
+				face_height:		face_map.height
+			)
+		)
 	)
 }
-clean_transform_symbol_shape :=
-	replace@(match: "modal front ", replace: "modalfront/") +
-	replace@(match: "modal back ", replace: "modalback/") +
-	replace@(match: "sparker [(]colored[)] ", replace: "sparker/") +
-	replace@(match: "extra |non standard ", replace: "")
-flip_transform_symbol_shape :=
-	replace@(match: "modalfront/", replace: "modalfrontflipped/") +
-	replace@(match: "modalback/", replace: "modalbackflipped/")
+
+transform_symbol_icon_offset_top := { 0 }
+transform_symbol_icon_offset_left := { 0 }
+transform_symbol_icon_offset_width := { 0 }
+transform_symbol_icon_offset_height := { 0 }
+
+transform_symbol_image_folder := { "/magic-modules.mse-include/symbols/" }
+transform_symbol_modal_uses_normal_background := { false }
 
 #### General form
 transform_symbol_left :=
 {
 	map := face_coordinates_map(face)
-	mirrored := transform_symbol_is_mirrored(1)
-	if mirrored then offset := -offset
+	transform_field := transform_symbol_field(face)
+	right_side := transform_symbol_is_right(transform_field)
+	if right_side then offset := -offset
 	if map.width > map.height then
 	(
-		if mirrored then	map.left + 455 * map.width/523 + offset
+		if right_side then	map.left + 455 * map.width/523 + offset
 		else				map.left + 52  * map.width/523 + offset
 	)
 	else
 	(
-		if mirrored then	map.left + 319 * map.width/375 + offset
+		if right_side then	map.left + 319 * map.width/375 + offset
 		else				map.left + 13  * map.width/375 + offset
 	)
 }
@@ -3452,39 +4115,36 @@ transform_symbol_height :=
 #### Specific faces
 transform_symbol_face_1 := { 1 }
 transform_symbol_disabled_1 := { false }
-transform_symbol_mirrored_1 := { false }
 transform_symbol_offset_top_1 := { 0 }
 transform_symbol_offset_left_1 := { 0 }
 transform_symbol_offset_width_1 := { 0 }
 transform_symbol_offset_height_1 := { 0 }
-transform_symbol_left_1 :=   { transform_symbol_left(face:transform_symbol_face_1(),    offset:transform_symbol_offset_left_1())   }
-transform_symbol_top_1 :=    { transform_symbol_top(face:transform_symbol_face_1(),     offset:transform_symbol_offset_top_1())    }
-transform_symbol_width_1 :=  { transform_symbol_width(face:transform_symbol_face_1(),   offset:transform_symbol_offset_width_1())  }
-transform_symbol_height_1 := { transform_symbol_height(face:transform_symbol_face_1(),  offset:transform_symbol_offset_height_1()) }
+transform_symbol_left_1 :=   { transform_symbol_left(face:transform_symbol_face_1(),    offset:transform_symbol_offset_left_1(transform_symbol_field(1)))   }
+transform_symbol_top_1 :=    { transform_symbol_top(face:transform_symbol_face_1(),     offset:transform_symbol_offset_top_1(transform_symbol_field(1)))    }
+transform_symbol_width_1 :=  { transform_symbol_width(face:transform_symbol_face_1(),   offset:transform_symbol_offset_width_1(transform_symbol_field(1)))  }
+transform_symbol_height_1 := { transform_symbol_height(face:transform_symbol_face_1(),  offset:transform_symbol_offset_height_1(transform_symbol_field(1))) }
 
 transform_symbol_face_2 := { 2 }
 transform_symbol_disabled_2 := { false }
-transform_symbol_mirrored_2 := { false }
 transform_symbol_offset_top_2 := { 0 }
 transform_symbol_offset_left_2 := { 0 }
 transform_symbol_offset_width_2 := { 0 }
 transform_symbol_offset_height_2 := { 0 }
-transform_symbol_left_2 :=   { transform_symbol_left(face:transform_symbol_face_2(),    offset:transform_symbol_offset_left_2())   }
-transform_symbol_top_2 :=    { transform_symbol_top(face:transform_symbol_face_2(),     offset:transform_symbol_offset_top_2())    }
-transform_symbol_width_2 :=  { transform_symbol_width(face:transform_symbol_face_2(),   offset:transform_symbol_offset_width_2())  }
-transform_symbol_height_2 := { transform_symbol_height(face:transform_symbol_face_2(),  offset:transform_symbol_offset_height_2()) }
+transform_symbol_left_2 :=   { transform_symbol_left(face:transform_symbol_face_2(),    offset:transform_symbol_offset_left_2(transform_symbol_field(2)))   }
+transform_symbol_top_2 :=    { transform_symbol_top(face:transform_symbol_face_2(),     offset:transform_symbol_offset_top_2(transform_symbol_field(2)))    }
+transform_symbol_width_2 :=  { transform_symbol_width(face:transform_symbol_face_2(),   offset:transform_symbol_offset_width_2(transform_symbol_field(2)))  }
+transform_symbol_height_2 := { transform_symbol_height(face:transform_symbol_face_2(),  offset:transform_symbol_offset_height_2(transform_symbol_field(2))) }
 
 transform_symbol_face_3 := { 3 }
 transform_symbol_disabled_3 := { false }
-transform_symbol_mirrored_3 := { false }
 transform_symbol_offset_top_3 := { 0 }
 transform_symbol_offset_left_3 := { 0 }
 transform_symbol_offset_width_3 := { 0 }
 transform_symbol_offset_height_3 := { 0 }
-transform_symbol_left_3 :=   { transform_symbol_left(face:transform_symbol_face_3(),    offset:transform_symbol_offset_left_3())   }
-transform_symbol_top_3 :=    { transform_symbol_top(face:transform_symbol_face_3(),     offset:transform_symbol_offset_top_3())    }
-transform_symbol_width_3 :=  { transform_symbol_width(face:transform_symbol_face_3(),   offset:transform_symbol_offset_width_3())  }
-transform_symbol_height_3 := { transform_symbol_height(face:transform_symbol_face_3(),  offset:transform_symbol_offset_height_3()) }
+transform_symbol_left_3 :=   { transform_symbol_left(face:transform_symbol_face_3(),    offset:transform_symbol_offset_left_3(transform_symbol_field(3)))   }
+transform_symbol_top_3 :=    { transform_symbol_top(face:transform_symbol_face_3(),     offset:transform_symbol_offset_top_3(transform_symbol_field(3)))    }
+transform_symbol_width_3 :=  { transform_symbol_width(face:transform_symbol_face_3(),   offset:transform_symbol_offset_width_3(transform_symbol_field(3)))  }
+transform_symbol_height_3 := { transform_symbol_height(face:transform_symbol_face_3(),  offset:transform_symbol_offset_height_3(transform_symbol_field(3))) }
 
 ############################################################## Tombstone/Alchemy symbols
 card_symbol_default := { "" }
@@ -3583,6 +4243,7 @@ use_tall_walker_frame_2 :=
 	else false
 }
 loyalty_clean_margin_code := replace@(match: "loy(cost)?", replace: "")
+loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
 loyalty_cost_field :=
 {
 	input := loyalty_clean_margin_code(input)
@@ -3596,12 +4257,13 @@ loyalty_cost_box_field :=
 loyalty_cost_box_default :=
 {
 	cost := loyalty_cost_field(margin_code)
+	shadow := if loyalty_cost_box_shadow_default() then ", shadow" else ""
 	if cost == "" then "none"
-	else if	contains(cost, match: "+") then	"+, shadow"
-	else if	contains(cost, match: "-") then	"-, shadow"
-	else									"0, shadow"
+	else if	contains(cost, match: "+") then	"+" + shadow
+	else if	contains(cost, match: "-") then	"-" + shadow
+	else									"0" + shadow
 }
-loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
+loyalty_cost_box_shadow_default := { true }
 loyalty_cost_box_image :=
 {
 	shape := remove_comma(loyalty_cost_box_field(input + (instance-1)*8))
@@ -3629,10 +4291,12 @@ loyalty_box_default :=
 	margin_code := loyalty_clean_margin_code(margin_code)
 	loyalty := loyalty_field(margin_code)
 	if loyalty == "" then "none" else (
+	shadow := if loyalty_box_shadow_default() then ", shadow" else ""
 	type := if margin_code <= 1 then card.super_type else card["super_type_" + margin_code]
-	if is_battle(type) or contains(card_shape(), match: "battle") then "defense"
-	else "loyalty")
+	if is_battle(type) or contains(card_shape(), match: "battle") then "defense" + shadow
+	else "loyalty" + shadow)
 }
+loyalty_box_shadow_default := { false }
 loyalty_box_image :=
 {
 	shape := remove_comma(loyalty_box_field(instance))
@@ -3659,6 +4323,11 @@ loyalty_cost_offset_left_1 := { 0 }
 loyalty_cost_offset_width_1 := { 0 }
 loyalty_cost_offset_height_1 := { 0 }
 
+loyalty_cost_text_offset_top_1 := { 0 }
+loyalty_cost_text_offset_left_1 := { 0 }
+loyalty_cost_text_offset_width_1 := { 0 }
+loyalty_cost_text_offset_height_1 := { 0 }
+
 loyalty_cost_offset_text_margin_1 := { 0 }
 
 loyalty_textbox_mask_1 :=
@@ -3667,6 +4336,8 @@ loyalty_textbox_mask_1 :=
 	+ (if use_tall_walker_frame_1() then "_tall" else "")
 	+ "_mask.png"
 }
+
+loyalty_colon_stroke_1 := { false }
 
 loyalty_face_2 := { 2 }
 loyalty_text_field_2 := { 2 }
@@ -3682,6 +4353,11 @@ loyalty_cost_offset_left_2 := { 0 }
 loyalty_cost_offset_width_2 := { 0 }
 loyalty_cost_offset_height_2 := { 0 }
 
+loyalty_cost_text_offset_top_2 := { 0 }
+loyalty_cost_text_offset_left_2 := { 0 }
+loyalty_cost_text_offset_width_2 := { 0 }
+loyalty_cost_text_offset_height_2 := { 0 }
+
 loyalty_cost_offset_text_margin_2 := { 0 }
 
 loyalty_textbox_mask_2 :=
@@ -3690,6 +4366,8 @@ loyalty_textbox_mask_2 :=
 	+ (if use_tall_walker_frame_2() then "_tall" else "")
 	+ "_mask.png"
 }
+
+loyalty_colon_stroke_2 := { false }
 
 loyalty_face_3 := { 3 }
 loyalty_text_field_3 := { 3 }
@@ -3705,6 +4383,11 @@ loyalty_cost_offset_left_3 := { 0 }
 loyalty_cost_offset_width_3 := { 0 }
 loyalty_cost_offset_height_3 := { 0 }
 
+loyalty_cost_text_offset_top_3 := { 0 }
+loyalty_cost_text_offset_left_3 := { 0 }
+loyalty_cost_text_offset_width_3 := { 0 }
+loyalty_cost_text_offset_height_3 := { 0 }
+
 loyalty_cost_offset_text_margin_3 := { 0 }
 
 loyalty_textbox_mask_3 :=
@@ -3713,6 +4396,8 @@ loyalty_textbox_mask_3 :=
 	then "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 	else "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
 }
+
+loyalty_colon_stroke_3 := { false }
 
 loyalty_face := { if instance <= 1 then loyalty_face_1() else if instance == 2 then loyalty_face_2() else loyalty_face_3() }
 loyalty_text_field := { if instance <= 1 then loyalty_text_field_1() else if instance == 2 then loyalty_text_field_2() else loyalty_text_field_3() }
@@ -3728,9 +4413,16 @@ loyalty_cost_offset_left := { if instance <= 1 then loyalty_cost_offset_left_1()
 loyalty_cost_offset_width := { if instance <= 1 then loyalty_cost_offset_width_1() else if instance == 2 then loyalty_cost_offset_width_2() else loyalty_cost_offset_width_3() }
 loyalty_cost_offset_height := { if instance <= 1 then loyalty_cost_offset_height_1() else if instance == 2 then loyalty_cost_offset_height_2() else loyalty_cost_offset_height_3() }
 
+loyalty_cost_text_offset_top := { if instance <= 1 then loyalty_cost_text_offset_top_1() else if instance == 2 then loyalty_cost_text_offset_top_2() else loyalty_cost_text_offset_top_3() }
+loyalty_cost_text_offset_left := { if instance <= 1 then loyalty_cost_text_offset_left_1() else if instance == 2 then loyalty_cost_text_offset_left_2() else loyalty_cost_text_offset_left_3() }
+loyalty_cost_text_offset_width := { if instance <= 1 then loyalty_cost_text_offset_width_1() else if instance == 2 then loyalty_cost_text_offset_width_2() else loyalty_cost_text_offset_width_3() }
+loyalty_cost_text_offset_height := { if instance <= 1 then loyalty_cost_text_offset_height_1() else if instance == 2 then loyalty_cost_text_offset_height_2() else loyalty_cost_text_offset_height_3() }
+
 loyalty_cost_offset_text_margin := { if instance <= 1 then loyalty_cost_offset_text_margin_1() else if instance == 2 then loyalty_cost_offset_text_margin_2() else loyalty_cost_offset_text_margin_3() }
 
 loyalty_textbox_mask := { if instance <= 1 then loyalty_textbox_mask_1() else if instance == 2 then loyalty_textbox_mask_2() else loyalty_textbox_mask_3() }
+
+loyalty_colon_stroke := { if instance <= 1 then loyalty_colon_stroke_1() else if instance == 2 then loyalty_colon_stroke_2() else loyalty_colon_stroke_3() }
 
 #### All these functions are implicitly passed and passing the 'instance' argument:
 a_left :=						{ face := loyalty_face(); face_coordinates_map(face).left }
@@ -3741,8 +4433,8 @@ a_height :=						{ face := loyalty_face(); face_coordinates_map(face).height }
 r_width :=						{ face := loyalty_face(); face_coordinates_map(face).width/375 }
 r_height :=						{ face := loyalty_face(); face_coordinates_map(face).height/523 }
 
-to_744_width :=					{ input/a_width()*744 }
-to_744_height :=				{ input/a_height()*1039 }
+to_744_width :=					{ input*744/a_width() }
+to_744_height :=				{ input*1039/a_height() }
 
 loyalty_left :=					{ round_near((if contains(loyalty_box_field(instance), match: "defense") then 323 else 313) * r_width() + a_left() + loyalty_offset_left() - loyalty_offset_width()) }
 loyalty_top :=					{ round_near(472 * r_height() + a_top() + loyalty_offset_top() - loyalty_offset_height()) }
@@ -3755,10 +4447,10 @@ loyalty_box_top :=				{ 457 * r_height() + a_top() + loyalty_offset_top() - loya
 loyalty_box_width :=			{ 64 * r_width() + 2*loyalty_offset_width() }
 loyalty_box_height :=			{ 52.5 * r_height() + 2*loyalty_offset_height() }
 
-loyalty_cost_left :=			{ round_near(loyalty_ability_left() - 24 * r_width() + loyalty_cost_offset_left() - loyalty_cost_offset_width()) }
-loyalty_cost_top :=				{ round_near(loyalty_ability_center(input) - loyalty_cost_r_height()/2 + loyalty_cost_r_correction(input) + loyalty_cost_move(input) + loyalty_cost_offset_top() - loyalty_cost_offset_height()) }
-loyalty_cost_width :=			{ loyalty_cost_r_width() + 2*loyalty_cost_offset_width() }
-loyalty_cost_height :=			{ if loyalty_abilities_count() >= input then loyalty_cost_r_height() + 2*loyalty_cost_offset_height() else 0 }
+loyalty_cost_left :=			{ round_near(loyalty_ability_left() - 24 * r_width() + loyalty_cost_offset_left() + loyalty_cost_text_offset_left() - loyalty_cost_offset_width()) }
+loyalty_cost_top :=				{ round_near(loyalty_ability_center(input) - loyalty_cost_r_height()/2 + loyalty_cost_r_correction(input) + loyalty_cost_move(input) + loyalty_cost_offset_top() + loyalty_cost_text_offset_top() - loyalty_cost_offset_height()) }
+loyalty_cost_width :=			{ loyalty_cost_r_width() + loyalty_cost_text_offset_width() + 2*loyalty_cost_offset_width() }
+loyalty_cost_height :=			{ if loyalty_abilities_count() >= input then loyalty_cost_r_height() + loyalty_cost_text_offset_height() + 2*loyalty_cost_offset_height() else 0 }
 loyalty_cost_r_width :=			{ 24 * r_width() }
 loyalty_cost_r_height :=		{ 20 * r_height() }
 loyalty_cost_r_correction :=
@@ -3787,7 +4479,12 @@ loyalty_colon_r_height :=		{ 21 * r_height() }
 loyalty_colon_r_correction :=	{ -3 * r_height() }
 loyalty_colon_font_size :=		{ 13 * (loyalty_colon_r_height() + 2*loyalty_cost_offset_height())/21 }
 
-loyalty_stripe_separator_top :=		{ (loyalty_ability_bottom(input) + loyalty_ability_top(input+1) - loyalty_stripe_separator_height())/2 + loyalty_separator_move(input) }
+loyalty_stripe_separator_top :=
+{
+	if input < 1 then a_top()
+	else if input >= loyalty_abilities_count(active:true) then a_bottom() - loyalty_stripe_separator_height() - 1
+	else (loyalty_ability_bottom(input) + loyalty_ability_top(input+1) - loyalty_stripe_separator_height())/2 + loyalty_separator_move(input)
+}
 loyalty_stripe_separator_height :=	{ 8.06 * r_height() }
 
 loyalty_cost_move :=
@@ -3866,29 +4563,19 @@ loyalty_stripe_separator_mask :=
 	mask_path := to_string(mask) or else ""
 	is_default :=		mask_path == "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 					or	mask_path == "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
-	if is_default then
-	(
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: to_744_height(loyalty_stripe_separator_top(input) - a_top()),
-			width: 744,
-			height: to_744_height(loyalty_stripe_separator_height()),
-			max_x: 744,
-			max_y: 1039
-		)
-	)
-	else
-	(
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: loyalty_stripe_separator_top(input) - a_top(),
-			width: a_width(),
-			height: loyalty_stripe_separator_height(),
-			max_x: a_width(),
-			max_y: a_height()
-		)
+	if is_default then mask :=	resize_image(
+									mask,
+									width: a_width(),
+									height: a_height()
+								)
+	crop_safe(
+		mask,
+		offset_x: 0,
+		offset_y: loyalty_stripe_separator_top(input) - a_top(),
+		width: a_width(),
+		height: loyalty_stripe_separator_height(),
+		max_x: a_width(),
+		max_y: a_height()
 	)
 }
 loyalty_stripe_mask :=
@@ -3897,36 +4584,23 @@ loyalty_stripe_mask :=
 	mask_path := to_string(mask) or else ""
 	is_default :=		mask_path == "/magic-modules.mse-include/loyalty/default_textbox_stamp_mask.png"
 					or	mask_path == "/magic-modules.mse-include/loyalty/default_textbox_mask.png"
-	if is_default then
-	(
-		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
-		top := to_744_height(top - a_top())
-		height := to_744_height(height)
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: top,
-			width: 744,
-			height: height,
-			max_x: 744,
-			max_y: 1039
-		)
-	)
-	else
-	(
-		top :=		if input > 1					then loyalty_stripe_separator_top(2*input-2) + loyalty_stripe_separator_height()	else a_top()
-		height := (if loyalty_abilities_count(active:true) >= 2*input	then loyalty_stripe_separator_top(2*input-1)										else a_bottom()) - top
-		top := top - a_top()
-		crop_safe(
-			mask,
-			offset_x: 0,
-			offset_y: top,
-			width: a_width(),
-			height: height,
-			max_x: a_width(),
-			max_y: a_height()
-		)
+	if is_default then mask :=	resize_image(
+									mask,
+									width: a_width(),
+									height: a_height()
+								)
+	separator_index := (input-1)*2
+	separator_height := loyalty_stripe_separator_height()
+	stripe_top := loyalty_stripe_separator_top(separator_index)
+	stripe_height := loyalty_stripe_separator_top(separator_index + 1) - stripe_top + separator_height
+	crop_safe(
+		mask,
+		offset_x: 0,
+		offset_y: stripe_top,
+		width: a_width(),
+		height: stripe_height,
+		max_x: a_width(),
+		max_y: a_height()
 	)
 }
 loyalty_stripe_alpha_default := { "40" }
@@ -3947,18 +4621,36 @@ loyalty_stripe_separator_image :=
 }
 loyalty_stripe_image :=
 {
+	result :=	resize_image(
+					"/magic-modules.mse-include/loyalty/stripe.png",
+					width: a_width(),
+					height: 36*a_height()/1039
+				)
+	
 	color := if instance <= 1 then (styling.stripes_color or else rgb(255,255,255)) else (styling["stripes_color_" + instance] or else rgb(255,255,255))
-	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else loyalty_stripe_alpha_default()) else (styling["stripes_opacity_percentage_" + instance] or else loyalty_stripe_alpha_default())
-	set_alpha(
-		recolor_image(
-			"/magic-modules.mse-include/loyalty/color.png",
-			color: color
-		),
-		alpha: get_alpha_percentage(
-			alpha,
-			default: loyalty_stripe_alpha_default()
-		)
-	)
+	result :=	recolor_image(
+					result,
+					color: color
+				)
+	
+	alpha_default := loyalty_stripe_alpha_default()
+	alpha := if instance <= 1 then (styling.stripes_opacity_percentage or else alpha_default) else (styling["stripes_opacity_percentage_" + instance] or else alpha_default)
+	result :=	set_alpha(
+					result,
+					alpha: get_alpha_percentage(alpha, default: alpha_default)
+				)
+	
+	separator_index := (input-1)*2
+	separator_height := loyalty_stripe_separator_height()
+	stripe_height := loyalty_stripe_separator_top(separator_index + 1) - loyalty_stripe_separator_top(separator_index) + separator_height
+	result :=	nine_slice_image(
+					result,
+					width: a_width(),
+					height: stripe_height,
+					top: separator_height,
+					bottom: separator_height
+				)
+	result
 }
 loyalty_textbox_background_alpha_default := { "70" }
 loyalty_textbox_background_image :=
@@ -4274,11 +4966,10 @@ casting_cost_height :=
 
 casting_cost_transform_symbol_shift :=
 {
-	if transform_symbol_field(face) == "none" or disabled
-		then 0
+	if disabled then 0
 	else (
 		map := face_coordinates_map(face)
-		29 * -(min(map.width, map.height)/375) - offset
+		29 * -(min(map.width, map.height)/375) + offset
 	)
 }
 
@@ -4287,33 +4978,60 @@ casting_cost_offset_top_1 := { 0 }
 casting_cost_offset_left_1 := { 0 }
 casting_cost_offset_width_1 := { 0 }
 casting_cost_offset_height_1 := { 0 }
+casting_cost_transform_symbol_offset_left_1 := { 0 }
 casting_cost_right_1 :=  { casting_cost_right(face:nameline_face_1(),  offset:casting_cost_offset_left_1())   }
 casting_cost_top_1 :=    { casting_cost_top(face:nameline_face_1(),    offset:casting_cost_offset_top_1())    }
 casting_cost_width_1 :=  { casting_cost_width(face:nameline_face_1(),  offset:casting_cost_offset_width_1())  }
 casting_cost_height_1 := { casting_cost_height(face:nameline_face_1(), offset:casting_cost_offset_height_1()) }
-casting_cost_transform_symbol_shift_1 := { casting_cost_transform_symbol_shift(face:nameline_face_1(), offset:name_transform_symbol_offset_left_1() + nameline_offset_height_1(), disabled:transform_symbol_disabled_1() or (not transform_symbol_mirrored_1())) }
+casting_cost_transform_symbol_shift_1 :=
+{
+	transform_field := transform_symbol_field(1)
+	casting_cost_transform_symbol_shift(
+		face: nameline_face_1(),
+		offset: casting_cost_transform_symbol_offset_left_1(transform_field) - nameline_offset_height_1(),
+		disabled: transform_symbol_disabled_1() or transform_symbol_shape(transform_field) == "none" or not transform_symbol_is_right(transform_field)
+	)
+}
 
 casting_cost_disabled_2 := { false }
 casting_cost_offset_top_2 := { 0 }
 casting_cost_offset_left_2 := { 0 }
 casting_cost_offset_width_2 := { 0 }
 casting_cost_offset_height_2 := { 0 }
+casting_cost_transform_symbol_offset_left_2 := { 0 }
 casting_cost_right_2 :=  { casting_cost_right(face:nameline_face_2(),  offset:casting_cost_offset_left_2())   }
 casting_cost_top_2 :=    { casting_cost_top(face:nameline_face_2(),    offset:casting_cost_offset_top_2())    }
 casting_cost_width_2 :=  { casting_cost_width(face:nameline_face_2(),  offset:casting_cost_offset_width_2())  }
 casting_cost_height_2 := { casting_cost_height(face:nameline_face_2(), offset:casting_cost_offset_height_2()) }
-casting_cost_transform_symbol_shift_2 := { casting_cost_transform_symbol_shift(face:nameline_face_2(), offset:name_transform_symbol_offset_left_2() + nameline_offset_height_2(), disabled:transform_symbol_disabled_2() or (not transform_symbol_mirrored_2())) }
+casting_cost_transform_symbol_shift_2 :=
+{
+	transform_field := transform_symbol_field(2)
+	casting_cost_transform_symbol_shift(
+		face: nameline_face_2(),
+		offset: casting_cost_transform_symbol_offset_left_2(transform_field) - nameline_offset_height_2(),
+		disabled: transform_symbol_disabled_2() or transform_symbol_shape(transform_field) == "none" or not transform_symbol_is_right(transform_field)
+	)
+}
 
 casting_cost_disabled_3 := { false }
 casting_cost_offset_top_3 := { 0 }
 casting_cost_offset_left_3 := { 0 }
 casting_cost_offset_width_3 := { 0 }
 casting_cost_offset_height_3 := { 0 }
+casting_cost_transform_symbol_offset_left_3 := { 0 }
 casting_cost_right_3 :=  { casting_cost_right(face:nameline_face_3(),  offset:casting_cost_offset_left_3())   }
 casting_cost_top_3 :=    { casting_cost_top(face:nameline_face_3(),    offset:casting_cost_offset_top_3())    }
 casting_cost_width_3 :=  { casting_cost_width(face:nameline_face_3(),  offset:casting_cost_offset_width_3())  }
 casting_cost_height_3 := { casting_cost_height(face:nameline_face_3(), offset:casting_cost_offset_height_3()) }
-casting_cost_transform_symbol_shift_3 := { casting_cost_transform_symbol_shift(face:nameline_face_3(), offset:name_transform_symbol_offset_left_3() + nameline_offset_height_3(), disabled:transform_symbol_disabled_3() or (not transform_symbol_mirrored_3())) }
+casting_cost_transform_symbol_shift_3 :=
+{
+	transform_field := transform_symbol_field(3)
+	casting_cost_transform_symbol_shift(
+		face: nameline_face_3(),
+		offset: casting_cost_transform_symbol_offset_left_3(transform_field) - nameline_offset_height_3(),
+		disabled: transform_symbol_disabled_3() or transform_symbol_shape(transform_field) == "none" or not transform_symbol_is_right(transform_field)
+	)
+}
 
 ############################################################## Name offsets
 name_left :=
@@ -4347,8 +5065,7 @@ name_height :=
 
 name_transform_symbol_shift :=
 {
-	if transform_symbol_field(face) == "none" or card_symbol_field(face) == "none" or disabled
-		then 0
+	if disabled then 0
 	else (
 		map := face_coordinates_map(face)
 		29 * (min(map.width, map.height)/375) + offset
@@ -4376,8 +5093,16 @@ name_left_1 :=   { name_left(face:nameline_face_1(),   offset:name_offset_left_1
 name_top_1 :=    { name_top(face:nameline_face_1(),    offset:name_offset_top_1())    }
 name_right_1 :=  { name_right(face:nameline_face_1(),  offset:name_offset_right_1())  }
 name_height_1 := { name_height(face:nameline_face_1(), offset:name_offset_height_1()) }
-name_card_symbol_shift_1 :=      { name_card_symbol_shift(face:nameline_face_1(), offset:name_card_symbol_offset_left_1(), disabled:card_symbol_disabled_1()) }
-name_transform_symbol_shift_1 := { name_transform_symbol_shift(face:nameline_face_1(), offset:name_transform_symbol_offset_left_1() + nameline_offset_height_1(), disabled:transform_symbol_disabled_1() or transform_symbol_mirrored_1()) }
+name_card_symbol_shift_1 := { name_card_symbol_shift(face:nameline_face_1(), offset:name_card_symbol_offset_left_1(), disabled:card_symbol_disabled_1()) }
+name_transform_symbol_shift_1 :=
+{
+	transform_field := transform_symbol_field(1)
+	name_transform_symbol_shift(
+		face:nameline_face_1(),
+		offset:name_transform_symbol_offset_left_1(transform_field) + nameline_offset_height_1(),
+		disabled: transform_symbol_disabled_1() or transform_symbol_shape(transform_field) == "none" or transform_symbol_is_right(transform_field)
+	)
+}
 
 name_disabled_2 := { false }
 name_offset_top_2 := { 0 }
@@ -4391,8 +5116,16 @@ name_left_2 :=   { name_left(face:nameline_face_2(),   offset:name_offset_left_2
 name_top_2 :=    { name_top(face:nameline_face_2(),    offset:name_offset_top_2())    }
 name_right_2 :=  { name_right(face:nameline_face_2(),  offset:name_offset_right_2())  }
 name_height_2 := { name_height(face:nameline_face_2(), offset:name_offset_height_2()) }
-name_card_symbol_shift_2 :=      { name_card_symbol_shift(face:nameline_face_2(), offset:name_card_symbol_offset_left_2(), disabled:card_symbol_disabled_2()) }
-name_transform_symbol_shift_2 := { name_transform_symbol_shift(face:nameline_face_2(), offset:name_transform_symbol_offset_left_2() + nameline_offset_height_2(), disabled:transform_symbol_disabled_2() or transform_symbol_mirrored_2()) }
+name_card_symbol_shift_2 := { name_card_symbol_shift(face:nameline_face_2(), offset:name_card_symbol_offset_left_2(), disabled:card_symbol_disabled_2()) }
+name_transform_symbol_shift_2 :=
+{
+	transform_field := transform_symbol_field(2)
+	name_transform_symbol_shift(
+		face:nameline_face_2(),
+		offset:name_transform_symbol_offset_left_2(transform_field) + nameline_offset_height_2(),
+		disabled: transform_symbol_disabled_2() or transform_symbol_shape(transform_field) == "none" or transform_symbol_is_right(transform_field)
+	)
+}
 
 name_disabled_3 := { false }
 name_offset_top_3 := { 0 }
@@ -4406,8 +5139,16 @@ name_left_3 :=   { name_left(face:nameline_face_3(),   offset:name_offset_left_3
 name_top_3 :=    { name_top(face:nameline_face_3(),    offset:name_offset_top_3())    }
 name_right_3 :=  { name_right(face:nameline_face_3(),  offset:name_offset_right_3())  }
 name_height_3 := { name_height(face:nameline_face_3(), offset:name_offset_height_3()) }
-name_card_symbol_shift_3 :=      { name_card_symbol_shift(face:nameline_face_3(), offset:name_card_symbol_offset_left_3(), disabled:card_symbol_disabled_3()) }
-name_transform_symbol_shift_3 := { name_transform_symbol_shift(face:nameline_face_3(), offset:name_transform_symbol_offset_left_3() + nameline_offset_height_3(), disabled:transform_symbol_disabled_3() or transform_symbol_mirrored_3()) }
+name_card_symbol_shift_3 := { name_card_symbol_shift(face:nameline_face_3(), offset:name_card_symbol_offset_left_3(), disabled:card_symbol_disabled_3()) }
+name_transform_symbol_shift_3 :=
+{
+	transform_field := transform_symbol_field(3)
+	name_transform_symbol_shift(
+		face:nameline_face_3(),
+		offset:name_transform_symbol_offset_left_3(transform_field) + nameline_offset_height_3(),
+		disabled: transform_symbol_disabled_3() or transform_symbol_shape(transform_field) == "none" or transform_symbol_is_right(transform_field)
+	)
+}
 
 ############################################################## Nameline offsets
 nameline_face_1 := { 1 }
@@ -4499,7 +5240,7 @@ card_stamp_default := {
 	stamp_behavior := styling.stamp_behavior or else set.stamp_behavior
 	if stamp_behavior == "default" or stamp_behavior == "flatstamped default" then stamp_behavior := set.stamp_behavior
 	
-	if field > 1
+	if field > 1 or get_front_face(card) != nil
 		then "none" #### backface doesn't have it by default
 	else stamp_behavior_checks[stamp_behavior](rare_face:is_rare(field:field), shape:shape)
 }@(field:1)
@@ -4648,6 +5389,7 @@ module_crown_template := {
 		"custom": module_custom_crown_template(),
 		else: module_legend_crown_template();
 }@(crown_type:"normal", override:"")
+module_crown_mask := {""}
 
 module_crown := { color_background(type:"crown",     base_hybrid:card_hybrid, folder:crowns_folder()) }
 module_crown_2 := { color_background(type:"crown",     base_hybrid:card_hybrid, folder:crowns_folder(), blend_type:"crown") }
@@ -4752,30 +5494,49 @@ verify_symbol_image := {
 	if not has_png(array.0)
 		then array.0
 	else (
-		sym_link := array.0
-		sym_pad := array.3 or else ""
+		sym_link := trim(array.0)
+		sym_pad := trim(array.3 or else "")
 		sym_exists := exists_in_package("/magic-mainframe-extras.mse-include/"+sym_link)
-		if not sym_exists then (
+		if not sym_exists and can_import then (
+			user_path := get_mse_path() + "/data/magic-mainframe-extras.mse-include/"+sym_link
+			fallback := get_mse_path() + "/data/magic.mse-game/icons/choice-no.png"
+			img := import_image(user_path) or else import_image(fallback)
+			sym_width := width_of(img)
+			if sym_width <= 512 and sym_pad == "" then sym_pad := "+"
+			if sym_width <= 32
+				then sym_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload," + sym_pad
+			else sym_link + ",File loaded,{sym_width}px,{sym_pad}"
+		) else if not sym_exists then (
 			sym_link + ",Not found,Ensure the file name is correct in /data/magic-mainframe-extras and reload," + sym_pad
 		) else (
 			sym_width := width_of("/magic-mainframe-extras.mse-include/"+sym_link)
-			sym_pad := array.3 or else ""
 			if (sym_width <= 512) then (
 				if sym_pad == "" then sym_pad := "+"
 			)
-			sym_link + ",File found,{sym_width},{sym_pad}"
+			sym_link + ",File found,{sym_width}px,{sym_pad}"
 		)
 	)
+}@(can_import:true)
+
+custom_symbol_slug := {
+	style_src := styling["custom_symbol_{input}"] or else styling["custom_symbol_{english_number(input)}"] or else styling.custom_symbol or else ""
+	src := if style_src != "" then style_src else set["custom_symbol_{input}"]
+	array := split_comma(src)
+	if not has_png(array.0) or (array.1 or else "" == "Not found")
+		then ""
+	else array.0
 }
 custom_symbol_image := {
 	src := if style_src != "" then style_src else set["custom_symbol_"+input]
 	array := split_comma(src)
 	if not has_png(array.0) or (array.1 or else "" == "Not found")
-		then "/magic-modules.mse-include/symbols/aetherprint.png"
+		then "/magic-modules.mse-include/symbols/not found.png"
+	else if (array.1 or else "" == "File loaded")
+		then import_image(get_mse_path() + "/data/magic-mainframe-extras.mse-include/" + array.0)
 	else (
 		link := "/magic-mainframe-extras.mse-include/" + array.0
 		if array.3 or else "" == "+" then link := enlarge(link, border_size:0.189)
-		link
+		to_image(link)
 	)
 }@(style_src:"")
 custom_symbol_1 := {
@@ -5572,11 +6333,44 @@ alias_custom_template := {
 	masked_blend(dark:color, light:alias_src+"base.png", mask:alias_src+"mask.png")
 }@(land:false)
 alias_custom_land_template := {alias_custom_template(input, land:true)}
-harder_script := [
+
+evobar_min_width := 54
+evobar_tip_width := 36
+evobar_image_width := { max(evobar_min_width, input + evobar_tip_width) }
+evobar_image := {
+	src := "/magic-modules.mse-include/extras/evobar/evobar_" + (if right == true then "right" else "left") + ".png"
+	if initial_mask != nil then src := set_mask(image:src, mask:initial_mask)
+	nine_slice_image(
+		src,
+		height: 27,
+		width: evobar_image_width(input),
+		left: evobar_min_width - evobar_tip_width - 1,
+		right: evobar_tip_width,
+		top: 4,
+		bottom: 17
+	)
+}@(right:false, initial_mask:nil)
+
+template_alternate_scripts := [
 	alt_nyx: alt_nyx_template,
 	custom_border: custom_border_image,
-	alias: alias_custom_template
+	alias: alias_custom_template,
+	crown: module_crown_template
 ]
+template_mainframe :=
+{ 
+	if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
+		then template_alternate_scripts[type](input, land:false)
+	else template_prefix[type] + input + template_suffix[type]
+}
+land_template_mainframe :=
+{
+	if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
+		then template_alternate_scripts[type](input, land:true)
+	else template_prefix[type] + (if input == "a" then "c" else input) + (if landless(type) then "" else "l") + template_suffix[type]
+}
+landless := { position(of:input in:landless_blend_types) >= 0 }
+landless_blend_types := []
 ############################################################## Card column sorting
 type_sort_script :=
 {
@@ -5650,10 +6444,16 @@ rarity_sort_script :=
 dfc_split_import_script :=
 {
 	face_values := split_face(value)
-	for x from 1 to length(face_values) do
+	if length(face_values) > 1 then for x from 1 to length(face_values) do
 	(
 		suffix := if x <= 1 then "" else "_" + x
 		import_script(value:face_values[x-1], suffix:suffix)
+	)
+	else
+	(
+		x := filter_number(margin_code)
+		suffix := if x <= 1 then "" else "_" + x
+		import_script(value:face_values[0], suffix:suffix)
 	)
 }
 name_import_script :=
@@ -5662,14 +6462,17 @@ name_import_script :=
 }
 pt_import_script :=
 {
-	values := split_text(value, match: lang_setting("pt_separator"))
-	if length(values) != 2 then [] else (
+	text := remove_tag(tag:"<sep", remove_tag(tag:"<soft", remove_tag(tag:"<atom-sep", value)))
 	keys := ["power" + suffix, "toughness" + suffix]
-	make_map(keys:keys, values:values))
+	if trim(text) == "" then make_map(keys:keys, values:["", ""]) else (
+	values := split_text(text, match: lang_setting("pt_separator"))
+	if length(values) != 2 then [] else (
+	make_map(keys:keys, values:[trim(values[0]), trim(values[1])])))
 }
 type_import_script :=
 {
-	values := split_text(value, match: "( ?- ?|" + lang_setting("type_separator") + ")")
+	text := remove_tag(tag:"<word-list", remove_tag(tag:"<sep", remove_tag(tag:"<soft", remove_tag(tag:"<atom-sep", value))))
+	values := split_text(text, match: "( ?[-–] ?|" + lang_setting("type_separator") + ")")
 	keys := ["super_type" + suffix]
 	if length(values) > 1 then keys := keys + ["sub_type" + suffix]
 	make_map(keys:keys, values:values)
@@ -5825,29 +6628,32 @@ index_of_rarity := {
 	else "J"
 }
 ############################################################## Skeleton generator
-skeleton_commons := 19
-skeleton_uncommons := 11
-skeleton_rares := 7
-skeleton_mythics := 2
-skeleton_land_commons := 1
-skeleton_land_uncommons := 5
-skeleton_land_rares := 0
-skeleton_gold_commons := 0
-skeleton_gold_uncommons := 1
-skeleton_gold_rares := 1
-skeleton_shard_commons := 0
-skeleton_shard_uncommons := 0
-skeleton_shard_rares := 0
-skeleton_wedge_commons := 0
-skeleton_wedge_uncommons := 0
-skeleton_wedge_rares := 0
-skeleton_artifact_commons := 5
-skeleton_artifact_uncommons := 5
-skeleton_artifact_rares := 0
-skeleton_blank_commons := 0
-skeleton_blank_uncommons := 5
-skeleton_blank_rares := 8
-skeleton_blank_mythics := 5
+skeleton_commons 			:= 15 ## Previously 19
+skeleton_uncommons 			:= 14 ## Previously 11
+skeleton_rares 				:= 9  ## Previously 7
+skeleton_mythics 			:= 3  ## Previously 2
+skeleton_land_commons 		:= 5  ## Previously 1
+skeleton_land_uncommons 	:= 1  ## Previously 5
+skeleton_land_rares 		:= 0
+skeleton_gold_commons 		:= 0
+skeleton_gold_uncommons 	:= 2  ## Previously 1
+skeleton_gold_rares 		:= 1
+skeleton_hybrid_commons 	:= 0
+skeleton_hybrid_uncommons 	:= 0
+skeleton_hybrid_rares 		:= 0
+skeleton_shard_commons 		:= 0
+skeleton_shard_uncommons 	:= 0
+skeleton_shard_rares 		:= 0
+skeleton_wedge_commons 		:= 0
+skeleton_wedge_uncommons 	:= 0
+skeleton_wedge_rares 		:= 0
+skeleton_artifact_commons 	:= 6
+skeleton_artifact_uncommons := 4  ## Previously 5
+skeleton_artifact_rares 	:= 0
+skeleton_blank_commons 		:= 0
+skeleton_blank_uncommons 	:= 5
+skeleton_blank_rares 		:= 5  ## Previously 8
+skeleton_blank_mythics 		:= 5
 #### generates a set of CCXX Skeleton cards for each color
 #### by insertnamehere and cajun
 skeleton_runner := {
@@ -5865,19 +6671,25 @@ skeleton_runner := {
 #### outside to make singleton scripts easier
 blank_list_5 := ["","","","",""]
 blank_list_10 := ["","","","","","","","","",""]
+mana_list_base := ["W", "U", "B", "R", "G"]
 mana_list_ally := ["WU","UB","BR","RG","GW"]
 mana_list_enemy := ["WB","UR","BG","RW","GU"]
+mana_list_ally_hybrid := ["W/U","U/B","B/R","R/G","G/W"]
+mana_list_enemy_hybrid := ["W/B","U/R","B/G","R/W","G/U"]
 mana_list_shard := ["WUB","UBR","BRG","RGW","GWU"]
 mana_list_wedge := ["WBG","URW","BGU","RWB","GUR"]
 skeleton_script := {
 	cards := [];
-	cards := cards + skeleton_runner(count:skeleton_commons);
-	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon");
-	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare");
-	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare");
+	cards := cards + skeleton_runner(count:skeleton_commons, mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_uncommons, prefix:"U", rarity:"uncommon", mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_rares, prefix:"R", rarity:"rare", mana_list:mana_list_base);
+	cards := cards + skeleton_runner(count:skeleton_mythics, prefix:"M", rarity:"mythic rare", mana_list:mana_list_base);
 	cards := cards + skeleton_runner(count:skeleton_gold_commons, prefix:"CM", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
 	cards := cards + skeleton_runner(count:skeleton_gold_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
 	cards := cards + skeleton_runner(count:skeleton_gold_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally+mana_list_enemy);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_commons, prefix:"CZ", rarity:"common", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_uncommons, prefix:"UZ", rarity:"uncommon", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
+	cards := cards + skeleton_runner(count:skeleton_hybrid_rares, prefix:"RZ", rarity:"rare", letter_list:blank_list_10, mana_list:mana_list_ally_hybrid+mana_list_enemy_hybrid);
 	cards := cards + skeleton_runner(count:skeleton_shard_commons, prefix:"CM", rarity:"common", letter_list:blank_list_5, mana_list:mana_list_shard);
 	cards := cards + skeleton_runner(count:skeleton_shard_uncommons, prefix:"UM", rarity:"uncommon", letter_list:blank_list_5, mana_list:mana_list_shard);
 	cards := cards + skeleton_runner(count:skeleton_shard_rares, prefix:"RM", rarity:"rare", letter_list:blank_list_5, mana_list:mana_list_shard);
@@ -5907,6 +6719,9 @@ skeleton_info := {
 	+"skeleton_gold_commons: " + skeleton_gold_commons + " (of each color pair)\n"
 	+"skeleton_gold_uncommons: " + skeleton_gold_uncommons + " (of each color pair)\n"
 	+"skeleton_gold_rares: " + skeleton_gold_rares + " (of each color pair)\n"
+	+"skeleton_hybrid_commons: " + skeleton_hybrid_commons + " (of each color pair)\n"
+	+"skeleton_hybrid_uncommons: " + skeleton_hybrid_uncommons + " (of each color pair)\n"
+	+"skeleton_hybrid_rares: " + skeleton_hybrid_rares + " (of each color pair)\n"
 	+"skeleton_artifact_commons: " + skeleton_artifact_commons + "\n"
 	+"skeleton_artifact_uncommons: " + skeleton_artifact_uncommons + "\n"
 	+"skeleton_artifact_rares: " + skeleton_artifact_rares + "\n"
@@ -6069,7 +6884,141 @@ hash_nest := {
 	value
 }@(key_chain:[], func:hash_update, update:true)
 
-
+############################################################## Linked DFC Compatability Scripts
+linked_dfc_compat_map := {
+	back := get_back_face(card)
+	front := get_front_face(card)
+	if back == nil then back := card
+	if front == nil then front := card
+	if back == front then card else [
+		border_color: 		front.border_color,
+		corners: 			front.corners,
+		corners_2: 			back.corners,
+		card_color:			front.card_color,
+		card_color_2: 		back.card_color,
+		full_name: 			front.full_name,
+		name: 				front.name,
+		name_2:				back.name,
+		alias:				front.alias,
+		alias_2:			back.alias,
+		casting_cost:		front.casting_cost,
+		casting_cost_2:		back.casting_cost,
+		card_symbol:		front.card_symbol,
+		card_symbol_2:		back.card_symbol,
+		transformation:		front.transformation,
+		transformation_2:	back.transformation,
+		image:				front.image,
+		image_2:			back.image,
+		indicator:			front.indicator,
+		indicator_2:		back.indicator,
+		super_type:			front.super_type,
+		sub_type:			front.sub_type,
+		type:				front.type,
+		super_type_2:		back.super_type,
+		sub_type_2:			back.sub_type,
+		type_2:				back.type,
+		rarity:				front.rarity,
+		rarity_2:			back.rarity,
+		chapter_text:		front.chapter_text,
+		chapter_text_2:		back.chapter_text,
+		rule_text:			front.rule_text,
+		flavor_text:		front.flavor_text,
+		text:				front.text,
+		rule_text_2:		back.rule_text,
+		flavor_text_2:		back.flavor_text,
+		text_2:				back.text,
+		rule_text_3:		front.rule_text_2,
+		flavor_text_3:		front.flavor_text_2,
+		text_3:				front.text_3,
+		rule_text_4:		back.rule_text_2,
+		flavor_text_4:		back.flavor_text_2,
+		text_4:				back.text_2,
+		watermark:			front.watermark,
+		watermark_2:		back.watermark,
+		loyalty_cost_1:		front.loyalty_cost_1,
+		loyalty_cost_2:		front.loyalty_cost_2,
+		loyalty_cost_3:		front.loyalty_cost_3,
+		loyalty_cost_4:		front.loyalty_cost_4,
+		loyalty_cost_5:		front.loyalty_cost_5,
+		loyalty_cost_6:		front.loyalty_cost_6,
+		loyalty_cost_7:		front.loyalty_cost_7,
+		loyalty_cost_8:		front.loyalty_cost_8,
+		loyalty:			front.loyalty,
+		loyalty_cost_9:		front.loyalty_cost_1,
+		loyalty_cost_10:	back.loyalty_cost_2,
+		loyalty_cost_11:	back.loyalty_cost_3,
+		loyalty_cost_12:	back.loyalty_cost_4,
+		loyalty_cost_13:	back.loyalty_cost_5,
+		loyalty_cost_14:	back.loyalty_cost_6,
+		loyalty_cost_15:	back.loyalty_cost_7,
+		loyalty_cost_16:	back.loyalty_cost_8,
+		loyalty_2:			back.loyalty,
+		level_0:			front.level_0,
+		level_2:			front.level_2,
+		level_3:			front.level_3,
+		level_4:			front.level_4,
+		level_5:			back.level_0,
+		level_6:			back.level_2,
+		level_7:			back.level_3,
+		level_8:			back.level_4,
+		level_1_text:		front.level_1_text,
+		level_2_text:		front.level_2_text,
+		level_3_text:		front.level_3_text,
+		level_4_text:		front.level_4_text,
+		level_5_text:		front.level_5_text,
+		level_6_text:		front.level_6_text,
+		level_7_text:		front.level_7_text,
+		level_8_text:		front.level_8_text,
+		level_9_text:		back.level_1_text,
+		level_10_text:		back.level_2_text,
+		level_11_text:		back.level_3_text,
+		level_12_text:		back.level_4_text,
+		level_13_text:		back.level_5_text,
+		level_14_text:		back.level_6_text,
+		level_15_text:		back.level_7_text,
+		level_16_text:		back.level_8_text,
+		level_9_text:		front.level_9_text,		## class textboxes
+		level_10_text:		front.level_10_text,
+		level_11_text:		front.level_11_text,
+		level_17_text:		front.level_9_text,
+		level_18_text:		front.level_10_text,
+		level_19_text:		front.level_11_text,
+		power:				front.power,
+		toughness:			front.toughness,
+		pt:					front.pt,
+		power_2:			back.power,
+		toughness_2:		back.toughness,
+		pt_2:				back.pt,
+		illustrator:		front.illustrator,
+		illustrator_2:		back.illustrator,
+		additional_credit:	front.additional_credit,
+		additional_credit_2:front.additional_credit_2,
+		additional_credit_3:front.additional_credit_3,
+		additional_credit_4:front.additional_credit_4,
+		card_number:		front.card_number,
+		custom_card_number:	front.custom_card_number,
+		card_code_text:		front.card_code_text,
+		card_code_text_2:	back.card_code_text,
+		copyright:			front.copyright,
+		copyright_2:		back.copyright,
+		vorthos_box:		front.vorthos_box,
+		vorthos_box_2:		back.vorthos_box,
+		special_text:		front.special_text,
+		special_text_2:		back.special_text,
+		shape:				if contains(front.transformation, match:"modal") then "modal double faced" else "transform double faced",
+		notes:				front.notes + "\n" + back.notes,
+		compatability:		true,
+		card:				front,
+		card_2:				back,
+		position:			position(of:front, in:set),
+		raw_number:			card_number(card:front),
+		raw_number_2:		card_number(card:back),
+		indicator_3:		front.indicator_2,			## some script needs this for some reason
+		card_color_3:		front.card_color_2,
+		casting_cost_3:		front.casting_cost_2,
+		watermark_3:		front.watermark_2,
+	]
+}
 
 #### load the user overwrites here, doing it in game overwrites this file instead
 include file: custom_script

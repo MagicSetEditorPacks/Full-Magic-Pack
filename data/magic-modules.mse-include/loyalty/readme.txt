@@ -78,3 +78,9 @@ loyalty_textbox_background_alpha_default := { 70 }
 #### The image files must have the same names as the ones in the default folder (/magic-modules.mse-include/loyalty/)
 #### You can omit some images and it will use the default ones instead
 loyalty_boxes_image_folder := { "/magic-modules.mse-include/loyalty/" }
+
+#### To change if the starting loyalty box has a shadow or not by default:
+loyalty_box_shadow_default := { false }
+
+#### Similarly for the loyalty cost boxes:
+loyalty_cost_box_shadow_default := { true }

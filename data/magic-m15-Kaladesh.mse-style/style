@@ -1,21 +1,22 @@
-﻿mse version: 2.0.0
-game: magic
-short name: M15 Masterpiece
-full name: Kaladesh Invention
-icon: card-sample.png
-installer group: magic/m15 style/devoid cards
-position hint: 092
+mse version:		2.6.0
+game:				magic
+short name:			Invention
+full name:			Avishkar Showcase
+icon:				card-sample.png
+position hint:		010200
+installer group:	magic/M15 Frames/Booster Fun/Invention
+
 
 version: 2024-06-07
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
 	package: magic-modules.mse-include
-	version: 2024-10-01
+	version: 2026-08-28
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -28,6 +29,24 @@ card height: 523
 card dpi: 150
 ############################################################## Extra scripts
 init script:
+	reminder_image_folder := { "/" + stylesheet.folder_name + ".mse-style/reminder/" }
+	reminder_uses_light_variant := { true }
+	reminder_offset_left := { -3 }
+	reminder_offset_top := { 5 }
+	reminder_offset_width := { 0 }
+	reminder_offset_height := { -1 }
+	
+	transform_symbol_image_folder := { "/" + stylesheet.folder_name + ".mse-style/transform/" }
+	transform_symbol_modal_uses_normal_background := { false }
+	transform_symbol_multicolor_blend := { "white" }
+	transform_symbol_offset_left_1 := { 2 }
+	transform_symbol_offset_top_1 := { 3 }
+	transform_symbol_offset_width_1 := { 1 }
+	transform_symbol_offset_height_1 := { 1 }
+	
+	name_transform_symbol_offset_left_1 := { -5 }
+	casting_cost_transform_symbol_offset_left_1 := { 1 }
+	
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
 	
@@ -37,17 +56,24 @@ init script:
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
-	template_prefix := [
-		card: ""
-		card2: ""
-		identity: "/magic-modules.mse-include/indicators/"
+	template_prefix :=
+	[
+		card:			"",
+		card2:			"",
+		transforml:		"transform_left/",
+		transformr:		"transform_right/",
+		identity:		"/magic-modules.mse-include/indicators/"
 	]
-	template_suffix := [
-		card: "card.png"
-		card2: "card2.png"
-		identity: "identity.png"
+	template_suffix :=
+	[
+		card:			"card.png",
+		card2:			"card2.png",
+		transforml:		".png",
+		transformr:		".png",
+		identity:		"identity.png"
 	]
-	template      := {
+	template      :=
+	{
 		if (type == "pt") then "pt.png"
 		else if (type == "stamp") then "stamp.png"
 		else template_prefix[type] + input + template_suffix[type]
@@ -64,12 +90,14 @@ init script:
 	}
 	
 	card_background2 :=			{ color_background(input: card.card_color, type: "card2", base_hybrid: card_hybrid, blend_type:"card") }@(offset:0 )
+	card_transforml :=			{ color_background(input: card.card_color, type: "transforml",	base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white",	multicolor_blend: "white") }
+	card_transformr :=			{ color_background(input: card.card_color, type: "transformr",	base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white",	multicolor_blend: "white") }
+	
 	# Use guild mana symbols?
 	guild_mana := { styling.use_guild_mana_symbols }
 	shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	watermark_include := "/magic-modules.mse-include/watermarks"
 	is_unsorted := {styling.remove_from_autocount}
 	card_symbol_offset_top_1 := {4}
 	card_symbol_offset_left_1 := {4}
@@ -188,6 +216,8 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/watermarks/card_fields
 include file: /magic-modules.mse-include/separators/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 include file: /magic-modules.mse-include/alias/card_fields
 card style:
 	############################# Background stuff
@@ -214,7 +244,7 @@ card style:
 		image: { if is_stamped() then card_background2() else card_background() }
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 37 else 53 }
+		left: { name_transform_symbol_shift_1() + if card.card_symbol=="none" then 37 else 53 }
 		top: 34
 		right:  { 341 - card_style.casting_cost.content_width }
 		height: {23 - (0.5 * shrink_name())}
@@ -226,7 +256,7 @@ card style:
 			size: {16 - shrink_name()}
 			color: black
 	casting cost:
-		right: 340
+		right: { casting_cost_transform_symbol_shift_1() + 340 }
 		top: 32
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -249,6 +279,7 @@ card style:
 		height:	 492
 		z index: 0
 		mask: image_mask.png
+		store in metadata:	true
 	############################# Card type
 	indicator:
 		left: 31
@@ -286,7 +317,7 @@ card style:
 		left: 35
 		top: 328
 		width: 305
-		height: 154
+		height: {154 - if reminder_box_is_visible() then 13 else 0 }
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
@@ -339,6 +370,21 @@ extra card field:
 	choice: foil
 	save value: false
 	editable: false
+extra card field:
+	type:				choice
+	name:				card transform left
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card transform left
+extra card field:
+	type:				choice
+	name:				card transform right
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card transform right
+
 extra card style:
 	pt box:
 		left: 273
@@ -358,3 +404,21 @@ extra card style:
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_rare() then "foil_mask_rare.png" else "foil_mask.png" }
+	card transform left:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			220
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transforml() }
+	card transform right:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			220
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transformr() }

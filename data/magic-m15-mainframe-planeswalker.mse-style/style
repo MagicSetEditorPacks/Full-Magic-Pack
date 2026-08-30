@@ -1,18 +1,18 @@
-﻿mse version: 		2.0.0
-game: 				magic
-short name: 		Mainframe Walkers
-full name: 			M15 Planeswalkers
-installer group: 	magic/m15 style/planeswalkers
-icon: 				card-sample.png
-position hint: 		003
+mse version:		2.6.0
+game:				magic
+short name:			M15 Planeswalker
+icon:				card-sample.png
+position hint:		000001
+installer group:	magic/M15 Frames/Standard/M15 Planeswalker
 
-version:			2024-09-01
+
+version:			2026-08-19
 depends on:
 	package: 		magic.mse-game
-	version: 		2014-06-25
+	version: 		2026-08-28
 depends on:
 	package: 		magic-modules.mse-include
-	version: 		2024-10-01
+	version: 		2026-08-28
 depends on:
 	package: 		magic-mana-large.mse-symbol-font
 	version: 		2007-09-23
@@ -30,19 +30,70 @@ card width: 375
 card height: 523
 card dpi: 150
 ########## new frames by silverback_ape
+update cards script:
+	before version: 2026-08-19
+	description: Update to loyalty module
+	script:
+		new_stylesheet := "magic-m15-mainframe-planeswalker.mse-style"
+		new_version := "2026-08-19"
+		reqs := [[new_stylesheet, new_version]]
+		if not has_required_stylesheets(reqs)
+			then []
+		else (
+			level_map := [
+				automatic: "automatic",
+				"one ability": 1,
+				"two abilities": 2,
+				"three abilities": 3,
+				"four abilities": 4,
+				"five abilities": 5,
+				"six abilities": 6,
+				"seven abilities": 7,
+				"eight abilities": 8
+			]
+			fixed_opac := ""
+			if styling.opacity != "" then fixed_opac := to_int(to_number_lax(styling.opacity)/2.55)
+			taller := "default"
+			if chosen(styling.other_options, choice:"use taller frame") then taller := "always"
+			if chosen(styling.other_options, choice:"use short frame") then taller := "never"
+			
+			styling_data := [
+				move_loyalty_costs: styling.shift_loyalty_costs,
+				number_of_textboxes: level_map[styling.override_levels],
+				textbox_opacity_percentage: fixed_opac,
+				use_tall_frame: taller,
+				other_options: if styling.clear then "clear frame," + styling.other_options else nil
+			] + styling
+			
+			
+			[
+				new_card(
+					copy_from: card,
+					[
+						stylesheet: new_stylesheet,
+						stylesheet_version: new_version,
+						uid: if card.uid == "" then new_uid() else card.uid,
+						styling_data: styling_data,
+						vorthos_box: card.vorthos_box
+					]
+				)
+			]
+		)
 ############################################################## Extra scripts
 init script:
 	include file: /magic-pride.mse-include/scripts
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
-	mainframe_walker := {true}
-	text_filter := text_filter + {apply_margins(input, name:margin_code)} + {add_spacers(input, name:margin_code)}
+	include file: /magic-modules.mse-include/loyalty/init_script
+	include file: /magic-modules.mse-include/dfc/init_script
 
 	template_prefix := [
 		card: "cards/"
 		card2: "cards/"
 		card3: "covers/"
 		card4: "covers/"
+		node: "nodes/"
+		notch: "notch/"
 		page: "page/"
 		page2: "page/"
 		alias: "alias/"
@@ -68,6 +119,8 @@ init script:
 		card2: "card2.png"
 		card3: "card3.png"
 		card4: "card4.png"
+		node: ".png"
+		notch:".png"
 		page: "card.png"
 		page2: "card2.png"
 		nyx: "nyx.png"
@@ -89,23 +142,28 @@ init script:
 		proto_pt: "pt.png"
 	]
 	template := { 
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:false)
+		if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
+			then template_alternate_scripts[type](input, land:false)
 		else template_prefix[type] + input + template_suffix[type]
 	}
 	land_template := {
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:true)
+		if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
+			then template_alternate_scripts[type](input, land:true)
 		else template_prefix[type] + input + template_suffix[type]
 	}
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 	
+	node_color := { if is_clear() then "clear" else card.card_color}
+	node_folder := { "nodes/" }
+	template_alternate_scripts := [node:node_template] + template_alternate_scripts
+	
 	# This will create two seperate card faces
 	card_background3 := { color_background(type:"card3", base_hybrid:card_hybrid, folder:template_prefix["card3"]) }
 	card_background4 := { color_background(type:"card4", base_hybrid:card_hybrid, folder:template_prefix["card4"]) }
-	alias_bar := { color_background(type:"alias", base_hybrid:card_hybrid) }
+
 	nyx_background := { color_background(type:"nyx", base_hybrid:card_hybrid) }
+	notch_image := { color_background(type:"notch", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
 	snow_texture := { color_background(type:"snow", base_hybrid:card_hybrid) }
 	null_page_blend := { color_background(type:"null_page", base_hybrid:card_hybrid, folder:template_prefix["null_page"]) }
 	single_page_blend := { color_background(type:"single_page", base_hybrid:card_hybrid, folder:template_prefix["single_page"]) }
@@ -137,21 +195,37 @@ init script:
 	
 	card_shape := {"planeswalker"}
 	name_tag_for_level := {""}
+	
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		size: {16},
+		color: {if is_back_face() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {13},
+		color: {if is_back_face() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {if styling.font_size != "" then styling.font_size else if has_four_abilities() then 13.8 else 14},
+		color: { styling.rule_text_color },
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
+	]
+
+
 
 	# Is the card a promo card?
 	is_promo := { styling.promo }
 	
 	# Does the card have four abilities?
-	has_four_abilities := { not force_short() and max_level() > 3 or force_tall()}
-	has_two_abilities := { max_level() < 3 }
-	is_normal_size := { styling.default_image_size }
-	loyal_move := { pull_comma_array(styling.shift_loyalty_costs, cell:0, end:0, default:0)}
-	loyal_move2 := { if card.level_2_text == "" or card.level_2_text == "​" then -15 else pull_comma_array(styling.shift_loyalty_costs, cell:1, end:0, default:0)}
-	loyal_move3 := { if card.level_3_text == "" or card.level_3_text == "​" then -5 else pull_comma_array(styling.shift_loyalty_costs, cell:2, end:0, default:0)}
-	loyal_move4 := { pull_comma_array(styling.shift_loyalty_costs, cell:3, end:0, default:0)}
-	loyal_move5 := { pull_comma_array(styling.shift_loyalty_costs, cell:4, end:0, default:0)}
-	loyal_move6 := { pull_comma_array(styling.shift_loyalty_costs, cell:5, end:0, default:0)}
-	
+	has_four_abilities := { force_tall() or (not force_short() and loyalty_abilities_count(instance: 1, active:true) > 3) }
+	is_normal_size := { styling.default_image_size }	
 
 	is_level_walker := { true }
 	unindent := { contains(styling.other_options, match:"un-indent nonloyalty abilities")}
@@ -164,70 +238,16 @@ init script:
 	global_chop_top := { to_int(pull_comma_array(styling.combined_chop, cell:0, end:0, default:0))}
 	global_chop_bot := { to_int(pull_comma_array(styling.combined_chop, cell:1, end:0, default:0))}
 	global_chop_right := { to_int(pull_comma_array(styling.combined_chop, cell:3, end:0, default:0)) + (if use_adv() then 150 else 0)}
-	top_of_textbox := {if has_four_abilities() then 292+global_chop_top()+(if is_clear() then 5 else 0) else 329+global_chop_top()}
+	top_of_textbox := {if has_four_abilities() then 292+global_chop_top() else 329+global_chop_top()}
 	use_full_art := { contains(styling.other_options, match:"mythic edition fullart") }
-	mask_script := {
-		if contains(styling.custom_mask, match:".png") then "/magic-mainframe-extras.mse-include/" + styling.custom_mask
-		else if use_full_art() then "fortress_imagemask.png"
-		else ""
-	}
 	text_size := { 14 -(if styling.font_size == "" then 0 else if contains(styling.font_size, match: ".5") then to_int(split_text(match:".5", styling.font_size).0) else styling.font_size) }
-	stripe01 := {if length(card_style.text.layout.separators) or else 0 > 0 then card_style.text.top + card_style.text.layout.separators[0] + stripe_adj(top:0, bot:1) else 0}
-	stripe12 := {if length(card_style.text.layout.separators) or else 0 > 1 then card_style.text.top + card_style.text.layout.separators[1] + stripe_adj(top:0, bot:1) else 0}
-	stripe23 := {if length(card_style.text.layout.separators) or else 0 > 2 then card_style.text.top + card_style.text.layout.separators[2] + stripe_adj(top:0, bot:1) else 0}
-	stripe34 := {if length(card_style.text.layout.separators) or else 0 > 3 then card_style.text.top + card_style.text.layout.separators[3] + stripe_adj(top:0, bot:1) else 0}
-	stripe45 := {if length(card_style.text.layout.separators) or else 0 > 4 then card_style.text.top + card_style.text.layout.separators[4] + stripe_adj(top:0, bot:1) else 0}
-	stripe_adj := {-4}
 
-	abil_center := { if card_style.text.layout.blocks[input].bottom or else 0 > 0 then
-			card_style.text.top + card_style.text.layout.blocks[input].middle + overlap_check(input)
-		else -30	
-	}
-	overlap_check := {
-		if input == 0
-			then 0
-		else if card_style.text.layout.blocks[input].middle == card_style.text.layout.blocks[input-1].middle
-			then 40*(input-1)
-		else 0
-	}
-	max_level_function := [
-		"auto": {
-			if card.level_6_text != "" and card.level_6_text != "​" then 6
-			else if card.level_5_text != "" and card.level_5_text != "​" then 5
-			else if card.level_4_text != "" and card.level_4_text != "​" then 4
-			else if card.level_3_text != "" and card.level_3_text != "​" then 3
-			else 2
-		},
-		"one": {1},
-		"two": {2},
-		"three": {3},
-		"four": {4},
-		"five": {5},
-		"six": {6},
-	]
-	max_level := {max_level_function[force_level()]()}
-	mainframe_walker_text_script := {
-		if max_level() == 1 or (max_level() == 2 and card.level_2_text == "") or force_level() == "two" then 
-			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text)
-		else if max_level() == 2 or force_level() == "three" then 
-			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
-		else if max_level() == 3 or force_level() == "four" then 
-			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text)
-		else if max_level() == 4 or force_level() == "five" then 
-			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text, separator4: "<line>\n</line>", field5: card.level_5_text)
-		else if max_level() > 4 or force_level() == "six" then 
-			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text, separator3: "<line>\n</line>", field4: card.level_4_text, separator4: "<line>\n</line>", field5: card.level_5_text, separator5: "<line>\n</line>", field6: card.level_6_text)
-		else
-			combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)
-	}
 	margin_left := {
-		if input == "lv1" then (if is_prototype() then 0 else if card.loyalty_cost_1 == "" and unindent() then 0 else 130)
-		else if input == "lv2" then (if card.loyalty_cost_2 == "" and unindent() then 0 else 130)
-		else if input == "lv3" then (if card.loyalty_cost_3 == "" and unindent() then 0 else 130)
-		else if input == "lv4" then (if card.loyalty_cost_4 == "" and unindent() then 0 else 130)
-		else if input == "lv5" then (if card.loyalty_cost_5 == "" and unindent() then 0 else 130)
-		else if input == "lv6" then (if card.loyalty_cost_6 == "" and unindent() then 0 else 130)
-		else 0
+		number := to_int(replace(margin_code, match: "lv", replace: "")) or else 999
+		cost_field := card["loyalty_cost_{number}"]
+		if number == 1 and is_prototype() then 0
+		else if cost_field == "" and unindent() then 0
+		else 130
 	}
 	margin_top := {to_int(pull_comma_array(styling.combined_chop, cell:2, end:0, default:0))}
 	margin_right := { 
@@ -238,30 +258,10 @@ init script:
 		)
 		else 0
 	}
-	add_spacers := { if input == "" and inner_level(name) then "​" else input}
-	inner_level := {
-		if input == "lv5" and max_level() > 5 then true
-		else if input == "lv4" and max_level() > 4 then true
-		else if input == "lv3" and max_level() > 3 then true
-		else if input == "lv2" and max_level() > 2 then true
-		else if input == "lv1" and max_level() > 1 then true
-		else false
-	}
 
-	force_level := {
-		if styling.override_levels == "one ability" then "one"
-		else if styling.override_levels == "two abilities" then "two"
-		else if styling.override_levels == "three abilities" then "three"
-		else if styling.override_levels == "four abilities" then "four"
-		else if styling.override_levels == "five abilities" then "five"
-		else if styling.override_levels == "six abilities" then "six"
-		else "auto"
-	}
-	force_tall := { contains(styling.other_options, match:"use taller frame")}
-	force_short := { contains(styling.other_options, match:"use short frame")}
+	force_tall := { styling.use_tall_frame == "always" }
+	force_short := { styling.use_tall_frame == "never" }
 	is_unsorted := {styling.remove_from_autocount}
-	##shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
-	##shrink_name := {if styling.shrink_name_text != "" then to_int(styling.shrink_name_text) else 0 }
 	shrink_type := {if styling.shrink_typeline_text != "" then to_number((if comma_count(styling.shrink_typeline_text) == "" then styling.shrink_typeline_text else split_text(match:",", styling.shrink_typeline_text).0)) else 0 }
 	shrink_name := {if styling.shrink_name_text != "" then to_number((if comma_count(styling.shrink_name_text) == "" then styling.shrink_name_text else split_text(match:",", styling.shrink_name_text).0)) else 0 }
 	shrink_type2 := {if styling.shrink_typeline_text != "" then to_number((if comma_count(styling.shrink_typeline_text) != "" then split_text(match:",", styling.shrink_typeline_text).1)) else 0 }
@@ -269,14 +269,14 @@ init script:
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
 	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
-	opacity := {pull_comma_array(styling.opacity, cell:input, end:false, default:50)}
-	is_skinned := {contains(styling.other_options, match:"godzilla style alias")}
-	use_evobar := {contains(styling.other_options, match: "pokemon evobar") and not is_skinned()}
+
+	is_skinned := { card.alias != "" }
+	use_evobar := {contains(styling.other_options, match: "pokemon evobar") }
 	is_clear := {styling.clear or contains(styling.other_options, match:"clear frame")}
 	is_nyx := {chosen(styling.other_options, choice:"nyx") or (set.auto_nyx and lang_setting("is_enchantment")(card.type))}
-	is_adventure := {chosen(styling.other_options, choice:"adventure") and not is_tale()}
+	is_adventure := {chosen(styling.other_options, choice:"adventure")}
 	is_tale := {chosen(styling.other_options, choice:"reversed adventure")}
-	use_adv := {(is_tale() or is_adventure()) and not is_prototype()}
+	use_adv := {is_tale() or is_adventure()}
 	is_snow := {chosen(styling.other_options, choice:"snow")}
 	is_vehicle := {chosen(styling.other_options, choice:"vehicle")}
 	is_prototype := {chosen(styling.other_options, choice:"prototype")}
@@ -326,12 +326,56 @@ init script:
 		if is_tale() then page := flip_horizontal(page)
 		page
 	}
-	frame_mask_script := {
-		if contains(styling.custom_mask, match:".png") then
-			invert_image("/magic-mainframe-extras.mse-include/" + styling.custom_mask)
-		else "frame_mask" + 
-			(if has_four_abilities() then "_four" else "") + 
-			(if use_full_art() then "_mythic" + (if is_stamped() then "_stamp" else "") else "")  + ".png"
+	card_img := {
+		## base image
+		image := if is_clear() then "cards/xcard" + (if has_four_abilities() then "2.png" else ".png")
+			else if has_four_abilities() then module_card2()
+			else module_card()
+		## cut out notch
+		if is_notched() then image := set_mask(mask:"cards/notch_mask.png")
+		## back face multiply
+		multiply_mask := "cards/hybrid_blend_card" + (if has_four_abilities() then "2" else "") + ".png"
+		if is_back_face() then image := color_multiply(width: 750, height: 1047, multiply_mask:multiply_mask)
+		## clear transform mask
+		side_mask := if transform_symbol_active_left(card.transformation) then "x_node.png"
+			else if transform_symbol_active_right(card.transformation) then "x_node_right.png"
+			else ""
+		if is_clear() and side_mask != "" then image := set_mask(mask:side_mask)
+		## borderless mask
+		borderless_mask := if use_full_art() 
+					then "borderless" + (if has_four_abilities() then "_four" else "") + ".png"
+				else if contains(styling.custom_mask, match:".png")
+					then invert_image("/magic-mainframe-extras.mse-include/" + styling.custom_mask)
+				else nil
+		if borderless_mask != nil then image := set_mask(mask:borderless_mask)
+		if use_full_art() and use_ledge() then image := set_mask(mask:"cards/front_ledge_mask.png")
+		image
+	}
+	adventure_cover_notch_mask := {
+		if not is_notched() then ""
+		else crop_image(
+			"cards/notch_mask.png",
+			offset_x: 0,
+			width: 750,
+			height: if has_four_abilities() then 400 else 328,
+			offset_y: 977 - (if has_four_abilities() then 400 else 328)
+		)
+	}
+
+	image_mask_script := {
+		image := "guidelines/"
+			+ (if use_full_art() or is_clear() then "borderless" else "mask")
+			+ (if has_four_abilities() then "_four.png" else ".png")
+		
+		if contains(styling.custom_mask, match:".png")
+			then ""
+		else crop_image(
+			image,
+			offset_x: if use_full_art() or is_clear() then 0 else if is_normal_size() then 50 else 30
+			offset_y: if use_full_art() or is_clear() then 0 else if is_normal_size() then 104 else 30
+			width: if use_full_art() or is_clear() then 750 else if is_normal_size() then (if is_notched() then 660 else 648) else 690
+			height: if use_full_art() or is_clear() then 1047 else if is_normal_size() then 856 else 986
+		)
 	}
 	card_stamp_offset_top_1 := {if stamp_shape() == "triangle" then -3 else 0}
 	popout_left   := { popout_coord(0, field:styling.popout_image_style or else "") }
@@ -340,9 +384,8 @@ init script:
 	popout_height := { popout_coord(3, field:styling.popout_image_style or else "") }
 	popout_angle  := { popout_coord(4, field:styling.popout_image_style or else "", lim:4) }
 	use_popunder  := { chosen(styling.other_options, choice:"popunder art") }
-	watermark_include := "/magic-modules.mse-include/watermarks"
 	
-	prototype_height := { card_style.text.layout.blocks[0].bottom or else 0 }
+	prototype_height := { (card_style.text.layout.separators[0] or else 0) + 2 }
 	proto_primary_height := {
 		min(21, round_up(prototype_height()/2)+1)
 	}
@@ -424,6 +467,28 @@ init script:
 			c: rgb(255, 255, 255)
 		][input]
 	}
+	
+	loyalty_offset_left_1 := { if styling.center_starting_loyalty then -140 else 0 }
+	loyalty_textbox_mask_1 := {
+		"stripe_mask"
+		+ (if has_four_abilities() then "_four" else "_base")
+		+ (if is_notched() then "_notch" else "")
+		+ ".png"
+	}
+	loyalty_textbox_background_alpha_default := { "30" }
+
+	force_notched := { 
+		chosen(styling.other_options, choice:"transform notch")
+	}
+	default_back_face := is_back_face
+	is_back_face := { not is_clear() and default_back_face() }
+	nameline_offset_top_1 := {-7}
+	transform_symbol_offset_left_1 := {2}
+	#### modal dfc flags
+	reminder_disabled := { not is_linked_dfc() }
+	
+	use_ledge := { card.card_stamp != "none" or get_front_face(card) == nil }
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -444,46 +509,25 @@ styling field:
 	description: Formatted "X,Y,Z", shrinks the top X pixels, shrinks bottom Y pixels toward center, widens small stripes Z pixels.
 styling field:
 	type: text
-	name: shift loyalty costs
-	description: Moves loyalty costs up the specified amount. Use negative to move down. Formatted as "1,2,3,4,"
-styling field:
-	type: text
-	name: opacity
-	description: set opacity for stripes, from 0 to 255.
-styling field:
-	type: text
 	name: shrink name text
 	description: reduces the name text N points.
 styling field:
 	type: text
 	name: shrink typeline text
 	description: reduces the typeline text N points.
+include file: /magic-modules.mse-include/loyalty/styling_formatting
 styling field:
 	type: text
 	name: font size
 	description: Use to overwrite the font size. Default is size 12.
 styling field:
-	type: choice
-	name: override levels
-	choice: automatic
-	choice: one ability
-	choice: two abilities
-	choice: three abilities
-	choice: four abilities
-	choice: five abilities
-	choice: six abilities
-	description: Automatically apply layers, force four abilities, or force one ability
-styling field:
 	type: multiple choice
 	name: other options
 	choice: clear frame
-	choice: use taller frame
-	choice: use short frame
 	choice: ancestral generic mana
 	choice: prerelease stamp
 	choice: un-indent nonloyalty abilities
 	choice: mythic edition fullart
-	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: nyx
 	choice: snow
@@ -494,15 +538,56 @@ styling field:
 	choice: reversed adventure
 	choice: pride pinlines
 	choice: popunder art
+	choice: transform notch
 	initial: un-indent nonloyalty abilities
+	script:
+		exclusive_choice(value, choice1:"adventure", choice2:"reversed adventure", choice3:"prototype")
 styling field:
 	type: text
 	name: custom border source
 	description: Use this file from magic-mainframe-extras as a custom vehicle-like frame. if colored, name images like "wborder.png" and put "-color-border.png" here.
 styling field:
-	type: text
-	name: custom mask
-	description: Uses a custom mask from data/magic-mainframe-extras.mse-include
+	type:			text
+	name:			textbox opacity percentage
+	description:	Set the opacity percentage for textboxes. Opaque is 100, transparent is 0, default is 30.
+styling field:
+	type:			color
+	name:			textbox color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(255,255,255)
+styling field:
+	type:			text
+	name:			stripes opacity percentage
+	description:	Set the opacity percentage for stripes separating abilities. Opaque is 100, transparent is 0, default is 40.
+styling field:
+	type:			color
+	name:			stripes color
+	description:	Use the specified color for the textbox background.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(255,255,255)
+styling field:
+	type:			color
+	name:			rule text color
+	description:	Use the specified color for the rule text.
+	choice:
+		name:			black
+		color:			rgb(0,0,0)
+	choice:
+		name:			white
+		color:			rgb(255,255,255)
+	initial:		rgb(0,0,0)
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: boolean
 	name: default image size
@@ -512,8 +597,13 @@ styling field:
 	name: prototype secondary
 	choice: pt
 	choice: type
+styling field:
+	type: boolean
+	name: center starting loyalty
+	initial: no
 include file: /magic-modules.mse-include/rarities/styling_fields
 include file: /magic-modules.mse-include/watermarks/styling_fields
+include file: /magic-modules.mse-include/fonts/styling_fields
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -571,11 +661,43 @@ styling field:
 	match: magic-overlay-*.mse-include
 	required: false
 styling field:
+	type: text
+	name: custom mask
+	description: Uses a custom mask from data/magic-mainframe-extras.mse-include
+
+styling field:
+	type: text
+	name: shift loyalty costs
+	description: (depreciated, hidden for update script) Moves loyalty costs up the specified amount. Use negative to move down. Formatted as "1,2,3,4,"
+styling field:
+	type: text
+	name: opacity
+	description: (depreciated, hidden for update script) set opacity for stripes, from 0 to 255.
+styling field:
+	type: choice
+	name: override levels
+	choice: automatic
+	choice: one ability
+	choice: two abilities
+	choice: three abilities
+	choice: four abilities
+	choice: five abilities
+	choice: six abilities
+	description: (depreciated, hidden for update script) Automatically apply layers, force four abilities, or force one ability
+styling field:
 	type: boolean
 	name: clear
 	description: Use the clear frame. (depreciated)
 	initial: no
 styling style:
+	opacity:
+		visible: false
+	override levels:
+		visible: false
+	shift loyalty costs:
+		visible: false
+	clear:
+		visible: false
 	use guild mana symbols:
 		choice images:
 			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
@@ -599,11 +721,16 @@ styling style:
 	other options:
 		render style: checklist
 		direction: vertical
-		############################################################## Card fields
+############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/watermarks/card_fields
+include file: /magic-modules.mse-include/loyalty/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/card-symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -626,11 +753,19 @@ card style:
 		z index: 200
 		render style: image
 		popup style: in place
-		image: { if is_clear() then "" else if has_four_abilities() then module_card2() else module_card() }
-		mask: {frame_mask_script()}
+		image: { card_img() }
+		mask: { "click_mask" + (if has_four_abilities() then "_four" else "") + ".png" }
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 31 else 48 }
+		left:
+			script:
+				if card.card_symbol != "none" and transform_symbol_active_left(card.transformation)
+					then 79
+				else if transform_symbol_active_left(card.transformation)
+					then 62
+				else if card.card_symbol != "none"
+					then 48
+				else 31
 		top: 22
 		right: { 339 - card_style.casting_cost.content_width }
 		height: { 23 - (0.5 * shrink_name()) }
@@ -638,15 +773,16 @@ card style:
 		padding bottom: 0
 		z index: 900
 		font:
-			name: Beleren Bold
-			size: {16 - shrink_name() }
-			color: black
+			name: { name_font() }
+			italic name: { name_font_italic() }
+			size: { name_font_size() }
+			color: { name_font_color() }
 	alias: 
-		left: {if is_skinned() then 45 else 36}
-		top: 48
-		width: {if is_skinned() then 285 else if use_evobar() then max(100, card_style.alias.content_width) else 0}
+		left: { if use_evobar() then 36 else 45 }
+		top:  { if use_evobar() then 50 else 49 }
+		width: { if use_evobar() then max(100, card_style.alias.content_width) else 285 }
 		height: 20
-		alignment: { (if is_skinned() then "center") + "bottom shrink-overflow"}
+		alignment: { (if use_evobar() then "" else "center") + "middle shrink-overflow"}
 		padding bottom: 0
 		z index: 900
 		font:
@@ -656,7 +792,7 @@ card style:
 			weight: {if use_evobar() then "italic" else "bold"}
 			color: {if use_evobar() then "black" else "white"}
 	casting cost:
-		right: 347
+		right: 	{ 347 - (if transform_symbol_active_right(card.transformation) then 32 else 0) }
 		top: 21
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -669,23 +805,15 @@ card style:
 		z index: 920
 		padding top: 0
 
-	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 25}
-		top: 21
-		height: 21
-		width: 23
-		z index: 810
-		render style: image
-		include file:		/magic.mse-game/card-symbols/menu_choice_images
-		image:				{ card_symbol_image(face: 1) }
 	############################# Image
 	image:
 		left: { if use_full_art() or is_clear() then 0 else if is_normal_size() then 25 else 15 }
 		top: { if use_full_art() or is_clear() then 0 else if is_normal_size() then 52 else 15 }
-		width: { if use_full_art() or is_clear() then 375 else if is_normal_size() then 324 else 345 }
-		height:	{ if use_full_art() or is_clear() then 523 else if is_normal_size() then 427.5 else 493 }
+		width: { if use_full_art() or is_clear() then 375 else if is_normal_size() then (if is_notched() then 330 else 324) else 345 }
+		height:	{ if use_full_art() or is_clear() then 523 else if is_normal_size() then 428 else 493 }
 		z index: 100
-		mask: {if contains(styling.custom_mask, match:".png") then "" else "guidelines/" + (if is_clear() then "clear_" else if is_normal_size() or use_full_art() then "" else "wide_") + (if not force_short() and max_level() > 3 or force_tall() then "four_" else "") + (if is_clear() then "frame_mask" else if use_full_art() then (if is_stamped() then "mythic_image_rare_mask" else "mythic_mask") else "frame_mask") + ".png"}
+		mask: { image_mask_script() }
+		store in metadata: true
 	image 2:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
@@ -693,6 +821,7 @@ card style:
 		height:				{ popout_height() }
 		angle:				{ popout_angle() }
 		z index:			1010
+		store in metadata:	{ not use_popunder() }
 	mainframe image:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
@@ -700,6 +829,7 @@ card style:
 		height:				{ popout_height() }
 		angle:				{ popout_angle() }
 		z index:			899
+		store in metadata:	{ use_popunder() }
 		
 	############################# Card type
 	indicator:
@@ -720,34 +850,36 @@ card style:
 		z index: 900
 		padding top: 2
 		font:
-			name: Beleren Bold
-			size: { 13 - shrink_type() }
-			color: black
+			name: { type_font() }
+			italic name: { type_font_italic() }
+			size: { type_font_size() }
+			color: { type_font_color() }
 			separator color: red
 	rarity:
-		right: 344
-		top: { if has_four_abilities() then 261 else 297 }
-		width: {if set.shorten_types_for_rarity then 44 else 0}
-		height: 22
+		right: { 344 + rarity_user_offset_left(styling.rarity_offsets or else "") }
+		top: { (if has_four_abilities() then 261 else 297) + rarity_user_offset_top(styling.rarity_offsets or else "") }
+		width: { 44 + rarity_user_offset_width(styling.rarity_offsets or else "") }
+		height: { 22 + rarity_user_offset_height(styling.rarity_offsets or else "") }
 		z index: 950
 		render style: image
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
+		visible: { set.shorten_types_for_rarity and not hidden_back_rarity() }
 	############################# Text box
 	text:
 		left: {if is_adventure() then 198 else 48}
 		top: { top_of_textbox() }
 		width: {300 - global_chop_right()}
-		bottom: {477-global_chop_bot()-(if is_stamped() then 2 else 0)}
+		bottom: {477-global_chop_bot()-(if is_stamped() then 2 else 0)-(if reminder_box_is_visible() and not is_adventure() then 15 else 0)}
 		font:
-			name: MPlantin
-			italic name: MPlantin-Italic
-			size: { if styling.font_size != "" then styling.font_size else if has_four_abilities() then 13.8 else 14 }
+			name: { body_font() }
+			italic name: { body_font_italic() }
+			size: { body_font_size() }
 			scale down to: 6
-			color: black
+			color: { body_font_color() }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
-			size: { if styling.font_size != "" then styling.font_size else if has_four_abilities() then 13.8 else 14 }
+			size: { body_font_size() }
 		alignment:
 			script:
 				if (styling.center_text == "short text only" and
@@ -775,86 +907,8 @@ card style:
 		z index: 720
 		render style: image
 		alignment: middle center
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file: /magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
-	############################# Loyalty
-	loyalty:
-		z index: 900
-		left: 328
-		top: 466
-		width: 13.16
-		height:	34.63
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 14
-			color: white
-	loyalty cost 1:
-		z index: 900
-		left: {if is_adventure() then 178 else 28}
-		top: { abil_center(0) - 17.3 - 2 - loyal_move() }
-		width: 18
-		height:	35
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 2:
-		z index: 900
-		left: {if is_adventure() then 178 else 28}
-		top: { abil_center(1) - 17.3 - 2 - loyal_move2() }
-		width: 18
-		height:	35
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 3:
-		z index: 900
-		left: {if is_adventure() then 178 else 28}
-		top: { abil_center(2) - 17.3 - 2 - loyal_move3() }
-		width: {if card.loyalty_cost_3 != "" or max_level() > 1 then 18 else 0}
-		height:	35
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 4:
-		z index: 900
-		left: {if is_adventure() then 178 else 28}
-		top: { abil_center(3) - 17.3 - 2 - loyal_move4() }
-		width: {if card.loyalty_cost_4 != "" or max_level() > 2 then 18 else 0}
-		height:	35
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 5:
-		z index: 900
-		left: {if is_adventure() then 178 else 28}
-		top: { abil_center(4) - 17.3 - 2 - loyal_move5() }
-		width: {if card.loyalty_cost_5 != "" or max_level() > 3 then 18 else 0}
-		height:	35
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
-	loyalty cost 6:
-		z index: 900
-		left: {if is_adventure() then 178 else 28}
-		top: { abil_center(5) - 17.3 - 2 - loyal_move6() }
-		width: {if card.loyalty_cost_6 != "" or max_level() > 4 then 18 else 0}
-		height:	35
-		alignment: center middle
-		font:
-			name: Beleren Bold
-			size: 11
-			color: white
 ################################### Adventure stuff
 	name 2:
 		left: {if is_tale() then 202 else 22}
@@ -869,7 +923,7 @@ card style:
 			color: white
 	casting cost 2:
 		right: {if is_prototype() then 345 else if is_tale() then 345 else 165}
-		top: {if is_prototype() then top_of_textbox()-1 else if has_four_abilities() then 288 else 323}
+		top: {if is_prototype() then top_of_textbox()+2 else if has_four_abilities() then 288 else 323}
 		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
 		height: {if use_adv() or is_prototype() then 23 else 0}
 		alignment: middle right
@@ -882,7 +936,7 @@ card style:
 		padding top: 0
 	type 2:
 		right: {if is_prototype() then 344 else if is_tale() then 353 else 173}
-		bottom: {if is_prototype() then top_of_textbox() + prototype_height() +1 else 368+ shrink_type2()-(if has_four_abilities() then 36 else 0)}
+		bottom: {if is_prototype() then top_of_textbox() + prototype_height() - 6 else 368+ shrink_type2()-(if has_four_abilities() then 36 else 0)}
 		width: { if is_prototype() then max(20, card_style.type_2.content_width) else 151}
 		height: {if is_prototype() and styling.prototype_secondary == "type" then proto_secondary_height()-1 else if use_adv() then 20 else 0}
 		alignment: { if is_prototype() then "top right" else "top shrink-overflow" }
@@ -895,7 +949,7 @@ card style:
 			separator color: red
 	pt 2:
 		right: 350
-		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) - 1 }
+		bottom: { top_of_textbox() + prototype_height() - 9 }
 		height: { if is_prototype() and styling.prototype_secondary == "pt" then proto_secondary_height()-12 else 0 }
 		width: { if is_prototype() and styling.prototype_secondary == "pt" then (2 * proto_secondary_height())-14 else 0 }
 		alignment: center middle shrink-overflow
@@ -910,7 +964,7 @@ card style:
 		left: {if is_tale() then 198 else 20 }
 		top: {if has_four_abilities() then 332 else 372}
 		width: {if use_adv() then 149 else 0}
-		bottom: {if is_tale() then 475 else 479}
+		bottom: {if is_tale() then 475 else 479-(if reminder_box_is_visible() then 15 else 0)}
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
@@ -932,20 +986,30 @@ card style:
 		z index: 900
 		padding left:   6
 		padding right:  4
-		line height hard: {if is_modal(card.rule_text_2) then 0.9 else 1.2 }
+		line height hard: 1.2
 		line height line: 1.5
 		line height soft: 0.9
-		line height hard max: {if is_modal(card.rule_text_2) then 1.0 else 1.3 }
+		line height hard max: 1.3
 		line height line max: 1.6
 	card color 2:
 		left:	{if is_tale() then 193 else 10 }
 		top:	{if has_four_abilities() then 286 else 321}
 		width:	{if use_adv() then 169 else 0}
 		height:	156
-		z index: 620
+		z index: 722
 		render style: image
 		popup style: in place
 		image: { page_image(card.card_color_2) }
+	loyalty box:
+		left:				{ instance := 1; loyalty_box_left() }
+		top:				{ instance := 1; loyalty_box_top() }
+		width:				{ instance := 1; if card.loyalty == "" then 0 else loyalty_box_width() }
+		height:				{ instance := 1; loyalty_box_height() }
+		z index:			880
+		visible:			{ instance := 1; card.loyalty != "" and loyalty_has_abilities_1() }
+		include file:		/magic.mse-game/loyalty/menu_choice_images
+		render style:		image
+		image:				{ instance := 1; loyalty_box_image() }
 
 ############################################################## Extra card fields
 extra card field:
@@ -956,158 +1020,10 @@ extra card field:
 	editable: false
 
 extra card field:
-	type: choice
-	name: loyalty box
-	editable: false
-	choice: loyalty
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 1
-	editable: false
-	script: loyalty_image(card.loyalty_cost_1)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 2
-	editable: false
-	script: loyalty_image(card.loyalty_cost_2)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 3
-	editable: false
-	script: loyalty_image(card.loyalty_cost_3)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 4
-	editable: false
-	script: loyalty_image(card.loyalty_cost_4)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 5
-	editable: false
-	script: loyalty_image(card.loyalty_cost_5)
-	save value: false
-extra card field:
-	type: choice
-	name: loyalty cost box 6
-	editable: false
-	script: loyalty_image(card.loyalty_cost_6)
-	save value: false
-
-extra card field:
 	type: text
-	name: colon 1
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 2
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 3
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 4
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 5
-	editable: false
-	script: ":"
-	save value: false
-extra card field:
-	type: text
-	name: colon 6
-	editable: false
-	script: ":"
-	save value: false
-
-extra card field:
-	type: choice
-	name: bottom first
-	editable: false
-	save value: false
-	choice: stripe
-extra card field:
-	type: choice
-	name: top third
-	editable: false
-	save value: false
-	choice: stripe
-extra card field:
-	type: choice
-	name: bottom third
-	editable: false
-	save value: false
-	choice: stripe
-extra card field:
-	type: choice
-	name: top fifth
-	editable: false
-	save value: false
-	choice: stripe
-extra card field:
-	type: choice
-	name: bottom fifth
-	editable: false
-	save value: false
-	choice: stripe
-extra card field:
-	type: color
-	name: top color
-	script: if is_clear() then rgb(230,230,230) else rgb(200,200,200)
-	editable: false
-	save value: false
-extra card field:
-	type: color
-	name: bottom color
-	script: if is_clear() then rgb(230,230,230) else rgb(200,200,200)
-	editable: false
-	save value: false
-extra card field:
-	type: color
-	name: stripe color
-	script: if is_clear() then rgb(230,230,230) else rgb(200,200,200)
-	editable: false
-	save value: false
-extra card field:
-	type: color
-	name: stripe color 2
-	script: if is_clear() then rgb(230,230,230) else rgb(200,200,200)
-	editable: false
-	save value: false
-extra card field:
-	type: color
-	name: stripe color 3
-	script: if is_clear() then rgb(230,230,230) else rgb(200,200,200)
-	editable: false
-	save value: false
-
-extra card field:
-	type: choice
-	name: clear frame
-	choice: frame
-	editable: false
-	save value: false
-	show statistics: false
-extra card field:
-	type: color
-	name: opac filter
-	script: rgb(opacity(0), opacity(0), opacity(0))
-	save value: false
+	name: vorthos box
+	save value: true
+	editable: true
 
 extra card field:
 	type: choice
@@ -1148,18 +1064,6 @@ extra card field:
 	choice: evo
 	save value: false
 	editable: false
-extra card field:
-	type: choice
-	name: evobar tip
-	choice: evo
-	save value: false
-	editable: false
-extra card field:
-	type: choice
-	name: evobar start
-	choice: evo
-	save value: false
-	editable: false
 
 extra card field:
 	type: multiple choice
@@ -1183,12 +1087,6 @@ extra card field:
 	script:
 		forward_editor(field: card.special_text)
 		special_text()
-extra card field:
-	type: text
-	name: vorthos box
-	save value: true
-	editable: true
-	description: Where they put mtgstory.com on story spotlights.
 
 extra card field:
 	type: choice
@@ -1240,6 +1138,19 @@ extra card field:
 	save value: false
 	editable: false
 
+extra card field:
+	type: choice
+	name: notch
+	script: card.card_color
+	save value: false
+	editable: false
+extra card field:
+	type: choice
+	name: ledge
+	choice: ledge
+	save value: false
+	editable: false
+
 extra card style:
 	foil layer:
 		left: 0
@@ -1249,278 +1160,6 @@ extra card style:
 		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
-
-	loyalty box:
-		right: 364
-		top: 464
-		width: 60
-		height: 38
-		z index: 830
-		render style: image
-		visible: { card.loyalty != "" }
-		choice images:
-			loyalty: loyalty.png
-	loyalty cost box 1:
-		left: {if is_adventure() then 165 else 15}
-		top: { abil_center(0) - 17.3 - 2 - loyal_move() }
-		width: 45
-		height: 36
-		z index: 830
-		render style: image
-		visible: { card.loyalty_cost_1 != "" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 2:
-		left: {if is_adventure() then 165 else 15}
-		top: { abil_center(1) - 17.3 - 2 - loyal_move2() }
-		width: 45
-		height: 36
-		z index: 830
-		render style: image
-		visible: { card.loyalty_cost_2 != "" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 3:
-		left: {if is_adventure() then 165 else 15}
-		top: { abil_center(2) - 17.3 - 2 - loyal_move3() }
-		width: 45
-		height: 36
-		z index: 830
-		render style: image
-		visible: { card.loyalty_cost_3 != "" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 4:
-		left: {if is_adventure() then 165 else 15}
-		top: { abil_center(3) - 17.3 - 2 - loyal_move4() }
-		width: 45
-		height: 36
-		z index: 830
-		render style: image
-		visible: { card.loyalty_cost_4 != "" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 5:
-		left: {if is_adventure() then 165 else 15}
-		top: { abil_center(4) - 17.3 - 2 - loyal_move5() }
-		width: 45
-		height: 36
-		z index: 830
-		render style: image
-		visible: { card.loyalty_cost_5 != "" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-	loyalty cost box 6:
-		left: {if is_adventure() then 165 else 15}
-		top: { abil_center(5) - 17.3 - 2 - loyal_move6() }
-		width: 45
-		height: 36
-		z index: 830
-		render style: image
-		visible: { card.loyalty_cost_6 != "" }
-		choice images:
-			loyalty up: loyaltyup.png
-			loyalty down: loyaltydown.png
-			loyalty naught: loyaltynaught.png
-
-	colon 1:
-		left: {if is_adventure() then 209 else 59}
-		top: { abil_center(0) - 17.3 + 10 - loyal_move() }
-		width: 5
-		height: 10
-		z index: 830
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_1 != "" }
-	colon 2:
-		left: {if is_adventure() then 209 else 59}
-		top: { abil_center(1) - 17.3 + 10 - loyal_move2() }
-		width: 5
-		height: 10
-		z index: 830
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_2 != "" }
-	colon 3:
-		left: {if is_adventure() then 209 else 59}
-		top: { abil_center(2) - 17.3 + 10 - loyal_move3() }
-		width: {if has_two_abilities() then 0 else 5}
-		height: 10
-		z index: 830
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_3 != "" }
-	colon 4:
-		left: {if is_adventure() then 209 else 59}
-		top: { abil_center(3) - 17.3 + 10 - loyal_move4() }
-		width: { if has_four_abilities() then 5 else 0 }
-		height: 10
-		z index: 830
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_4 != "" }
-	colon 5:
-		left: {if is_adventure() then 209 else 59}
-		top: { abil_center(4) - 17.3 + 10 - loyal_move5() }
-		width: { if has_four_abilities() then 5 else 0 }
-		height: 10
-		z index: 830
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_5 != "" }
-	colon 6:
-		left: {if is_adventure() then 209 else 59}
-		top: { abil_center(5) - 17.3 + 10 - loyal_move6() }
-		width: { if has_four_abilities() then 5 else 0 }
-		height: 10
-		z index: 830
-		font:
-			name: MPlantin
-			size: 15
-			scale down to: 15
-			color: black
-		alignment: middle center
-		visible: { card.loyalty_cost_6 != "" }
-
-###Curve of first textbox
-	top color:
-		left: {if is_clear() then 28 else 26}
-		top: {if is_clear() and max_level() > 4 then 288 else if has_four_abilities() then 288 else if is_clear() then 322 else 324 }
-		width: {if is_clear() then 320 else 324}
-		height: { if is_clear() and max_level() > 4 then 19 else 21 }
-		z index: 610
-		mask: mask_top.png
-###Block of first textbox
-	stripe color:
-		left: { if is_clear() then 47 else 45}
-		top: { (if has_four_abilities() then 309 else if is_clear() then 343 else 345) }
-		width: { if is_clear() then 298 else 302}
-		bottom: { max(if force_level() == "one" then 465 else to_int(stripe01()-3)+(if is_clear() then 2 else 0), (if has_four_abilities() then 309 else 345)-(if is_clear() then 2 else 0)) }
-		z index: 610
-		mask: stripe_mask.png
-###Bottom of first textbox
-	bottom first:
-		left: { if is_clear() then 47 else 45}
-		top: { max(to_int(stripe01()-3)+(if is_clear() then 2 else 0), (if has_four_abilities() then 309 else 345)-(if is_clear() then 2 else 0)) }
-		width: { if is_clear() then 298 else 302}
-		height: 20
-		image: { (if is_clear() then "clear_" else "") + "top_stripe_test.png" }
-		render style: image
-		z index: 610
-		mask: stripe_mask.png
-		visible: { force_level() != "one" }
-###Top of third textbox
-	top third:
-		left: { if is_clear() then 47 else 45}
-		top: {to_int(stripe12()-3) }
-		width: { if is_clear() then 298 else 302}
-		height: 13
-		image: { (if is_clear() then "clear_" else "") + "bot_stripe_test.png" }
-		render style: image
-		z index: 610
-		mask: stripe_mask.png
-		visible: { card.level_3_text != ""}
-###Block of third textbox
-	stripe color 2:
-		left: { if is_clear() then 47 else 45}
-		top: { to_int(stripe12()+10) }
-		width: { if is_clear() then 298 else 302}
-		bottom: { if max_level() == 3 then 465 else to_int(min(465, stripe23()-3)) }
-		z index: 610
-		mask: stripe_mask.png
-		visible: { card.level_3_text != ""}
-###Bottom of third textbox
-	bottom third:
-		left: { if is_clear() then 47 else 45}
-		top: {to_int(min(465, stripe23()-3)) }
-		width: { if is_clear() then 298 else 302}
-		height: 20
-		image: { (if is_clear() then "clear_" else "") + "top_stripe_test.png" }
-		render style: image
-		z index: 610
-		mask: stripe_mask.png
-		visible: { max_level() > 3}
-###Top of fifth textbox
-	top fifth:
-		left: { if is_clear() then 47 else 45}
-		top: {to_int(stripe34()-3)}
-		width: { if is_clear() then 298 else 302}
-		height: 13
-		image: { (if is_clear() then "clear_" else "") + "bot_stripe_test.png" }
-		render style: image
-		z index: 610
-		mask: stripe_mask.png
-		visible: { max_level() > 4}
-###Block of fifth textbox
-	stripe color 3:
-		left: { if is_clear() then 47 else 45}
-		top: { to_int(stripe34()+10) }
-		width: { if is_clear() then 298 else 302}
-		bottom: { if max_level() == 5 then 465 else to_int(min(465, stripe45()-2)) }
-		z index: 610
-		mask: stripe_mask.png
-		visible: { max_level() > 4 and to_int(stripe34()+10) <= 465 }
-###Bottom of fifth textbox
-	bottom fifth:
-		left: { if is_clear() then 47 else 45}
-		top: {to_int(min(465, stripe45()-2)) }
-		width: { if is_clear() then 298 else 302}
-		height: 20
-		image: { (if is_clear() then "clear_" else "") + "top_stripe_test.png" }
-		render style: image
-		z index: 610
-		mask: stripe_mask.png
-		visible: { max_level() == 6}
-
-###Curve of bottom textbox
-	bottom color:
-		left: { if is_clear() then 28 else 26}
-		top: 465
-		width: {if is_clear() then 319 else 323}
-		height: 13
-		z index: 610
-		mask: mask_bot.png
-		visible: { force_level() == "one" or max_level() == 3 or max_level() == 5}
-
-	clear frame:
-		left:	0
-		top:	0
-		width:	{ if is_clear() then 375 else 0 }
-		height:	{ if is_clear() then 523 else 0 }
-		z index: 200
-		render style: image
-		popup style: in place
-		image: { "cards/" + (if has_four_abilities() then "xcard2.png" else "xcard.png") }
 	promo label:
 		left: 40
 		top: { if has_four_abilities() then 225 else 262 }
@@ -1532,17 +1171,9 @@ extra card style:
 			name: ModMatrix
 			size: 14
 			color: rgb(223,169,41)
-	opac filter:
-		left: 43
-		top: {if has_four_abilities() then 290 else 325}
-		width: 305
-		height: {if has_four_abilities() then 192 else 157}
-		mask: {"opacfilter" + if has_four_abilities() then "_4.png" else ".png"}
-		z index: 600
-		visible: {styling.opacity != ""}
 	alias bar:
 		left: 34
-		top: {if is_clear() then 51 else 50}
+		top: 50
 		width: 307
 		height: 22
 		z index: 880
@@ -1551,34 +1182,14 @@ extra card style:
 		visible: {is_skinned() and not use_evobar()}
 		mask: alias_mask.png
 	evobar:
-		left: 40
-		top: 51
-		width: {card_style.alias.content_width}
-		height: 27
-		z index: 880
-		render style: image
-		image: evobar.png
-		visible: {use_evobar()}
-	evobar tip:
-		left: {39.6 + card_style.alias.content_width}
-		top: 51
-		width: 36
-		height: 27
-		z index: 880
-		render style: image
-		image: evobar_tip.png
-		visible: {use_evobar()}
-	evobar start:
 		left: 31
 		top: 51
-		width: 9
+		width: { evobar_image_width(card_style.alias.content_width) }
 		height: 27
 		z index: 880
 		render style: image
-		image: evobar_start.png
-		mask: evobar_mask.png
-		visible: {use_evobar()}
-
+		image: { evobar_image(card_style.alias.content_width, initial_mask: "evobar_mask.png") }
+		visible: { use_evobar() }
 	nyx overlay:
 		left: 0
 		top: 0
@@ -1640,33 +1251,22 @@ extra card style:
 		image: { if stamp_shape() == "triangle" then (if is_clear() then template_prefix["ubstamp"]+"xstamp.png" else module_ubstamp()) else if is_clear() then template_prefix["stamp"]+"xstamp.png" else module_stamp() }
 		mask: {if stamp_shape() == "triangle" then (if use_full_art() then "mythicstamp_mask_triangle.png" else "") else (if use_full_art() then "mythic" else "") + "stamp_mask.png"}
 
-	vorthos box:
-		right: 275
-		top: 488
-		width: 65
-		height: 10
-		z index: 900
-		alignment: middle right
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
 	adventure cover:
 		left: 0
 		top: {if has_four_abilities() then 288 else 324}
 		width: 375
 		height: {if has_four_abilities() then 200 else 164}
-		z index: 610
+		z index: 720
 		image: {if has_four_abilities() then (if is_clear() then "covers/xcard4.png" else card_background4()) else if is_clear() then "covers/xcard3.png" else card_background3()}
 		visible: {is_adventure() and not is_tale()}
 		render style: image
+		mask: { adventure_cover_notch_mask() }
 	adventure secondary:
 		left:	{if is_tale() then 193 else 10 }
 		top:	321
 		width:	{if use_adv() then 169 else 0}
 		height:	156
-		z index: 625
+		z index: 723
 		render style: image
 		popup style: in place
 		image: { page_image(card.card_color_2) }
@@ -1683,37 +1283,55 @@ extra card style:
 		render style: image
 	prototype box:
 		left: 42
-		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) + 7 }
-		height: { prototype_height() + 10 }
+		top: { top_of_textbox() }
+		height: { prototype_height() }
 		width: 310
 		render style: image
-		z index: 650
+		z index: 850
 		image: { prototype_box_image() }
 		visible: { is_prototype() }
 	prototype cost box:
 		right: 348
-		top: { top_of_textbox() }
+		top: { top_of_textbox() + 3 }
 		height: { proto_primary_height() }
-		width: {8 + max(8, card_style.casting_cost_2.content_width)-3 + 4}
+		width: {8 + max(8, round_up(card_style.casting_cost_2.content_width))-3 + 4}
 		render style: image
-		z index: 650
+		z index: 850
 		image: { prototype_cost_image() }
 		visible: { is_prototype() }
 	prototype type box:
 		right: 348
-		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) + 3 }
+		bottom: { top_of_textbox() + prototype_height() - 4 }
 		height: { proto_secondary_height() }
 		width: {8 + max(20, card_style.type_2.content_width) + 4}
 		render style: image
-		z index: 650
+		z index: 850
 		image: { prototype_type_image() }
 		visible: { is_prototype() and styling.prototype_secondary == "type" and remove_tags(card.type_2) != "" }
 	prototype pt box:
 		right: 357
-		bottom: { top_of_textbox() + (card_style.text.layout.blocks[0].bottom or else 0) + 6 }
+		bottom: { top_of_textbox() + prototype_height() - 2 }
 		height: { proto_secondary_height() }
 		width: { 2 * proto_secondary_height() }
 		render style: image
-		z index: 720
+		z index: 850
 		image: { prototype_pt_image() }
 		visible: { is_prototype() and styling.prototype_secondary == "pt" and card.pt_2 != "" }
+	notch:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		image: { if is_clear() then "notch/x.png" else notch_image() }
+		z index: 721
+		visible: { is_notched() }
+	ledge:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 610
+		render style: image
+		image: {"cards/front_ledge" + (if is_adventure() then "_long" else "") + ".png" }
+		visible: { not use_full_art() and use_ledge() }

@@ -1,14 +1,16 @@
-﻿mse version:		2.5.6
+mse version:		2.6.0
 game:				magic
 short name:			Expedition 33
 full name:			by TorskeRavn
 icon:				card_sample.png
-position hint:		083
+position hint:		040600
+installer group:	magic/M15 Frames/Fan Made/Expedition 33
+
 
 version:			2024-10-01
 depends on:
 	package:			magic.mse-game
-	version:			2014-06-25
+	version:			2026-08-28
 depends on:
 	package:			magic-mana-large.mse-symbol-font
 	version:			2007-09-23
@@ -17,7 +19,7 @@ depends on:
 	version:			2007-09-23
 depends on:
 	package:			magic-modules.mse-include
-	version:			2024-10-01
+	version:			2026-08-28
 depends on:
 	package:			magic-mainframe-extras.mse-include
 	version:			2007-09-23
@@ -65,10 +67,33 @@ init script:
 		italic: {""}
 	]
 	
-	transform_symbol_disabled_1 := { true }
+	reminder_image_folder := { "/" + stylesheet.folder_name + ".mse-style/reminder/" }
+	reminder_uses_light_variant := { false }
+	reminder_offset_left := { 40 }
+	reminder_offset_top := { -4 }
+	reminder_offset_width := { -43 }
+	reminder_offset_height := { -3 }
+	reminder_type_font_size := { 18 }
+	reminder_type_offset_left := { -12 }
+	reminder_cost_offset_left := { 13 }
+	
 	nameline_offset_top_1 := { 20 }
 	nameline_offset_left_1 := { 17 }
 	nameline_offset_width_1 := { -33 }
+	
+	transform_symbol_image_folder := { "/" + stylesheet.folder_name + ".mse-style/transform/" }
+	transform_symbol_modal_uses_normal_background := { true }
+	transform_symbol_multicolor_blend := { "white" }
+	transform_symbol_offset_left_1 := { if transform_symbol_is_right(card.transformation) then 25 else 27 }
+	transform_symbol_offset_top_1 := { 0 }
+	transform_symbol_offset_width_1 := { -3 }
+	transform_symbol_offset_height_1 := { 3 }
+	transform_symbol_icon_offset_width := { if contains(card.transformation, match: "triangle") then -2 else -6 }
+	transform_symbol_icon_offset_height := { if contains(card.transformation, match: "triangle") then -2 else -6 }
+	
+	name_transform_symbol_offset_left_1 := { 20 }
+	casting_cost_transform_symbol_offset_left_1 := { -26 }
+	
 	name_offset_width_1 := { 10 }
 	casting_cost_offset_top_1 := { 3 }
 	swap_fonts_name_default :=
@@ -156,6 +181,8 @@ init script:
 	art_top :=			{ if styling.stretch_art_to_whole_card or styling.border != "yes"								then 0						else 30 }
 	art_bottom :=		{ if styling.stretch_art_to_whole_card or styling.border == "no" or styling.border == "fade"	then stylesheet.card_height	else 956 }
 	art_mask :=			{ crop("image_mask.png", offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_bottom() - art_top()) }
+	
+	alias_mask := { crop("alias_mask.png", offset_x: 630 - min(483,card_style.alias.content_width), offset_y: 0, width:750, height:1039) }
 
 ############################################################## Extra style options
 
@@ -224,6 +251,8 @@ include file: /magic-modules.mse-include/watermarks/card_fields
 
 include file: /magic-modules.mse-include/separators/card_fields
 
+include file: /magic-modules.mse-include/reminders/card_fields
+
 include file: /magic-modules.mse-include/namelines/card_fields
 
 include file: /magic-modules.mse-include/typelines/card_fields
@@ -231,6 +260,20 @@ include file: /magic-modules.mse-include/typelines/card_fields
 include file: /magic-modules.mse-include/foils/card_fields
 
 card style:
+	############################# Nameline
+	alias:
+		left:		118
+		top:		142
+		width:		483
+		height:		26
+		alignment:	left middle shrink-overflow
+		z index:	900
+		font:
+			name:	MPlantin-Italic
+			size:	{ alias_font_size(face:1) }
+			style:	bold
+			weight:	bold
+			color:	white
 	############################# Background stuff
 	border color:
 		left:				0
@@ -258,23 +301,25 @@ card style:
 		bottom:				{ art_bottom() }
 		z index:			100
 		mask:				{ art_mask() }
+		store in metadata:	true
 	mainframe image:
 		left:				{ popout_left() }
 		top:				{ popout_top() }
 		width:				{ popout_width() }
 		height:				{ popout_height() }
 		z index:			1000
+		store in metadata:	true
 	############################# Text box
 	text:
 		left:				99
 		top:				{ 667 + chop_top() + body_font_vertical() }
 		right:				{ 651 - chop_right() }
-		bottom:				{ 950 - (if is_stamped() then 10 else 0) - chop_bottom() }
+		bottom:				{ 950 - (if is_stamped() then 10 else 0) - chop_bottom() - if reminder_box_is_visible() then 20 else 0 }
 		z index:			900
-		line height hard:	{ if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height hard:	1.2
 		line height line:	1.5
 		line height soft:	0.9
-		line height hard max:	{ if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height hard max:	1.3
 		line height line max:	1.6
 		alignment:
 			script:
@@ -339,6 +384,12 @@ extra card field:
 	editable:			false
 	save value:			false
 	show statistics:	false
+extra card field:
+	type:				choice
+	name:				alias bar
+	script:				card.card_color
+	save value:			false
+	editable:			false
 
 extra card style:
 	pt box:
@@ -383,3 +434,13 @@ extra card style:
 		z index:			150
 		visible:			{ (styling.border == "only copyright" or styling.border == "yes") and is_stamped() }
 		mask:				stamp_border_mask.png
+	alias bar:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			190
+		render style:		image
+		visible:			{ alias_enabled() }
+		image:				{ card_alias() }
+		mask:				{ alias_mask() }

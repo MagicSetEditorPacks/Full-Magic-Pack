@@ -1,0 +1,657 @@
+﻿mse version:		2.6.0
+game:				magic
+short name:			Pixel Terminal
+full name:			Errors in the Weft Showcase
+icon:				card-sample.png
+position hint:		042800
+installer group:	magic/M15 Frames/Fan Made/Pixel Terminal
+
+
+version: 2026-08-28
+depends on:
+	package: magic.mse-game
+	version: 2026-08-28
+depends on:
+	package: magic-default-image.mse-include
+	version: 2007-09-23
+depends on:
+	package: magic-modules.mse-include
+	version: 2024-10-01
+depends on:
+	package: magic-mana-large.mse-symbol-font
+	version: 2007-09-23
+depends on:
+	package: magic-mana-small.mse-symbol-font
+	version: 2007-09-23
+
+card width: 375
+card height: 523
+card dpi: 150
+############################################################## Extra scripts
+init script:
+	# Load scripts for image box
+	include file: /magic-default-image.mse-include/scripts
+	
+	# Should hybrids have a grey name?
+	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	#Should multicolor lands with basic land types have a colored name?
+	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	template_prefix := [
+		card: "card/"
+		pt: "pt/",
+		crown: "crown/",
+		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
+		identity: "/magic-modules.mse-include/indicators/"
+	]
+	template_suffix := [
+		card: "card.png"
+		pt: "pt.png"
+		crown: "crown.png"
+		stamp: "stamp.png"
+		ubstamp: "stamp.png"
+		identity: "identity.png"
+	]
+	template      := { template_prefix[type] + input + template_suffix[type] }
+	land_template := { template_prefix[type] + "l" + template_suffix[type] }
+	# Use land templates for previews because they show more contrast
+	hybrid_previews := "land,hybrid"
+	watermark_include := "/magic-modules.mse-include/watermarks"
+	# Use the normal tap symbol
+	mana_t := {
+		if      styling.tap_symbol == "old"        then "old"
+		else if styling.tap_symbol == "diagonal T" then "older"
+		else                                            "new"
+	}
+	
+	# Use guild mana symbols?
+	guild_mana := { styling.use_guild_mana_symbols }
+	
+	# Is the card a promo card?
+	is_promo := { styling.promo }
+	ancestral_mana := { styling.ancestral_mana_symbols }
+	is_unsorted := {styling.remove_from_autocount}
+	
+	blended_img := {
+		colors := get_colors(card.card_color)
+		len := length(colors)
+		if len > 1 then masked_blend(dark:fn(colors[0]), light:fn(colors[1]), mask:fn("split"))
+		else fn(colors[0])
+	}
+	fn := {
+		type + "/" + input + type + ".png"
+	}
+	blended_card := {
+		cover := if lang_setting("is_enchantment")(card.type) then "nyx"
+			else if lang_setting("is_land")(card.type) then "land"
+			else if lang_setting("is_artifact")(card.type) then "artifact"
+			else "none"
+			
+		base := if cover == "nyx" then blended_img(type:"nyx") else blended_img(type:"card")
+		if cover == "land" then
+			base := masked_blend(
+				dark: "card/lcard.png",
+				light: base,
+				mask: "card/artifact_blend_card.png"
+			)
+		if cover == "artifact" then
+			base := masked_blend(
+				dark: "card/acard.png",
+				light: base,
+				mask: "card/artifact_blend_card.png"
+			)
+		base
+	}
+	blended_crown := {
+		blended_img(type:"crown")
+	}
+	get_colors := {
+		land		:= chosen(choice:"land")
+		multi		:= chosen(choice:"multicolor")
+		hybrid		:= chosen(choice:"hybrid")
+		artifact	:= chosen(choice:"artifact")
+		if land and colored_lands then template := land_template # use land template instead?
+		
+		# The selected colors
+		colors := blend_colors(input,land:land, multi:multi, hybrid:hybrid, artifact:artifact)
+		len := length(colors)
+		if land then ["l"]
+		else if len > 2 then ["m"]
+		else if len == 0 then ["c"]
+		else colors
+	}
+	right_color := {
+		colors := get_colors()
+		if length(colors) > 1 then colors[1] else colors[0]
+	}
+	rarity_trios := [
+		w: [[252,252,162], [126,127,0]],
+		u: [[0,0,252], [0,0,127]],
+		b: [[170,0,230], [85,0,114]],
+		r: [[255,0,0], [111,0,0]],
+		g: [[0,255,0], [0,127,0]],
+		m: [[248,216,59], [163,75,43]],
+		l: [[248,216,59], [163,75,43]],
+		c: [[154,154,154], [79,79,79]],
+		a: [[154,154,154], [79,79,79]]
+	]
+	rarity_colors := {
+		trio := rarity_trios[color][index]
+		rgb(trio.0, trio.1, trio.2)
+	}
+	rarity_light_color := {
+		rarity_colors(color:right_color(card.card_color), index:0)
+	}
+	rarity_dark_color := {
+		rarity_colors(color:right_color(card.card_color), index:1)
+	}
+	rarity_strings := {
+		trio := rarity_trios[color][index]
+		"rgb({trio.0},{trio.1},{trio.2})"
+	}
+	rarity_light_string := {
+		rarity_strings(color:right_color(card.card_color), index:0)
+	}
+	rarity_dark_string := {
+		rarity_strings(color:right_color(card.card_color), index:1)
+	}
+	color_1 := replace@(match:"(1|2)", replace:{"<color:" + (if _1 == "2" then rarity_light_string() else rarity_dark_string()) + ">" + _1 + "</color>"})
+	colorize := remove_tag@(tag:"<color") + color_1
+	
+	rarity_symbol := {
+		if styling.rarity_symbol == "regular" then "" else styling.rarity_symbol
+	}
+	use_alt_rarity := { extra_card.generator != "" or rarity_symbol() != "" }
+	alt_symbol := {""}
+	sym_builder := {
+		blocker := replace(input, match:";", replace:"\n")
+		lines := string_breaker(blocker)
+		base := "rarity/canvas.png"
+		light_sq := recolor_image(input:"rarity/red.png", color:rarity_light_color())
+		dark_sq := recolor_image(input:"rarity/red.png", color:rarity_dark_color())
+		y_max := min(7, length(lines)-1)
+		for y from 0 to y_max do (
+			x_max := min(17, length(lines[y])-1)
+			for x from 0 to x_max do (
+				index := x_max - x
+				val := lines[y][index]
+				if val == "1" or val == "2" then (
+					adj_x := 54 - (3*x)
+					adj_y := (3*y)
+					base := insert_image(
+						base_image: base,
+						inserted_image:(if val == "2" then light_sq else dark_sq),
+						offset_x:adj_x,
+						offset_y:adj_y
+					)
+				)
+				""
+			)
+		)
+		base
+	}
+	string_breaker := {
+		fixed := ""
+		counter := 0
+		for x from 0 to length(input)-1 do (
+			char := input[x]
+			if counter == 17 or char == "," or char == "\n" or char == ";" then (
+				counter := 0
+				fixed := fixed + "," + (if counter == 17 then char else "")
+			) else (
+				fixed := fixed + char
+				counter := counter + 1
+			)
+		)
+		split_comma(fixed)
+	}
+	shrink_name := { to_number_lax(styling.shrink_name) }
+	shrink_type := { to_number_lax(styling.shrink_type) }
+	rarity_offset_top_1 := {-1}
+	err_rarity_string := {
+		 "0000020000\n"
+		+"0000212000\n"
+		+"0020222000\n"
+		+"0212212020\n"
+		+"0021212212\n"
+		+"0002112120\n"
+		+"0000211200\n"
+		+"0000212000"
+	}
+	
+	special_text := {
+		replace(card.rule_text, match:"^> ", replace:"")
+	}
+############################################################## Set info fields
+set info style:
+	symbol:
+		variation:
+			name: invertedcommon
+			border radius: 0.10
+			fill type: solid
+			fill color:   rgb(255,255,255)
+			border color: rgb(0,0,0)
+############################################################## Extra style options
+styling field:
+	type: choice
+	name: rarity symbol
+	choice: regular
+	choice: ERR
+	choice: VST
+	choice: SRC
+	choice: MON
+	choice: KUT
+	choice: GQC
+	choice: SVG
+	choice: VRD
+	choice: KRS
+	choice: KSV
+	choice: BLR
+	choice: DOV
+	choice: POP
+	choice: TRX
+	choice: OLD
+	choice: CYB
+	choice: CNY
+	choice: CCR
+	choice: KDT
+	choice: TWI
+	description: Use the regular symbol or a pre-made pixel. Click the box next to rarity to create your own.
+styling field:
+	type: text
+	name: chop text box
+	description: X,Y, moves the top of the textbox down X pixels and bottom up Y
+styling field:
+	type: text
+	name: shrink name
+	description: Shrink the name font N points
+styling field:
+	type: text
+	name: shrink type
+	description: Shrink the typeline font N points
+styling field:
+	type: boolean
+	name: remove from autocount
+	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
+	initial: no
+styling field:
+	type: boolean
+	name: grey hybrid name
+	description: Use a grey background for the name and type line on hybrid cards. This is done on real cards.
+styling field:
+	type: boolean
+	name: unsorted casting cost
+	description: Disables automatic mana symbol sorting.
+	initial: no
+styling field:
+	type: boolean
+	name: ancestral mana symbols
+	description: Enables ancestral's modified generic mana.
+	initial: no
+include file: /magic-modules.mse-include/rarities/styling_fields
+styling field:
+	type: boolean
+	name: colored multicolor land name
+	description: Use a colored background for the name and type on multicolor land cards with a basic land type. This is done on real cards.
+styling field:
+	type: boolean
+	name: use guild mana symbols
+	description: Use the Ravnica guild symbols instead of the official half/half circles for hybrid mana.
+	initial: no
+styling field:
+	type: choice
+	name: tap symbol
+	description: What tap and untap symbols should be used on cards?
+	initial: modern
+	choice: modern
+	choice: old
+	choice: diagonal T
+styling field:
+	type: package choice
+	name: text box mana symbols
+	match: magic-mana-*.mse-symbol-font
+	initial: magic-mana-pixel-small.mse-symbol-font
+styling field:
+	type: choice
+	name: center text
+	description: When to center text (short text only means only on one-line cards with no flavor text)
+	choice: always
+	choice: short text only
+	choice: never
+	initial: never
+styling field:
+	type: boolean
+	name: promo
+	description: Is this card a promo card, with the "P" rarity?
+	initial: no
+styling field:
+	type: boolean
+	name: masterpiece
+	description: Is this card a Masterpiece?
+	initial: no
+styling field:
+	type: boolean
+	name: inverted common symbol
+	description: Should the common rarity symbol be inverted, like in Coldsnap?
+	initial: no
+styling field:
+	type: package choice
+	name: overlay
+	description: Should there be an overlay applied, such as foil?
+	match: magic-overlay-*.mse-include
+	required: false
+styling style:
+	use guild mana symbols:
+		choice images:
+			yes: /magic-mana-small.mse-symbol-font/mana_guild_rg.png
+			no:  /magic-mana-small.mse-symbol-font/mana_rg.png
+	tap symbol:
+		render style: both
+		choice images:
+			modern:     /magic-mana-large.mse-symbol-font/mana_t.png
+			old:        /magic-mana-large.mse-symbol-font/mana_t_old.png
+			diagonal T: /magic-mana-large.mse-symbol-font/mana_t_older.png
+	center text:
+		render style: both
+		choice images:
+			always:          /magic.mse-game/icons/center-all-text.png
+			short text only: /magic.mse-game/icons/center-short-text.png
+			never:           /magic.mse-game/icons/center-no-text.png
+	inverted common symbol:
+		choice images:
+			no:  { symbol_variation(symbol: set.symbol, variation: "common") }
+			yes: { symbol_variation(symbol: set.symbol, variation: "invertedcommon") }
+############################################################## Card fields
+include file: /magic-modules.mse-include/card-symbols/card_fields
+include file: /magic-modules.mse-include/corners/card_fields
+include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/rarities/card_fields
+card style:
+	############################# Background stuff
+	card color:
+		left:	0
+		top:	0
+		width:	375
+		height:	523
+		z index: 0
+		render style: image
+		popup style: in place
+		image: { blended_card() }
+	############################# Name line
+	name:
+		left: { if card.card_symbol == "none" then 32 else 50 }
+		top: {31-round_up(shrink_name()/2)}
+		right:  { 341 - card_style.casting_cost.content_width }
+		height: 23
+		alignment: bottom shrink-overflow
+		padding bottom: 0
+		z index: 1
+		font:
+			name: Space Mono
+			size: {16-shrink_name()}
+			color: white
+	casting cost:
+		right: 348
+		top: 24
+		width: { max(30, card_style.casting_cost.content_width) + 5 }
+		height: 30
+		alignment: middle right
+		font:
+			name: MPlantin
+			size: 15
+		symbol font:
+			name: magic-mana-pixel
+			size: 15
+			alignment: middle right
+		always symbol: true
+		z index: 2
+		padding top: 0
+	############################# Image
+	image:
+		left: 30
+		top: 60
+		width: 315
+		height:	228
+		z index: 1
+		default: {default_image(card.card_color)}
+	############################# Card type
+	indicator:
+		left: 31
+		top: 297
+		width: 17
+		height: 17
+		z index: 1
+		render style: image
+		visible: { has_identity() }
+		image: { module_identity() }
+	type:
+		left: { if has_identity() then "52" else "32" }
+		top: 295
+		width: { (if has_identity() then "290" else "310") - 26 }
+		height: 20
+		alignment: middle shrink-overflow
+		z index: 1
+		padding top: 2
+		font:
+			name: Space Mono
+			size: { 13 - shrink_type() }
+			color: white
+			separator color: red
+	############################# Text box
+	text:
+		left: 30
+		top: { 330 + module_chop(0) }
+		width: 310
+		bottom: { 475 - module_chop(1) }
+		font:
+			name: Space Mono
+			size: 15
+			scale down to: 6
+			color: white
+		symbol font:
+			name: { styling.text_box_mana_symbols }
+			size: 15
+		alignment:
+			script:
+				if (styling.center_text == "short text only" and
+				   not contains(match:"\n", card.rule_text) and
+				   card.flavor_text == "<i-flavor></i-flavor>" and
+				   card_style.text.content_lines <= 2) or
+				   styling.center_text == "always"
+				then "middle center"
+				else "middle left"
+		z index: 2
+		padding left:   6
+		padding right:  4
+		line height hard: 0.75
+		line height line: 0.75
+		line height soft: 0.75
+		line height hard max: 1.0
+		line height line max: 1.0
+	watermark:
+		left: 117
+		top: 321
+		width: 138
+		height: 166
+		z index: 1
+		render style: image
+		popup style: in place
+		alignment: middle center
+		include file:	/magic.mse-game/watermarks/menu_choice_images
+		image:			{ watermark_image_1() }
+	############################# PT
+	pt:
+		z index: 720
+		left: 286
+		top: 469
+		width: 66
+		height:	24
+		alignment: center middle shrink-overflow
+		font:
+			name: Space Mono
+			size: 18
+			color: white
+			separator color: red
+############################################################## Extra card fields
+extra card field:
+	type: choice
+	name: pt box
+	choice: box
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: crown
+	choice: box
+	editable: false
+	save value: false
+extra card field:
+	type: color
+	name: rarity light
+	script: rarity_light_color()
+	editable: false
+	save value: false
+extra card field:
+	type: color
+	name: rarity dark
+	script: rarity_dark_color()
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: rarity gen
+	choice: gen
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: generator
+	multi line: true
+	editable: true
+	save value: true
+	script: if contains(value, match:"zeroes") then (for x from 1 to (17*8) do "0") else colorize(if contains(value, match:"example") then err_rarity_string() else value)
+extra card field:
+	type: choice
+	name: generator switch
+	editable: true
+	choice: open editor
+	choice: close editor
+	initial: close editor
+	description: Open an editor to make your own pixel symbol
+extra card field:
+	type: color
+	name: generator black
+	choice: black
+	editable: false
+	save value: false
+extra card field:
+	type: color
+	name: generator white
+	choice: white
+	editable: false
+	save value: false
+extra card field:
+	type: text
+	name: generator help
+	multi line: true
+	script: "Max 8 lines of 17 pixels\nWrite 'example' for an example\nWrite 'zeroes' for all zeroes\n\n0: blank pixel\n1: dark pixel\n2: bright pixel\n\nEverything else\nis ignored"
+	editable: false
+	save value: false
+extra card style:
+	pt box:
+		left: 279
+		top: 462
+		width: 78
+		height:	39
+		z index: 2
+		visible: { card.pt != "" }
+		render style: image
+		image: { fn(right_color(card.card_color), type:"pt") }
+	crown:
+		left: 0
+		top: 0
+		width: 375
+		height:	57
+		z index: 2
+		visible: { card.pt != "" }
+		render style: image
+		image: { blended_crown() }
+		visible: { lang_setting("is_legendary")(card.type) }
+	rarity light:
+		left: 294
+		top: 294
+		width: 54
+		height: 24
+		mask: { "rarity/" + rarity_symbol() + "/light.png" }
+		z index: 980
+		visible: { rarity_symbol() != "" }
+	rarity dark:
+		left: 294
+		top: 294
+		width: 54
+		height: 24
+		mask: { "rarity/" + rarity_symbol() + "/dark.png" }
+		z index: 980
+		visible: { rarity_symbol() != "" }
+	generator:
+		right: 337
+		top: 165
+		width: 175
+		height: 114
+		z index: 10
+		font:
+			name: Space Mono
+			color: white
+			size: 12
+		alignment: right top
+		padding left: 4
+		line height soft: 0.55
+		line height hard: 0.55
+		visible: { extra_card.generator_switch == "open editor" }
+	generator white:
+		right: 337
+		top: 165
+		width: 176
+		height: 115
+		z index: 2
+		left width: 2
+		top width: 2
+		right width: 2
+		bottom width: 2
+		visible: { extra_card.generator_switch == "open editor" }
+	generator black:
+		left: 35
+		top: 65
+		width: 305
+		height: 218
+		z index: 2
+		visible: { extra_card.generator_switch == "open editor" }
+	generator help:
+		left: 38
+		top: 74
+		width: 305
+		height: 200
+		z index: 10
+		font: 
+			name: Space Mono
+			color: white
+			size: 10
+		visible: { extra_card.generator_switch == "open editor" }
+	rarity gen:
+		left: 294
+		top: 294
+		width: 54
+		height: 24
+		image: {sym_builder(remove_tags(extra_card.generator))}
+		z index: 1
+		render style: image
+		visible: { extra_card.generator != "" }
+	generator switch:
+		left: 352
+		top: 294
+		width: 12
+		height: 25
+		render style: hidden
+		z index: 800

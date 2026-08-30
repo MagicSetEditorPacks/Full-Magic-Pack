@@ -365,6 +365,102 @@ pt_hybrid := [
 	overlay: overlay_hybrid
 ]
 
+#### Blend an element that only occupies a small portion of the card, like a pt box,
+#### so that its color matches that of the card behind it.
+cropped_linear_blend := {
+	uncropped_linear_blend := linear_blend
+	linear_blend := {
+		uncropped_linear_blend(
+			x1: (x1 - offset_x/face_width)	* face_width/width,
+			x2: (x2 - offset_x/face_width)	* face_width/width,
+			y1: (y1 - offset_y/face_height)	* face_height/height,
+			y2: (y2 - offset_y/face_height)	* face_height/height
+		)
+	}
+	card_hybrid[shape][color_count]()
+}
+cropped_card_hybrid := [
+	radial: [
+		0: cropped_linear_blend
+		1: cropped_linear_blend
+		2: cropped_linear_blend
+		3: cropped_linear_blend
+		4: cropped_linear_blend
+		5: cropped_linear_blend
+		6: cropped_linear_blend
+		7: cropped_linear_blend
+	]
+	horizontal: [
+		0: cropped_linear_blend
+		1: cropped_linear_blend
+		2: cropped_linear_blend
+		3: cropped_linear_blend
+		4: cropped_linear_blend
+		5: cropped_linear_blend
+		6: cropped_linear_blend
+		7: cropped_linear_blend
+	]
+	vertical: [
+		0: cropped_linear_blend
+		1: cropped_linear_blend
+		2: cropped_linear_blend
+		3: cropped_linear_blend
+		4: cropped_linear_blend
+		5: cropped_linear_blend
+		6: cropped_linear_blend
+		7: cropped_linear_blend
+	]
+	overlay: [
+		0: cropped_linear_blend
+		1: cropped_linear_blend
+		2: cropped_linear_blend
+		3: cropped_linear_blend
+		4: cropped_linear_blend
+		5: cropped_linear_blend
+		6: cropped_linear_blend
+		7: cropped_linear_blend
+	]
+]
+
+
+#### Blend a split card.
+#### First blend the left half like a normal card, then the right half,
+#### then blend both halves linearly over the transition width.
+#### So for example, if transition == 0.1, make a linear blend spanning 10% of the total width in the middle.
+#### If transition == 0.0001 then the gradient happens in less than 1 pixel, so there is effectively no gradient,
+#### but don't put transition == 0 otherwise linear_blend will throw
+split_color_background :=
+{
+	unsplit_linear_blend := linear_blend
+	linear_blend := {
+		unsplit_linear_blend(
+			x1: x1/2,
+			x2: x2/2,
+			y1: y1,
+			y2: y2,
+		)
+	}
+	left_half := color_background(input_left, type: type, base_hybrid:card_hybrid, multicolor_blend: multicolor_blend, hybrid_blend: hybrid_blend, artifact_blend: artifact_blend)
+	linear_blend := {
+		unsplit_linear_blend(
+			x1: (1+x1)/2,
+			x2: (1+x2)/2,
+			y1: y1,
+			y2: y2,
+		)
+	}
+	right_half := color_background(input_right, type: type, base_hybrid:card_hybrid, multicolor_blend: multicolor_blend, hybrid_blend: hybrid_blend, artifact_blend: artifact_blend)
+	if transition < 0.0001 then transition := 0.0001
+	unsplit_linear_blend(
+		image1: left_half,
+		image2: right_half,
+		x1: (1-transition)/2,
+		x2: (1+transition)/2,
+		y1: 0,
+		y2: 0,
+	)
+}@(transition: 0.0001)
+
 
 ########################################################################
 # P/T boxes of flip cards
@@ -989,9 +1085,9 @@ module_stamp := 	{ color_background(type:"stamp",	base_hybrid:stamp_hybrid,		fol
 module_ubstamp := 	{ color_background(type:"ubstamp",	base_hybrid:stamp_hybrid,		folder:template_prefix["ubstamp"], blend_type:"stamp") }
 module_nyx :=	 	{ 
 	type := "nyx"
-	if has_png(set.alternate_nyx) and type_name(harder_script["alt_nyx" or else nil] or else nil) != type_name(nil)
+	if has_png(set.alternate_nyx) and type_name(template_alternate_scripts["alt_nyx" or else nil] or else nil) != type_name(nil)
 		then type := "alt_nyx"
-	else if set.alternate_nyx == "star" and type_name(harder_script["star" or else nil] or else template_prefix["star" or else nil] or else nil) != type_name(nil)
+	else if set.alternate_nyx == "star" and type_name(template_alternate_scripts["star" or else nil] or else template_prefix["star" or else nil] or else nil) != type_name(nil)
 		then type := "star"
 	color_background(
 		type: type,
@@ -1000,7 +1096,7 @@ module_nyx :=	 	{
 		folder:template_prefix["nyx"],
 	)
 }
-module_snow :=	 	{ color_background(type:"snow",		base_hybrid:card_hybrid,		folder:template_prefix["snow"]) }
+module_snow :=		{ color_background(type:"snow",		base_hybrid:card_hybrid,		folder:template_prefix["snow"]) }
 module_alias := {
 	template := alias_custom_template
 	land_template := alias_custom_land_template
@@ -1088,8 +1184,7 @@ font_white	:= {
 font_color := { if font_white() then rgb(255,255,255) else rgb(0,0,0) }
 
 #####Watermark Blending
-#### Overwrite this in style files until we fully deprecate this
-watermark_include := "/magic-watermarks.mse-include"
+watermark_include := "/magic-modules.mse-include/watermarks"
 watermark_hybrid := {
 	linear_blend(
 		image1: colors[0] + input + ".png"
@@ -1204,6 +1299,7 @@ watermark_blend :=
 	glow_alpha := 0.3
 	backup := if custom then set.blend_with_colors else set.use_blended_watermarks
 	option := styling.watermark_render or else backup
+	if option == "default" then option := backup
 	dark_textbox :=		(face == 1 and invert_watermark_1())
 					or	(face == 2 and invert_watermark_2())
 					or	(face == 3 and invert_watermark_3())

@@ -1,21 +1,22 @@
-mse version: 2.0.0
-game: magic
-short name: M15 Adventure
-full name: Mainframe
-icon: card-sample.png
-installer group: magic/m15 style/split cards
-position hint: 011
+mse version:		2.6.0
+game:				magic
+short name:			M15 Adventure
+full name:			also Omen, Prepared
+icon:				card-sample.png
+position hint:		000003
+installer group:	magic/M15 Frames/Standard/M15 Adventure
 
-version: 2026-03-04
+
+version: 2026-08-24
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
 	package: magic-modules.mse-include
-	version: 2024-10-01
+	version: 2026-08-28
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -33,13 +34,45 @@ card dpi: 150
 ###### Standard blanks by kebelqwa
 ###### Spotlight blanks by Femme Fatale
 ###### Cleanup and coding by cajun
-###### Reverse Adventures by BA Start
 ###### Omen Styling by Nora3a
 ###### Omen Styling improvements by Aresiel
+############################################################## Update
+update cards script:
+	before version: 2026-08-24
+	description: Migrate vorthos box
+	script:
+		new_stylesheet := "magic-m15-adventure.mse-style"
+		new_version := "2026-08-24"
+		reqs := [[new_stylesheet, new_version]]
+		if not has_required_stylesheets(reqs)
+			then []
+		else (
+			was_reversed := chosen(styling.other_options, choice:"reversed")
+			styling_data := []
+			if was_reversed then styling_data := [
+				other_options: remove_choice(styling.other_options, choice:"reversed"),
+				left_style: styling.right_style,
+				right_style: styling.left_style
+			]
+			[
+				new_card(
+					copy_from: card,
+					[
+						styling_data: styling_data,
+						vorthos_box: card.vorthos_box,
+						watermark: if card.watermark_3 != "none" then card.watermark_3 else card.watermark
+					]
+				)
+			]
+		)
+
 ############################################################## Extra scripts
 init script:
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
+	include file: /magic-modules.mse-include/dfc/init_script
+	default_is_back := is_back_face
+	is_back_face := { not is_spot() and default_is_back() }
 
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
@@ -50,6 +83,7 @@ init script:
 	template_prefix := [
 		card: "/magic-modules.mse-include/cards/375 m15 simple/",
 		ubcard: "/magic-modules.mse-include/cards/375 m15 simple/beyond/",
+		devoid: "/magic-modules.mse-include/cards/375 m15 simple/devoid/",
 		double_page: "/magic-modules.mse-include/pages/double_page/",
 		double_omen: "/magic-modules.mse-include/pages/double_omen/",
 		single_page: "/magic-modules.mse-include/pages/single_page/",
@@ -74,6 +108,7 @@ init script:
 	template_suffix := [
 		card: "card.jpg",
 		ubcard: "card.jpg",
+		devoid: "card.png",
 		double_page: "page.png",
 		single_page: "page.png",
 		null_page: "page.png",
@@ -95,35 +130,17 @@ init script:
 		star: "star.png",
 		identity: "identity.png"
 	]
-	template := { 
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:false)
-		else template_prefix[type] + input + template_suffix[type]
-	}
-	land_template := {
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:true)
-		else template_prefix[type] + input + (if landless(type) or input == "a" then "" else "l") + template_suffix[type]
-	}
-	landless := {
-		landless_ar[input] or else false
-	}
-	landless_ar := [
-		alias: true,
-		binding: true,
-		double_flat: true,
-		double_page: true,
-		null_page: true,
-		double_omen: true,
-		nyx: true,
-		single_flat: true,
-		single_page: true,
-		single_omen: true,
-		spot: true,
-		spotpage: true,
-		spotpt: true
+	template := template_mainframe
+	land_template := land_template_mainframe
+
+	landless_blend_types := [
+		"double_flat", "single_flat",
+		"double_page", "single_page", "null_page",
+		"double_omen", "single_omen",
+		"spot", "spotpage", "spotpt"
+		"binding","nyx", "devoid",
+		"stamp", "ubstamp"
 	]
-	watermark_include := "/magic-modules.mse-include/watermarks"
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 
@@ -136,15 +153,49 @@ init script:
 	double_flat_page_blend := { color_background(type:"double_flat", base_hybrid:card_hybrid, folder:template_prefix["double_flat"]) }
 	single_flat_page_blend := { color_background(type:"single_flat", base_hybrid:card_hybrid, folder:template_prefix["single_flat"]) }
 	page_spread_blend := { color_background(type:"pages", base_hybrid:card_hybrid, folder:"blend_masks/") }
-	decoration_background := { color_background(type:"decoration", base_hybrid:card_hybrid, folder:"blend_masks/")}
+	decoration_background := { color_background(type:"decoration", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
 
 	spot_background := { color_background(type:"spot", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	spot_page_background := { color_background(type:"spotpage", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	spot_pt := { color_background(type:"spotpt", base_hybrid:card_hybrid, folder:"blend_masks/") }
 
-	crown_background := { color_background(type:"crown", base_hybrid: card_hybrid, folder:"blend_masks/")}
 	beyond_background := { color_background(type:"ubcard", base_hybrid: card_hybrid, folder:template_prefix["card"], blend_type:"card")}
+	devoid_background := { color_background(type:"devoid", base_hybrid: card_hybrid, folder:template_prefix["card"], blend_type:"card")}
+	
+	#### Legend Crown
+	module_crown_mask := {
+		if not transform_symbol_is_empty(card.transformation) then node_mask() else ""
+	}
 
+	base_card_img := {
+		image := if is_spot()
+			then spot_background()
+		else if is_devoid()
+			then devoid_background()
+		else if is_clear()
+			then template_prefix["card"] + "xcard.png"
+		else if is_beyond()
+			then beyond_background()
+		else module_card()
+		if is_clear() then input := "colorless"
+		
+		if is_back_face() or is_borderless() then
+			image := color_multiply(width:375, height:523, multiply_mask:if is_spot() then "" else template_prefix["card"] + "hybrid_blend_card.png")
+		if is_borderless() then (
+			image := insert_image(
+				base_image: set_mask(mask:"frame_masks/borderless" + ".png"),
+				inserted_image: "transparent_borderless.png",
+				offset_x: 0,
+				offset_y: 0
+			)
+		)
+		image
+	}
+	ptbox_img := {
+		image := if is_spot() then spot_pt() else module_ptbox(vehicle:is_vehicle())
+		if is_back_face() then image := color_multiply(width:if is_spot() then 68 else 135, height:if is_spot() then 38 else 76)
+		image
+	}
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -158,14 +209,18 @@ init script:
 	# Is the card a promo card?
 	is_promo := { styling.promo }
 	is_spot := {contains(styling.frames, match:"Spotlight")}
-	is_reversed := { not is_spot() and contains(styling.frames, match:"Reversed")}
 	is_legend :=	{ not is_spot() and auto_legend() }
-	is_vehicle :=	{ not is_spot() and (auto_vehicle()	or contains(styling.frames, match:"vehicle")) }
-	is_nyx :=		{ not is_spot() and (auto_nyx()		or contains(styling.frames, match:"nyx")) }
-	is_snow :=		{ not is_spot() and (auto_snow()	or contains(styling.frames, match:"snow")) }
-	is_beyond := 	{ not is_spot() and (auto_ub()		or contains(styling.frames, match:"universes beyond")) }
-	auto_legend :=	{ set.auto_legends									and lang_setting("is_legendary")(card.super_type) }
-	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
+	is_vehicle :=	{ not is_spot() and (auto_vehicle()	or chosen(styling.frames, choice:"vehicle")) }
+	is_nyx :=		{ not is_spot() and (auto_nyx()		or chosen(styling.frames, choice:"nyx")) }
+	is_snow :=		{ not is_spot() and (auto_snow()	or chosen(styling.frames, choice:"snow")) }
+	is_beyond := 	{ not is_spot() and (auto_ub()		or chosen(styling.frames, choice:"universes beyond")) }
+	is_devoid :=    { not is_spot() and chosen(styling.frames, choice:"devoid") }
+	is_clear :=     { not is_spot() and chosen(styling.frames, choice:"clear") }
+	is_borderless := { not is_spot() and chosen(styling.frames, choice:"borderless") }
+	clear_pages :=  { is_borderless() and not chosen(styling.other_options, choice:"use pages on borderless") }
+	uses_clear_frame := { not is_spot() and (chosen(styling.frames, choice:"clear") or chosen(styling.frames, choice:"devoid")) }
+	auto_legend :=	{ set.auto_legends								and lang_setting("is_legendary")(card.super_type) }
+	auto_vehicle := { chosen(styling.auto_frames, choice:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
 	auto_nyx :=		{ 
 		is_ench := lang_setting("is_enchantment")(card.super_type)
 		if not is_ench
@@ -191,6 +246,7 @@ init script:
 	chop_bot := {to_number(pull_comma_array(styling.chop_main, cell:1, end:false))}
 	back_chop_top := {to_number(pull_comma_array(styling.chop_adventure, cell:0, end:false))}
 	back_chop_bot := {to_number(pull_comma_array(styling.chop_adventure, cell:1, end:false))}
+	back_chop_right := {to_number(pull_comma_array(styling.chop_adventure, cell:2, end:false))}
 	##### backface bar
 	flavor_text2 := {remove_tags(card.flavor_text_2) + "\n"}
 	chop_correction2 := { 0 }
@@ -212,11 +268,18 @@ init script:
 	shrink_type3 := { shrink_abstract("typeline", page:3) }
 	
 	use_evobar := {contains(styling.other_options, match:"pokemon evobar")}
-	is_skinned := {contains(styling.other_options, match:"godzilla style alias")}
+	is_skinned := {card.alias != ""}
 
 	card_shape := {"adventure"}
 
 	### Customize fonts
+	swap_fonts_name_default := [
+		name: {"Beleren Bold"},
+		size: {16},
+		color: {if is_back_face() or is_borderless() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
 	swap_fonts_name2_default := [
 		name: {"Beleren Bold"},
 		size: {12},
@@ -230,6 +293,13 @@ init script:
 			font_size: swap_fonts_name2_default.size()
 		) - shrink_name3()
 	}
+	swap_fonts_type_default := [
+		name: {"Beleren Bold"},
+		size: {13},
+		color: {if is_back_face() or is_borderless() then "white" else "black"},
+		vertical: {0},
+		italic: {""}
+	]
 	swap_fonts_type2_default := [
 		name: {"Beleren Bold"},
 		size: {11},
@@ -246,9 +316,16 @@ init script:
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_vehicle() then "white" else "black"},
+		color: {if is_vehicle() or is_back_face() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
+	]
+	swap_fonts_body_default := [
+		name: {"MPlantin"},
+		size: {13},
+		color: {if is_borderless() and (clear_pages() or page_null(input) or page_flat(input)) then "white" else "black"},
+		vertical: {0},
+		italic: {"MPlantin-Italic"}
 	]
 	
 	page_decoration_template := {
@@ -278,6 +355,7 @@ init script:
 	}
 	
 	page_script := {
+		if clear_pages() then input := replace(match:"page|omen|flat", replace:"borderless")
 		flip := if input == "none"
 			then false
 		else if input == "blank page" then
@@ -286,16 +364,22 @@ init script:
 			true
 		else false;
 
-		adj_color := if flip then color + ", reversed" else color
+		adj_color := if flip then (
+			if chosen(color, choice:"reversed")
+				then replace(color, match:", reversed", replace:"")
+			else color + ", reversed"
+		) else color
 
 		img := case input of
+			"name and type borderless": "/magic-modules.mse-include/pages/borderless_double.png",
 			"name and type page": double_page_blend(adj_color),
 			"name and type omen": double_omen_blend(adj_color),
+			"name and type flat": mask_dblflat(double_flat_page_blend(adj_color)),
+			"name borderless": "/magic-modules.mse-include/pages/borderless_single.png",
 			"name page": single_page_blend(adj_color),
 			"name omen": single_omen_blend(adj_color),
-			"blank page": null_page_blend(adj_color),
-			"name and type flat": mask_dblflat(double_flat_page_blend(adj_color)),
 			"name flat": mask_sngflat(single_flat_page_blend(adj_color)),
+			"blank page": null_page_blend(adj_color),
 			else: "";
 
 		if flip then flip_horizontal(img) else img
@@ -312,23 +396,23 @@ init script:
 	}
 	named_page := contains@(match:"name")
 	left_name := {
-		style_check := if is_spot() then "name and type page" else if is_reversed() then styling.right_style else styling.left_style
+		style_check := if is_spot() then "name and type page" else styling.left_style
 		named_page(style_check)
 	}
 	right_name := {
-		style_check := if is_spot() then "none" else if is_reversed() then styling.left_style else styling.right_style
+		style_check := if is_spot() then "none" else styling.right_style
 		named_page(style_check)
 	}
 	left_page_img := {
 		page_script(
-			if is_spot() then "name and type page" else if is_reversed() then styling.right_style else styling.left_style,
+			if is_spot() then "name and type page" else styling.left_style,
 			color: (if left_name() then card.card_color_2 else card.card_color),
 			side: "left"
 		)
 	}
 	right_page_img := {
 		page_script(
-			if is_spot() then "none" else if is_reversed() then styling.left_style else styling.right_style,
+			if is_spot() then "none" else styling.right_style,
 			color: (if right_name() then (if left_name() then card.card_color_3 else card.card_color_2) else card.card_color),
 			side: "right"
 		)
@@ -345,30 +429,31 @@ init script:
 	}
 	page_2_side := {
 		## the adventure text of the card
-		## two pages, left (check reverse)
+		## two pages, left
 		## left side page, left
 		## right side page, right
 		## no pages, gone
-		if left_name() and right_name() then
-			if is_reversed() then "right" else "left"
-		else if left_name() then "left"
+		if left_name() then "left"
 		else if right_name() then "right"
 		else "none"
 	}
 	page_3_side := {
 		## the second adventure text of the card
-		## two pages, right (check reverse)
+		## two pages, right
 		## else, gone
-		if left_name() and right_name() then
-			if is_reversed() then "left" else "right"
-		else if left_name() == right_name() then
-			if is_reversed() then "left" else "right"
+		if left_name() and right_name() then "right"
+		else if left_name() == right_name() then "right"
 		else "none"
+	}
+	page_wild_side := {
+		## things that can be either on the main text or the second page
+		## ie: the watermark and blank page
+		if left_name() then "right"
+		else "left"
 	}
 
 	is_omen := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 		
 		if contains(str, match:"omen") then
@@ -376,10 +461,8 @@ init script:
 		else false
 	}
 	
-	reverser := ["left":"right", "right":"left"]
 	page_style := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 			
 		if is_spot() then
@@ -398,7 +481,6 @@ init script:
 	}
 	page_flat := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 			
 		if is_spot() then false else contains(str, match:"flat")
@@ -408,7 +490,6 @@ init script:
 	page_3_flat := {page_flat(page_3_side())}
 	page_omen := {
 		str := if input == "none" then ""
-			else if is_reversed() then styling[reverser[input] + "_style"]
 			else styling[input + "_style"]
 			
 		if is_spot() then false else contains(str, match:"omen")
@@ -416,7 +497,11 @@ init script:
 	page_1_omen := {page_omen(page_1_side())}
 	page_2_omen := {page_omen(page_2_side())}
 	page_3_omen := {page_omen(page_3_side())}
-	
+	page_null := {
+		str := if input == "none" then ""
+			else styling[input + "_style"]
+		if is_spot() then false else contains(str, match:"none")
+	}
 	page_top := [
 		"double": 375,
 		"omen_double": 375,
@@ -427,6 +512,7 @@ init script:
 	page_1_top := {page_top[page_style(page_1_side())]}
 	page_2_top := {page_top[page_style(page_2_side())]}
 	page_3_top := {page_top[page_style(page_3_side())]}
+	page_wild_top := {page_top[page_style(page_wild_side())]}
 	page_coords := [
 		"left": [
 			"page": 18,
@@ -465,8 +551,35 @@ init script:
 			"spot_watermark": 500
 		]
 	]
+	### adjust the right hand page
+	right_page_adjust_cost := {
+		righty := if input == 2 then (page_2_side() == "right") else (page_3_side() == "right")
+		if not righty
+			then 0
+		else if clear_pages()
+			then -2
+		else if page_omen("right")
+			then 4
+		else 0
+	}
+	right_page_adjust_name := {
+		righty := if input == 2 then (page_2_side() == "right") else (page_3_side() == "right")
+		if not righty
+			then 0
+		else if clear_pages()
+			then -2
+		else if page_omen("right")
+			then 4
+		else 0
+	}
 	
 	no_divider := {chosen(styling.other_options, choice:"no flat page divider")}
+	#### transform symbol
+	transform_symbol_offset_top_1 := { -1 }
+	#### modal dfc flags
+	reminder_disabled := { not is_linked_dfc() }
+	#### Transform Node mirroring
+	node_color := { if uses_clear_frame() then "clear" else card.card_color }
 	
 	custom_border_image := {
 		src := styling.custom_border_source
@@ -483,12 +596,29 @@ init script:
 		else auto_custom_border()
 	}
 	# this goes at the very end
-	harder_script := [
-		crown: module_crown_template,
-		custom_border: custom_border_image,
+	module_crown_template_patch := {
+		if is_clear() or is_devoid()
+			then input := "x"
+		module_crown_template(override: if is_borderless() then "borderless" else if is_nyx() then "nyx" else "")
+	}
+	old_alias_colors := alias_colors
+	alias_colors := {
+		if is_clear() or is_devoid()
+			then rgb(232, 231, 231)
+		else old_alias_colors()
+	}
+	template_alternate_scripts := [
+		crown: module_crown_template_patch,
 		decoration: page_decoration_template
-		alt_nyx: alt_nyx_template
-	]
+	] + template_alternate_scripts
+	
+	information_secondary_offset_pt_left_1 := { 15 }
+	back_face_hint_offset_left := {
+		if styling.left_style == "none" or page_flat("right")
+			then -2
+		else 2
+	}
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -520,12 +650,16 @@ styling field:
 	name: frames
 	description: Frames to use. Higher choices may override lower choices.
 	choice: Spotlight
-	choice: Reversed
+	choice: devoid
+	choice: clear
+	choice: borderless
 	choice: nyx
 	choice: vehicle
 	choice: snow
 	choice: universes beyond
 	choice: custom border
+	script:
+		exclusive_choice(value, choice1:"Spotlight", choice2:"devoid", choice3:"clear")
 styling field:
 	type: text
 	name: custom border source
@@ -543,10 +677,10 @@ styling field:
 	type: multiple choice
 	name: other options
 	description: Other options for the frame
-	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: prerelease stamp
 	choice: no flat page divider
+	choice: use pages on borderless
 styling field:
 	type: choice
 	name: left style
@@ -587,9 +721,10 @@ styling field:
 	type: text
 	name: card watermark 2
 	description: Filename in magic-mainframe-extras to use for standalone card watermark
-	script: verify_watermark_image(value)
+	script: verify_watermark_image(value, can_import:false)
 include file: /magic-modules.mse-include/crowns/styling_fields
 include file: /magic-modules.mse-include/rarities/styling_fields
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: boolean
 	name: apply custom fonts
@@ -711,6 +846,9 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/crowns/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/information/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -723,23 +861,25 @@ card style:
 		right width:  17
 		top width:    17
 		bottom width: 18
-		z index: 4
+		z index: 500
 		mask: { (if is_spot() then "spot_" else "") + (if is_legend() then "crown" else "border") + "_mask" + (if not is_spot() and card.border_color == rgb(200,200,200) then "_silver") + ".png"}
+		visible: { not is_borderless() }
 	card color:
 		left:	0
 		top:	0
 		width:	375
 		height:	523
-		z index: -1
+		z index: 200
 		render style: image
 		popup style: in place
-		image: { if is_spot() then spot_background() else if is_beyond() then beyond_background() else module_card() }
+		image: { base_card_img() }
+		mask: { (if is_spot() then "spotlight/" else "") + "frame_mask.png" }
 	card color 2:
 		left:	{if is_spot() then 21 else page_coords[page_2_side()]["page"]}
 		top:	{if is_spot() then 319 else 327}
 		width:	170
 		height:	{if is_spot() then 170 else 156.5}
-		z index: 1
+		z index: 600
 		render style: image
 		popup style: in place
 		image: { if is_spot() then spot_page_background() else if left_name() then left_page_img() else right_page_img() }
@@ -748,64 +888,74 @@ card style:
 		top: 327
 		width: 170
 		height: 156.5
-		z index: 1
+		z index: 600
 		render style: image
 		image: {right_page_img()}
 		visible: {left_name() and right_name()}
 	############################# Name line
 	name:
-		left: { (if is_spot() then 22 else 0) + (if card.card_symbol=="none" then 32 else 50) }
+		left:
+			script:
+				(if is_spot() then 22 else 0) + (
+					if card.card_symbol != "none" and transform_symbol_active_left(card.transformation)
+						then 78
+					else if transform_symbol_active_left(card.transformation)
+						then 58
+					else if card.card_symbol != "none"
+						then 50
+					else 32
+				)
 		top: {30 + name_font_vertical()}
-		right:  { 341 - card_style.casting_cost.content_width }
+		right:  { 341 - card_style.casting_cost.content_width - (if transform_symbol_active_right(card.transformation) then 26 else 0) }
 		height: { 23 - 0.5*shrink_name() }
 		alignment: bottom shrink-overflow
 		padding bottom: 0
-		z index: 1
+		z index: 900
 		font:
 			name: { name_font() }
 			italic name: { name_font_italic() }
 			size: { name_font_size() }
 			color: { name_font_color() }
 	name 2:
-		left: { page_coords[page_2_side()]["name_left"] }
+		left: { page_coords[page_2_side()]["name_left"]  + right_page_adjust_name(2) }
 		top: { (if is_spot() then 330 else if page_2_flat() then 329 else 331) + name2_font_vertical() }
 		right: { page_coords[page_2_side()]["name_right"] - card_style.casting_cost_2.content_width }
 		height: { 20 }
 		alignment: middle shrink-overflow
-		z index: 2
+		z index: 900
 		font:
 			name: { name2_font() }
 			italic name: { name2_font_italic() }
 			size: { name2_font_size() }
 			color: { name2_font_color() }
 	name 3:
-		left: { page_coords[page_3_side()]["name_left"] }
+		left: { page_coords[page_3_side()]["name_left"] + right_page_adjust_name(3) }
 		top: { (if is_spot() then 330 else if page_3_flat() then 329 else 331) + name2_font_vertical() }
 		right: { page_coords[page_3_side()]["name_right"] - card_style.casting_cost_3.content_width }
 		height: {if page_style(page_3_side()) == "null" then 0 else 20 }
 		alignment: middle shrink-overflow
-		z index: 2
+		z index: 900
 		font:
 			name: { name2_font() }
 			italic name: { name2_font_italic() }
 			size: { name3_font_size() }
 			color: { name2_font_color() }
 	alias: 
-		left: {if is_skinned() then 45 else 33}
-		top: 53
-		width: {if is_skinned() then 285 else if use_evobar() then max(100, card_style.alias.content_width) else 0}
+		left:   {if use_evobar() then 33 else 38.5}
+		top: 	{if use_evobar() then 58 else 55}
+		width: 	{if use_evobar() then max(100, card_style.alias.content_width) else 298 }
 		height: 20
-		alignment: { (if is_skinned() then "center") + "bottom shrink-overflow"}
+		alignment: { (if use_evobar() then "" else "center") + "middle shrink-overflow"}
 		padding bottom: 0
-		z index: 880
+		z index: 900
 		font:
-			name: {if use_evobar() then "Matrix" else "MPlantin-Italic"}
-			size: {if use_evobar() then 10 else 9}
-			style: {if use_evobar() then "italic" else "bold"}
+			name: 	{if use_evobar() then "Matrix" else "MPlantin-Italic"}
+			size: 	{if use_evobar() then 10 else 9}
+			style:	{if use_evobar() then "italic" else "bold"}
 			weight: {if use_evobar() then "italic" else "bold"}
-			color: {if use_evobar() then "black" else "white"}
+			color: 	{if use_evobar() then "black" else "white"}
 	casting cost:
-		right: 346
+		right: 	{ 346 - (if transform_symbol_active_right(card.transformation) then 28 else 0) }
 		top: 29
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -818,10 +968,10 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 910
 		padding top: 0
 	casting cost 2:
-		right: {page_coords[page_2_side()]["cost"] + (if page_2_side() == "right" and page_2_omen() then 4 else 0)}
+		right: {page_coords[page_2_side()]["cost"] + right_page_adjust_cost(2) }
 		top: { if page_2_omen() then 330 else if is_spot() then 330 else if page_2_flat() then 328 else 329}
 		width: { max(30, card_style.casting_cost_2.content_width) + 5 }
 		height: 23
@@ -831,10 +981,10 @@ card style:
 			size: 12
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 910
 		padding top: 0
 	casting cost 3:
-		right: {page_coords[page_3_side()]["cost"] + (if page_3_omen() then 4 else 0)}
+		right: {page_coords[page_3_side()]["cost"] + right_page_adjust_cost(3) }
 		top: { if page_3_omen() then 330 else if is_spot() then 330 else if page_3_flat() then 328 else 329}
 		width: { max(30, card_style.casting_cost_3.content_width) + 5 }
 		height: {if page_style(page_3_side()) == "null" then 0 else 23}
@@ -844,24 +994,24 @@ card style:
 			size: 12
 			alignment: middle right
 		always symbol: true
-		z index: 2
+		z index: 910
 		padding top: 0
 	############################# Image
 	image:
-		left: {if is_spot() then 10 else 29}
-		top: {if is_spot() then 13 else 59}
-		width: { if is_spot() then 354 else 316}
-		height:	{ if is_spot() then 298 else 231}
-		z index: 1
+		left: {if is_spot() then 10 else if uses_clear_frame() or is_borderless() then 0 else 29}
+		top: {if is_spot() then 13 else if uses_clear_frame() or is_borderless() then 0 else 59}
+		width: { if is_spot() then 354 else if uses_clear_frame() or is_borderless() then 375 else 316}
+		height:	{ if is_spot() then 298 else if uses_clear_frame() or is_borderless() then 523 else 231}
+		z index: 100
 		default: {default_image(card.card_color)}
-		mask: { if is_spot() then "imagemask.png" else ""}
+		store in metadata: { is_borderless() or card.alias != "" or uses_clear_frame() }
 	############################# Card type
 	indicator:
 		left: { if is_spot() then 80 else 31 }
 		top: { if is_spot() then 303 else 300 }
 		width: 17
 		height: 17
-		z index: 1
+		z index: 800
 		render style: image
 		visible: { has_identity() }
 		image: { module_identity() }
@@ -871,7 +1021,7 @@ card style:
 		width: { (if has_identity() then "290" else "310") - rare_width() - (if is_spot() then 73 else 0) }
 		height: { 20 - shrink_type() }
 		alignment: { if is_spot() then "top center shrink-overflow" else "top shrink-overflow"}
-		z index: 1
+		z index: 900
 		padding top: 2
 		font:
 			name: { type_font() }
@@ -880,21 +1030,21 @@ card style:
 			color: { type_font_color() }
 			separator color: red
 	indicator 2:
-		left: {(if is_reversed() then 165 else 0) + (if has_identity_2() then 30 else 0)}
+		left: { if has_identity_2() then 30 else 0 }
 		top: {355 + (if is_spot() then 2 else 0) }
 		width: 15
 		height: 15
-		z index: 2
+		z index: 800
 		render style: image
 		visible: {has_identity_2()}
 		image: {module_identity()}
 	type 2:
-		left: {page_coords[page_2_side()]["type"] + (if has_identity_2() then 20 else 0)}
+		left: {page_coords[page_2_side()]["type"] + (if has_identity_2() then 20 else 0) + right_page_adjust_name(2) }
 		top: { (if is_spot() then 354 else if page_2_flat() then 351 else if page_2_omen() then 355 else 352) + (shrink_type2()/2) }
 		width: {155 - (if has_identity_2() then 20 else 0)}
 		height: { if contains(page_style(page_2_side()), match:"double") then 20 - shrink_type2() else 0}
 		alignment: bottom shrink-overflow
-		z index: 1
+		z index: 900
 		padding top: 2
 		font:
 			name: { type2_font() }
@@ -903,12 +1053,12 @@ card style:
 			color: { type2_font_color() }
 			separator color: red
 	type 3:
-		left: {page_coords[page_3_side()]["type"] + (if has_identity_2() then 20 else 0)}
+		left: {page_coords[page_3_side()]["type"] + (if has_identity_2() then 20 else 0) + right_page_adjust_name(2) }
 		top: { (if is_spot() then 354 else if page_3_flat() then 351 else if page_3_omen() then 355 else 352) + (shrink_type3()/2) }
 		width: {155 - (if has_identity_2() then 20 else 0)}
-		height: { if contains(page_style(page_2_side()), match:"double") then 20 - shrink_type3() else 0}
+		height: { if contains(page_style(page_3_side()), match:"double") then 20 - shrink_type3() else 0}
 		alignment: bottom shrink-overflow
-		z index: 1
+		z index: 900
 		padding top: 2
 		font:
 			name: { type2_font() }
@@ -919,9 +1069,9 @@ card style:
 	rarity:
 		right: { if is_spot() then 342 else 344}
 		top: { if is_spot() then 299 else 297}
-		width: { if is_spot() then 22 else 44}
+		width: { if hidden_back_rarity() then 0 else if is_spot() then 22 else 44}
 		height: 22
-		z index: 2
+		z index: 720
 		render style: image
 		alignment: { if is_spot() then "middle center" else "middle right"}
 		include file: /magic-modules.mse-include/rarities/choice_images
@@ -930,13 +1080,13 @@ card style:
 		left: {page_coords[page_1_side()]["text"]}
 		top: { (if is_spot() then 335 else page_1_top()) + to_int(chop_top()) + body_font_vertical() }
 		width: {if is_spot() then 157 else if page_style(page_1_side()) == "null" then 157 else 143}
-		bottom: { (if is_spot() then 464 else 481) - to_int(chop_bot()) }
+		bottom: { (if is_spot() then 464 else 481) - to_int(chop_bot()) - (if reminder_box_is_visible() and page_1_side() == "left" then 18 else 0) }
 		font:
 			name: { body_font() }
 			italic name: { body_font_italic() }
 			size: { body_font_size() }
 			scale down to: 6
-			color: { body_font_color() }
+			color: { body_font_color(page_1_side()) }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { body_font_size() }
@@ -949,25 +1099,25 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 3
+		z index: 900
 		padding left:   6
 		padding right:  4
-		line height hard: {if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height hard: 1.2
 		line height line: 1.5
 		line height soft: 0.9
-		line height hard max: {if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height hard max: 1.3
 		line height line max: 1.6
 	text 2:
 		left: {page_coords[page_2_side()]["text"]}
 		top: { if page_style(page_2_side()) == "omen_double" then 5 + page_2_top() + to_int(back_chop_top()) + body_font_vertical() else page_2_top() + to_int(back_chop_top()) + body_font_vertical()}
-		width: {if is_spot() then 157 else if page_style(page_1_side()) == "null" then 157 else 143}
-		bottom: { (if is_spot() then 464 else 481) - to_int(back_chop_bot()) }
+		width: {if is_spot() then 157 else (if page_style(page_1_side()) == "null" then 157 else 143) - (if page_1_side() == "right" then back_chop_right() else 0)}
+		bottom: { (if is_spot() then 464 else 481) - to_int(back_chop_bot()) - (if reminder_box_is_visible() and page_2_side() == "left" then 18 else 0) }
 		font:
 			name: { body_font() }
 			italic name: { body_font_italic() }
 			size: { body_font_size() }
 			scale down to: 6
-			color: { body_font_color() }
+			color: { body_font_color(page_2_side()) }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { body_font_size() }
@@ -980,25 +1130,25 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 3
+		z index: 900
 		padding left:   6
 		padding right:  4
-		line height hard: {if is_modal(card.rule_text_2) then 0.9 else 1.2 }
+		line height hard: 1.2
 		line height line: 1.5
 		line height soft: 0.9
-		line height hard max: {if is_modal(card.rule_text_2) then 1.0 else 1.3 }
+		line height hard max: 1.3
 		line height line max: 1.6
 	text 3:
 		left: {page_coords[page_3_side()]["text"]}
 		top: { page_3_top() + to_int(chop_top()) + body_font_vertical() }
-		width: {if page_style(page_1_side()) == "null" then 157 else 143}
-		bottom: { (if is_spot() then 464 else 481) - to_int(chop_bot()) }
+		width: { (if page_style(page_1_side()) == "null" then 157 else 143) - back_chop_right()}
+		bottom: { (if is_spot() then 464 else 481) - to_int(chop_bot()) - (if reminder_box_is_visible() and page_3_side() == "left" then 18 else 0) }
 		font:
 			name: { body_font() }
 			italic name: { body_font_italic() }
 			size: { body_font_size() }
 			scale down to: 6
-			color: { body_font_color() }
+			color: { body_font_color(page_3_side()) }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { body_font_size() }
@@ -1011,52 +1161,41 @@ card style:
 				   styling.center_text == "always"
 				then "middle center"
 				else "middle left"
-		z index: 3
+		z index: 900
 		padding left:   6
 		padding right:  4
-		line height hard: {if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height hard: 1.2
 		line height line: 1.5
 		line height soft: 0.9
-		line height hard max: {if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height hard max: 1.3
 		line height line max: 1.6
 	watermark:
-		left: { page_coords[page_1_side()][(if is_spot() then "spot_watermark" else "watermark")] }
-		top: { if is_spot() then 330 else page_1_top() }
+		left: { page_coords[page_wild_side()][(if is_spot() then "spot_watermark" else "watermark")] }
+		top: { if is_spot() then 330 else page_wild_top() }
 		width: { if is_spot() then 150 else 168}
 		bottom: {if is_spot() then 470 else 481}
-		z index: 2
+		z index: 700
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file: /magic.mse-game/watermarks/menu_choice_images
+		include dark file: /magic.mse-game/watermarks/menu_choice_images
 		image: { watermark_image_1() }
 	watermark 2:
 		left: { min(page_coords[page_2_side()][(if is_spot() then "spot_watermark" else "watermark")], page_coords[page_3_side()][(if is_spot() then "spot_watermark" else "watermark")]) }
 		top: { page_2_top() }
 		width: { if is_spot() then 154 else 167}
 		bottom: {if is_spot() then 470 else 481}
-		z index: 2
+		z index: 700
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file: /magic.mse-game/watermarks/menu_choice_images
+		include dark file: /magic.mse-game/watermarks/menu_choice_images
 		image: { watermark_image_2() }
-	watermark 3:
-		left: { page_coords[page_3_side()][(if is_spot() then "spot_watermark" else "watermark")] }
-		top: { if is_spot() then 330 else page_3_top() }
-		width: { if is_spot() then 154 else 167}
-		bottom: {if is_spot() then 470 else 481}
-		z index: 2
-		render style: image
-		popup style: in place
-		alignment: middle center
-		include file: /magic.mse-game/watermarks/menu_choice_images
-		image: { watermark_image_3() }
 	############################# PT
 	pt:
-		z index: 4
-		left: { if is_spot() then 293 else 286}
-		top: {(if is_spot() then 466 else 469)+(pt_font_vertical())}
+		z index: 900
+		left: 293
+		top: {(if is_spot() then 466 else 467)+(pt_font_vertical())}
 		width: 60
 		height:	28
 		alignment: center middle shrink-overflow
@@ -1073,6 +1212,11 @@ extra card field:
 	script: card.card_color
 	save value: false
 	editable: false
+extra card field:
+	type: text
+	name: vorthos box
+	save value: true
+	editable: true
 extra card field:
 	type: choice
 	name: backup page
@@ -1142,14 +1286,6 @@ extra card field:
 	show statistics: false
 extra card field:
 	type: choice
-	name: crown
-	choice: crown
-	editable: false
-	save value: false
-	show statistics: false
-	script: card.card_color
-extra card field:
-	type: choice
 	name: snow overlay
 	choice: overlay
 	editable: false
@@ -1177,18 +1313,7 @@ extra card field:
 	save value: false
 	show statistics: false
 	script: card.card_color
-extra card field:
-	type: choice
-	name: evobar tip
-	choice: evo
-	save value: false
-	editable: false
-extra card field:
-	type: choice
-	name: evobar start
-	choice: evo
-	save value: false
-	editable: false
+
 extra card field:
 	type: choice
 	name: evobar
@@ -1197,71 +1322,67 @@ extra card field:
 	editable: false
 extra card field:
 	type: text
-	name: vorthos box
-	save value: true
-	editable: true
-	description: Where they put mtgstory.com on story spotlights.
-extra card field:
-	type: text
 	name: promo label
 	save value: true
 	description: The golden promo label.
+
 extra card style:
 	color page:
-		left: {page_coords[page_1_side()]["page"]}
+		left: {page_coords[page_wild_side()]["page"]}
 		top: 327
 		width: 170
 		height: 156.5
-		z index: 1
+		z index: 600
 		render style: image
 		image: {if not left_name() then left_page_img() else right_page_img()}
 		visible: {not (left_name() and right_name())}
+	### need this for Blank Page/Blank Page to be the right color
 	backup page:
 		left: {page_coords[page_3_side()]["page"]}
 		top: 327
 		width: 170
 		height: 156.5
-		z index: 1
+		z index: 600
 		render style: image
 		image: {right_page_img()}
 		visible: {not left_name() and not right_name()}
 	binding:
-		left: {if (styling.left_style == "none" and not is_reversed()) or (styling.right_style == "none" and is_reversed()) then 188 else 28 }
+		left: { if styling.left_style == "none" then 188 else 28 }
 		top: 326
 		width: {if styling.left_style == "none" or styling.right_style == "none" then 160 else 321}
 		height:{if is_spot() then 0 else 10}
 		render style: image
-		z index: -1
+		z index: 220
 		image: {binding_background()}
-		visible: {not (styling.left_style == "none" and styling.right_style == "none")}
+		visible: {not (styling.left_style == "none" and styling.right_style == "none") and not clear_pages() }
 	promo label:
 		left: {if is_spot() then 65 else 40}
 		top: 262
 		width: {if chosen(styling.other_options, choice:"prerelease stamp") then (if is_spot() then 245 else 295) else 0}
 		height: 29
 		alignment: middle right
-		z index: 4
+		z index: 900
 		font:
 			name: ModMatrix
 			size: 14
 			color: rgb(223,169,41)
 	pt box:
-		left: {if is_spot() then 290 else 273}
-		top: {if is_spot() then 460 else 466}
-		width: {if is_spot() then 68 else 81}
-		height:	{ if is_spot() then 38 else 42}
-		z index: 1
+		left: {if is_spot() then 290 else 285}
+		top: {if is_spot() then 460 else 464}
+		width: {if is_spot() then 68 else 70}
+		height:	{ if is_spot() then 38 else 39}
+		z index: 800
 		visible: { card.pt != "" }
 		render style: image
-		image: { if is_spot() then spot_pt() else module_ptbox(vehicle:is_vehicle()) }
+		image: { ptbox_img() }
 	stamp:
 		left: 159
 		top: 471
 		width: 56
 		height: 26
-		z index: 5
+		z index: 800
 		render style: image
-		image: { if stamp_shape() == "triangle" then module_ubstamp() else module_stamp() }
+		image: { if stamp_shape() == "triangle" then (if uses_clear_frame() then template_prefix["ubstamp"]+"xstamp.png" else module_ubstamp()) else if uses_clear_frame() then template_prefix["stamp"]+"xstamp.png" else module_stamp() }
 		mask: { if is_spot() and stamp_shape() != "triangle" then "spotmask.jpg" else ""}
 		visible: { card.card_stamp != "none" }
 	foil layer:
@@ -1278,7 +1399,7 @@ extra card style:
 		top: { bar_equation() }
 		width: 188
 		height: 1
-		z index: 1
+		z index: 750
 		render style: image
 		image: bar.png
 		visible: { card.rule_text != "" and remove_tags(card.flavor_text) != "" and set.use_flavor_bar }
@@ -1287,7 +1408,7 @@ extra card style:
 		top: { bar_equation2() }
 		width: 188
 		height: 1
-		z index: 1
+		z index: 750
 		render style: image
 		image: bar.png
 		visible: { card.rule_text_2 != "" and remove_tags(card.flavor_text_2) != "" and set.use_flavor_bar }
@@ -1299,8 +1420,8 @@ extra card style:
 		render style: image
 		image: { "/magic-modules.mse-include/trims/" + (if is_beyond() then "beyond/vbeyond.png" else "vehicle.png") }
 		mask: {"/magic-modules.mse-include/trims/375x523 trim mask.png"}
-		z index: 0
-		visible: {is_vehicle()}
+		z index: 300
+		visible: {is_vehicle() and not is_borderless()}
 	custom overlay:
 		left: 0
 		top: 0
@@ -1308,8 +1429,8 @@ extra card style:
 		height: 523
 		render style: image
 		image: { custom_border_blend() }
-		z index: 0
-		visible: {is_custom_border()}
+		z index: 300
+		visible: {is_custom_border() and not is_borderless()}
 		mask: {(if is_vehicle() or is_snow() or is_nyx() then "double_") + "frame_border_mask.png"}
 	nyx overlay:
 		left: 0
@@ -1318,8 +1439,8 @@ extra card style:
 		height: 523
 		render style: image
 		image: {module_nyx()}
-		z index: 0
-		visible: {is_nyx()}
+		z index: 300
+		visible: {is_nyx() and not is_borderless()}
 		mask: {"/magic-modules.mse-include/trims/375x523 " + (if is_snow() or is_vehicle() then "double" else "") + "trim mask.png"}
 	snow overlay:
 		left: 0
@@ -1328,54 +1449,33 @@ extra card style:
 		height: 523
 		render style: image
 		image: {module_snow()}
-		z index: 0
-		visible: {is_snow()}
+		z index: 300
+		visible: {is_snow() and not is_borderless()}
 		mask: {"/magic-modules.mse-include/trims/375x523 trim mask.png"}
 	evobar:
-		left: 27
-		top: 57
-		width: {card_style.alias.content_width}
+		left: 29
+		top: 59
+		width: { evobar_image_width(card_style.alias.content_width) }
 		height: 27
-		z index: 2
+		z index: 800
 		render style: image
-		image: /magic-modules.mse-include/extras/evobar.png
-		visible: {use_evobar()}
-	evobar tip:
-		left: {26.6 + card_style.alias.content_width}
-		top: 57
-		width: 36
-		height: 27
-		z index: 2
-		render style: image
-		image: /magic-modules.mse-include/extras/evobar_tip.png
-		visible: {use_evobar()}
+		image: { evobar_image(card_style.alias.content_width) }
+		visible: { use_evobar() }
 	alias bar:
 		left: 38
 		top: 57
 		width: 298
 		height: 21
-		z index: 2
+		z index: 830
 		render style: image
 		image: {module_alias()}
 		visible: {is_skinned() and not use_evobar()}
-	vorthos box:
-		right: { if card.pt != "" then 275 else 350 }
-		top: 488
-		left: 210
-		height: 10
-		z index: 900
-		alignment: middle right
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
 	left decoration:
 		left: {page_coords["left"]["decoration"]}
 		top: 293
 		width: 200
 		height: 230
-		z index: 4
+		z index: 850
 		render style: image
 		image: {decoration_background()}
 		visible: {left_name()}
@@ -1384,7 +1484,7 @@ extra card style:
 		top: 293
 		width: 200
 		height: 230
-		z index: 4
+		z index: 850
 		render style: image
 		image: {decoration_background()}
 		visible: {right_name()}

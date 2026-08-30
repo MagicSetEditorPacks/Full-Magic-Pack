@@ -1,21 +1,22 @@
-﻿mse version: 2.0.0
-game: magic
-short name: Mainframe Tokens
-full name: Tokens
-icon: card-sample.png
-installer group: magic/m15 style/tokens
-position hint: 004
+mse version:		2.6.0
+game:				magic
+short name:			M15 Token
+full name:			also State
+icon:				card-sample.png
+position hint:		000070
+installer group:	magic/M15 Frames/Standard/M15 Token
 
-version: 2025-01-11
+
+version: 2026-08-26
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
 	package: magic-modules.mse-include
-	version: 2024-10-01
+	version: 2026-08-28
 depends on:
 	package: magic-mana-small.mse-symbol-font
 	version: 2007-09-23
@@ -30,6 +31,30 @@ card dpi: 150
 ##### Flavor Bar image by SirnightNano
 ##### M20 base tokens and Vehicle background by silverback_ape
 ##### M20 Clear tokens by Femme Fatale
+############################################################## Update cards script
+update cards script:
+	before version: 2026-08-26
+	description: Update drop shadow to stroke effect
+	script:
+		new_stylesheet := "magic-m15-mainframe-tokens.mse-style"
+		new_version := "2026-08-26"
+		reqs := [[new_stylesheet, new_version]]
+		if not has_required_stylesheets(reqs)
+			then []
+		else (
+			styling_data := []
+			if chosen(styling.other_options, choice:"state drop shadow")
+				then styling_data := [other_options: replace(styling.other_options, match:"state drop shadow", replace:"outline state text")]
+			[
+				new_card(
+					copy_from: card,
+					[
+						styling_data: styling_data
+					]
+				)
+			]
+		)
+
 ############################################################## Extra scripts
 init script:
 	# Should hybrids have a grey name?
@@ -42,8 +67,8 @@ init script:
 		text_filter
 	archetype_formatter := {
 		out := replace(input
-			match:"^([^ ]+)[ ]([^\\\n]+)([ ][ ])"
-			replace:{"<sym>"+remove_tags(_1) + "</sym> <font:Gotham Pro Black>" + to_upper(remove_tags(_2)) + "</font> "}
+			match:"^(</soft-line>)?([^ ]+)[ ]([^\\\n]+)([ ][ ])"
+			replace:{"{_1}<sym>"+remove_tags(_2) + "</sym> <font:Gotham Pro Black>" + to_upper(remove_tags(_3)) + "</font> "}
 		)
 		out
 	}
@@ -51,37 +76,30 @@ init script:
 	include file: /magic-default-image.mse-include/scripts
 	
 	template_prefix := [
-		alias: "alias/"
 		crown:"/magic-modules.mse-include/crowns/375/borderless/"
-		card: ""
-		card2: ""
-		card3: ""
-		card4: "nyx/"
-		card5: "nyx/"
-		card6:"nyx/"
-		card7: "m20/"
-		card8: "m20/"
-		card9: "m20/" 
+		card: "cards/m15/"
+		card2: "cards/m15/short/"
+		card3: "cards/m15/tall/"
+		m20: "cards/m20/"
+		m20_2: "cards/m20/short/"
+		m20_3: "cards/m20/tall/" 
 		snow: "/magic-modules.mse-include/trims/snow/"
 		nyx: "/magic-modules.mse-include/trims/nyx/"
 		pt:"/magic-modules.mse-include/pts/375 m15/"
 		snowbox: "/magic-modules.mse-include/cards/375 m15 simple/snow/"
-		stamp:"stamps/round/"
-		ubstamp:"stamps/ub/"
+		stamp:"/magic-modules.mse-include/stamps/backs/375 round/"
+		ubstamp:"/magic-modules.mse-include/stamps/backs/375 ub/"
 		star: "/magic-modules.mse-include/trims/star/",
+		node: "/magic-modules.mse-include/cards/375 nodes/"
 	]
 	template_suffix := [
-		alias: "alias.png",
 		crown:"crown.png"
 		card: "card.jpg",
-		card2: "card2.jpg",
-		card3: "card3.jpg",
-		card4: "nyx.png",
-		card5: "card2.jpg",
-		card6: "card3.jpg",
-		card7: "card.png",
-		card8: "card2.png",
-		card9: "card3.png",
+		card2: "card.jpg",
+		card3: "card.jpg",
+		m20: "card.png",
+		m20_2: "card.png",
+		m20_3: "card.png",
 		snow: "snow.png"
 		nyx: "nyx.png"
 		pt: "pt.png"
@@ -89,35 +107,19 @@ init script:
 		ubstamp: "stamp.png",
 		snowbox: "card.jpg"
 		star: "star.png",
+		node:".png"
 	]
-	template      := {
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:false)
-		else template_prefix[type] 
-			+ input_mixer(input, type:type)
-			+ template_suffix[type]
+
+	template := {
+		## deal with darker white hybriding on m20
+		if input == "w" and (type == "m20" or type == "m20_2" or type == "m20_3") and (card.card_color != "white")
+			then input := "h"
+		template_mainframe()
+		
 	}
-	land_template := { 
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:true)
-		else template_prefix[type] 
-			+ input_mixer(input, type:type)
-			+ template_suffix[type]
-	}
-	input_mixer := {
-		if input == "w" and (type == "card7" or type == "card8" or type == "card9") and (card.card_color != "white")
-			then "h"
-		else input
-	}
+	land_template := template	
 	
-	landless := {
-		landless_ar[input] or else false
-	}
-	landless_ar := [ star:true ]
-	harder_script := [
-		custom_border: custom_border_image,
-		alt_nyx: alt_nyx_template
-	]
+	landless_blend_types := [ "star", "stamp" ]
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -138,32 +140,60 @@ init script:
 	is_clear := {contains(styling.frames, match: "clear")}
 	mtgo_abil := {contains(styling.frames, match: "MTGO Ability") and not is_m20()}
 	is_legend :=	{  auto_legend() 	or contains(styling.frames, match:"legendary") }
-	is_vehicle :=	{ (auto_vehicle()	or contains(styling.frames, match:"vehicle"))	and not is_m20() }
-	is_nyx :=		{ (auto_nyx()		or contains(styling.frames, match:"nyx"))		and not is_clear() }
+	is_vehicle :=	{ (auto_vehicle()	or contains(styling.frames, match:"vehicle")) }
+	is_nyx :=		{ (auto_nyx()		or contains(styling.frames, match:"nyx")) }
 	is_snow :=		{ (auto_snow()		or contains(styling.frames, match:"snow")) }
 	auto_legend :=	{ set.auto_legends									and lang_setting("is_legendary")(card.super_type) }
 	auto_vehicle := { contains(styling.auto_frames, match:"vehicle")	and lang_setting("is_vehicle")(card.sub_type) }
 	auto_nyx :=		{ contains(styling.auto_frames, match:"nyx")		and lang_setting("is_enchantment")(card.super_type) }
 	auto_snow :=	{ contains(styling.auto_frames, match:"snow")		and lang_setting("is_snow")(card.super_type) }
 	is_copy := {contains(styling.frames, match: "copy")}
-	text_shape := {
-		if is_m20() and is_tall() then "9"
-		else if is_m20() and is_textless() then "7"
-		else if is_m20() then "8"
-		else if is_tall() then "3"
-		else if is_textless() then ""
-		else "2"
+
+	shape_folder := {
+		"cards/"
+		+ (if is_m20() then "m20/" else "m15/")
+		+ (if is_tall() then "tall/" else if is_textless() then "" else "short/")
 	}
+	shape_key := {
+		if is_m20() then (
+			if is_tall() then "m20_3"
+			else if is_textless() then "m20"
+			else "m20_2"
+		)
+		else if is_tall() then "card3"
+		else if is_textless() then "card"
+		else "card2"
+	}
+	card_image := {
+		image := if is_archetype() then "cards/arch_frame.png"
+		else if is_state() then "cards/state_frame.png"
+		else if is_clear() then shape_folder() + "xcard.png"
+		else color_background(
+			type: shape_key(),
+			base_hybrid: card_hybrid,
+			blend_type: "card",
+			folder: shape_folder()
+		)
+		if not is_weird_token() and is_multiplied()
+			then image := color_multiply(width:375, height:523, multiply_mask:shape_folder() + (if is_m20() then "artifact" else "hybrid") + "_blend_card.png")
+		image
+	}
+	ptbox_image := {
+		image := if is_clear() then template_prefix["pt"]+"cpt.png" else module_ptbox(vehicle:is_vehicle())
+		if is_multiplied() then image := color_multiply(width:135, height:76)
+		image
+	}
+	crowns_folder := {"/magic-modules.mse-include/crowns/375/borderless/"}
 	crown_background := {color_background(type:"crown", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/crowns/375/")}
-	alias_bar := { color_background(type:"alias",     base_hybrid:card_hybrid) }
-	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar") and not is_skinned()}
-	is_skinned := {chosen(styling.other_options, choice:"godzilla style alias")}
+	use_evobar := {chosen(styling.other_options, choice:"pokemon evobar")}
+	is_skinned := { card.alias != "" }
 	snow_card_background := { color_background(type:"snowbox", base_hybrid:card_hybrid, folder:"/magic-modules.mse-include/cards/375 m15 simple/", blend_type:"card") }
 	########## Mainframe stuff
 	use_main_rarity := { contains(set.mainframe_rarity_name, match: ".png")}
 	un_png := replace@(match:".png", replace: "")
 	ancestral_mana := { contains(styling.other_options, match:"ancestral generic")}
 	center_pt := { contains(styling.other_options, match:"center pt")}
+	card_stamp_disabled_1 := { card.card_stamp == "none" or center_pt() }
 	remove_rarity := { contains(styling.other_options, match:"remove rarity")}
 	pre_stamp := { contains(styling.other_options, match:"prerelease")}
 	shrink_type := {if styling.shrink_typeline_text != "" then to_int(styling.shrink_typeline_text) else 0 }
@@ -175,7 +205,7 @@ init script:
 	is_archetype := {chosen(styling.frames, choice:"archetype")}
 	white_state_font := {is_weird_token() and contains(styling.other_options, match:"white state text")}
 	archetype_image := {is_archetype() and contains(styling.other_options, match:"archetype image")}
-	use_drop_shadow := {is_weird_token() and contains(styling.other_options, match:"state drop shadow")}
+	use_stroke_text := {is_weird_token() and contains(styling.other_options, match:"outline state text")}
 
 	### Customize fonts
 	swap_fonts_name_default := [
@@ -202,7 +232,7 @@ init script:
 	swap_fonts_type_default := [
 		name: {"Beleren Bold"},
 		size: {14},
-		color: {if mtgo_abil() then rgb(255,239,128) else "black"},
+		color: {if mtgo_abil() then rgb(255,239,128) else if is_multiplied() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
@@ -216,25 +246,64 @@ init script:
 	swap_fonts_pt_default := [
 		name: {"Beleren Bold"},
 		size: {16},
-		color: {if is_vehicle() then "white" else "black"},
+		color: {if is_vehicle() or is_multiplied() then "white" else "black"},
 		vertical: {0},
 		italic: {""}
 	]
 	stamp_img := {
 		sh := stamp_shape()
-		if is_m20() and sh == "triangle"
+		m20 := is_m20()
+		if is_weird_token() or (is_textless() and not m20)
+			then "stamps/_" + sh + ".png"
+		else if (card.card_color == "colorless" and m20) or is_clear()
+			then "stamps/" + sh + ".png"
+		else if sh == "triangle"
 			then module_ubstamp()
-		else if is_m20()
-			then module_stamp()
-		else "/magic-modules.mse-include/stamps/backs/" + (if sh == "triangle" then "triangle_stamp.png" else "stamp.png")
+		else module_stamp()
 	}
 	is_custom_border := {
 		if chosen(styling.frames, choice:"custom border")
 			then has_png(styling.custom_border_source)
 		else auto_custom_border()
 	}
-	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid) }
-	watermark_include := "/magic-modules.mse-include/watermarks"
+	custom_border_blend := { color_background(type:"custom_border",     base_hybrid:card_hybrid, artifact_blend:"black", hybrid_blend:"white", multicolor_blend:"black") }
+	alias_colors := {
+		if not is_m20() then rgb(243, 210, 105)
+		else if is_clear() then rgb(148, 148, 148)
+		else [
+			w: rgb(227, 227, 227),
+			h: rgb(196, 193, 209),
+			u: rgb(12, 113, 175),
+			b: rgb(44, 43, 41),
+			r: rgb(207, 54, 41),
+			g: rgb(32, 121, 41),
+			a: rgb(183, 197, 209),
+			m: rgb(225, 193, 97),
+			c: rgb(198, 195, 211)
+		][input]
+	}
+	
+	### DFC support
+	reminder_disabled := { not is_linked_dfc() }
+	is_multiplied := {
+		styling.back_face == "yes"
+		or (styling.back_face == "if linked to front face" and get_front_face(card) != nil)
+	}
+	#### Transform nodes
+	transform_symbol_offset_top_1 := { -1 }
+	node_img := { color_background(type:"node",     base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
+	#### Transform Node mirroring
+	node_template := {
+		right_hand := transform_symbol_is_right(card.transformation)
+		base := template_prefix["node"] + input + ".png"
+		if not is_m20() then base := "cards/m15/node.png"
+		if right_hand then flip_image(base, horizontal: true) else base
+	}
+		
+	template_alternate_scripts := [
+		node: node_template
+	] + template_alternate_scripts
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -260,6 +329,11 @@ styling field:
 	choice: snow
 	choice: vehicle
 	choice: custom border
+	script:
+		value := exclusive_choice_chain(value, choice1:"archetype", toggles:["M20", "MTGO Ability", "nyx", "snow", "vehicle", "custom border"])
+		value := exclusive_choice_chain(value, choice1:"state", toggles:["M20", "MTGO Ability", "nyx", "snow", "vehicle", "custom border"])
+		value := exclusive_choice(value, choice1:"M20", choice2:"MTGO Ability")
+		value
 styling field:
 	type: text
 	name: custom border source
@@ -279,13 +353,19 @@ styling field:
 	choice: remove rarity symbol
 	choice: prerelease stamp
 	choice: ancestral generic mana
-	choice: vorthos box
-	choice: godzilla style alias
 	choice: pokemon evobar
 	choice: archetype image
 	choice: white state text
-	choice: state drop shadow
+	choice: outline state text
 	initial: white state test
+styling field:
+	type:			choice
+	name:			back face
+	description:	Use the dark back face frame?
+	choice:			yes
+	choice:			if linked to front face
+	choice:			no
+	initial:		if linked to front face
 styling field:
 	type: boolean
 	name: remove from autocount
@@ -413,6 +493,8 @@ include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/separators/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -425,23 +507,23 @@ card style:
 		right width:  17
 		top width:    17
 		bottom width: 18
-		z index: 4
+		z index: 500
 		mask: { if is_legend() then "crown_border.png" else "border_mask.png"}
 	card color:
 		left: 0
 		top: 0
-		width: { if is_clear() then 0 else 375 }
-		height: { if is_clear() then 0 else 523 }
-		z index: 0
+		width: 375
+		height: 523
+		z index: 200
 		render style: image
 		popup style: in place
-		image: { if is_archetype() then "arch_frame.png" else if is_state() then "state_frame.png" else color_background(type:"card" + text_shape(), base_hybrid:card_hybrid) }
-		mask: {if is_archetype() then "arch_mask.png" else if is_state() then "state_mask.png" else "framemask" + text_shape() + ".png"}
+		image: { card_image() }
+		mask: { if is_archetype() then "cards/arch_mask.png" else if is_state() then "cards/state_mask.png" else shape_folder() + "framemask.png" }
 	############################# Name line
 	name:
-		left: { if is_copy() then 32 else 30}
+		left: { (if is_copy() then 32 else 30) + (if transform_symbol_active_left(card.transformation) then 26 else 0) }
 		top: { (if is_archetype() then 10 else if is_copy() then 24 else 26) + name_font_vertical()}
-		width: { 315 - (if is_copy() then card_style.casting_cost.content_width else 0)}
+		width: { 315 - (if is_copy() then card_style.casting_cost.content_width else 0) - (if not transform_symbol_is_empty(card.transformation) then if is_copy() then 26 else 52)}
 		height: {if is_archetype() then 14 else 28 - (0.5 * shrink_name())}
 		alignment: { if is_copy() or mtgo_abil() then "bottom shrink-overflow" else "bottom center"}
 		padding bottom: -2
@@ -454,13 +536,13 @@ card style:
 			color: { name_font_color() }
 			weight: {if is_archetype() then "bold" else ""}
 	alias: 
-		left: {if is_skinned() then 45 else 19}
-		top: {if is_m20() and is_skinned() then (if is_legend() then 57 else 51) else 52}
-		width: {if is_skinned() then 285 else if use_evobar() then max(100, card_style.alias.content_width) else 0}
+		left: {if use_evobar() then 19 else 45}
+		top: { if use_evobar() then 52 else if is_m20() then (if is_legend() then 54 else 51) else 52}
+		width: {if use_evobar() then max(100, card_style.alias.content_width) else 285}
 		height: 20
-		alignment: { (if is_skinned() then "center" else "") + "bottom shrink-overflow"}
+		alignment: { (if not use_evobar() then "center" else "") + "bottom shrink-overflow"}
 		padding bottom: 0
-		z index: 900
+		z index: 920
 		font:
 			name: {if use_evobar() then "Matrix" else "MPlantin-Italic"}
 			size: {if use_evobar() then 10 else 9}
@@ -468,7 +550,7 @@ card style:
 			weight: {if use_evobar() then "italic" else "bold"}
 			color: {if use_evobar() then "black" else "white"}
 	casting cost:
-		right: 344
+		right: { if transform_symbol_active_right(card.transformation) then 318 else 344 }
 		top: 29
 		width: { if not is_copy() then 0 else max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -481,7 +563,7 @@ card style:
 			size: 15
 			alignment: middle right
 		always symbol: true
-		z index: 900
+		z index: 910
 		padding top: 0
 	############################# Image
 	image:
@@ -489,15 +571,17 @@ card style:
 		top: { if is_archetype() then 30 else if is_state() then 15 else if is_clear() or is_m20() then 0 else 62 }
 		width: { if is_weird_token() then 346 else if is_clear() or is_m20() then 375 else 317 }
 		height: { if archetype_image() then 461 else if is_archetype() then 0 else if is_state() then 467 else if is_clear() or is_m20() then 523 else if is_tall() then 229 else if is_textless() then 363 else 289}
-		mask: { if is_weird_token() then "" else (if is_m20() then "m20_" else if is_clear() then "clear_" else "") + "imagemask" + (if is_clear() and not is_m20() then "" else if is_tall() then "3" else if is_textless() then "" else "2") + ".png" }
-		z index: -1
+		mask: { if is_weird_token() then "" else if is_clear() and not is_m20() then "clear_imagemask.png" else shape_folder() + "imagemask.png" }
+		z index: 100
 		default: { if is_clear() then "" else default_image(card.card_color)}
+		store in metadata: { is_clear() or is_m20() or is_weird_token() }
 	mainframe image:
 		left: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).0 else "0"}
 		top: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).1 else "0"}
 		width: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).2 else "0"}
 		height: {if comma_count(styling.popout_image_style) == ",,,," then split_text(match:",", styling.popout_image_style).3 else "0"}
 		z index: 1010
+		store in metadata: true
 	############################# Card type
 	type:
 		left: 32
@@ -536,7 +620,7 @@ card style:
 			}
 		width: { if is_weird_token() or contains(styling.other_options, match:"remove rarity") then 0 else 44}
 		height: 22
-		z index: 2
+		z index: 720
 		alignment: middle right
 		render style: image
 		include file: /magic-modules.mse-include/rarities/choice_images
@@ -557,9 +641,9 @@ card style:
 			{ 
 				if is_archetype() then 450
 				else if is_state() then 154
-				else if is_tall() then 154
-				else if is_textless() then 27
-				else 94
+				else if is_tall() then 154 - (if reminder_box_is_visible() then 18 else 0)
+				else if is_textless() then 27 - (if reminder_box_is_visible() then 18 else 0)
+				else 94 - (if reminder_box_is_visible() then 18 else 0) 
 			}
 		font:
 			name: { body_font() }
@@ -567,9 +651,8 @@ card style:
 			size: { body_font_size() }
 			scale down to: 6
 			color: { body_font_color() }
-			shadow color: {if not use_drop_shadow() then rgba(0,0,0,0) else if white_state_font() then "black" else "white"}
-			shadow displacement x: -1
-			shadow displacement y: 1
+			stroke color: { if white_state_font() then "black" else "white" }
+			stroke radius: { if use_stroke_text() then 1 else 0 }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: { body_font_size() }
@@ -605,9 +688,8 @@ card style:
 			size: 13
 			scale down to: 8
 			color: {if white_state_font() then "white" else "black"}
-			shadow color: {if not use_drop_shadow() then rgba(0,0,0,0) else if white_state_font() then "black" else "white"}
-			shadow displacement x: -1
-			shadow displacement y: 1
+			stroke color: { if white_state_font() then "black" else "white" }
+			stroke radius: { if use_stroke_text() then 1 else 0 }
 		symbol font:
 			name: { styling.text_box_mana_symbols }
 			size: 13
@@ -637,16 +719,16 @@ card style:
 		top: { if is_tall() then 321 else if is_textless() then 600 else 383 }
 		width: { if is_tall() then 138 else 85 }
 		height: { if is_tall() then 166 else 104 }
-		z index: 1
+		z index: 720
 		render style: image
 		alignment: middle center
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
 	############################# PT
 	pt:
 		z index: 900
-		left: { if center_pt() then 157.5 else 286}
-		top: {469 + pt_font_vertical()}
+		left: { if center_pt() then 157.5 else 293 }
+		top: { 467 + pt_font_vertical() }
 		width:	60
 		height:	28
 		alignment: center middle shrink-overflow
@@ -667,12 +749,6 @@ extra card field:
 	type: choice
 	name: foil layer
 	choice: foil
-	save value: false
-	editable: false
-extra card field:
-	type: choice
-	name: clear frame
-	choice: clear
 	save value: false
 	editable: false
 extra card field:
@@ -730,18 +806,6 @@ extra card field:
 	save value: false
 	editable: false
 extra card field:
-	type: text
-	name: vorthos box
-	save value: true
-	editable: true
-	description: Where they put mtgstory.com on story spotlights.
-extra card field:
-	type: choice
-	name: evobar tip
-	choice: evo
-	save value: false
-	editable: false
-extra card field:
 	type: choice
 	name: evobar
 	choice: evo
@@ -750,7 +814,7 @@ extra card field:
 extra card field:
 	type: choice
 	name: alias bar
-	script: card.card_color
+	script: if is_m20() then card.card_color else "multicolor"
 	save value: false
 	editable: false
 extra card field:
@@ -768,16 +832,23 @@ extra card field:
 	editable: false
 	save value: false
 	script: card.card_color
+extra card field:
+	type: choice
+	name: node
+	script: card.card_color
+	editable: false
+	save value: false
+	show statistics: false
 extra card style:
 	pt box:
-		left: {if center_pt() then 144 else 273 }
-		top: 466
-		width:	81
-		height:	42
+		left: {if center_pt() then 151 else 285 }
+		top: 464
+		width:	70
+		height:	39
 		z index: 720
 		visible: { card.pt != "" }
 		render style: image
-		image: { if is_clear() then template_prefix["pt"]+"cpt.png" else module_ptbox(vehicle:is_vehicle()) }
+		image: { ptbox_image() }
 	foil layer:
 		left: 0
 		top : 0
@@ -786,20 +857,12 @@ extra card style:
 		z index: 1050
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
-	clear frame:
-		left: 0
-		top: 0
-		width: { if is_clear() then 375 else 0 }
-		height: { if is_clear() then 523 else 0 }
-		z index: 0
-		render style: image
-		image: { "xcard" + text_shape() + ".png" }
 	legend crown:
 		left: 0
 		top: 0
 		width: 375
 		height: 523
-		z index: 2
+		z index: 730
 		render style: image
 		visible: {is_legend()}
 		image: {if is_m20() then crown_background() else "crown.png"}
@@ -809,7 +872,7 @@ extra card style:
 		width: {if contains(styling.other_options, match:"prerelease stamp") then 295 else 0}
 		height: 29
 		alignment: middle right
-		z index: 4
+		z index: 900
 		font:
 			name: ModMatrix
 			size: 14
@@ -819,7 +882,7 @@ extra card style:
 		top: { if is_tall() then 291 else if is_textless() then 425 else 351 }
 		width: 336
 		height: 37
-		z index: 1
+		z index: 700
 		render style: image
 		image: plate.png
 		visible: { mtgo_abil() }
@@ -828,112 +891,100 @@ extra card style:
 		top: {if is_m20() then 0 else 15}
 		width: {if is_m20() then 375 else 345}
 		height: {if is_m20() then 523 else 471}
-		z index: 1
+		z index: 300
 		render style: image
 		image: {module_nyx()}
-		mask: {if is_m20() then "m20/nyx_mask.png" else "v_" + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		mask: {if is_m20() then "cards/m20/name_mask.png" else shape_folder() + "trim_mask.png"}
 		visible: { is_nyx() }
 	snow overlay:
 		left: {if is_m20() then 0 else 15}
 		top: {if is_m20() then 0 else 15}
 		width: {if is_m20() then 375 else 345}
 		height: {if is_m20() then 523 else 471}
-		z index: 1
+		z index: 300
 		render style: image
 		image: {module_snow()}
-		mask: {if is_m20() then "m20/nyx_mask.png" else "v_" + (if is_nyx() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		mask: {if is_m20() then "cards/m20/name_mask.png" else shape_folder() + (if is_nyx() then "double_" else "") + "trim_mask.png"}
 		visible: { is_snow() }
 	snow type overlay:
 		left: 0
 		top: { if is_tall() then 0 else if is_textless() then 134 else 60 }
 		width: 375
 		height: 523
-		z index: 1
+		z index: 300
 		render style: image
 		image: {module_snow()}
-		mask: m20/type_mask.png
+		mask: cards/m20/type_mask.png
 		visible: { is_snow() and is_m20() }
 	snow box overlay:
 		left: 28
 		top: { if is_tall() then 327 else 387 }
 		width: { if is_textless() then 0 else 320 }
 		height: { if is_tall() then 156 else 96 }
-		z index: 1
+		z index: 300
 		render style: image
-		image: { crop(snow_card_background(), offset_x:28, offset_y:327, width:320, height:156) }
-		mask: m20/snowbox_mask.png
+		image: { crop_image(snow_card_background(), offset_x:28, offset_y:327, width:320, height:156) }
+		mask: cards/m20/snowbox_mask.png
 		visible: { is_snow() and is_m20() }
 	vehicle overlay:
 		left: 15
 		top: 15
 		width: 345
 		height: 471
-		z index: 1
+		z index: 300
 		render style: image
 		image: voverlay.png
-		mask: {"v_" + (if is_nyx() or is_snow() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
-		visible: { is_vehicle() }
+		mask: { shape_folder() + (if is_nyx() or is_snow() then "double_" else "") + "trim_mask.png" }
+		visible: { not is_m20() and is_vehicle() }
 	custom overlay:
 		left: 15
 		top: 15
 		width: 345
 		height: 471
-		z index: 1
+		z index: 300
 		render style: image
 		image: {custom_border_blend()}
-		mask: {"v_" + (if is_nyx() or is_snow() then "nyx_" else "") + if is_tall() then "tall_mask.png" else if is_textless() then "short_mask.png" else "mid_mask.png"}
+		mask: { shape_folder() + (if is_nyx() or is_snow() then "double_" else "") + "trim_mask.png" }
 		visible: { is_custom_border() }
-	vorthos box:
-		right: { if card.pt != "" then 275 else 350 }
-		top: 488
-		left: 210
-		height: {if use_vorthos() then 10 else 0}
-		z index: 3
-		alignment: middle right
-		font:
-			name: Relay-Medium
-			size: 7
-			color: white
-			weight: bold
 	alias bar:
 		left: 38
-		top: {if is_m20() and is_legend() then 61 else if is_m20() then 55 else 56}
+		top: {if is_m20() and is_legend() then 58 else if is_m20() then 55 else 56}
 		width: 298
 		height: 21
-		z index: 2
+		z index: 690
 		render style: image
-		image: {if is_m20() then alias_bar() else "alias/malias.png"}
+		image: { module_alias() }
 		visible: {is_skinned() and not use_evobar()}
 	evobar:
 		left: 15
 		top: 57
-		width: {card_style.alias.content_width}
+		width: { evobar_image_width(card_style.alias.content_width) }
 		height: 27
-		z index: 2
+		z index: 870
 		render style: image
-		image: evobar.png
-		visible: {use_evobar()}
-	evobar tip:
-		left: {14.6 + card_style.alias.content_width}
-		top: 57
-		width: 36
-		height: 27
-		z index: 2
-		render style: image
-		image: evobar_tip.png
+		image: { evobar_image(card_style.alias.content_width) }
 		visible: {use_evobar()}
 	arch back:
 		left: 0
 		top: 0
 		width: {if is_archetype() then 375 else 0}
 		height: 523
-		z index: -2
+		z index: 0
 	stamp backing:
 		left: 159
-		top: { if is_m20() then 471 else 474 }
+		top: 471
 		width: 56
 		height: 26
 		z index: 850
-		visible: { card.card_stamp != "none" }
+		visible: { not card_stamp_disabled_1() }
 		render style: image
 		image: { stamp_img() }
+	node:
+		left: 0
+		top: 0
+		height: 523
+		width: 375
+		z index: 610
+		render style: image
+		image: { node_img() }
+		visible: {not transform_symbol_is_empty(card.transformation)}

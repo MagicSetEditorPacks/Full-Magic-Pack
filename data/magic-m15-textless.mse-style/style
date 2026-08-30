@@ -1,21 +1,20 @@
-﻿mse version: 2.0.0
-game: magic
-short name: Textless
-full name: M15 Textless
-icon: card-sample.png
-installer group: magic/m15 style/promotional/dark ascension
-position hint: 024
+﻿mse version:		2.6.0
+game:				magic
+short name:			M15 Full Art
+icon:				card-sample.png
+position hint:		030000
+installer group:	magic/M15 Frames/Uncommon/M15 Full Art
 
 version: 2024-09-01
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
 	package: magic-modules.mse-include
-	version: 2024-10-01
+	version: 2026-08-28
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -38,33 +37,28 @@ init script:
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
 	template_prefix := [
-		card: ""
+		card: "cards/"
+		beyond: "cards/beyond/"
+		notch: "notches/",
 		pt: "/magic-modules.mse-include/pts/375 m15/"
 		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
 		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
 		identity: "/magic-modules.mse-include/indicators/"
 	]
 	template_suffix := [
-		card: "card.png"
+		card: ".png"
+		beyond: ".png",
+		notch: ".png"
 		pt: "pt.png"
 		stamp: "stamp.png"
 		ubstamp: "stamp.png"
 		identity: "identity.png"
 	]
-	template := { 
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:false)
-		else template_prefix[type] + input + template_suffix[type]
-	}
-	land_template := {
-		if type_name(harder_script[type] or else nil) != type_name(nil)
-			then harder_script[type](input, land:true)
-		else template_prefix[type] + input + (if input == "a" then "" else "l") + template_suffix[type]
-	}
+	template := template_mainframe
+	land_template := land_template_mainframe
+	
+	landless_blend_types := [ "notch" ]
 
-	harder_script := [
-		crown: module_crown_template
-	]
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
 	
@@ -80,8 +74,34 @@ init script:
 	
 	# Is the card a promo card?
 	is_promo := { styling.promo }
-	watermark_include := "/magic-modules.mse-include/watermarks"
 	is_unsorted := {styling.remove_from_autocount}
+	
+	card_background := {
+		image := color_background(
+			type: if is_beyond() then "beyond" else "card",
+			blend_type: "card",
+			folder: template_prefix["card"],
+			base_hybrid: card_hybrid
+		)
+		
+		if is_notched() then image := set_mask(mask:"masks/notch.png")
+		
+		if is_back_face() then image := color_multiply(width:375, height:523, multiply_mask:template_prefix["card"]+"hybrid_blend_card.png")
+		
+		image
+	}
+	
+	is_beyond := { stamp_shape() == "triangle" }
+	information_secondary_offset_pt_left_1 := { 15 }
+	module_crown_mask := { if not transform_symbol_is_empty(card.transformation) then node_mask() else "" }
+	transform_symbol_offset_top_1 := { -1 }
+	reminder_disabled := { not is_linked_dfc() }
+
+	include file: /magic-modules.mse-include/dfc/init_script
+	back_face_stroke_radius := { 2 }
+	back_face_hint_color := { "black" }
+	back_face_hint_stroke_color := { "white" }
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -97,11 +117,13 @@ styling field:
 	name: visible text
 	description: Makes the text, typeline, and rarity visible.
 	initial: no
+include file: /magic-modules.mse-include/texts/styling_fields
 styling field:
 	type: boolean
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
 	initial: no
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: boolean
 	name: grey hybrid name
@@ -181,6 +203,10 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/stamps/stamp_back
 include file: /magic-modules.mse-include/crowns/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/alias/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -193,8 +219,8 @@ card style:
 		right width:  17
 		top width:    17
 		bottom width: 18
-		z index: 4
-		mask: { if not crown_disabled_1() then "crown_border.png" else "border_mask.png" }
+		z index: 500
+		mask: { "masks/" + (if not crown_disabled_1() then "crown_border" else "border_mask") + (if card.border_color == to_color("silver") then "_silver" else "") + ".png" }
 	card color:
 		left:	0
 		top:	0
@@ -206,9 +232,17 @@ card style:
 		image: { card_background() }
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 32 else 50 }
+		left:
+			script:
+				if card.card_symbol != "none" and transform_symbol_active_left(card.transformation)
+					then 78
+				else if transform_symbol_active_left(card.transformation)
+					then 58
+				else if card.card_symbol != "none"
+					then 50
+				else 32
 		top: 31
-		right:  { 341 - card_style.casting_cost.content_width }
+		right:  { 341 - card_style.casting_cost.content_width - (if transform_symbol_active_right(card.transformation) then 26 else 0) }
 		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
@@ -216,9 +250,9 @@ card style:
 		font:
 			name: Beleren Bold
 			size: 16
-			color: black
+			color: { if is_back_face() then "white" else "black" }
 	casting cost:
-		right: 346
+		right: 	{ 346 - (if transform_symbol_active_right(card.transformation) then 28 else 0) }
 		top: 29
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -237,13 +271,15 @@ card style:
 	image:
 		left: 29
 		top: 59
-		width: 316
+		width: { if is_notched() then 328 else 316 }
 		height:	424
 		z index: 2
+		mask: { if is_notched() then "masks/notched_image.png" else "" }
+		store in metadata: { styling.visible_text }
 	############################# Card type
 	indicator:
 		left: 31
-		top: 332
+		top: { 332 + chop_top() }
 		width: 17
 		height: 17
 		z index: 920
@@ -252,7 +288,7 @@ card style:
 		image: { module_identity() }
 	type:
 		left: { if has_identity() then "52" else "32" }
-		top: 329
+		top: { 329 + chop_top() }
 		width: { (if has_identity() then "290" else "310") - max(22,card_style.rarity.content_width) }
 		height: 20
 		visible: {styling.visible_text}
@@ -269,20 +305,20 @@ card style:
 			separator color: red
 	rarity:
 		right: 344
-		top: 329
+		top: { 329 + chop_top() }
 		width: 44
 		height: 22
 		z index: 720
 		render style: image
 		alignment: middle right
-		visible: {styling.visible_text}
+		visible: {styling.visible_text and not hidden_back_rarity() }
 		include file: /magic-modules.mse-include/rarities/choice_images
 	############################# Text box
 	text:
 		left: 29
-		top: 359
-		width: 314
-		height: 122
+		top: { 359 + chop_top() }
+		width: { 314 - chop_right() }
+		bottom: { 481 - chop_bottom() }
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
@@ -322,20 +358,20 @@ card style:
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
 	############################# PT
 	pt:
 		z index: 900
-		left: 286
-		top: 469
+		left: 293
+		top: 467
 		width: 60
 		height:	28
 		alignment: center middle shrink-overflow
 		font:
 			name: Beleren Bold
 			size: 16
-			color: black
+			color: { if is_back_face() then "white" else "black" }
 			separator color: red
 ############################################################## Extra card fields
 extra card field:
@@ -350,16 +386,22 @@ extra card field:
 	choice: foil
 	save value: false
 	editable: false
+extra card field:
+	type: choice
+	name: notch
+	script: card.card_color
+	save value: false
+	editable: false
 extra card style:
 	pt box:
-		left: 273
-		top: 466
-		width: 81
-		height:	42
+		left: 285
+		top: 464
+		width: 70
+		height:	39
 		z index: 3
 		visible: { card.pt != "" }
 		render style: image
-		image: { module_ptbox() }
+		image: { image := module_ptbox(); if is_back_face() then color_multiply(width:135, height:76) else image }
 	foil layer:
 		left: 0
 		top : 0
@@ -369,3 +411,12 @@ extra card style:
 		render style: image
 		image: {if styling.overlay == "" then nil else styling.overlay + "/overlay.png"}
 		mask: { if is_stamped() then "foil_mask_rare.png" else "foil_mask.png" }
+	notch:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		render style: image
+		z index: 600
+		visible: { is_notched() }
+		image: { color_background(type:"notch", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white") }
