@@ -1420,6 +1420,8 @@ actionize := replace@(match:"(activate|ante|cast|choose|create|destroy|discard|d
 	+replace@(match:"your", replace:"their")
 	+replace@(match:"you", replace:"they")
 
+#### prevents keyword expansion
+disabled_keyword := contains@(match:"<nokey>")
 #### get the enchant parameter
 enchant_target := filter_text@(match:"Enchant <param-name>[^<]+</param-name>")
 	+ replace@(match:"Enchant ", replace:"")
@@ -1865,23 +1867,16 @@ text_filter :=
 	remove_tag@(tag: "<key>") +
 	#### step 1b : remove zero-width space used for level spacers
 	replace@(match:"​", replace:"") +
-	#### step 2a : temp fix for formatting buttons
+	#### step 2 : explicit non keyword text
 	replace@(
-		match:"<b></b>",
-		replace:"BOLDAROUND"
-	) +
-	replace@(
-		match:"<i></i>",
-		replace:"ITALAROUND"
-	) +
-	replace@(
-		match:"<sym></sym>",
-		replace:"SYMAROUND"
+		match: "}([^\n}]+)\{",
+		replace: {"<nokey>" + _1 + "</nokey>"}
 	) +
 	#### step 2a : reminder text for keywords
 	expand_keywords@(
 		condition: {
-			correct_case or (mode != "pseudo" and not used_placeholders)
+			not disabled_keyword(keyword)
+			and (correct_case or (mode != "pseudo" and not used_placeholders))
 		}
 		default_expand: {
 			chosen(choice:if correct_case or mode == "action" then mode else "lower case", set.automatic_reminder_text) and chosen(choice:mode, set.automatic_reminder_text)
@@ -1950,19 +1945,6 @@ text_filter :=
 	replace@(
 		match: "[)](</atom-reminder-[^>]+></kw-[^>]>(?:</?moved>)?<atom-reminder-[^>]+> )[(]"
 		replace: "\\1"
-	) +
-	#### step 2h : temp fix for formatting buttons
-	replace@(
-		match:"BOLDAROUND",
-		replace:"<b></b>"
-	) +
-	replace@(
-		match:"ITALAROUND",
-		replace:"<i></i>"
-	) +
-	replace@(
-		match:"SYMAROUND",
-		replace:"<sym></sym>"
 	) +
 	replace@(
 		match:"-\n-"
@@ -2063,7 +2045,6 @@ text_filter :=
 			)
 		out
 	} +
-	#### step 4 : explict non mana symbols
 	replace@(
 		match: "\\][-+=]?[VHSCEKPLOTQINF\\?XYZIWUBRG0-9/|]+\\[",
 		replace: {"<nosym>" + mana_filter_t() + "</nosym>"}
