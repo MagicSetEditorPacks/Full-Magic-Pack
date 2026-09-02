@@ -566,6 +566,24 @@ is_token_card :=   { token_shape(card.shape) }
 is_shifted_card := { contains(card.shape, match:"shifted") }
 is_masterpiece :=  { card.rarity == "masterpiece" }
 is_promo :=        { false }
+is_showcase := 	   {
+	length(get_cards_from_link(card, linked_relation:"Standard")) > 0
+}
+has_showcase :=	   {
+	length(get_cards_from_link(card, linked_relation:"Showcase")) > 0
+}
+is_standard_pack_card := {
+		 if card.rarity == "masterpiece"									then false
+	else if block_token and is_token_card()									then false
+	else if block_basic and card.rarity == "basic land"						then false
+	else if block_special and card.rarity == "special"						then false
+	else if block_shift and is_shifted_card()								then false
+	else if block_promo and is_promo()										then false
+	else if block_showcase and is_showcase()								then false
+	else if position(of:partition_index(), in:standard_pack_partitions) < 0 then false
+	else true
+}@(block_token:true, block_basic:true, block_shift:true, block_promo:true, block_special:true, block_showcase:true)
+standard_pack_partitions := ["A"]
 rarity_field :=    { if input <= 1 then card.rarity else card["rarity_" + input] }
 is_rare :=
 {
@@ -7005,5 +7023,18 @@ linked_dfc_compat_map := {
 	]
 }
 
+#### TESTING SCRIPT REMOVE THIS BEFORE MERGE
+gen_showpair := {
+	standard := new_card([name:"Standard " + input, rarity:rarity])
+	showcase := new_card([name:"Showcase " + input, rarity:rarity])
+	add_card_to_set(standard)
+	add_card_to_set(showcase)
+	add_link(standard, selected_relation:"Standard", linked_card:showcase, linked_relation:"Showcase")
+	2
+}
+gen_normal := {
+	add_card_to_set(new_card([name:"Unspecial " + input, rarity:rarity]))
+	1
+}
 #### load the user overwrites here, doing it in game overwrites this file instead
 include file: custom_script
