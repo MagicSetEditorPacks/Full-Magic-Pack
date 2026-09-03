@@ -528,8 +528,6 @@ dfc_splitter_name := {
 ############################################################## Special text
 special_text :=                  { "" }
 special_text2 :=                 { "" }
-transfer_levels :=               {true}
-transfer_levels_2 :=             {true}
 a_saga :=                        {false}
 saga_reminder :=                 { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 b_saga :=                        {false}
@@ -1715,14 +1713,21 @@ auto_reminder := {
 	level := filter_number(input)
 	if level == "" then level := "1"
 	tag := name_tag_for_level(to_number(level))
-	type_field := remove_tags(card["type"+tag])
+	type_field := remove_tags(card["sub_type"+tag])
 	cost_field := card["casting_cost"+tag]
-	if custom_auto_reminder()
-		then custom_auto_reminder(input)
+	custom_rem := custom_auto_reminder(card_styling:card_styling)
+	if custom_rem != ""
+		then "<i-auto>({custom_rem})</i-auto>"
+	else if type_field == ""
+		then ""
 	else if lang_setting("is_saga")(type_field)
 		then saga_reminder_script(tag:tag)
 	else if lang_setting("is_class")(type_field)
 		then "<i-auto>(Gain the next level as a sorcery to add its ability.)</i-auto>"
+	else if lang_setting("is_adventure")(type_field)
+		then "<i-auto>(Then exile this card. You may cast the creature later from exile.)</i-auto>"
+	else if lang_setting("is_omen")(type_field)
+		then "<i-auto>(Then shuffle this card into its owner's library.)</i-auto>"
 	else if lang_setting("is_room")(type_field)
 		then "<i-auto>(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)</i-auto>"
 	else if contains(cost_field, match:"/")
@@ -1858,6 +1863,7 @@ text_filter :=
 	#### step 1 : remove all automatic tags
 	remove_tag@(tag: "<sym-auto>") +
 	remove_tag@(tag: "<i-auto>") +
+	remove_tag@(tag: "<i-flavor>") +
 	remove_tag@(tag: "<b-auto>") +
 	remove_tag@(tag: "<error-spelling") +
 	remove_tag@(tag: "<nospellcheck") +
@@ -3434,8 +3440,8 @@ text_style_field := { if input <= 1 then card_style.text else card_style["text_"
 ############################################################## Saga/Class reminder
 chapter_text_filter_default :=
 {
-	if		margin_code == "chapter_text" then (if not a_saga() then "" else if card.rule_text != "" then card.rule_text else "<i-auto>(" + saga_reminder() + ")</i-auto>")
-	else if	margin_code == "chapter_text2" then (if not b_saga() then "" else "<i-auto>(" + saga_reminderb() + ")</i-auto>")
+	if		margin_code == "chapter_text" then "<i-auto>(" + saga_reminder() + ")</i-auto>"
+	else if	margin_code == "chapter_text2" then  "<i-auto>(" + saga_reminderb() + ")</i-auto>"
 	else ""
 }
 ############################################################## Leveler textboxes
