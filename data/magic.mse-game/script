@@ -572,18 +572,55 @@ is_showcase := 	   {
 has_showcase :=	   {
 	length(get_cards_from_link(card, linked_relation:"Showcase")) > 0
 }
+dfc_uniquely_slotted := { set.DFC_slotting == "specialized slots only" }
 is_standard_pack_card := {
 		 if card.rarity == "masterpiece"									then false
+	else if dfc_uniquely_slotted() and is_linked_dfc()						then false
+	else if is_linked_back_face()											then false
+	else if nonstandard_partition()											then false
 	else if block_token and is_token_card()									then false
 	else if block_basic and card.rarity == "basic land"						then false
 	else if block_special and card.rarity == "special"						then false
 	else if block_shift and is_shifted_card()								then false
 	else if block_promo and is_promo()										then false
 	else if block_showcase and is_showcase()								then false
-	else if position(of:partition_index(), in:standard_pack_partitions) < 0 then false
+	else if note_excluded()													then false
 	else true
 }@(block_token:true, block_basic:true, block_shift:true, block_promo:true, block_special:true, block_showcase:true)
-standard_pack_partitions := ["A"]
+nonstandard_partition := {
+	boundaries := ["A", "A"]
+	if set.booster_partition_boundaries != ""
+		then boundaries := determine_partition_boundaries()
+	
+	start_score := partition_scores[boundaries[0]]
+	end_score := partition_scores[boundaries[1]]
+	card_score := partition_scores[partition_index()]
+	card_score < start_score or end_score < card_score
+}
+determine_partition_boundaries := {
+	boundaries := split_comma(set.booster_partition_boundaries)
+	start := to_upper(boundaries[0] or else -1)
+	end := to_upper(boundaries[1] or else -1)
+	
+	start_score := partition_scores[start] or else -1
+	end_score := partition_scores[end] or else -1
+	if start_score == -1 then start := "A"
+	if end_score == -1 or end_score < start_score then end := start
+	
+	[start, end]
+}
+note_excluded := {
+	if set.nbslot_slotting == "specialized slots only" and contains(card.notes, match:"!nbslot")
+		then true	## excluded !nbslot
+	else if set.noted_slotting == "all slots"
+		then false	## notes aren't excluded
+	else if set.slotting_note_1 != "" and contains(card.notes, match:set.slotting_note_1)
+		then true	## excluded note 1
+	else if set.slotting_note_2 != "" and contains(card.notes, match:set.slotting_note_2)
+		then true	## excluded note 2
+	else false		## no excluded notes
+}
+
 rarity_field :=    { if input <= 1 then card.rarity else card["rarity_" + input] }
 is_rare :=
 {
