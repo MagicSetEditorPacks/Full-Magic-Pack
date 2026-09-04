@@ -36,6 +36,9 @@ include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
 version_date := {"2026-09-02 Template Pack 4.0.1: MSE 2.6, Mainframe Battles, and More - LEGENDNAME fix"}
 version := version_date
+#### magic.mse-game version primary dependencies
+### 2026-08-28 - MSE 2.6 & card links support
+### 2026-09-01 - text_filter given card_styling:styling
 ############################################################## Common filters
 ############################################################## Utility
 comma_count :=     filter_text@(match:",")
@@ -71,6 +74,10 @@ separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
 zwsp :=            "​" # this is a zero-width space not blank
 is_blank := { input == "" or input == zwsp }
 
+#### convert card.sub_type into an array of subtypes
+split_sub_type := remove_tag@(tag:"<word")
+	+ remove_tag@(tag:"<soft>")
+	+ split_text@(match:" *<atom-sep>[^<]*</atom-sep> *", include_empty:false)
 ############################################################## Type
 is_creature :=     lang_setting("is_creature")
 is_tribal :=       lang_setting("is_tribal")
@@ -525,8 +532,6 @@ dfc_splitter_name := {
 ############################################################## Special text
 special_text :=                  { "" }
 special_text2 :=                 { "" }
-transfer_levels :=               {true}
-transfer_levels_2 :=             {true}
 a_saga :=                        {false}
 saga_reminder :=                 { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 b_saga :=                        {false}
@@ -1712,18 +1717,31 @@ auto_reminder := {
 	level := filter_number(input)
 	if level == "" then level := "1"
 	tag := name_tag_for_level(to_number(level))
-	type_field := remove_tags(card["type"+tag])
+	type_field := remove_tags(card["sub_type"+tag])
 	cost_field := card["casting_cost"+tag]
-	if custom_auto_reminder()
-		then custom_auto_reminder(input)
+	custom_rem := custom_auto_reminder(card_styling:card_styling)
+	if custom_rem != ""
+		then "<i-auto>({custom_rem})</i-auto>"
+	else if type_field == ""
+		then ""
 	else if lang_setting("is_saga")(type_field)
 		then saga_reminder_script(tag:tag)
 	else if lang_setting("is_class")(type_field)
 		then "<i-auto>(Gain the next level as a sorcery to add its ability.)</i-auto>"
+	else if lang_setting("is_adventure")(type_field)
+		then "<i-auto>(Then exile this card. You may cast the creature later from exile.)</i-auto>"
+	else if lang_setting("is_omen")(type_field)
+		then "<i-auto>(Then shuffle this card into its owner's library.)</i-auto>"
 	else if lang_setting("is_room")(type_field)
 		then "<i-auto>(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)</i-auto>"
 	else if contains(cost_field, match:"/")
 		then hybrid_reminder(cost_field)
+	else if lang_setting("is_land")(type_field)
+		then (
+			rt := basic_land_reminder(card["sub_type"+tag])
+			if rt == "" then ""
+			else "<i-auto>({rt})</i-auto>"
+		)
 	else ""
 }
 saga_map := [
@@ -1788,6 +1806,21 @@ hybrid_reminder_delooper := {
 		else "<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with either <sym-auto>{hyb1}</sym-auto> or <sym-auto>{hyb2}</sym-auto>.)</i-auto>"
 	)
 }
+## basic land type mana reminder
+basic_land_reminder := {
+	land_list := lang_setting("word_lists_basic")
+	mana_list := ["W", "U", "B", "R", "G"]
+	
+	used_symbols := []
+	subtypes := split_sub_type(input)
+	for each x in subtypes do (
+		i := position(of:x in:land_list)
+		if i >= 0 then used_symbols := used_symbols + ["<sym-auto>" + mana_list[i] + "</sym-auto>"];
+	)
+	string := join_list(used_symbols, closing:"or ")
+	if string == "" and assume_wastes then string := "<sym-auto>C</sym-auto>"
+	if string == "" then "" else "<sym-auto>T</sym-auto>: Add " + string + "."
+}@(assume_wastes:false)
 #### these are considered a correct 'word' for spellchecking in the text box:
 additional_text_words := match@(match:
 	"(?ix)^(?:                         #### match whole word
@@ -1855,6 +1888,7 @@ text_filter :=
 	#### step 1 : remove all automatic tags
 	remove_tag@(tag: "<sym-auto>") +
 	remove_tag@(tag: "<i-auto>") +
+	remove_tag@(tag: "<i-flavor>") +
 	remove_tag@(tag: "<b-auto>") +
 	remove_tag@(tag: "<error-spelling") +
 	remove_tag@(tag: "<nospellcheck") +
@@ -2505,13 +2539,18 @@ reminder_type_width :=
 reminder_cost_default :=
 {
 	if not transform_symbol_is_modal(card.transformation) then "" else (
-	other_face := get_back_face(card)
-	if other_face == nil then other_face := get_front_face(card)
-	if other_face == nil then ""
-	else if remove_tags(other_face.sub_type) != "" or other_face.casting_cost != "" then other_face.casting_cost
-	else mana_ability(other_face.rule_text))
+		other_face := get_back_face(card)
+		if other_face == nil then other_face := get_front_face(card)
+		if other_face == nil then ""
+		else if other_face.casting_cost != "" then "<sym-auto>" + other_face.casting_cost + "</sym-auto>"
+		else (
+			ability := mana_ability(other_face.rule_text)
+			if ability == "" then ability := basic_land_reminder(other_face.sub_type, assume_wastes:lang_setting("is_land")(other_face.super_type))
+			ability
+		)
+	)
 }
-reminder_cost_script := { "<sym-auto>" + to_upper(remove_tag(value, tag: "<sym-auto")) + "</sym-auto>" }
+reminder_cost_script := { value }
 reminder_cost_font := { name_font() }
 reminder_cost_font_size :=
 {
@@ -3431,8 +3470,8 @@ text_style_field := { if input <= 1 then card_style.text else card_style["text_"
 ############################################################## Saga/Class reminder
 chapter_text_filter_default :=
 {
-	if		margin_code == "chapter_text" then (if not a_saga() then "" else if card.rule_text != "" then card.rule_text else "<i-auto>(" + saga_reminder() + ")</i-auto>")
-	else if	margin_code == "chapter_text2" then (if not b_saga() then "" else "<i-auto>(" + saga_reminderb() + ")</i-auto>")
+	if		margin_code == "chapter_text" then "<i-auto>(" + saga_reminder() + ")</i-auto>"
+	else if	margin_code == "chapter_text2" then  "<i-auto>(" + saga_reminderb() + ")</i-auto>"
 	else ""
 }
 ############################################################## Leveler textboxes
