@@ -74,6 +74,10 @@ separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
 zwsp :=            "​" # this is a zero-width space not blank
 is_blank := { input == "" or input == zwsp }
 
+#### convert card.sub_type into an array of subtypes
+split_sub_type := remove_tag@(tag:"<word")
+	+ remove_tag@(tag:"<soft>")
+	+ split_text@(match:" *<atom-sep>[^<]*</atom-sep> *", include_empty:false)
 ############################################################## Type
 is_creature :=     lang_setting("is_creature")
 is_tribal :=       lang_setting("is_tribal")
@@ -1732,6 +1736,12 @@ auto_reminder := {
 		then "<i-auto>(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)</i-auto>"
 	else if contains(cost_field, match:"/")
 		then hybrid_reminder(cost_field)
+	else if lang_setting("is_land")(type_field)
+		then (
+			rt := basic_land_reminder(card["sub_type"+tag])
+			if rt == "" then ""
+			else "<i-auto>({rt})</i-auto>"
+		)
 	else ""
 }
 saga_map := [
@@ -1796,6 +1806,21 @@ hybrid_reminder_delooper := {
 		else "<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with either <sym-auto>{hyb1}</sym-auto> or <sym-auto>{hyb2}</sym-auto>.)</i-auto>"
 	)
 }
+## basic land type mana reminder
+basic_land_reminder := {
+	land_list := lang_setting("word_lists_basic")
+	mana_list := ["W", "U", "B", "R", "G"]
+	
+	used_symbols := []
+	subtypes := split_sub_type(input)
+	for each x in subtypes do (
+		i := position(of:x in:land_list)
+		if i >= 0 then used_symbols := used_symbols + ["<sym-auto>" + mana_list[i] + "</sym-auto>"];
+	)
+	string := join_list(used_symbols, closing:"or ")
+	if string == "" and assume_wastes then string := "<sym-auto>C</sym-auto>"
+	if string == "" then "" else "<sym-auto>T</sym-auto>: Add " + string + "."
+}@(assume_wastes:false)
 #### these are considered a correct 'word' for spellchecking in the text box:
 additional_text_words := match@(match:
 	"(?ix)^(?:                         #### match whole word
@@ -2514,13 +2539,18 @@ reminder_type_width :=
 reminder_cost_default :=
 {
 	if not transform_symbol_is_modal(card.transformation) then "" else (
-	other_face := get_back_face(card)
-	if other_face == nil then other_face := get_front_face(card)
-	if other_face == nil then ""
-	else if remove_tags(other_face.sub_type) != "" or other_face.casting_cost != "" then other_face.casting_cost
-	else mana_ability(other_face.rule_text))
+		other_face := get_back_face(card)
+		if other_face == nil then other_face := get_front_face(card)
+		if other_face == nil then ""
+		else if other_face.casting_cost != "" then "<sym-auto>" + other_face.casting_cost + "</sym-auto>"
+		else (
+			ability := mana_ability(other_face.rule_text)
+			if ability == "" then ability := basic_land_reminder(other_face.sub_type, assume_wastes:lang_setting("is_land")(other_face.super_type))
+			ability
+		)
+	)
 }
-reminder_cost_script := { "<sym-auto>" + to_upper(remove_tag(value, tag: "<sym-auto")) + "</sym-auto>" }
+reminder_cost_script := { value }
 reminder_cost_font := { name_font() }
 reminder_cost_font_size :=
 {
