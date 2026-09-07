@@ -34,8 +34,11 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2025-02-01 Template Pack 3.1.0: Mainframe Battles"}
+version_date := {"2026-09-02 Template Pack 4.0.1: MSE 2.6, Mainframe Battles, and More - LEGENDNAME fix"}
 version := version_date
+#### magic.mse-game version primary dependencies
+### 2026-08-28 - MSE 2.6 & card links support
+### 2026-09-01 - text_filter given card_styling:styling
 ############################################################## Common filters
 ############################################################## Utility
 comma_count :=     filter_text@(match:",")
@@ -71,6 +74,10 @@ separate_words :=  remove_tags + trim + replace@(match:" ", replace: {spacer})
 zwsp :=            "​" # this is a zero-width space not blank
 is_blank := { input == "" or input == zwsp }
 
+#### convert card.sub_type into an array of subtypes
+split_sub_type := remove_tag@(tag:"<word")
+	+ remove_tag@(tag:"<soft>")
+	+ split_text@(match:" *<atom-sep>[^<]*</atom-sep> *", include_empty:false)
 ############################################################## Type
 is_creature :=     lang_setting("is_creature")
 is_tribal :=       lang_setting("is_tribal")
@@ -420,26 +427,13 @@ is_linked_meld :=
 {
 	is_linked_meld_front(card) or is_linked_meld_back(card)
 }
-### does this take the card number from its front face instead of a new one?
-is_linked_back_face :=
-{
-	if get_front_face(card) != nil then true ## basic back face
-	else (
-		meld_base := get_cards_from_link(card, linked_relation:"Meld Base").0 or else nil
-		if meld_base != nil and length(get_cards_from_link(meld_base, linked_relation:"Meld Base")) == 0
-			then true ## safe meld
-		else false ## normal card or base/base meld, each face numbered individually
-	)
-}
 ### get the front face or meld base for this card for card numbering. fallback returns itself
 get_linked_numbering_card :=
 {
 	front := get_front_face(card)
-	linked := if front != nil then front
-				else get_cards_from_link(card, linked_relation:"Meld Base").0 or else card
-	linked
+	if front != nil then front else card
 }
-### get the back face or meld result for this card. fallback returns itself
+### get the back face or meld result for this card for card.full_name. fallback returns itself
 get_linked_numbering_card_back :=
 {
 	back := get_back_face(card)
@@ -525,8 +519,6 @@ dfc_splitter_name := {
 ############################################################## Special text
 special_text :=                  { "" }
 special_text2 :=                 { "" }
-transfer_levels :=               {true}
-transfer_levels_2 :=             {true}
 a_saga :=                        {false}
 saga_reminder :=                 { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 b_saga :=                        {false}
@@ -1155,8 +1147,8 @@ sort_name :=
 set_filter := {
 	if is_unsorted() then 
 		{ is_unsorted() }
-	else if is_linked_back_face() then
-		{ is_linked_back_face() }
+	else if get_front_face(card) != nil then
+		{ get_front_face(card) != nil }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" }
 	else if card.shape == "rulestip" then
@@ -1168,9 +1160,9 @@ set_filter := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and not is_masterpiece() }
+		{ not is_unsorted() and get_front_face(card) == nil and not token_shape(card.shape) and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
+		{ not is_unsorted() and get_front_face(card) == nil and not token_shape(card.shape) and card.rarity == "special" and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not is_masterpiece() }
 }
@@ -1180,8 +1172,8 @@ set_filter := {
 set_filter_under_partition := {
 	if is_unsorted() then 
 		{ is_unsorted() }
-	else if is_linked_back_face() then
-		{ is_linked_back_face() }
+	else if get_front_face(card) != nil then
+		{ get_front_face(card) != nil }
 	else if card.shape == "token" or card.shape == "emblem" then
 		{ card.shape == "token" or card.shape == "emblem" and not over_partition() }
 	else if card.shape == "rulestip" then
@@ -1193,9 +1185,9 @@ set_filter_under_partition := {
 	else if is_masterpiece() and not token_shape(card.shape) then
 		{ is_masterpiece() and not token_shape(card.shape) and not over_partition() }
 	else if set.sort_special_rarity != "separate numbering" then
-		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and get_front_face(card) == nil and not token_shape(card.shape) and not over_partition() and not is_masterpiece() }
 	else if card.rarity == "special" then
-		{ not is_unsorted() and not is_linked_back_face() and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
+		{ not is_unsorted() and get_front_face(card) == nil and not token_shape(card.shape) and card.rarity == "special" and not over_partition() and not is_masterpiece() }
 	else
 		{ not is_unsorted() and not token_shape(card.shape) and card.rarity != "special" and not over_partition() and not is_masterpiece() }
 }
@@ -1205,7 +1197,7 @@ card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:fal
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
 #### the raw numbers, these aren't typically used directly
 card_number := {
-	base := if is_linked_back_face() then card_index(card:get_linked_numbering_card()) else card_index()
+	base := if get_front_face(card) != nil then card_index(card:get_linked_numbering_card()) else card_index()
 	base + 1 + to_number(card_number_offset())
 }
 card_index := {
@@ -1757,7 +1749,7 @@ mana_un_context := "(mana values? <match>|converted mana costs? <match>|<match> 
 
 #### atoms
 #### truncates the name of legends
-legend_filter := replace@(match:"(, | of | the | \"| “).*", replace: "" )
+legend_filter := replace@(match:"(, | of | the | \"| “)[^<]*", replace: "" )
 #### does this frame support Alchemy Rebalanced mana symbol in names?
 #### set tab insert atoms
 inserts_values := { split_text(set.inserts+";;;;;;;;;", match:";") }
@@ -1767,18 +1759,31 @@ auto_reminder := {
 	level := filter_number(input)
 	if level == "" then level := "1"
 	tag := name_tag_for_level(to_number(level))
-	type_field := remove_tags(card["type"+tag])
+	type_field := remove_tags(card["sub_type"+tag])
 	cost_field := card["casting_cost"+tag]
-	if custom_auto_reminder()
-		then custom_auto_reminder(input)
+	custom_rem := custom_auto_reminder(card_styling:card_styling)
+	if custom_rem != ""
+		then "<i-auto>({custom_rem})</i-auto>"
+	else if type_field == ""
+		then ""
 	else if lang_setting("is_saga")(type_field)
 		then saga_reminder_script(tag:tag)
 	else if lang_setting("is_class")(type_field)
 		then "<i-auto>(Gain the next level as a sorcery to add its ability.)</i-auto>"
+	else if lang_setting("is_adventure")(type_field)
+		then "<i-auto>(Then exile this card. You may cast the creature later from exile.)</i-auto>"
+	else if lang_setting("is_omen")(type_field)
+		then "<i-auto>(Then shuffle this card into its owner's library.)</i-auto>"
 	else if lang_setting("is_room")(type_field)
 		then "<i-auto>(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)</i-auto>"
 	else if contains(cost_field, match:"/")
 		then hybrid_reminder(cost_field)
+	else if lang_setting("is_land")(type_field)
+		then (
+			rt := basic_land_reminder(card["sub_type"+tag])
+			if rt == "" then ""
+			else "<i-auto>({rt})</i-auto>"
+		)
 	else ""
 }
 saga_map := [
@@ -1843,6 +1848,21 @@ hybrid_reminder_delooper := {
 		else "<i-auto>(<sym-auto>{symbol}</sym-auto> can be paid with either <sym-auto>{hyb1}</sym-auto> or <sym-auto>{hyb2}</sym-auto>.)</i-auto>"
 	)
 }
+## basic land type mana reminder
+basic_land_reminder := {
+	land_list := lang_setting("word_lists_basic")
+	mana_list := ["W", "U", "B", "R", "G"]
+	
+	used_symbols := []
+	subtypes := split_sub_type(input)
+	for each x in subtypes do (
+		i := position(of:x in:land_list)
+		if i >= 0 then used_symbols := used_symbols + ["<sym-auto>" + mana_list[i] + "</sym-auto>"];
+	)
+	string := join_list(used_symbols, closing:"or ")
+	if string == "" and assume_wastes then string := "<sym-auto>C</sym-auto>"
+	if string == "" then "" else "<sym-auto>T</sym-auto>: Add " + string + "."
+}@(assume_wastes:false)
 #### these are considered a correct 'word' for spellchecking in the text box:
 additional_text_words := match@(match:
 	"(?ix)^(?:                         #### match whole word
@@ -1910,6 +1930,7 @@ text_filter :=
 	#### step 1 : remove all automatic tags
 	remove_tag@(tag: "<sym-auto>") +
 	remove_tag@(tag: "<i-auto>") +
+	remove_tag@(tag: "<i-flavor>") +
 	remove_tag@(tag: "<b-auto>") +
 	remove_tag@(tag: "<error-spelling") +
 	remove_tag@(tag: "<nospellcheck") +
@@ -2560,13 +2581,18 @@ reminder_type_width :=
 reminder_cost_default :=
 {
 	if not transform_symbol_is_modal(card.transformation) then "" else (
-	other_face := get_back_face(card)
-	if other_face == nil then other_face := get_front_face(card)
-	if other_face == nil then ""
-	else if remove_tags(other_face.sub_type) != "" or other_face.casting_cost != "" then other_face.casting_cost
-	else mana_ability(other_face.rule_text))
+		other_face := get_back_face(card)
+		if other_face == nil then other_face := get_front_face(card)
+		if other_face == nil then ""
+		else if other_face.casting_cost != "" then "<sym-auto>" + other_face.casting_cost + "</sym-auto>"
+		else (
+			ability := mana_ability(other_face.rule_text)
+			if ability == "" then ability := basic_land_reminder(other_face.sub_type, assume_wastes:lang_setting("is_land")(other_face.super_type))
+			ability
+		)
+	)
 }
-reminder_cost_script := { "<sym-auto>" + to_upper(remove_tag(value, tag: "<sym-auto")) + "</sym-auto>" }
+reminder_cost_script := { value }
 reminder_cost_font := { name_font() }
 reminder_cost_font_size :=
 {
@@ -3486,8 +3512,8 @@ text_style_field := { if input <= 1 then card_style.text else card_style["text_"
 ############################################################## Saga/Class reminder
 chapter_text_filter_default :=
 {
-	if		margin_code == "chapter_text" then (if not a_saga() then "" else if card.rule_text != "" then card.rule_text else "<i-auto>(" + saga_reminder() + ")</i-auto>")
-	else if	margin_code == "chapter_text2" then (if not b_saga() then "" else "<i-auto>(" + saga_reminderb() + ")</i-auto>")
+	if		margin_code == "chapter_text" then "<i-auto>(" + saga_reminder() + ")</i-auto>"
+	else if	margin_code == "chapter_text2" then  "<i-auto>(" + saga_reminderb() + ")</i-auto>"
 	else ""
 }
 ############################################################## Leveler textboxes
@@ -3511,13 +3537,13 @@ card_name_for_face := {
 	tag := if input == 1 then "" else "_" + input
 	if (set.CARDNAME_replacement == "card's type" xor reverse)
 		then (
-			ty := to_lower(cardname_type(card["type"+tag]))
+			ty := to_lower(remove_tag(tag:"<size", cardname_type(card["type"+tag])))
 			if ty == "" then "this"
 			else "this " + ty
 		)
 	else if set.CARDNAME_replacement == "card's alias" and card["alias"+tag] != ""
-		then card["alias"+tag]
-	else card["name"+tag]
+		then remove_tag(tag:"<size", card["alias"+tag])
+	else remove_tag(tag:"<size", card["name"+tag])
 }@(reverse:false)
 cardname_type := {
 	if is_creature(input)
@@ -3664,12 +3690,12 @@ typesymbol_type := { typesymbol_for(type) }
 transform_symbol_default :=
 {
 	front_face := get_front_face(card)
-	if front_face != nil
+	if is_linked_meld_front()
+		then "meld"
+	else if front_face != nil
 		then transform_symbol_counterpart(front_face, fallback:"back triangle")
 	else if get_back_face(card) != nil
 		then "front triangle"
-	else if is_linked_meld_front()
-		then "meld"
 	else "none"
 }
 transform_symbol_counterpart :=
@@ -5603,6 +5629,9 @@ pop_font_size := {split_font(input).1 or else ""}
 pop_font_color := {split_font(input).2 or else ""}
 pop_font_vertical := {split_font(input).3 or else ""}
 pop_font_italic := {split_font(input).4 or else ""}
+pop_font_stroke := {split_font(input).5 or else ""}
+pop_font_stroke_color := {split_font(input).6 or else ""}
+pop_font_stroke_blur := {split_font(input).7 or else ""}
 #### General swap functions
 swap_font_name := {
 	if swap_font() then (
@@ -5652,111 +5681,187 @@ swap_font_italic := {
 	
 	font_name
 }
+swap_font_stroke := {
+	if swap_font() then (
+		test := pop_font_stroke(src)
+		if test != "" then stroke := to_number(test)
+	)
+	
+	stroke
+}
+swap_font_stroke_color := {
+	if swap_font() then (
+		test := pop_font_stroke_color(src)
+		nums := split_text(test, match:",")
+		test_color := nil
+		
+		if length(nums) >= 4 then test_color := rgba(to_number_lax(nums.0), to_number_lax(nums.1), to_number_lax(nums.2), to_number_lax(nums.3)) or else nil
+		if test_color == nil and length(nums) >= 3 then test_color := rgb(to_number_lax(nums.0), to_number_lax(nums.1), to_number_lax(nums.2)) or else nil
+		if test_color == nil and test != "" then test_color := to_color(test) or else nil
+		if test_color != nil then stroke_color := test_color
+	) else ""
+	
+	stroke_color
+}
+swap_font_stroke_blur := {
+	if swap_font() then (
+		test := pop_font_stroke_blur(src)
+		if test != "" then stroke_blur := to_number(test)
+	)
+	
+	stroke_blur
+}
+
 #### defaults, can be changed in style
 swap_fonts_name_default := [
 	name: {"Beleren Bold"},
 	size: {16},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_name2_default := [
 	name: {"Beleren Bold"},
 	size: {16},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_name3_default := [
 	name: {"Beleren Bold"},
 	size: {16},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_casting_cost_default := [
 	name: {"MPlantin"},
 	size: {name_font_size()},
 	color: {"black"},
 	vertical: {0},
-	italic: {"MPlantin-Italic"}
+	italic: {"MPlantin-Italic"},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_casting_cost2_default := [
 	name: {"MPlantin"},
 	size: {name2_font_size()},
 	color: {"black"},
 	vertical: {0},
-	italic: {"MPlantin-Italic"}
+	italic: {"MPlantin-Italic"},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_casting_cost3_default := [
 	name: {"MPlantin"},
 	size: {name3_font_size()},
 	color: {"black"},
 	vertical: {0},
-	italic: {"MPlantin-Italic"}
+	italic: {"MPlantin-Italic"},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_type_default := [
 	name: {"Beleren Bold"},
 	size: {13},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_type2_default := [
 	name: {"Beleren Bold"},
 	size: {13},
 	color: {"white"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_type3_default := [
 	name: {"Beleren Bold"},
 	size: {13},
 	color: {"white"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_body_default := [
 	name: {"MPlantin"},
 	size: {13},
 	color: {"black"},
 	vertical: {0},
-	italic: {"MPlantin-Italic"}
+	italic: {"MPlantin-Italic"},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_body2_default := [
 	name: {"MPlantin"},
 	size: {13},
 	color: {"black"},
 	vertical: {0},
-	italic: {"MPlantin-Italic"}
+	italic: {"MPlantin-Italic"},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_body3_default := [
 	name: {"MPlantin"},
 	size: {13},
 	color: {"black"},
 	vertical: {0},
-	italic: {"MPlantin-Italic"}
+	italic: {"MPlantin-Italic"},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_pt_default := [
 	name: {"Beleren Bold"},
 	size: {16},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_pt2_default := [
 	name: {"Beleren Bold"},
 	size: {16},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_pt3_default := [
 	name: {"Beleren Bold"},
 	size: {16},
 	color: {"black"},
 	vertical: {0},
-	italic: {""}
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
 ]
 swap_fonts_name_src :=          { styling.custom_name_font           or else "" }
 swap_fonts_name2_src :=         { styling.custom_name_2_font         or else "" }
@@ -5804,6 +5909,24 @@ name_font_italic := {
 		font_name: swap_fonts_name_default.italic()
 	)
 }
+name_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_name_src(),
+		stroke: swap_fonts_name_default.stroke()
+	)
+}
+name_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_name_src(),
+		stroke_color: swap_fonts_name_default.stroke_color()
+	)
+}
+name_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_name_src(),
+		stroke_blur: swap_fonts_name_default.stroke_blur()
+	)
+}
 name_shadow_color :=			{ rgba(0,0,0,0) }
 name_shadow_displacement_x :=	{ 0 }
 name_shadow_displacement_y :=	{ 0 }
@@ -5836,6 +5959,24 @@ name2_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_name2_src(),
 		font_name: swap_fonts_name2_default.italic()
+	)
+}
+name2_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_name2_src(),
+		stroke: swap_fonts_name2_default.stroke()
+	)
+}
+name2_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_name2_src(),
+		stroke_color: swap_fonts_name2_default.stroke_color()
+	)
+}
+name2_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_name2_src(),
+		stroke_blur: swap_fonts_name2_default.stroke_blur()
 	)
 }
 name2_shadow_color :=			{ rgba(0,0,0,0) }
@@ -5872,6 +6013,24 @@ name3_font_italic := {
 		font_name: swap_fonts_name3_default.italic()
 	)
 }
+name3_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_name3_src(),
+		stroke: swap_fonts_name3_default.stroke()
+	)
+}
+name3_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_name3_src(),
+		stroke_color: swap_fonts_name3_default.stroke_color()
+	)
+}
+name3_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_name3_src(),
+		stroke_blur: swap_fonts_name3_default.stroke_blur()
+	)
+}
 name3_shadow_color :=			{ rgba(0,0,0,0) }
 name3_shadow_displacement_x :=	{ 0 }
 name3_shadow_displacement_y :=	{ 0 }
@@ -5906,6 +6065,24 @@ casting_cost_font_italic := {
 		font_name: swap_fonts_casting_cost_default.italic()
 	)
 }
+casting_cost_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_casting_cost_src(),
+		stroke: swap_fonts_casting_cost_default.stroke()
+	)
+}
+casting_cost_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_casting_cost_src(),
+		stroke_color: swap_fonts_casting_cost_default.stroke_color()
+	)
+}
+casting_cost_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_casting_cost_src(),
+		stroke_blur: swap_fonts_casting_cost_default.stroke_blur()
+	)
+}
 
 casting_cost2_font := {
 	swap_font_name(
@@ -5935,6 +6112,24 @@ casting_cost2_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_casting_cost2_src(),
 		font_name: swap_fonts_casting_cost2_default.italic()
+	)
+}
+casting_cost2_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_casting_cost2_src(),
+		stroke: swap_fonts_casting_cost2_default.stroke()
+	)
+}
+casting_cost2_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_casting_cost2_src(),
+		stroke_color: swap_fonts_casting_cost2_default.stroke_color()
+	)
+}
+casting_cost2_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_casting_cost2_src(),
+		stroke_blur: swap_fonts_casting_cost2_default.stroke_blur()
 	)
 }
 
@@ -5968,6 +6163,24 @@ casting_cost3_font_italic := {
 		font_name: swap_fonts_casting_cost3_default.italic()
 	)
 }
+casting_cost3_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_casting_cost3_src(),
+		stroke: swap_fonts_casting_cost3_default.stroke()
+	)
+}
+casting_cost3_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_casting_cost3_src(),
+		stroke_color: swap_fonts_casting_cost3_default.stroke_color()
+	)
+}
+casting_cost3_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_casting_cost3_src(),
+		stroke_blur: swap_fonts_casting_cost3_default.stroke_blur()
+	)
+}
 
 type_font := {
 	swap_font_name(
@@ -5997,6 +6210,24 @@ type_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_type_src(),
 		font_name: swap_fonts_type_default.italic()
+	)
+}
+type_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_type_src(),
+		stroke: swap_fonts_type_default.stroke()
+	)
+}
+type_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_type_src(),
+		stroke_color: swap_fonts_type_default.stroke_color()
+	)
+}
+type_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_type_src(),
+		stroke_blur: swap_fonts_type_default.stroke_blur()
 	)
 }
 type_shadow_color :=			{ rgba(0,0,0,0) }
@@ -6033,6 +6264,24 @@ type2_font_italic := {
 		font_name: swap_fonts_type2_default.italic()
 	)
 }
+type2_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_type2_src(),
+		stroke: swap_fonts_type2_default.stroke()
+	)
+}
+type2_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_type2_src(),
+		stroke_color: swap_fonts_type2_default.stroke_color()
+	)
+}
+type2_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_type2_src(),
+		stroke_blur: swap_fonts_type2_default.stroke_blur()
+	)
+}
 type2_shadow_color :=			{ rgba(0,0,0,0) }
 type2_shadow_displacement_x :=	{ 0 }
 type2_shadow_displacement_y :=	{ 0 }
@@ -6065,6 +6314,24 @@ type3_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_type3_src(),
 		font_name: swap_fonts_type3_default.italic()
+	)
+}
+type3_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_type3_src(),
+		stroke: swap_fonts_type3_default.stroke()
+	)
+}
+type3_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_type3_src(),
+		stroke_color: swap_fonts_type3_default.stroke_color()
+	)
+}
+type3_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_type3_src(),
+		stroke_blur: swap_fonts_type3_default.stroke_blur()
 	)
 }
 type3_shadow_color :=			{ rgba(0,0,0,0) }
@@ -6101,6 +6368,24 @@ body_font_italic := {
 		font_name: swap_fonts_body_default.italic()
 	)
 }
+body_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_body_src(),
+		stroke: swap_fonts_body_default.stroke()
+	)
+}
+body_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_body_src(),
+		stroke_color: swap_fonts_body_default.stroke_color()
+	)
+}
+body_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_body_src(),
+		stroke_blur: swap_fonts_body_default.stroke_blur()
+	)
+}
 
 body2_font := {
 	swap_font_name(
@@ -6130,6 +6415,24 @@ body2_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_body2_src(),
 		font_name: swap_fonts_body2_default.italic()
+	)
+}
+body2_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_body2_src(),
+		stroke: swap_fonts_body2_default.stroke()
+	)
+}
+body2_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_body2_src(),
+		stroke_color: swap_fonts_body2_default.stroke_color()
+	)
+}
+body2_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_body2_src(),
+		stroke_blur: swap_fonts_body2_default.stroke_blur()
 	)
 }
 
@@ -6163,6 +6466,24 @@ body3_font_italic := {
 		font_name: swap_fonts_body3_default.italic()
 	)
 }
+body3_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_body3_src(),
+		stroke: swap_fonts_body3_default.stroke()
+	)
+}
+body3_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_body3_src(),
+		stroke_color: swap_fonts_body3_default.stroke_color()
+	)
+}
+body3_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_body3_src(),
+		stroke_blur: swap_fonts_body3_default.stroke_blur()
+	)
+}
 
 pt_font := {
 	swap_font_name(
@@ -6192,6 +6513,24 @@ pt_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_pt_src(),
 		font_name: swap_fonts_pt_default.italic()
+	)
+}
+pt_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_pt_src(),
+		stroke: swap_fonts_pt_default.stroke()
+	)
+}
+pt_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_pt_src(),
+		stroke_color: swap_fonts_pt_default.stroke_color()
+	)
+}
+pt_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_pt_src(),
+		stroke_blur: swap_fonts_pt_default.stroke_blur()
 	)
 }
 
@@ -6225,6 +6564,24 @@ pt2_font_italic := {
 		font_name: swap_fonts_pt2_default.italic()
 	)
 }
+pt2_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_pt2_src(),
+		stroke: swap_fonts_pt2_default.stroke()
+	)
+}
+pt2_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_pt2_src(),
+		stroke_color: swap_fonts_pt2_default.stroke_color()
+	)
+}
+pt2_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_pt2_src(),
+		stroke_blur: swap_fonts_pt2_default.stroke_blur()
+	)
+}
 
 pt3_font := {
 	swap_font_name(
@@ -6254,6 +6611,24 @@ pt3_font_italic := {
 	swap_font_italic(
 		src: swap_fonts_pt3_src(),
 		font_name: swap_fonts_pt3_default.italic()
+	)
+}
+pt3_font_stroke := {
+	swap_font_stroke(
+		src: swap_fonts_pt3_src(),
+		stroke: swap_fonts_pt3_default.stroke()
+	)
+}
+pt3_font_stroke_color := {
+	swap_font_stroke_color(
+		src: swap_fonts_pt3_src(),
+		stroke_color: swap_fonts_pt3_default.stroke_color()
+	)
+}
+pt3_font_stroke_blur := {
+	swap_font_stroke_blur(
+		src: swap_fonts_pt3_src(),
+		stroke_blur: swap_fonts_pt3_default.stroke_blur()
 	)
 }
 
