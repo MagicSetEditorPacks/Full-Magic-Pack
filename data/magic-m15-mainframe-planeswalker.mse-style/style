@@ -6,7 +6,7 @@ position hint:		000001
 installer group:	magic/M15 Frames/Standard/M15 Planeswalker
 
 
-version:			2026-09-06
+version:			2026-09-08
 depends on:
 	package: 		magic.mse-game
 	version: 		2026-09-06
@@ -112,7 +112,8 @@ init script:
 		identity: "/magic-modules.mse-include/indicators/"
 		proto_box: "/magic-modules.mse-include/protoboxes/box/",
 		proto_cost: "/magic-modules.mse-include/protoboxes/cost/",
-		proto_pt: "/magic-modules.mse-include/protoboxes/pt/"
+		proto_pt: "/magic-modules.mse-include/protoboxes/pt/",
+		token_name: "token_names/"
 	]
 	template_suffix := [
 		card: "card.png"
@@ -139,7 +140,8 @@ init script:
 		identity: "identity.png"
 		proto_box: "box.png",
 		proto_cost: "cost.png",
-		proto_pt: "pt.png"
+		proto_pt: "pt.png",
+		token_name: ".png"
 	]
 	template := { 
 		if type_name(template_alternate_scripts[type] or else nil) != type_name(nil)
@@ -171,7 +173,7 @@ init script:
 	binding_background := { color_background(type:"binding", base_hybrid:card_hybrid, folder:"blend_masks/") }
 	double_flat_page_blend := { color_background(type:"double_flat", base_hybrid:card_hybrid, folder:template_prefix["double_flat"]) }
 	single_flat_page_blend := { color_background(type:"single_flat", base_hybrid:card_hybrid, folder:template_prefix["single_flat"]) }
-
+	token_name_plate := { color_background(type:"token_name", base_hybrid:card_hybrid, hybrid_blend:"black", multicolor_blend:"black", artifact_blend:"white") }
 	# Use the normal tap symbol
 	mana_t := {
 		if      styling.tap_symbol == "old"        then "old"
@@ -193,13 +195,12 @@ init script:
 		else                                     "loyalty naught"
 	}
 	
-	card_shape := {"planeswalker"}
 	name_tag_for_level := {""}
 	
 	swap_fonts_name_default := [
-		name: {"Beleren Bold"},
+		name: {if token_name() then "Beleren Small Caps Bold" else "Beleren Bold"},
 		size: {16},
-		color: {if is_multiplied() then "white" else "black"},
+		color: {if is_multiplied() then "white" else if is_token() and card.card_color != "white" then "white" else "black"},
 		vertical: {0},
 		italic: {""},
 		stroke: {0},
@@ -234,7 +235,7 @@ init script:
 	
 	# Does the card have four abilities?
 	has_four_abilities := { force_tall() or (not force_short() and loyalty_abilities_count(instance: 1, active:true) > 3) }
-	is_normal_size := { styling.default_image_size }	
+	is_normal_size := { styling.default_image_size and not is_token() }	
 
 	is_level_walker := { true }
 	unindent := { contains(styling.other_options, match:"un-indent nonloyalty abilities")}
@@ -290,6 +291,8 @@ init script:
 	is_vehicle := {chosen(styling.other_options, choice:"vehicle")}
 	is_prototype := {chosen(styling.other_options, choice:"prototype")}
 	is_pinned := {chosen(styling.other_options, choice:"pride pinlines")}
+	is_token := {contains(card.super_type, match:"Token")}
+	token_name := { card.casting_cost == "" and is_token() }
 	is_custom_border := {
 		if chosen(styling.other_options, choice:"custom border")
 			then has_png(styling.custom_border_source)
@@ -319,7 +322,7 @@ init script:
 	}
 	pw_font_size := { if styling.font_size != "" then styling.font_size else 12 }
 	
-	card_shape := {if use_adv() then "adventure" else "planeswalker"}
+	card_shape := { if is_token() then "token" else if use_adv() then "adventure" else "planeswalker"}
 	adventure_shape := {"double page"}
 	page_image := {
 		as := adventure_shape()
@@ -350,6 +353,9 @@ init script:
 			else if transform_symbol_active_right(card.transformation) then "x_node_right.png"
 			else ""
 		if is_clear() and side_mask != "" then image := set_mask(mask:side_mask)
+		## token mask
+		if is_token()
+			then image := set_mask(mask:"frame_masks/token" + (if use_full_art() then "_borderless" else "") + (if has_four_abilities() then "_four" else "") + ".png")
 		## borderless mask
 		borderless_mask := if use_full_art() 
 					then "borderless" + (if has_four_abilities() then "_four" else "") + ".png"
@@ -373,7 +379,7 @@ init script:
 
 	image_mask_script := {
 		image := "guidelines/"
-			+ (if use_full_art() or is_clear() then "borderless" else "mask")
+			+ (if is_token() or use_full_art() or is_clear() then "borderless" else "mask")
 			+ (if has_four_abilities() then "_four.png" else ".png")
 		
 		if contains(styling.custom_mask, match:".png")
@@ -775,9 +781,9 @@ card style:
 					then 48
 				else 31
 		top: 22
-		right: { 339 - card_style.casting_cost.content_width }
+		right: { 339 - ( if is_token() then 0 else card_style.casting_cost.content_width) }
 		height: { 23 - (0.5 * shrink_name()) }
-		alignment: bottom shrink-overflow
+		alignment: { (if token_name() then "center " else "") + "bottom shrink-overflow" }
 		padding bottom: 0
 		z index: 900
 		font:
@@ -818,9 +824,9 @@ card style:
 
 	############################# Image
 	image:
-		left: { if use_full_art() or is_clear() then 0 else if is_normal_size() then 25 else 15 }
+		left: { if use_full_art() or is_clear() then 0 else if is_normal_size() then 25 else 14 }
 		top: { if use_full_art() or is_clear() then 0 else if is_normal_size() then 52 else 15 }
-		width: { if use_full_art() or is_clear() then 375 else if is_normal_size() then (if is_notched() then 330 else 324) else 345 }
+		width: { if use_full_art() or is_clear() then 375 else if is_normal_size() then (if is_notched() then 330 else 324) else 347 }
 		height:	{ if use_full_art() or is_clear() then 523 else if is_normal_size() then 428 else 493 }
 		z index: 100
 		mask: { image_mask_script() }
@@ -850,10 +856,10 @@ card style:
 		height: 17
 		z index: 800
 		render style: image
-		visible: { has_identity()}
+		visible: { has_identity() and not is_token()}
 		image: { module_identity() }
 	type:
-		left: { if has_identity() then "53" else "33" }
+		left: { if has_identity() and not is_token() then "53" else "33" }
 		top: { (if has_four_abilities() then 261 else 296) + shrink_type() }
 		width: { 309 - rare_width() + (if hidden_back_rarity() then 22 else 0) }
 		height: { 20 - shrink_type() }
@@ -1170,7 +1176,12 @@ extra card field:
 	choice: ledge
 	save value: false
 	editable: false
-
+extra card field:
+	type: choice
+	name: token name bar
+	script: card.card_color
+	save value: false
+	editable: false
 extra card style:
 	foil layer:
 		left: 0
@@ -1355,3 +1366,12 @@ extra card style:
 		render style: image
 		image: {"cards/front_ledge" + (if is_adventure() then "_long" else "") + ".png" }
 		visible: { not use_full_art() and use_ledge() }
+	token name bar:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 190
+		render style: image
+		image: { if card.card_color == "white" then "token_names/white.png" else token_name_plate() }
+		visible: { is_token() }
