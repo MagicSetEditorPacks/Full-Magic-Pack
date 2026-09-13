@@ -9,7 +9,7 @@ installer group:	magic/M15 Frames/Uncommon/Godzilla Main
 
 ###################################### Template made by Redwavez
 
-version: 2024-06-06
+version: 2026-09-13
 depends on:
 	package: magic.mse-game
 	version: 2026-08-28
@@ -78,7 +78,9 @@ init script:
 		identity: "/magic-modules.mse-include/indicators/"
 		alias: "alias/"
 		tall: "tall/"
-		short: "short/"
+		short: "short/",
+		spree: "spree/",
+		notch: "notch/"
 	]
 	template_suffix := [
 		card: "card.png"
@@ -91,11 +93,16 @@ init script:
 		alias: "card.png"
 		tall: "card.png"
 		short: "card.png"
+		spree: ".png"
+		notch: ".png"
 	]
 	template      := { (if is_custom() and type == "crown" then ("custom_crown" + styling.custom_crown_location + "/") else ( template_prefix[type] + (if type == "crown" and no_als() then "noals/" else "") + (if is_nyx() and type == "crown" then "nyx/" else if is_com() and type == "crown" then "com/") ) ) + input + template_suffix[type]}
 	land_template := template
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
+	
+	notch_image := { color_background(type:"notch", base_hybrid:card_hybrid, hybrid_blend:"white", multicolor_blend:"white", artifact_blend:"white") }
+	spree_image := { color_background(type:"spree", base_hybrid:card_hybrid, hybrid_blend:"white", multicolor_blend:"white", artifact_blend:"white") }
 	
 	# Use the normal tap symbol
 	mana_t := {
@@ -118,9 +125,40 @@ init script:
 	ancestral_mana := { styling.ancestral_mana_symbols }
 	is_unsorted := {styling.remove_from_autocount}
 
-	back_face_hint_disabled := { true }
 	node_folder := { "node/" }
 	transform_symbol_offset_top_1 := {-1}
+	image_mask := {
+		image := "imagemask/" + (if is_tall() then "tall" else if is_short() then "short" else "base") + ".png"
+		if not no_als() then image := insert_image(
+			base_image: image,
+			inserted_image: "imagemask/alias.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		if is_notched() then image := insert_image(
+			base_image: image,
+			inserted_image: "imagemask/notch.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		image
+	}
+	cover_mask := {
+		image := "cover/" + (if is_tall() then "tall" else if is_short() then "short" else "base") + ".png"
+		if not no_als() then image := insert_image(
+			base_image: image,
+			inserted_image: "cover/alias.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		if is_notched() then image := insert_image(
+			base_image: image,
+			inserted_image: "cover/notch.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		image
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -313,6 +351,7 @@ card style:
 		render style: image
 		popup style: in place
 		image: {if is_tall() then tall_background() else if is_short() then short_background() else card_background()}
+		mask: { if is_notched() then "notch/mask.png" else "" }
 	############################# Name line
 	
 	name:
@@ -359,7 +398,7 @@ card style:
 		height:	523
 		z index: 1
 		default: {default_image(card.card_color)}
-		mask: {"mask" + (if no_als() then "" else "_alias") + (if is_tall() then "_tall" else if is_short() then "_short" else "") + ".png"}
+		mask: { image_mask() }
 		store in metadata:	true
 	############################# Card type
 	indicator:
@@ -483,6 +522,19 @@ extra card field:
 	editable: false
 	save value: false
 	show statistics: false
+extra card field:
+	type: choice
+	name: notch
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: spree
+	choice: none
+	choice: spree
+	editable: true
+	save value: true
 extra card style:
 	pt box:
 		left: 273
@@ -531,4 +583,25 @@ extra card style:
 		height: 523
 		z index: 1
 		render style: image
-		image: {"cover/mask" + (if no_als() then "" else "_alias") + (if is_tall() then "_tall" else if is_short() then "_short" else "") + ".png"}
+		image:  { cover_mask() }
+
+	notch:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		render style: image
+		image: { notch_image() }
+	
+	spree:
+		z index: 810
+		left: 0
+		top: 0
+		width: { if transform_symbol_active_right(card.transformation) then 0 else 375 }
+		height: 523
+		render style: image
+		popup style: in place
+		choice images:
+			spree: { spree_image(card.card_color) }
+		mask: click_mask_spree.png
