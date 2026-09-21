@@ -44,11 +44,11 @@ leveler_stripe_effect_mask := {
 ## set it to "" when you want to disable auto-spacecraft checking
 check_auto_spacecraft := { card.sub_type }
 
-## This module updates swap_fonts_pt_default for station PT boxes
+## This module updates swap_fonts_pt_default for white text on station, vehicle, and back face pts
 ## If you change swap_fonts_pt_default, make sure to define it after this script include
 ## And add the station handling into the size and color definitions
-size: { if leveler_container_shape() == "station" then 13 else 15},
-color: { if leveler_vehicle_containers() or leveler_container_shape() == "station" then "white" else "black"},
+size: {if leveler_station_pt() then 13 else 15},
+color: {if leveler_vehicle_containers() or leveler_station_pt() or is_back_face() then "white" else "black"},
 
 ## The module defaults to handling small PT boxes, but has compatibility with full-canvas pt boxes some showcases use
 leveler_canvas_ptboxes := {
@@ -176,3 +176,14 @@ leveler_margins_left := leveler_margins_left + ["shape":20]
 ## if the shape doesn't use labels, such as Station, concat to this array
 leveler_unlabeled_shape_array := leveler_unlabeled_shape_array + ["shape"]
 
+## if the shape needs a different font size, concat to this array
+leveler_container_font_sizes := leveler_container_font_sizes + ["shape":20]
+
+## Arrow and Box containers will fit their Level field to the whole container when the label is " "
+## You can add that effect to your shape by redefining this function
+## parameter mana is true when invoked from the symbol font
+leveler_blanked_label_font_offset := {
+	if (shape == "arrow" and not mana) 	then 2
+	else if shape == "box"				then 2
+	else									 0
+}

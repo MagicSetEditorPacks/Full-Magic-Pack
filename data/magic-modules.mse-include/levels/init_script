@@ -34,8 +34,8 @@ leveler_vehicle_containers := { match_vehicle(card.sub_type) }
 ## add spacecraft
 swap_fonts_pt_default := [
 	name: {"Beleren Bold"},
-	size: { if leveler_station_pt() then 13 else 15},
-	color: { if leveler_vehicle_containers() or leveler_station_pt() then "white" else "black"},
+	size: {if leveler_station_pt() then 13 else 15},
+	color: {if leveler_vehicle_containers() or leveler_station_pt() or is_back_face() then "white" else "black"},
 	vertical: {0},
 	italic: {""},
 	stroke: {0},
@@ -159,7 +159,7 @@ margin_top_calc := {
 }
 margin_top_user := {
 	margins := split_comma(styling.level_padding or else "")
-	if length(margins) < level or margins[level-1] == "" then ""
+	if level == 0 or length(margins) < level or margins[level-1] == "" then ""
 	else (
 		given := to_int(to_number_lax(margins[level-1]))
 		if given < 0 then "" else given
@@ -703,19 +703,27 @@ leveler_multiply := {
 
 ######## Fonts
 ## fonts for level label
-leveler_label_font := { "Beleren Small Caps" }
+leveler_label_font 		:= { "Beleren Small Caps" }
 leveler_label_font_size := { leveler_coord_factor() * 7.5 }
+## font size for the level number
+leveler_container_font_sizes := [
+	"circle":	10,
+	"station":	10,
+	"loyalty":	11,
+	"fallback":	12
+]
 leveler_label_font_size_big := { 
 	shape := leveler_container_shape()
-	base := if shape == "circle" or shape == "station"
-		then 10
-	else if shape == "loyalty"
-		then 11
-	else if shape == "box"
-		then 12 + (if leveler_blanked_label(level:1) then 2 else 0)
-	else 12 + (if not mana and leveler_blanked_label(level:1) then 2 else 0)
+	base := leveler_container_font_sizes[shape] or else leveler_container_font_sizes["fallback"]
+	if leveler_blanked_label(level:1) then base := base + leveler_blanked_label_font_offset()
 	leveler_coord_factor() * base
 }@(mana:false)
+leveler_blanked_label_font_offset := {
+	if (shape == "arrow" and not mana) 	then 2
+	else if shape == "box"				then 2
+	else									 0
+}
+## font color for both
 leveler_label_font_color := {
 	shape := leveler_container_shape()
 	if shape == "loyalty" or shape == "circle" or shape == "station"
@@ -726,9 +734,10 @@ leveler_label_font_color := {
 		then "white"
 	else "black"
 }
-leveler_label_font_stroke := { 0 }
+## font stroke for both
+leveler_label_font_stroke 		:= { 0 }
 leveler_label_font_stroke_color := { "white" }
-leveler_label_font_stroke_blur := { 0.55 }
+leveler_label_font_stroke_blur 	:= { 0.55 }
 
 #### Offsets
 leveler_container_offset_left := { 0 }
