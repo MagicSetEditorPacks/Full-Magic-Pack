@@ -111,6 +111,11 @@ leveler_ptbox_left_coord
 leveler_ptbox_width_coord
 leveler_ptbox_height_coord
 
+## internal offsets for level container textboxes, positive moves towards the center
+leveler_ptbox_text_inset_top
+leveler_ptbox_text_inset_left
+leveler_ptbox_text_inset_width
+
 ## parameters for color_multiply
 leveler_multiply_dimensions := [
 	"arrow": 		[height:90, width:112,	mask:""],
