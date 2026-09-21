@@ -1,0 +1,728 @@
+## Verify HD
+## Verify Battle
+## Verify Mainframe
+## TODO dividers and bars card fields
+
+######## Backend
+## use all the leveler fields
+leveler_enabled := { true }
+
+## by default upscale coordinates for 750 frames
+## you may set this to 1 and define coordinates based on the 750 canvas instead of downsizing
+leveler_coord_factor := { face_factor(1) }
+
+## allow color scripting off different card_color fields, input is level number, 0-indexed
+color_field := { card.card_color }
+
+## multiply gradient
+multi_scale := [0, 0.35, 0.55, 0.75, 0.85, 1.0, 1.1]
+## constant for for-loops
+max_supported_levels := 6
+
+## used to hide arrow and pt inputs of lower levels
+last_active_level := {
+	lv := 0
+	for x from 1 to max_supported_levels do (
+		if card["level_{x}_text"] != "" then lv := x
+	)
+	lv
+}
+
+leveler_margin_code := filter_text@(match:"[0-9]+", in_context:"^lv<match>")
+
+## disable separator flavor bar
+flavor_bar_disabled_1 := { leveler_enabled() }
+
+## add spacecraft
+swap_fonts_pt_default := [
+	name: {"Beleren Bold"},
+	size: { if leveler_station_pt() then 13 else 15},
+	color: { if use_vehicle_boxes() or leveler_station_pt() then "white" else "black"},
+	vertical: {0},
+	italic: {""},
+	stroke: {0},
+	stroke_color: {"black"},
+	stroke_blur: {0}
+]
+
+## is_spacecraft is run against this string
+## if blank, autostation is disabled
+check_auto_spacecraft := {
+	card.sub_type
+}
+
+leveler_station_pt := { leveler_ptbox_shape() == "station_pt" }
+######## Text Scripts
+alt_text := { leveler_enabled() }
+alt_text_script := {
+	combined_editor(
+		field1: card.level_1_text,
+		separator1: "<line>\n</line>",
+		field2: card.level_2_text,
+		separator2: "<line>\n</line>",
+		field3: card.level_3_text,
+		separator3: "<line>\n</line>",
+		field4: card.level_4_text,
+		separator4: "<line>\n</line>",
+		field5: card.level_5_text,
+		separator5: "<line>\n</line>",
+		field6: card.level_6_text
+	)
+}
+
+text_filter :=	text_filter + {apply_margins(input, name:margin_code)}
+
+## margin around the level container
+margin_left := {
+	level := to_int(leveler_margin_code(margin_code))
+	if not leveler_enabled() or level == 0 or level > max_supported_levels then 0 else (
+		leveler_field := card["level_{level-1}"]
+		if leveler_field == "" then 0
+		else leveler_margin_factor(left:true)
+		
+	)
+}
+## margin around the pt box
+margin_right := {
+	level := to_int(leveler_margin_code(margin_code))
+	if not leveler_enabled() or level == 0 or level > max_supported_levels or leveler_regular_pt() then 0 else (
+		tag := if level == 1 then "" else "_{level}"
+		pt_field := card["pt{tag}"]
+		if remove_tags(pt_field) == "" then 0
+		else leveler_margin_factor(left:false)
+		
+	)
+}
+leveler_margin_factor := {
+	shape := if left then leveler_container_shape() else leveler_ptbox_shape()
+	map := if left then leveler_margins_left else leveler_margins_right
+	offset := if left then leveler_margin_offset_left() else leveler_margin_offset_right()
+	base := (map[shape] or else map["fallback"])
+	factor := leveler_coord_factor()
+	10 * to_int((base + offset))
+}
+## margin to pad the level height
+margin_top := {
+	level := to_int(leveler_margin_code(margin_code))
+	if level == 0 or not leveler_enabled() or level > max_supported_levels or line_count(card["level_{level}_text"]) > 1 then 0 else margin_top_triage()
+}
+## check if we need to add/remove margins
+margin_top_triage := {
+	## if there's 1 liners we always want to pad those
+	## if there's 5 or fewer lines we may want to pad that too, but less important
+	## if neither then we're in danger of causing problems instead of fixing them, just remove the margins
+	total_height := card_style.text.height
+	lines_ar := []
+	one_liner := 0
+	six_lines := 0
+	blocks := for each b in card_style.text.layout.blocks do (
+		l_count := if b.height == 0 then 0 else length(b.lines)
+		if l_count == 1 then one_liner := 1
+		six_lines := six_lines + l_count
+		lines_ar := lines_ar + [l_count]
+		if b.height == 0 then 0 else 1
+	)
+	if blocks < 2 then 0 else if one_liner == 0 and six_lines >= 6 then 0 else to_int(margin_top_calc())
+}
+## calculate the margin
+margin_top_calc := {
+	lines := for each l in card_style.text.layout.lines do (if l.height == 0 then 0 else 1)
+	
+	lhs := card_style.text.line_height_soft
+	lhl := card_style.text.line_height_line - lhs
+	
+	line_height := card_style.text.layout.lines[0].height
+	lines_height := ((lines * lhs) + (blocks * lhl)) * line_height
+	
+	remainder := total_height - lines_height
+	margins := [0]
+	
+	minipad := to_int(6 * leveler_coord_factor())
+	
+	## prioritize 1 liners that are smaller than the arrow
+	for x from 1 to max_supported_levels-1 do (
+		pad := 0
+		if (lines_ar[x] or else 0) == 1 and remainder > minipad then (
+			pad := minipad
+			remainder := remainder - pad
+		)
+		margins := margins + [pad]
+	)
+	## divide the remainder evenly
+	pad := if remainder <= 0 then 0 else to_int(remainder / last_active_level())
+	base := if level == 0 then 0 ## idk what is causing this
+	else if level == 1 then min(5, pad / 3)
+	else min(15, (margins[level-1] or else 0) + pad)
+	leveler_coord_factor() * base
+}
+
+######## Styling
+## get the level shape from styling.level_containers
+leveler_container_shape := {
+	src := styling.level_containers or else "fallback"
+	str := remove_tags(check_auto_spacecraft())
+	if str != "" and (lang_setting("is_spacecraft")(str) or lang_setting("is_planet")(str))
+		then src := "station"
+	case src of
+		"pt boxes": "box",
+		"loyalty boxes": "loyalty",
+		"circles": "circle",
+		"station": "station",
+		"arrows": "arrow",
+		else: src
+}
+leveler_ptbox_shape := {
+	if leveler_container_shape() == "station" then "station_pt" else "pt"
+}
+leveler_container_offset_left := { 0 }
+leveler_container_offset_top := { 0 }
+leveler_ptbox_offset_left := { 0 }
+leveler_ptbox_offset_top := { 0 }
+leveler_margin_offset_left := { 0 }
+leveler_margin_offset_right := { 0 }
+
+use_vehicle_boxes := { match_vehicle(card.sub_type) }
+
+leveler_pt_disabled := {
+	if input == 1 then leveler_no_pt()
+	else (not leveler_enabled()) or leveler_regular_pt() or leveler_no_pt()
+}
+leveler_regular_pt := { false }
+leveler_no_pt := { false }
+
+leveler_label_default_string := { "level" }
+leveler_label_default := {
+	if leveler_unlabeled_shape() then "" else (
+		labels := split_comma(styling.default_level_label or else "")
+		index := input
+		if input >= length(labels) then index := 0
+		label := labels[index] or else ""
+		if label == "" then leveler_label_default_string() else label
+	)
+}
+leveler_unlabeled_shape_array := ["loyalty", "station", "circle"]
+leveler_unlabeled_shape := {
+	position(of:leveler_container_shape(), in:leveler_unlabeled_shape_array) >= 0
+}
+
+## special handling for intentionally blank level labels
+leveler_blanked_label := {
+	label_field := extra_card["level_{level-1}_label"]
+	is_default(label_field) and label_field == " "
+}
+
+######## Coordinates
+#### templates can concat these to add new shapes
+#### these are set for 375x523 templates, scaled with leveler_coord_factor
+## margin leveler_text for container
+leveler_margins_left := [
+	"station":	14,
+	"circle":	14,
+	"loyalty":	28,
+	"box":		49,
+	"arrow":	46,
+	"fallback": 0
+]
+## margin leveler_text for pt
+leveler_margins_right := [
+	"station_pt":	52,
+	"pt":			56
+	"fallback": 	0
+]
+
+## container left
+leveler_container_left_coord := [
+	"station":	12,
+	"circle":	12,
+	"loyalty":	10,
+	"box":		-3,
+	"arrow":	15,
+	"fallback": 0
+]
+## container width
+leveler_container_width_coord := [
+	"station":	30,
+	"circle":	30,
+	"loyalty":	42,
+	"box":		84,
+	"arrow":	56,
+	"fallback":	0
+]
+## container height
+leveler_container_height_coord := [
+	"station":	30,
+	"circle":	30,
+	"loyalty":	40,
+	"box":		50,
+	"arrow":	45,
+	"fallback":	0
+]
+## container top offset
+leveler_container_top_correction := [
+	"arrow":	-2,
+	"loyalty":	3,
+	"fallback":	0
+]
+
+
+## ptbox left
+leveler_ptbox_left_coord := [
+	"station_pt":	294,
+	"pt":			285,
+	"fallback": 	0
+]
+## ptbox width
+leveler_ptbox_width_coord := [
+	"station_pt":	62,
+	"pt":			70,
+	"fallback":		0
+]
+## ptbox height
+leveler_ptbox_height_coord := [
+	"station_pt":	32,
+	"pt":			39,
+	"fallback":		0
+]
+## non-leveler pt placement
+leveler_pt_normal_left := {
+	if leveler_canvas_pt(shape:	leveler_ptbox_shape()) then 0
+	else 293 * leveler_coord_factor()
+}
+leveler_pt_normal_top := {
+	if leveler_canvas_pt(shape:	leveler_ptbox_shape()) then 0
+	else 467 * leveler_coord_factor()
+}
+leveler_canvas_ptboxes := {[]}
+leveler_canvas_pt := {
+	leveler_canvas_ptboxes()[shape] or else nil != nil
+}
+
+## internal offsets for text fields in the container
+## move top of labels down N from top of container
+leveler_container_text_inset_top := [
+	"arrow":	9,
+	"box":		9,
+	"fallback": 0
+]
+## move bottom of labels up N from bottom of container
+leveler_container_text_inset_bottom := [
+	"arrow":	9,
+	"box":		14,
+	"loyalty":	14,
+	"fallback":	0
+]
+## move left of labels left N from left of container
+leveler_container_text_inset_left := [
+	"arrow":	7,
+	"box":		10,
+	"circle":	2,
+	"station":	2,
+	"loyalty":	8,
+	"fallback":	0
+]
+## reduce width of labels N from width of container
+leveler_container_text_inset_width := [
+	"arrow":	24,
+	"box":		15,
+	"loyalty":	16,
+	"circle":	2,
+	"station":	2,
+	"fallback":	0
+]
+
+
+## dimensions for color_multiply
+## multiply will only be applied if the type is defined here and the width is non-zero
+## pt and station_pt are for the actual pt boxes, box is ptbox containers
+leveler_multiply_dimensions := [
+	"arrow": 		[height:90, width:112,	mask:""],
+	"box": 			[height:76, width:135,	mask:"/magic-modules.mse-include/pts/375 m15/multiply_mask.png"],
+	"pt": 			[height:76, width:135,	mask:"/magic-modules.mse-include/pts/375 m15/multiply_mask.png"],
+	"station_pt": 	[height:0, 	width:0, 	mask:""]
+]
+
+######## Field Calculations
+leveler_container_left := {
+	(leveler_coord_factor() * (leveler_container_left_coord[leveler_container_shape()] or else leveler_container_left_coord["fallback"])) + leveler_container_offset_left()
+}
+leveler_container_width := {
+	leveler_coord_factor() * (leveler_container_width_coord[leveler_container_shape()] or else leveler_container_width_coord["fallback"])
+}
+leveler_container_height := {
+	leveler_coord_factor() * ((leveler_container_height_coord[leveler_container_shape()] or else leveler_container_height_coord["fallback"]) - unlabled_container_height_correction())
+}
+## correct for smaller Box containers when intentionally unlabeled
+unlabled_container_height_correction := {
+	if not leveler_blanked_label() then 0
+	else (
+		shape := leveler_container_shape()
+		if shape == "box" then 8
+		else 0
+	)
+}
+leveler_container_top := {
+	if last_active_level() < level then 1.2 * stylesheet.card_height else (
+		center := leveler_level_center()
+		height := leveler_container_height()
+		## neither of these need coord_factor applied
+		center - (height/2) + leveler_container_correction_top() + leveler_container_offset_top()
+	)
+}
+## correct for loyalty cost offset and arrow shadow offset
+leveler_container_correction_top := {
+	shape := leveler_container_shape()
+	leveler_coord_factor() * (leveler_container_top_correction[leveler_container_shape()] or else leveler_container_top_correction["fallback"])
+}
+
+leveler_ptbox_left := {
+	shape := leveler_ptbox_shape()
+	if leveler_regular_pt() or not leveler_enabled() then leveler_pt_normal_left()
+	else if leveler_canvas_pt() then 0 + leveler_ptbox_offset_left()
+	else (leveler_coord_factor() * (leveler_ptbox_left_coord[leveler_ptbox_shape()] or else leveler_ptbox_left_coord["fallback"])) + leveler_ptbox_offset_left()
+}
+leveler_ptbox_width := {
+	shape := leveler_ptbox_shape()
+	if leveler_canvas_pt() then stylesheet.card_width
+	else leveler_coord_factor() * (leveler_ptbox_width_coord[shape] or else leveler_ptbox_width_coord["fallback"])
+}
+leveler_ptbox_height := {
+	shape := leveler_ptbox_shape()
+	if leveler_canvas_pt() then stylesheet.card_height
+	else leveler_coord_factor() * (leveler_ptbox_height_coord[shape] or else leveler_ptbox_height_coord["fallback"])
+}
+leveler_ptbox_top := {
+	if last_active_level() < level then 1.2 * stylesheet.card_height
+	else if leveler_regular_pt() or not leveler_enabled() then leveler_pt_normal_top() else (
+		center := leveler_level_center()
+		height := leveler_ptbox_height()
+		## neither of these need coord_factor applied
+		center - (height/2) + leveler_ptbox_correction_top() + leveler_ptbox_offset_top()
+	)
+}
+## correction for ptbox shadow
+leveler_ptbox_correction_top := {
+	shape := leveler_ptbox_shape()
+	if leveler_canvas_pt() then leveler_canvas_ptboxes()[shape].offset_top
+	else 2 * leveler_coord_factor()
+}
+
+leveler_pt_text_top := {
+	shape := leveler_ptbox_shape()
+	top   := leveler_ptbox_top()
+	inset := if leveler_canvas_pt() then leveler_canvas_ptboxes()[shape].pt_top
+			 else leveler_pt_text_inset_top()
+	top + inset + pt_font_vertical()
+}
+leveler_pt_text_inset_top := {
+	3 * leveler_coord_factor()
+}
+leveler_pt_text_left := {
+	shape := leveler_ptbox_shape()
+	left  := leveler_ptbox_left()
+	inset := if leveler_canvas_pt() then leveler_canvas_ptboxes()[shape].pt_left
+			 else leveler_pt_text_inset_left()
+	left + inset
+}
+leveler_pt_text_inset_left := {
+	8 * leveler_coord_factor()
+}
+leveler_pt_text_width := {
+	shape := leveler_ptbox_shape()
+	if leveler_canvas_pt() then leveler_canvas_ptboxes()[shape].pt_width
+	else leveler_ptbox_width() + leveler_pt_text_inset_width()
+}
+leveler_pt_text_inset_width := {
+	-10 * leveler_coord_factor()
+}
+leveler_pt_text_height := {
+	shape := leveler_ptbox_shape()
+	if leveler_canvas_pt() then leveler_canvas_ptboxes()[shape].pt_height
+	else leveler_ptbox_height() + leveler_pt_text_inset_height()
+}
+leveler_pt_text_inset_height := {
+	-10 * leveler_coord_factor()
+}
+
+leveler_level_center := {
+	style_field := card_style.text
+	if style_field.layout.blocks[level-1].bottom or else 0 > 0
+	then style_field.top + style_field.layout.blocks[level-1].middle
+	else stylesheet.card_height * 1.2
+}
+
+## adjust the textboxes in the level container
+leveler_label_height := {
+	10 * leveler_coord_factor()
+}
+leveler_label_top := {
+	leveler_container_top() + leveler_level_correction_top()
+}
+leveler_level_top := {
+	container_top := leveler_container_top()
+	label_height := if leveler_unlabeled_shape() or leveler_blanked_label() then 0 else leveler_label_height()
+	container_top + label_height + leveler_level_correction_top()
+}
+leveler_level_correction_top := {
+	shape := leveler_container_shape()
+	base := if shape == "loyalty" then (
+			level_field := card["level_{level-1}"]
+			if contains(level_field, match:"+") then 10
+			else if contains(level_field, match:"-") then 4
+			else 7
+		)
+		else (leveler_container_text_inset_top[shape] or else leveler_container_text_inset_top["fallback"])
+
+	leveler_coord_factor() * base
+}
+leveler_level_bottom := {
+	leveler_container_top() + leveler_container_height() - leveler_level_correction_bottom()
+}
+leveler_level_correction_bottom := {
+	shape := leveler_container_shape()
+	leveler_coord_factor() * (leveler_container_text_inset_bottom[shape] or else leveler_container_text_inset_bottom["fallback"])
+}
+leveler_level_left := {
+	leveler_container_left() + leveler_level_correction_left()
+}
+leveler_level_correction_left := {
+	shape := leveler_container_shape()
+	leveler_coord_factor() * (leveler_container_text_inset_left[shape] or else leveler_container_text_inset_left["fallback"])
+}
+leveler_level_width := {
+	leveler_container_width() - leveler_level_correction_width()
+}
+leveler_level_correction_width := {
+	shape := leveler_container_shape()
+	leveler_coord_factor() * (leveler_container_text_inset_width[shape] or else leveler_container_text_inset_width["fallback"])
+}
+leveler_colon_correction_left := { -3 * leveler_coord_factor() }
+
+######## Images
+## resolve the container image
+leveler_container := {
+	## todo smaller aug pt boxes
+	shape := leveler_container_shape()
+	
+	image := case shape of
+		"arrow": arrow_container(),
+		"circle": circle_container(),
+		"station": circle_container(),
+		"box": box_container(),
+		"loyalty": loyalty_container(card["level_{level-1}"]),
+		"fallback": "",
+		else: leveler_custom_container()
+	
+	container_multiply()
+}
+## apply multiply to level container or ptbox
+container_multiply := {
+	multiply := if is_back_face() then multi_scale[level+1] else multi_scale[level-1]
+	multiply_dimensions := leveler_multiply_dimensions[shape] or else [width:0, height:0, mask:""]
+	if multiply_dimensions.width == 0 then multiply := 0
+
+	if multiply <= 0
+		then image
+	else color_multiply(
+		iterate:		multiply,
+		width:			multiply_dimensions.width,
+		height:			multiply_dimensions.height,
+		multiply_mask:	multiply_dimensions.mask
+	)
+}
+#### template scripts, user can overwrite to change the folder, add vehicle handling, etc
+leveler_arrow_template := {
+	if use_vehicle_boxes() then input := "v"
+	"/magic-modules.mse-include/levels/arrows/" + input + ".png"
+}
+leveler_circle_template := {
+	"/magic-modules.mse-include/levels/circles/station/" + input + "circle.png"
+}
+leveler_box_template := {
+	if use_vehicle_boxes() then input := "v"
+	"/magic-modules.mse-include/pts/375 m15/" + input + "pt.png"
+}
+leveler_ptbox_template := leveler_box_template
+leveler_station_pt_template := {
+	"/magic-modules.mse-include/pts/375 m15/station/" + input + "pt.png"
+}
+
+## blend images for each shape
+arrow_container := {
+	template := leveler_arrow_template
+	land_template := template
+	mask_hybrid_with_colorless := {true}
+	color_background(type:"arrow", base_hybrid:card_hybrid, artifact_blend:"white", hybrid_blend:"black", multicolor_blend:"black")
+}
+circle_container := {
+	template := leveler_circle_template
+	land_template := template
+	color_background(type:"circle", base_hybrid:flip_pt_hybrid2, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white")
+}
+box_container := {
+	template := leveler_box_template
+	land_template := template
+	color_background(type:"pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"black", multicolor_blend:"black")
+}
+loyalty_container := {
+	"/magic-modules.mse-include/loyalty/loyalty cost " + (
+		if      contains(input, match: "+") then "+.png"
+		else if contains(input, match: "-") then "-.png"
+		else                                     "0.png"
+	)
+}
+
+## resolve the ptbox image
+leveler_ptbox := {
+	if leveler_ptbox_shape() == "station_pt" then station_ptbox_image()
+	else leveler_ptbox_image()
+}
+station_ptbox_image := {
+	template := leveler_station_pt_template
+	land_template := template
+	color_background(type:"station_pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white")
+}
+leveler_ptbox_image := {
+	template := leveler_ptbox_template
+	land_template := template
+	image := color_background(type:"pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"black", multicolor_blend:"black")
+	
+	container_multiply(shape:"pt")
+}
+## if a template adds new shapes, use this script to return their images
+## input is color_field, also provides shape (the styling.level_containers value) and level (1-indexed)
+leveler_custom_container := { "" }
+
+## multiply the levels onto the card
+## the base mask, it's a multiply mask so black is where we want levels to appear
+leveler_stripes_mask := {
+	"/magic-modules.mse-include/levels/multiply_mask_levels"
+	+ (if is_notched() then "_notched" else "")
+	+ ".png"
+}
+## generate the gradient mask
+multiply_levels_mask := {
+	text_top := card_style.text.top
+	text_bottom := card_style.text.bottom
+	
+	mask := crop_image(
+		"/magic-modules.mse-include/multiply/white.png",
+		offset_x:0,
+		offset_y:0,
+		height: height,
+		width: width,
+		background_color: "white"
+	)
+	stripe_mask := leveler_stripes_mask()
+	
+	for x from start to end do (
+		lv_top := if x == 0 then 0
+			else text_top + (card_style.text.layout.separators[x-1] or else stylesheet.card_height)
+		lv_bottom := if x == end then height
+			else text_top + (card_style.text.layout.separators[x] or else stylesheet.card_width) + 1
+
+		stripe_effect_mask := leveler_stripe_effect_mask(level:x+1)
+		has_effect := type_of(stripe_effect_mask.image) == "image" or stripe_effect_mask.image != ""
+		if has_effect then (
+			lv_top := lv_top - stripe_effect_mask.top_offset
+			lv_bottom := lv_bottom + stripe_effect_mask.bottom_offset
+		)
+		lv_top := to_int(lv_top)
+		lv_bottom := to_int(lv_bottom)
+		lv_height := lv_bottom - lv_top
+		
+		if lv_height > 0 then (
+			cropped := crop_image(
+				stripe_mask,
+				height: lv_height,
+				width: width,
+				offset_x: 0,
+				offset_y: lv_top
+			)
+			
+			if has_effect then (
+				## nine slice to the proper size
+				stripe_effect_mask_image := nine_slice_image(
+					stripe_effect_mask.image,
+					height: lv_height,
+					width: width,
+					top: stripe_effect_mask.top_margin,
+					bottom: stripe_effect_mask.bottom_margin,
+					left: 0,
+					right: 0,
+				)
+				cropped := set_mask(image:cropped, mask:stripe_effect_mask_image)
+			)
+			
+			mask := insert_image(
+				base_image: mask,
+				inserted_image: set_alpha(cropped, alpha:(multi_scale[x+bump]/iterate)),
+				offset_x: 0,
+				offset_y: lv_top,
+				widen: false
+			)
+
+			
+		)
+		"dummy return"
+	)
+	
+	mask
+}
+leveler_stripe_effect_mask := { [image:""] }
+## the script that templates will use
+## input: card_color, image: image to multiply
+## returns image with the level multiplication applied
+## supports DFC module notch and extra backface muliplication
+multiply_levels := {
+	## put these here to make sure multiply_levels_mask uses the same ones
+	width := stylesheet.card_width
+	height := stylesheet.card_height
+	start := 1
+	end := last_active_level()-1
+	bump := 0
+	if is_back_face() then (
+		start := 0
+		bump := 1
+	)
+	iterate := round_up(multi_scale[end+bump] or else 0)
+
+	## skip if we haven't loaded text layout yet
+	if not leveler_enabled() then image
+	else if card_style.text.layout.separators[0] or else -1 < 0 then image
+	else color_multiply(
+		input,
+		image: image,
+		multiply_mask: multiply_levels_mask(),
+		iterate: iterate
+	)
+}
+
+######## Fonts
+## fonts for level label
+leveler_label_font := { "Beleren Small Caps" }
+leveler_label_font_size := { leveler_coord_factor() * 7.5 }
+leveler_label_font_size_big := { 
+	shape := leveler_container_shape()
+	base := if shape == "circle" or shape == "station"
+		then 10
+	else if shape == "loyalty"
+		then 11
+	else if shape == "box"
+		then 12 + (if leveler_blanked_label(level:1) then 2 else 0)
+	else 12 + (if not mana and leveler_blanked_label(level:1) then 2 else 0)
+	leveler_coord_factor() * base
+}@(mana:false)
+leveler_label_font_color := {
+	shape := leveler_container_shape()
+	if shape == "loyalty" or shape == "circle" or shape == "station"
+		then "white"
+	else if is_back_face()
+		then "white"
+	else if use_vehicle_boxes()
+		then "white"
+	else "black"
+}
+leveler_label_font_stroke := { 0 }
+leveler_label_font_stroke_color := { "white" }
+leveler_label_font_stroke_blur := { 0.55 }
+
