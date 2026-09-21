@@ -16,9 +16,9 @@ color_field := { card.card_color }
 
 ## multiply gradient
 multi_scale := [0, 0.35, 0.55, 0.75, 0.85, 1.0, 1.1]
+
 ## constant for for-loops
 max_supported_levels := 6
-
 ## used to hide arrow and pt inputs of lower levels
 last_active_level := {
 	lv := 0
@@ -28,30 +28,28 @@ last_active_level := {
 	lv
 }
 
-leveler_margin_code := filter_text@(match:"[0-9]+", in_context:"^lv<match>")
-
-## disable separator flavor bar
-flavor_bar_disabled_1 := { leveler_enabled() }
+## the function used to check if compatible images use the vehicle icon instead
+leveler_vehicle_containers := { match_vehicle(card.sub_type) }
 
 ## add spacecraft
 swap_fonts_pt_default := [
 	name: {"Beleren Bold"},
 	size: { if leveler_station_pt() then 13 else 15},
-	color: { if use_vehicle_boxes() or leveler_station_pt() then "white" else "black"},
+	color: { if leveler_vehicle_containers() or leveler_station_pt() then "white" else "black"},
 	vertical: {0},
 	italic: {""},
 	stroke: {0},
 	stroke_color: {"black"},
 	stroke_blur: {0}
 ]
-
 ## is_spacecraft is run against this string
 ## if blank, autostation is disabled
 check_auto_spacecraft := {
 	card.sub_type
 }
 
-leveler_station_pt := { leveler_ptbox_shape() == "station_pt" }
+## disable separator flavor bar
+flavor_bar_disabled_1 := { leveler_enabled() }
 ######## Text Scripts
 alt_text := { leveler_enabled() }
 alt_text_script := {
@@ -71,6 +69,8 @@ alt_text_script := {
 }
 
 text_filter :=	text_filter + {apply_margins(input, name:margin_code)}
+
+leveler_margin_code := filter_text@(match:"[0-9]+", in_context:"^lv<match>")
 
 ## margin around the level container
 margin_left := {
@@ -173,14 +173,8 @@ leveler_container_shape := {
 leveler_ptbox_shape := {
 	if leveler_container_shape() == "station" then "station_pt" else "pt"
 }
-leveler_container_offset_left := { 0 }
-leveler_container_offset_top := { 0 }
-leveler_ptbox_offset_left := { 0 }
-leveler_ptbox_offset_top := { 0 }
-leveler_margin_offset_left := { 0 }
-leveler_margin_offset_right := { 0 }
-
-use_vehicle_boxes := { match_vehicle(card.sub_type) }
+## nicer function alias for the case the module user usually cares about
+leveler_station_pt := { leveler_ptbox_shape() == "station_pt" }
 
 leveler_pt_disabled := {
 	if input == 1 then leveler_no_pt()
@@ -530,14 +524,14 @@ container_multiply := {
 }
 #### template scripts, user can overwrite to change the folder, add vehicle handling, etc
 leveler_arrow_template := {
-	if use_vehicle_boxes() then input := "v"
+	if leveler_vehicle_containers() then input := "v"
 	"/magic-modules.mse-include/levels/arrows/" + input + ".png"
 }
 leveler_circle_template := {
 	"/magic-modules.mse-include/levels/circles/station/" + input + "circle.png"
 }
 leveler_box_template := {
-	if use_vehicle_boxes() then input := "v"
+	if leveler_vehicle_containers() then input := "v"
 	"/magic-modules.mse-include/pts/375 m15/" + input + "pt.png"
 }
 leveler_ptbox_template := leveler_box_template
@@ -560,6 +554,7 @@ circle_container := {
 box_container := {
 	template := leveler_box_template
 	land_template := template
+	mask_hybrid_with_colorless := {true}
 	color_background(type:"pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"black", multicolor_blend:"black")
 }
 loyalty_container := {
@@ -572,20 +567,20 @@ loyalty_container := {
 
 ## resolve the ptbox image
 leveler_ptbox := {
-	if leveler_ptbox_shape() == "station_pt" then station_ptbox_image()
-	else leveler_ptbox_image()
+	shape := leveler_ptbox_shape()
+	image := if shape == "station_pt" then station_ptbox_image()
+		else leveler_ptbox_image()
+	container_multiply()
 }
 station_ptbox_image := {
 	template := leveler_station_pt_template
 	land_template := template
-	color_background(type:"station_pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white")
+	image := color_background(type:"station_pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"white", multicolor_blend:"white")
 }
 leveler_ptbox_image := {
 	template := leveler_ptbox_template
 	land_template := template
 	image := color_background(type:"pt", base_hybrid:pt_hybrid, artifact_blend:"white", hybrid_blend:"black", multicolor_blend:"black")
-	
-	container_multiply(shape:"pt")
 }
 ## if a template adds new shapes, use this script to return their images
 ## input is color_field, also provides shape (the styling.level_containers value) and level (1-indexed)
@@ -599,7 +594,7 @@ leveler_stripes_mask := {
 	+ ".png"
 }
 ## generate the gradient mask
-multiply_levels_mask := {
+leveler_multiply_mask := {
 	text_top := card_style.text.top
 	text_bottom := card_style.text.bottom
 	
@@ -672,8 +667,8 @@ leveler_stripe_effect_mask := { [image:""] }
 ## input: card_color, image: image to multiply
 ## returns image with the level multiplication applied
 ## supports DFC module notch and extra backface muliplication
-multiply_levels := {
-	## put these here to make sure multiply_levels_mask uses the same ones
+leveler_multiply := {
+	## put these here to make sure leveler_multiply_mask uses the same ones
 	width := stylesheet.card_width
 	height := stylesheet.card_height
 	start := 1
@@ -691,7 +686,7 @@ multiply_levels := {
 	else color_multiply(
 		input,
 		image: image,
-		multiply_mask: multiply_levels_mask(),
+		multiply_mask: leveler_multiply_mask(),
 		iterate: iterate
 	)
 }
@@ -717,7 +712,7 @@ leveler_label_font_color := {
 		then "white"
 	else if is_back_face()
 		then "white"
-	else if use_vehicle_boxes()
+	else if leveler_vehicle_containers()
 		then "white"
 	else "black"
 }
@@ -725,3 +720,10 @@ leveler_label_font_stroke := { 0 }
 leveler_label_font_stroke_color := { "white" }
 leveler_label_font_stroke_blur := { 0.55 }
 
+#### Offsets
+leveler_container_offset_left := { 0 }
+leveler_container_offset_top  := { 0 }
+leveler_ptbox_offset_left 	  := { 0 }
+leveler_ptbox_offset_top 	  := { 0 }
+leveler_margin_offset_left 	  := { 0 }
+leveler_margin_offset_right   := { 0 }

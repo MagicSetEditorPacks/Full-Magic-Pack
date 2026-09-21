@@ -18,7 +18,7 @@ leveler_enabled := { true }
 
 ## Applies the leveler color stripes to the card image
 ## integrated with DFC module is_notched and is_back_face scripts
-multiply_levels(input:color_field, image:card_image)
+leveler_multiply(input:color_field, image:card_image)
 
 ## The level striping area is defined by this image, where black is where stripes can go
 leveler_stripes_mask := {
@@ -48,7 +48,7 @@ check_auto_spacecraft := { card.sub_type }
 ## If you change swap_fonts_pt_default, make sure to define it after this script include
 ## And add the station handling into the size and color definitions
 size: { if leveler_container_shape() == "station" then 13 else 15},
-color: { if use_vehicle_boxes() or leveler_container_shape() == "station" then "white" else "black"},
+color: { if leveler_vehicle_containers() or leveler_container_shape() == "station" then "white" else "black"},
 
 ## The module defaults to handling small PT boxes, but has compatibility with full-canvas pt boxes some showcases use
 leveler_canvas_ptboxes := {
@@ -75,7 +75,7 @@ leveler_pt_normal_top 		## default 467h, 0h for canvas_ptbox
 leveler_label_default_string := { "level" }
 
 ## allow containers and pt boxes to use a vehicle variant when this returns true
-use_vehicle_boxes := { match_vehicle(card.sub_type) }
+leveler_vehicle_containers := { match_vehicle(card.sub_type) }
 
 ## Offsets
 leveler_container_offset_left := { 0 }
@@ -125,14 +125,14 @@ leveler_label_height := { 10 * leveler_coord_factor() }
 ## images used for containers and ptboxes
 ## redefine here to change folders, switch in clear icons, etc
 leveler_arrow_template := {
-	if use_vehicle_boxes() then input := "v"
+	if leveler_vehicle_containers() then input := "v"
 	"/magic-modules.mse-include/levels/arrows/" + input + ".png"
 }
 leveler_circle_template := {
 	"/magic-modules.mse-include/levels/circles/station/" + input + "circle.png"
 }
 leveler_box_template := {
-	if use_vehicle_boxes() then input := "v"
+	if leveler_vehicle_containers() then input := "v"
 	"/magic-modules.mse-include/pts/375 m15/" + input + "pt.png"
 }
 leveler_ptbox_template := leveler_box_template
