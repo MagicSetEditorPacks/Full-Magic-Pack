@@ -34,7 +34,7 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2026-09-19 Template Pack 4.0.6: Special Pack Slot Fix"}
+version_date := {"2026-09-19 Template Pack 4.0.7: Alt Rarity Defaults Fix"}
 version := version_date
 #### magic.mse-game version primary dependencies
 ### 2026-08-28 - MSE 2.6 & card links support
@@ -6652,30 +6652,42 @@ mainframe_rarity := {"/magic-mainframe-extras.mse-include/" + un_png(mainframe_r
 alt_rarity := { styling.alt_rarity_color or else "" }
 use_alt_rarity := { alt_rarity() != "" }
 alt_rarity_color := {
-	string := "83,67,53:177,150,131:0,0,0:0,0,0:0.07:"
+	base_array := base_rarity_color()
+	string := ""
 	src := alt_rarity()
-	if match(src, match:":$") then string := src
-	colons := length(filter_text(string, match:":"))
-	output := split_text(string, match:",|:")
-	splits := split_text(string, match:":")
-	final_num := to_real(splits[length(splits)-2]) or else 0
-	final_border := final_num > 0 and final_num < 1
-	final_num := if not final_border then "0.07" else to_string(final_num);
-	if final_border then (
-		colons := colons - 1;
-		string := replace(string, match:"{final_num}:", replace:"")
+	if match(src, match:":$") then string := src else (
+		string := 		   "{base_array[0]},{base_array[1]},{base_array[2]}:"
+		string := string + "{base_array[3]},{base_array[4]},{base_array[5]}:"
+		string := string + "{base_array[6]},{base_array[7]},{base_array[8]}:"
+		string := string + "{base_array[9]},{base_array[10]},{base_array[11]}:"
+		string := string + "{base_array[12]}:"	
 	)
-	if colons == 4
-		then output := split_text(string+final_num+":", match:",|:")
-	if colons == 3
-		then output := split_text(string+splits[2]+":"+final_num+":", match:",|:")
-	else if colons == 2
-		then output := split_text(string+"0,0,0:0,0,0:"+final_num+":", match:",|:")
-	else if colons == 1
-		then output := split_text(string+splits[0]+":0,0,0:0,0,0:"+final_num+":", match:",|:")
+	alt_array := split_text(string, match:",|:")
+	last_index := length(alt_array)-2
+	final_num := to_number_lax(alt_array[last_index]) or else 0
+	border_radius := base_array[12]
+	if final_num > 0 and final_num < 1 then (
+		border_radius := final_num
+		last_index := last_index - 1
+	)
 	
+	backtrackable := [3,4,5,9,10,11]
+	output := for x from 0 to 11 do (
+		back_tracked := false
+		given := if x > last_index then nil else (alt_array[x] or else nil)
+		if (given == nil or given == "") and position(of:x in:backtrackable) >= 0 then (
+			back_tracked := true
+			given := alt_array[x-3] or else nil
+		)
+		if (x > last_index and not back_tracked) or given == nil or given == ""
+			then [base_array[x]]
+		else [to_number_lax(given)]
+	)
+	output := output + [border_radius];
+
 	output
 }
+
 alt_symbol := {
 	alt_array := alt_rarity_color()
 	symbol_variation(
@@ -6688,6 +6700,18 @@ alt_symbol := {
 		border_color_2: rgb(alt_array.9, alt_array.10, alt_array.11),
 		center_x:0.5, center_y:0.5, end_x:1, end_y:1
 	)
+}
+base_rarity_color := {
+	r := card.rarity
+	if card.rarity == "masterpiece" then r := "mythic rare"
+	if r == "common" and ((styling.inverted_common_symbol or else false) or set.inverted_common_symbol) then r := "invertedcommon"
+	case r of
+		"uncommon": [224, 224, 224, 84, 84, 84, 0, 0, 0, 0, 0, 0, 0.07],
+		"rare": [214, 196, 94, 95, 84, 40, 0, 0, 0, 0, 0, 0, 0.07],
+		"mythic rare": [245, 148, 31, 186, 45, 38, 0, 0, 0, 0, 0, 0, 0.07],
+		"special": [224, 170, 247, 58, 7, 80, 255, 255, 255, 255, 255, 255, 0.1]
+		"invertedcommon": [255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0.1]
+		else: [0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 0.1]
 }
 ############################################################## Other customizable stuff
 split_custom_directory := {
