@@ -1,0 +1,88 @@
+﻿############################################################## Game Scripts
+#### Determine the color in the card columns
+card list color script:
+	input := card.card_color
+	dark := get_mse_dark_mode()
+	if      input == "white"                              then (if dark then rgb(226, 190, 140) else rgb(156, 130, 90 ))
+	else if input == "blue"                               then (if dark then rgb(60,  134, 248) else rgb(0,   64,  168))
+	else if input == "black"                              then (if dark then rgb(135, 135, 135) else rgb(0,   0,   0  ))
+	else if input == "red"                                then (if dark then rgb(218, 60,  60 ) else rgb(168, 0,   0  ))
+	else if input == "green"                              then (if dark then rgb(50,  180, 50 ) else rgb(0,   168, 0  ))
+	else if input == "pink"                               then (if dark then rgb(210, 60,  140) else rgb(210, 60,  140))
+	else if input == "purple"                             then (if dark then rgb(165, 125, 175) else rgb(150, 100, 160))
+	else if input == "yellow"                             then (if dark then rgb(190, 200, 50 ) else rgb(190, 200, 50 ))
+	else if input == "brown"                              then (if dark then rgb(111, 50,  20 ) else rgb(51,  10,  0  ))
+	else if input == "orange"                             then (if dark then rgb(255, 91,  30 ) else rgb(255, 51,  0  ))
+	else (
+		artifact := chosen(choice:"artifact")
+		land     := chosen(choice:"land")
+		multi    := chosen(choice:"multicolor")
+		hybrid   := chosen(choice:"hybrid")
+		if      land                                      then (if dark then rgb(155, 100, 66 ) else rgb(109, 62,  39 )) # land
+		else if multi and input != "artifact, multicolor" then (if dark then rgb(190, 150, 20 ) else rgb(130, 110, 0  )) # multicolor
+		else if hybrid                                    then (if dark then rgb(165, 50,  200) else rgb(115, 0,   160)) # hybrid
+		else if artifact                                  then (if dark then rgb(92,  120, 160) else rgb(72,  90,  100)) # artifact
+		else                                                   (if dark then rgb(149, 112, 102) else rgb(119, 83,  83 )) # colorless
+	)
+
+#### Make some adjustments when creating a new card
+import script:
+	map := []
+	
+	if card.stylesheet == nil then (
+		if		card.layout == "split"		then map := map + [stylesheet: "m15-split-fusable"]
+		else if	card.layout == "aftermath"	then map := map + [stylesheet: "m15-aftermath"]
+		else if	card.layout == "flip"		then map := map + [stylesheet: "m15-flip"]
+		else if	card.layout == "transform"	then map := map + [stylesheet: "m15-mainframe-dfc"]
+		else if	card.layout == "modal_dfc"	then map := map + [stylesheet: "m15-mainframe-dfc"]
+		else if	card.layout == "meld"		then map := map + [stylesheet: "m15-mainframe-dfc"]
+		else if	card.layout == "class"		then map := map + [stylesheet: "m15-saga"]
+		else if	card.layout == "case"		then map := map + [stylesheet: "m15-saga"]
+		else if	card.layout == "saga"		then map := map + [stylesheet: "m15-saga"]
+		else if	card.layout == "adventure"	then map := map + [stylesheet: "m15-adventure"]
+		else if	card.layout == "battle"		then map := map + [stylesheet: "m15-battle"]
+		else if	card.layout == "planar"		then map := map + [stylesheet: "m15-mainframe-planes"]
+		else if	card.layout == "scheme"		then map := map + [stylesheet: "archenemy"]
+		else if	card.layout == "vanguard"	then map := map + [stylesheet: "m15-vanguard"]
+		else if	card.layout == "token"		then map := map + [stylesheet: "m15-mainframe-tokens"]
+		else if	card.layout == "emblem"		then map := map + [stylesheet: "m15-emblem-cajun"]
+		
+		else if	lang_setting("is_planeswalker")(card.super_type)
+		then map := map + [stylesheet:"m15-mainframe-planeswalker"]
+		
+		else if	lang_setting("is_saga")(card.sub_type)
+			or	lang_setting("is_class")(card.sub_type)
+			or	lang_setting("is_case")(card.sub_type)
+		then map := map + [stylesheet:"m15-saga"]
+		
+		else if	lang_setting("is_adventure")(card.sub_type)
+			or	lang_setting("is_adventure")(card.sub_type_2)
+		then map := map + [stylesheet:"m15-adventure"]
+	)
+	
+	style := to_lower(if card.stylesheet == nil then (map["stylesheet"] or else "m15-altered") else card.stylesheet.folder_name)
+	if	card.rule_text != "" and card.level_1_text == "" and (
+			contains(style, match:"walker")
+		or	contains(style, match:"pw")
+		or	contains(style, match:"leveler")
+		or	contains(style, match:"saga")
+		or	contains(style, match:"class"))
+	then map := map + rule_text_to_level_text(1)
+	
+	map
+
+get front face script:
+	fronts := get_cards_from_link(input, linked_relation:"Front Face")
+	if length(fronts) == 0 then
+		fronts := get_cards_from_link(input, linked_relation:"Meld Base")
+	if length(fronts) == 0 then nil
+	else (
+		## Prevent Front/Front loop from breaking numbering
+		relations := get_link_from_cards(input, linked_card:fronts.0)
+		if relations.0 == "Front Face" or relations.0 == "Meld Base" then nil else fronts.0 
+	)
+
+get back face script:
+	backs := get_cards_from_link(input, linked_relation:"Back Face")
+	if length(backs) > 0 then backs.0
+	else get_cards_from_link(input, linked_relation:"Meld Result").0 or else nil

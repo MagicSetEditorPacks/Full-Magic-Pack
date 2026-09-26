@@ -1,0 +1,87 @@
+﻿mse version:		2.6.0
+game:				magic
+short name:			Revolution Name Check
+full name:			Name Check Exporter
+icon:				icon.png
+position hint:		960301
+installer group:	magic/Exporters/Revolution Name Check
+
+version: 2026-08-28
+
+depends on:
+	package: magic.mse-game
+	version: 2008-08-08
+
+create directory: false
+file type: *.txt|*.txt|*.*|*.*
+
+option field:
+	type: choice
+	name: info
+	description: This export template outputs a text list of cards that share names with Revolution cards.
+	choice: This export template outputs a text list of cards that share names with Revolution cards.
+option field:
+	type: choice
+	name: more info
+	description: Ensure a nontoken card is selected before exporting to prevent errors.
+	choice: Ensure a nontoken card is selected before exporting to prevent errors.
+option field:
+	type: boolean
+	name: check for artists
+	description: Should the exporter also check for cards without artists?
+	initial: no
+
+script:
+	include file: namelist
+	# Because MSE gets mad when there are quotation marks in the card list, remove them for comparison.
+	quote_filter := replace@(match:"”", replace:"")+
+		replace@(match:"“", replace:"")+
+		replace@(match:"[[.quotation-mark.]]", replace:"")
+	near_filter := 	replace@(match:" (and|or|in|into|to|upon|the|of|from|at|through|with) ", replace:" ")
+	match_name := match@(match: "(?i)^{name_list()}$")
+	match_near := match@(match: "(?i)^{near_name_list()}[^ ]*$")
+	has_epithet := match@(match:",")
+	epithet_filter := replace@(match:"^[^,]+, ", replace:"")
+
+	write_cards := {
+		exact := ""
+		near := ""
+		art := ""
+		for each card in set do (
+			matches_name := match_name(quote_filter(card.name));
+			if matches_name
+				then exact := exact + "\n" + card.name
+			else (
+				matches_near := match_near(near_filter(quote_filter(card.name)))
+				if matches_near
+					then near := near + "\n" + card.name
+				else if has_epithet(card.name) and match_near(epithet_filter(quote_filter(card.name)))
+					then near := near + "\n" + card.name
+			)
+			if options.check_for_artists and (card.illustrator == "" or card.illustrator == "([ ]+|[Uu]nknown|[?]+)")
+				then art := art + "\n" + card.name
+			if card.name_2 != "" then (
+				matches_name_2 := match_name(quote_filter(card.name_2))
+				if matches_name_2
+					then exact := exact + "\n" + card.name_2
+				else (
+					matches_near_2 := match_near(near_filter(quote_filter(card.name_2)))
+					if matches_near_2
+						then near := near + "\n" + card.name_2
+					else if has_epithet(card.name_2) and match_near(epithet_filter(quote_filter(card.name_2)))
+						then near := near + "\n" + card.name_2
+				)
+				if contains(card.shape, match:"double") and options.check_for_artists and (card.illustrator_2 == "" or card.illustrator_2 == "([ ]+|[Uu]nknown|[?]+)")
+					then art := art + "\n" + card.name_2
+			)
+			"dummy return"
+		);
+		
+		str := ""
+			+ (if exact != "" then "----- Exact Matches -----" + exact + "\n\n")
+			+ (if near != "" then "----- Near Matches -----" + near + "\n\n")
+			+ (if art != "" then "----- No Artists -----" + art + "\n\n")
+			
+		str
+	}
+	to_string(write_cards())

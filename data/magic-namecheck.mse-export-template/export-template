@@ -1,16 +1,18 @@
-﻿mse version: 2.0.0
-short name: Name Check
-full name: Name Check Exporter
-position hint: 300
-icon: icon.png
-version: 2018-01-11
-installer group: magic/Export/Name Check
+﻿mse version:		2.6.0
+game:				magic
+short name:			Name Check
+full name:			Name Check Exporter
+icon:				icon.png
+position hint:		960300
+installer group:	magic/Exporters/MTG Name Check
+
+
+version: 2026-08-28
 
 depends on:
 	package: magic.mse-game
 	version: 2008-08-08
 
-game: magic
 create directory: false
 file type: *.txt|*.txt|*.*|*.*
 
@@ -38,10 +40,11 @@ script:
 	quote_filter := replace@(match:"”", replace:"")+
 		replace@(match:"“", replace:"")+
 		replace@(match:"[[.quotation-mark.]]", replace:"")
-	near_filter := 	replace@(match:"(and|or|in|into|to|upon|the|of|from|at|through|with) ", replace:"")
-					+ replace@(match:" ", replace:"")
+	near_filter := 	replace@(match:" (and|or|in|into|to|upon|the|of|from|at|through|with) ", replace:" ")
 	match_name := match@(match: "(?i)^{name_list()}$")
-	match_near := match@(match: "(?i)^{near_name_list()}")
+	match_near := match@(match: "(?i)^{near_name_list()}[^ ]*$")
+	has_epithet := match@(match:",")
+	epithet_filter := replace@(match:"^[^,]+, ", replace:"")
 
 	write_cards := {
 		exact := ""
@@ -55,6 +58,8 @@ script:
 				matches_near := match_near(near_filter(quote_filter(card.name)))
 				if matches_near
 					then near := near + "\n" + card.name
+				else if has_epithet(card.name) and match_near(epithet_filter(quote_filter(card.name)))
+					then near := near + "\n" + card.name
 			)
 			if options.check_for_artists and (card.illustrator == "" or card.illustrator == "([ ]+|[Uu]nknown|[?]+)")
 				then art := art + "\n" + card.name
@@ -65,6 +70,8 @@ script:
 				else (
 					matches_near_2 := match_near(near_filter(quote_filter(card.name_2)))
 					if matches_near_2
+						then near := near + "\n" + card.name_2
+					else if has_epithet(card.name_2) and match_near(epithet_filter(quote_filter(card.name_2)))
 						then near := near + "\n" + card.name_2
 				)
 				if contains(card.shape, match:"double") and options.check_for_artists and (card.illustrator_2 == "" or card.illustrator_2 == "([ ]+|[Uu]nknown|[?]+)")

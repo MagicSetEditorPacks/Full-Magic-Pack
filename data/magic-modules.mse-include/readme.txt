@@ -76,12 +76,13 @@ Specific z indexes
 860 Holofoil stamp
 870 Transform symbol
 880 Tombstone/alchemy symbol
-880 Alias box
+880 Alias bar
 
 900 Loyalty cost colons
 900 User text fields
 900 Information below the textbox & credit symbols
-920 Casting cost
+910 Secondary Copyright
+920 Vorthos Box, Casting cost
 950 Rarity
 
 1010 Popout art

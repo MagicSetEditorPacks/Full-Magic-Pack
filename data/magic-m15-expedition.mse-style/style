@@ -1,18 +1,19 @@
-﻿mse version: 2.0.0
-game: magic
-short name: M15 Expeditions
-full name: M15 Expeditions Land
-installer group: magic/m15/expedition
-icon: card-sample.png
-position hint: 092
+mse version:		2.6.0
+game:				magic
+short name:			Expedition
+full name:			Zendikar Showcase
+icon:				card-sample.png
+position hint:		010000
+installer group:	magic/M15 Frames/Booster Fun/Expedition
+
 
 version: 2024-09-01
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-modules.mse-include
-	version: 2024-10-01
+	version: 2026-08-28
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -26,12 +27,44 @@ card dpi: 150
 
 ############################################################## Extra scripts
 init script:
+	reminder_image_folder := { "/" + stylesheet.folder_name + ".mse-style/reminder/" }
+	reminder_uses_light_variant := { true }
+	reminder_offset_left := { 0 }
+	reminder_offset_top := { -1 }
+	reminder_offset_width := { 0 }
+	reminder_offset_height := { 0 }
+	
+	transform_symbol_image_folder := { "/" + stylesheet.folder_name + ".mse-style/transform/" }
+	transform_symbol_modal_uses_normal_background := { false }
+	transform_symbol_multicolor_blend := { "white" }
+	transform_symbol_offset_left_1 := { -2 }
+	transform_symbol_offset_top_1 := { 0 }
+	transform_symbol_offset_width_1 := { 1 }
+	transform_symbol_offset_height_1 := { 1 }
+	
+	name_transform_symbol_offset_left_1 := { -4 }
+	casting_cost_transform_symbol_offset_left_1 := { 1 }
 	
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
 	
 	#Should multicolor lands with basic land types have a colored name?
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
+	
+	alias_offset_top_1 := { 1 }
+	alias_mask := { "/magic-modules.mse-include/alias/masks/remove_outline.png" }
+	alias_colors := {
+		[
+			w: rgb(221, 221, 221),
+			u: rgb(49, 80, 124),
+			b: rgb(33, 34, 29),
+			r: rgb(198, 52, 37),
+			g: rgb(8, 103, 61),
+			a: rgb(149, 129, 120),
+			m: rgb(208, 181, 90),
+			c: rgb(149, 129, 120)
+		][input]
+	}
 	
 	# Use the normal tap symbol
 	mana_t := {
@@ -53,12 +86,28 @@ init script:
 	# Is the card a promo card?
 	is_promo := { styling.promo }
 	
-	template_prefix := [card: "" pt: "/magic-modules.mse-include/pts/375 m15/" identity: "/magic-modules.mse-include/indicators/"]
-	template_suffix := [card: "card.jpg" pt: "pt.png" identity: "identity.png"]
-	template      := { template_prefix[type] + (if input == "a" then "c" else input) + (if not contains(input, match: "l") then "l") + template_suffix[type] }
-	land_template		:= { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
-
-	watermark_include := "/magic-modules.mse-include/watermarks"
+	template_prefix :=
+	[
+		card:			"",
+		pt:				"/magic-modules.mse-include/pts/375 m15/",
+		transforml:		"transform_left/",
+		transformr:		"transform_right/",
+		identity:		"/magic-modules.mse-include/indicators/"
+	]
+	template_suffix :=
+	[
+		card:			"card.jpg",
+		pt:				"pt.png",
+		transforml:		".png",
+		transformr:		".png",
+		identity:		"identity.png"
+	]
+	template :=			{ template_prefix[type] + (if input == "a" then "c" else input) + (if not contains(input, match: "l") then "l") + template_suffix[type] }
+	land_template :=	{ template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
+	
+	card_transforml :=	{ color_background(input: card.card_color, type: "transforml",	base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white") }
+	card_transformr :=	{ color_background(input: card.card_color, type: "transformr",	base_hybrid: card_hybrid,	hybrid_blend: "white",	artifact_blend: "white") }
+	
 	is_unsorted := {styling.remove_from_autocount}
 	card_stamp_offset_top_1 := {4}
 ############################################################## Set info fields
@@ -154,8 +203,10 @@ styling style:
 ############################################################## Card fields
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
-include file: /magic-modules.mse-include/card-symbols/card_fields
+include file: /magic-modules.mse-include/namelines/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/alias/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -179,19 +230,6 @@ card style:
 		render style: image
 		popup style: in place
 		image: { card_background() }
-	############################# Name line
-	name:
-		left: { if card.card_symbol=="none" then 32 else 50 }
-		top: 30
-		right:  { 341 - card_style.casting_cost.content_width }
-		height: 23
-		alignment: bottom shrink-overflow
-		padding bottom: 0
-		z index: 1
-		font:
-			name: Beleren Bold
-			size: 16
-			color: black
 	############################# Image
 	image:
 		#left:	30
@@ -204,6 +242,7 @@ card style:
 		height: 367
 		z index: 1
 		mask: image_mask.png
+		store in metadata:	true
 	############################# Card type
 	indicator:
 		left: 31
@@ -216,7 +255,7 @@ card style:
 		image: { module_identity() }
 	type:
 		left: { if has_identity() then 50 else 31 }
-		top: 432
+		top: 431
 		width: { (if has_identity() then 289 else 308) - max(22,card_style.rarity.content_width) }
 		height: 18
 		alignment: top shrink-overflow
@@ -231,7 +270,7 @@ card style:
 			separator color: red
 	rarity:
 		right: 346
-		top : 434
+		top : 433
 		width: 44
 		height: 22
 		z index: 2
@@ -265,10 +304,10 @@ card style:
 		z index: 900
 		padding left:   6
 		padding right:  4
-		line height hard: {if is_modal(card.rule_text) then 0.9 else 1.2 }
+		line height hard: 1.2
 		line height line: 1.5
 		line height soft: 0.9
-		line height hard max: {if is_modal(card.rule_text) then 1.0 else 1.3 }
+		line height hard max: 1.3
 		line height line max: 1.6
 	watermark:
 		left: 19
@@ -279,7 +318,7 @@ card style:
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
 	############################# PT
 	pt:
@@ -325,6 +364,21 @@ extra card field:
 	script: card.card_color
 	editable: false
 	save value: false
+extra card field:
+	type:				choice
+	name:				card transform left
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card transform left
+extra card field:
+	type:				choice
+	name:				card transform right
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				card transform right
+
 extra card style:
 	textbox:
 		left:	0
@@ -361,3 +415,21 @@ extra card style:
 		visible: { card.pt != "" }
 		render style: image
 		image: { module_ptbox() }
+	card transform left:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			220
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transforml() }
+	card transform right:
+		left:				0
+		top:				0
+		width:				{ stylesheet.card_width }
+		height:				{ stylesheet.card_height }
+		z index:			220
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transformr() }
