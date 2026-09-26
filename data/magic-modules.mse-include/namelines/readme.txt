@@ -10,15 +10,6 @@ include file: /magic-modules.mse-include/namelines/card_fields_dfc
 include file: /magic-modules.mse-include/namelines/card_fields_tfc
 
 #### Customization
-#### The transform symbols default to "none", defaults can be changed with
-transform_symbol_default :=
-{
-	stylesheet ## reload script when template changes
-	if		margin_code == "transform1" then	"front triangle"
-	else if	margin_code == "transform2" then	"back triangle"
-	else										"eldrazi"
-}
-
 #### Optionally, you can define which face of the card the nameline should snap to,
 #### by defining the following function in the init script:
 nameline_face_1 := { 1 }
@@ -50,7 +41,6 @@ casting_cost_offset_width_1 := { 0 }
 casting_cost_offset_height_1 := { 0 }
 
 transform_symbol_disabled_1 := { true }
-transform_symbol_mirrored_1 := { true }
 transform_symbol_offset_top_1 := { 0 }
 transform_symbol_offset_left_1 := { 0 }
 transform_symbol_offset_width_1 := { 0 }
@@ -60,6 +50,9 @@ transform_symbol_offset_height_1 := { 0 }
 #### when a card symbol or a transformation symbol is present on the card:
 name_card_symbol_offset_left_1 := { 0 }
 name_transform_symbol_offset_left_1 := { 0 }
+
+#### For more in depth documentation about the transformation symbol, see this file:
+/magic-modules.mse-include/symbols/readme.txt
 
 #### For DFC or TFC templates, use:
 nameline_offset_top_2 := { 0 }
@@ -71,4 +64,3 @@ nameline_offset_left_3 := { 0 }
 nameline_offset_width_3 := { 0 }
 nameline_offset_height_3 := { 0 }
 etc...
-

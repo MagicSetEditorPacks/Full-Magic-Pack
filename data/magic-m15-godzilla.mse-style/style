@@ -1,20 +1,21 @@
-﻿mse version: 2.0.0
-game: magic
-short name: M15 Godzilla
-full name: M15 Godzilla Style
-icon: card-sample.png
-installer group: magic/m15 style/normal cards
-position hint: 018
+mse version:		2.6.0
+game:				magic
+short name:			M15 Godzilla
+full name:			M15 Godzilla Style
+icon:				card-sample.png
+position hint:		030201
+installer group:	magic/M15 Frames/Uncommon/Godzilla Main
+
 
 ###################################### Template made by Redwavez
 
-version: 2024-06-06
+version: 2026-09-21
 depends on:
 	package: magic.mse-game
-	version: 2020-04-25
+	version: 2026-08-28
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
@@ -35,6 +36,8 @@ card dpi: 150
 init script:
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
+	include file: /magic-modules.mse-include/dfc/init_script
+	
 	
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
@@ -75,7 +78,9 @@ init script:
 		identity: "/magic-modules.mse-include/indicators/"
 		alias: "alias/"
 		tall: "tall/"
-		short: "short/"
+		short: "short/",
+		spree: "spree/",
+		notch: "notch/"
 	]
 	template_suffix := [
 		card: "card.png"
@@ -88,11 +93,16 @@ init script:
 		alias: "card.png"
 		tall: "card.png"
 		short: "card.png"
+		spree: ".png"
+		notch: ".png"
 	]
 	template      := { (if is_custom() and type == "crown" then ("custom_crown" + styling.custom_crown_location + "/") else ( template_prefix[type] + (if type == "crown" and no_als() then "noals/" else "") + (if is_nyx() and type == "crown" then "nyx/" else if is_com() and type == "crown" then "com/") ) ) + input + template_suffix[type]}
 	land_template := template
 	# Use land templates for previews because they show more contrast
 	hybrid_previews := "land,hybrid"
+	
+	notch_image := { color_background(type:"notch", base_hybrid:card_hybrid, hybrid_blend:"white", multicolor_blend:"white", artifact_blend:"white") }
+	spree_image := { color_background(type:"spree", base_hybrid:card_hybrid, hybrid_blend:"white", multicolor_blend:"white", artifact_blend:"white") }
 	
 	# Use the normal tap symbol
 	mana_t := {
@@ -114,8 +124,42 @@ init script:
 	}
 	ancestral_mana := { styling.ancestral_mana_symbols }
 	is_unsorted := {styling.remove_from_autocount}
-	watermark_include := "/magic-modules.mse-include/watermarks"
 
+	node_folder := { "node/" }
+	force_notched := { styling.use_transform_notch }
+	transform_symbol_offset_top_1 := {-1}
+	image_mask := {
+		image := "imagemask/" + (if is_tall() then "tall" else if is_short() then "short" else "base") + ".png"
+		if not no_als() then image := insert_image(
+			base_image: image,
+			inserted_image: "imagemask/alias.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		if is_notched() then image := insert_image(
+			base_image: image,
+			inserted_image: "imagemask/notch.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		image
+	}
+	cover_mask := {
+		image := "cover/" + (if is_tall() then "tall" else if is_short() then "short" else "base") + ".png"
+		if not no_als() then image := insert_image(
+			base_image: image,
+			inserted_image: "cover/alias.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		if is_notched() then image := insert_image(
+			base_image: image,
+			inserted_image: "cover/notch.png",
+			offset_x: 0,
+			offset_y: 0
+		)
+		image
+	}
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -155,6 +199,11 @@ styling field:
 include file: /magic-modules.mse-include/rarities/styling_fields
 include file: /magic-modules.mse-include/stamps/styling_fields
 styling field:
+	type: boolean
+	name: use transform notch
+	description: Manually activates the transform notch
+	initial: no
+styling field:
 	type: choice
 	name: crown
 	description: The legend crown type. Auto recognizes it automatically (companion overrides nyx). Custom uses the "custom_crown" folder.
@@ -173,6 +222,7 @@ styling field:
 	name: remove from autocount
 	description: Removes the automatic card number for specific cards, to allow for overcounted cards like in Planeswalker Decks.
 	initial: no
+include file: /magic-modules.mse-include/dfc/styling_fields
 styling field:
 	type: boolean
 	name: grey hybrid name
@@ -270,6 +320,9 @@ include file: /magic-modules.mse-include/card-symbols/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
 include file: /magic-modules.mse-include/stamps/stamp_back
 include file: /magic-modules.mse-include/separators/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
+include file: /magic-modules.mse-include/dfc/card_fields
 card style:
 	alias:
 		left: 54
@@ -305,10 +358,19 @@ card style:
 		render style: image
 		popup style: in place
 		image: {if is_tall() then tall_background() else if is_short() then short_background() else card_background()}
+		mask: { if is_notched() then "notch/mask.png" else "" }
 	############################# Name line
 	
 	name:
-		left: { if card.card_symbol=="none" then 32 else 50 }
+		left:
+			script:
+				if card.card_symbol != "none" and transform_symbol_active_left(card.transformation)
+					then 78
+				else if transform_symbol_active_left(card.transformation)
+					then 58
+				else if card.card_symbol != "none"
+					then 50
+				else 32
 		top: {30 - num(styling.shrink_name_text)}
 		right:  { 341 - card_style.casting_cost.content_width }
 		height: 23
@@ -343,7 +405,8 @@ card style:
 		height:	523
 		z index: 1
 		default: {default_image(card.card_color)}
-		mask: {"mask" + (if no_als() then "" else "_alias") + (if is_tall() then "_tall" else if is_short() then "_short" else "") + ".png"}
+		mask: { image_mask() }
+		store in metadata:	true
 	############################# Card type
 	indicator:
 		left: 31
@@ -376,12 +439,13 @@ card style:
 		render style: image
 		alignment: middle right
 		include file: /magic-modules.mse-include/rarities/choice_images
+		visible: { not hidden_back_rarity() }
 	############################# Text box
 	text:
 		left: 29
 		top: {(if is_tall() then 327 else if is_short() then 396 else 370)+chop_top()}
 		width: 314
-		height: {(if is_tall() then 154 else if is_short() then 89 else 115)-chop_bottom()}
+		height: {(if is_tall() then 154 else if is_short() then 89 else 115)-chop_bottom()-(if reminder_box_is_visible() then 18 else 0)}
 		font:
 			name: MPlantin
 			italic name: MPlantin-Italic
@@ -417,7 +481,7 @@ card style:
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
 	############################# PT
 	pt:
@@ -465,6 +529,19 @@ extra card field:
 	editable: false
 	save value: false
 	show statistics: false
+extra card field:
+	type: choice
+	name: notch
+	script: card.card_color
+	editable: false
+	save value: false
+extra card field:
+	type: choice
+	name: spree
+	choice: none
+	choice: spree
+	editable: true
+	save value: true
 extra card style:
 	pt box:
 		left: 273
@@ -513,4 +590,26 @@ extra card style:
 		height: 523
 		z index: 1
 		render style: image
-		image: {"cover/mask" + (if no_als() then "" else "_alias") + (if is_tall() then "_tall" else if is_short() then "_short" else "") + ".png"}
+		image:  { cover_mask() }
+
+	notch:
+		left: 0
+		top: 0
+		width: 375
+		height: 523
+		z index: 1
+		render style: image
+		image: { notch_image() }
+		visible: { is_notched() }
+
+	spree:
+		z index: 810
+		left: 0
+		top: 0
+		width: { if transform_symbol_active_right(card.transformation) then 0 else 375 }
+		height: 523
+		render style: image
+		popup style: in place
+		choice images:
+			spree: { spree_image(card.card_color) }
+		mask: click_mask_spree.png

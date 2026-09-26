@@ -1,21 +1,21 @@
-﻿mse version: 2.0.0
-game: magic
-short name: M15 Flip
-full name: M15 Style Flip Cards
-icon: card-sample.png
-installer group: magic/m15 style/flip cards
-position hint: 012
+mse version:		2.6.0
+game:				magic
+short name:			M15 Flip
+icon:				card-sample.png
+position hint:		000040
+installer group:	magic/M15 Frames/Standard/M15 Flip
+
 
 version: 2024-06-06
 depends on:
 	package: magic.mse-game
-	version: 2014-06-25
+	version: 2026-08-28
 depends on:
 	package: magic-default-image.mse-include
 	version: 2007-09-23
 depends on:
 	package: magic-modules.mse-include
-	version: 2024-10-01
+	version: 2026-08-28
 depends on:
 	package: magic-mana-large.mse-symbol-font
 	version: 2007-09-23
@@ -29,6 +29,8 @@ card dpi: 150
 # Author: movezig5
 ############################################################## Extra scripts
 init script:
+	card_shape := {"flip"}
+	
 	# Load scripts for image box
 	include file: /magic-default-image.mse-include/scripts
 	
@@ -39,12 +41,16 @@ init script:
 	mask_multi_land_with_color := { styling.colored_multicolor_land_name }
 	
 	template_prefix := [
-		card: ""
+		card: "card/"
 		card2: ""
 		pt: "/magic-modules.mse-include/pts/375 m15/"
 		stamp: "/magic-modules.mse-include/stamps/backs/375 round/"
 		ubstamp: "/magic-modules.mse-include/stamps/backs/375 ub/"
 		identity: "/magic-modules.mse-include/indicators/"
+		transform_left: "transform_left/normal/"
+		transform_right: "transform_right/normal/"
+		transform_left_modal: "transform_left/modal/"
+		transform_right_modal: "transform_right/modal/"
 	]
 	template_suffix := [
 		card: "card.jpg"
@@ -53,6 +59,10 @@ init script:
 		stamp: "stamp.png"
 		ubstamp: "stamp.png"
 		identity: "identity.png"
+		transform_left: "card.png"
+		transform_right: "card.png"
+		transform_left_modal: "card.png"
+		transform_right_modal: "card.png"
 	]
 	template      := { template_prefix[type] + input + template_suffix[type] }
 	land_template := { template_prefix[type] + (if input == "a" then "c" else input) + "l" + template_suffix[type] }
@@ -72,11 +82,29 @@ init script:
 	# Is the card a promo card?
 	is_promo := { styling.promo }
 	
-	card_shape := {"flip"}
-	watermark_include := "/magic-modules.mse-include/watermarks"
 	is_unsorted := {styling.remove_from_autocount}
+	
+	is_back := { styling.back_face == "yes" or (styling.back_face == "if linked to front face" and get_front_face(card) != nil) }
+	
 	information_secondary_shift_with_pt_1 := {false}
 	card_stamp_offset_top_1 := {5}
+	
+	card_transforml :=	{ color_background(input: card.card_color, type: type,	base_hybrid: cropped_card_hybrid, hybrid_blend: "white", artifact_blend: "white", multicolor_blend: "white", face_width: 375, face_height: 523, width: 49, height: 37, offset_y:23, offset_x:5) }
+	card_transformr :=	{ color_background(input: card.card_color, type: type,	base_hybrid: cropped_card_hybrid, hybrid_blend: "white", artifact_blend: "white", multicolor_blend: "white", face_width: 375, face_height: 523, width: 48, height: 36, offset_y:23, offset_x:321) }
+	
+	reminder_user_offset_left :=	{ split := split_comma(styling.transform_reminder_offsets); if length(split) > 0 and split.0 != "" then clamp(split.0, maximum: 1000, minimum: -500) else 0 }
+	reminder_user_offset_top :=		{ split := split_comma(styling.transform_reminder_offsets); if length(split) > 1 and split.1 != "" then clamp(split.1, maximum: 1000, minimum: -500) else 0 }
+	reminder_user_offset_width :=	{ split := split_comma(styling.transform_reminder_offsets); if length(split) > 2 and split.2 != "" then clamp(split.2, maximum: 1000, minimum: -150) else 0 }
+	reminder_user_offset_height :=	{ split := split_comma(styling.transform_reminder_offsets); if length(split) > 3 and split.3 != "" then clamp(split.3, maximum: 1000, minimum: -20) else 0 }
+	
+	reminder_offset_left := { reminder_user_offset_left() }
+	reminder_offset_top := { -305 + reminder_user_offset_top() }
+	reminder_offset_width := { reminder_user_offset_width() }
+	reminder_offset_height := { reminder_user_offset_height() }
+	
+	transform_symbol_offset_left_1 := { -3 }
+	transform_symbol_offset_top_1 := { 0 }
+
 ############################################################## Set info fields
 set info style:
 	symbol:
@@ -87,6 +115,18 @@ set info style:
 			fill color:   rgb(255,255,255)
 			border color: rgb(0,0,0)
 ############################################################## Extra style options
+styling field:
+	type:			choice
+	name:			back face
+	description:	Use the dark back face frame?
+	choice:			yes
+	choice:			if linked to front face
+	choice:			no
+	initial:		if linked to front face
+styling field:
+	type: text
+	name: transform reminder offsets
+	description: Formatted as A,B,C,D. Move the transform reminder box A pixels right, B pixels down, increase its width by C pixels and height by D pixels. Use negative to move up.
 styling field:
 	type: boolean
 	name: bottom card color indicator
@@ -182,6 +222,8 @@ styling style:
 include file: /magic-modules.mse-include/corners/card_fields
 include file: /magic-modules.mse-include/information/card_fields
 include file: /magic-modules.mse-include/stamps/card_fields
+include file: /magic-modules.mse-include/symbols/card_fields
+include file: /magic-modules.mse-include/reminders/card_fields
 card style:
 	############################# Background stuff
 	border color:
@@ -203,6 +245,11 @@ card style:
 		z index: 0
 		render style: image
 		popup style: in place
+		image:
+			script:
+				image := flip_background(top: card.card_color, bottom: card.card_color_2)
+				if is_back() then image := color_multiply(width:375, height:523, multiply_mask:"hybrid_blend_card.png")
+				image
 	card color 2:
 		left: 0
 		top: 250
@@ -213,9 +260,9 @@ card style:
 		popup style: in place
 	############################# Name line
 	name:
-		left: { if card.card_symbol=="none" then 32 else 50 }
+		left: { (if card.card_symbol=="none" then 32 else 50) + (if transform_symbol_active_left(card.transformation) then 26 else 0) }
 		top: 30
-		right:  { 341 - card_style.casting_cost.content_width }
+		right:  { 341 - card_style.casting_cost.content_width - (if transform_symbol_active_right(card.transformation) then 29 else 0) }
 		height: 23
 		alignment: bottom shrink-overflow
 		padding bottom: 0
@@ -223,7 +270,7 @@ card style:
 		font:
 			name: Beleren Bold
 			size: 16
-			color: black
+			color: { if is_back() then "white" else "black" }
 	name 2:
 		left: 341
 		bottom: 456
@@ -236,9 +283,9 @@ card style:
 		font:
 			name: Beleren Bold
 			size: 16
-			color: black
+			color: { if is_back() then "white" else "black" }
 	casting cost:
-		right: 346
+		right: { 346 - (if transform_symbol_active_right(card.transformation) then 29 else 0) }
 		top: 29
 		width: { max(30, card_style.casting_cost.content_width) + 5 }
 		height: 23
@@ -271,11 +318,11 @@ card style:
 		z index: 1
 		padding top: 0
 	card symbol:
-		left: {if card.card_symbol=="none" then 20 else 26}
+		left: { (if card.card_symbol=="none" then 20 else 26) + (if transform_symbol_active_left(card.transformation) then 26 else 0) }
 		top: 29
 		height: 21
 		width: 23
-		z index: 1
+		z index: 895
 		render style: image
 		include file:		/magic.mse-game/card-symbols/menu_choice_images
 		image:				{ card_symbol_image(face: 1) }
@@ -318,9 +365,9 @@ card style:
 		visible: { styling.bottom_card_color_indicator }
 		image: { module_identity() }
 	type:
-		left: { if has_identity() then "52" else "32" }
+		left: { if has_identity() then 52 else 32 }
 		top: 131
-		width: { if (card.pt != "" and has_identity()) then "230" else if card.pt != "" then "250" else if has_identity() then "290" else "310" }
+		width: { 308 - card_style.rarity.content_width - (if card.pt != "" then 42 else 0) - (if has_identity() then 20 else 0) }
 		height: 20
 		alignment: top shrink-overflow
 		z index: 1
@@ -328,12 +375,12 @@ card style:
 		font:
 			name: Beleren Bold
 			size: 13
-			color: black
+			color: { if is_back() then "white" else "black" }
 			separator color: red
 	type 2:
-		left: { if styling.bottom_card_color_indicator then "321" else "341" }
-		bottom: 357
-		width: { if (card.pt_2 != "" and styling.bottom_card_color_indicator) then "220" else if card.pt_2 != "" then "240" else if styling.bottom_card_color_indicator then "290" else "310" }
+		left: { if styling.bottom_card_color_indicator then 321 else 341 }
+		bottom: 358
+		width: { 310 - (if card.pt_2 != "" then 42 else 0) - (if styling.bottom_card_color_indicator then 20 else 0)}
 		height: 20
 		alignment: top shrink-overflow
 		angle: 180
@@ -342,10 +389,10 @@ card style:
 		font:
 			name: Beleren Bold
 			size: 13
-			color: black
+			color: { if is_back() then "white" else "black" }
 			separator color: red
 	rarity:
-		right: 305
+		right: { if card.pt != "" then 304 else 344 }
 		top: 132
 		width: 44
 		height: 22
@@ -426,7 +473,7 @@ card style:
 		render style: image
 		popup style: in place
 		alignment: middle center
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_1() }
 	watermark 2:
 		right: 156
@@ -438,41 +485,35 @@ card style:
 		popup style: in place
 		alignment: middle center
 		angle: 180
-		include file:	/magic.mse-game/watermarks/menu_choice_images
+		include dark file:	/magic.mse-game/watermarks/menu_choice_images
 		image:			{ watermark_image_2() }
 	############################# PT
 	pt:
 		z index: 2
-		left: 308
+		left: 312
 		top: 128
-		width: 44
+		width: 36
 		height:	28
 		alignment: center middle shrink-overflow
 		font:
 			name: Beleren Bold
 			size: 13
-			color: black
+			color: { if is_back() then "white" else "black" }
 			separator color: red
 	pt 2:
 		z index: 2
-		right: 21
-		bottom: 353
-		width: 44
+		right: 25
+		bottom: 352
+		width: 36
 		height: 28
 		alignment: center middle shrink-overflow
 		angle: 180
 		font:
 			name: Beleren Bold
 			size: 13
-			color: black
+			color: { if is_back() then "white" else "black" }
 			separator color: red
 ############################################################## Extra card fields
-extra card field:
-	type: choice
-	name: frame
-	script: card.card_color + ":" + card.card_color_2
-	editable: false
-	save value: false
 extra card field:
 	type: choice
 	name: pt box
@@ -497,16 +538,22 @@ extra card field:
 	script: card.card_color_2
 	editable: false
 	save value: false
+extra card field:
+	type:				choice
+	name:				transform left
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				transform left
+extra card field:
+	type:				choice
+	name:				transform right
+	editable:			false
+	save value:			false
+	show statistics:	false
+	choice:				transform right
 
 extra card style:
-	frame:
-		left: 0
-		top: 0
-		width: 375
-		height: 523
-		z index: 0
-		render style: image
-		image: {flip_background(top: card.card_color, bottom: card.card_color_2)}
 	pt box:
 		left: 303
 		top: 128
@@ -515,7 +562,11 @@ extra card style:
 		z index: 1
 		visible: { card.pt != "" }
 		render style: image
-		image: { module_ptbox() }
+		image:
+			script:
+				image := module_ptbox()
+				if is_back() then image := color_multiply(width:135, height:76, multiply_mask:template_prefix["pt"] + "multiply_mask.png")
+				image
 	pt box 2:
 		right: 20
 		bottom: 346
@@ -525,7 +576,11 @@ extra card style:
 		z index: 1
 		visible: { card.pt_2 != "" }
 		render style: image
-		image: { module_ptbox() }
+		image:
+			script:
+				image := module_ptbox()
+				if is_back() then image := color_multiply(width:135, height:76, multiply_mask:template_prefix["pt"] + "multiply_mask.png")
+				image
 	foil layer:
 		left: 0
 		top : 0
@@ -544,3 +599,21 @@ extra card style:
 		render style: image
 		z index: 850
 		image: { "/magic-modules.mse-include/stamps/backs/" + (if stamp_shape() == "triangle" then "triangle_" else "") + "stamp.png" }
+	transform left:
+		left:				5
+		top:				23
+		width:				49
+		height:				37
+		z index:			500
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (not transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transforml(type: "transform_left" + if transform_symbol_is_modal(card.transformation) then "_modal" else "") }
+	transform right:
+		left:				321
+		top:				23
+		width:				48
+		height:				36
+		z index:			520
+		visible:			{ (not transform_symbol_is_empty(card.transformation)) and (transform_symbol_is_right(card.transformation)) }
+		render style:		image
+		image:				{ card_transformr(type: "transform_right" + if transform_symbol_is_modal(card.transformation) then "_modal" else "") }

@@ -1,4 +1,5 @@
 #### Consider using the Namelines module instead of this one.
+#### It encompasses transformation symbols, card symbols, names and casting costs, all at once.
 
 #### To use this include in a template, add the following in the template headers:
 depends on:
@@ -16,12 +17,16 @@ include file: /magic-modules.mse-include/casting-costs/card_fields_tfc
 #### This adds a package option to select an alternate mana font for the casting cost.
 include file: /magic-modules.mse-include/casting-costs/styling_fields
 
-#### Default Field Placement (@375x523, w=1 h=1)
+#### Default Field Placement
+#### For 375x523 templates, w = h = 1
+#### For 750x1046 templates, w = h = 2
+#### etc...
 casting cost:
 	right:  346w
 	top:    27h
 	width:  min(30w, content) + 5w
 	height: 21h
+
 #### Customization
 #### Optionally, you can define which face of the card the casting cost should snap to,
 #### by defining the following function in the init script:
@@ -40,6 +45,10 @@ casting_cost_offset_left_1 := { 0 }
 casting_cost_offset_width_1 := { 0 }
 casting_cost_offset_height_1 := { 0 }
 
+#### When there is a transformation symbol on the right of the card,
+#### the casting cost needs to shift. To adjust by how much:
+casting_cost_transform_symbol_offset_left_1 := { 0 }
+
 #### For DFC or TFC templates, use:
 casting_cost_offset_top_2 := { 0 }
 casting_cost_offset_left_2 := { 0 }
@@ -49,3 +58,4 @@ casting_cost_offset_top_3 := { 0 }
 casting_cost_offset_left_3 := { 0 }
 casting_cost_offset_width_3 := { 0 }
 casting_cost_offset_height_3 := { 0 }
+etc...
