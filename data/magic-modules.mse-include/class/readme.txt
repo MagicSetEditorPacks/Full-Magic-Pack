@@ -7,10 +7,10 @@ depends on:
 	version:			2024-05-20
 
 #### Add the following line,unindented, in the styling field section:
-include file: /magic-modules.mse-include/levels/styling_fields
+include file: /magic-modules.mse-include/class/styling_fields
 
 #### Also add this, unindented, before the card style section:
-include file: /magic-modules.mse-include/levels/card_fields
+include file: /magic-modules.mse-include/class/card_fields
 
 #### Customization
 #### Optionally, you can adjust appearance by defining the following functions in the init script:
