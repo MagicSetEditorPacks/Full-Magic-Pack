@@ -414,43 +414,75 @@ jobs:
                       #### Rebuild the installer
                       installer_name = package.name + ".mse-installer"
 
-                      try:
+                      ## Retry up to 2 times
+                      max_attempts = 2
+                      for attempt in range(1, max_attempts + 1):
                           t0 = time.time()
-                          subprocess.run(
-                              [
-                                  str(exe),
-                                  "--create-installer",
-                                  package.name,
-                                  installer_name,
-                              ],
-                              cwd=root,
-                              timeout=300,
-                              check=True,
-                          )
-
-                          #### Copy the installer to the Installer-Pack repo
-                          shutil.copy2(
-                              root / installer_name,
-                              installer_repo / installer_name,
-                          )
-                          print(f"::notice::installer for package {package.name} rebuilt into Installer-Pack in {time.time() - t0:.1f}s.")
-
-                          #### Copy the icon to the Installer-Pack repo
-                          if "icon" in found_keys:
-                              shutil.copy2(
-                                  package / found_keys['icon'],
-                                  installer_repo / (package.name + ".icon.png"),
+                          try:
+                              subprocess.run(
+                                  [
+                                      str(exe),
+                                      "--create-installer",
+                                      package.name,
+                                      installer_name,
+                                  ],
+                                  cwd=root,
+                                  timeout=300,
+                                  check=True,
                               )
 
-                      except subprocess.TimeoutExpired:
-                          print(f"::error::{exe.name} timed out building installer for package {package.name} (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder).")
-                          continue
-                      except subprocess.CalledProcessError as e:
-                          print(f"::error::{exe.name} failed building installer for package {package.name} (exit code {e.returncode}).")
-                          continue
-                      except OSError as e:
-                          print(f"::error::failed to copy installer/icon for package {package.name}: {e}")
-                          continue
+                              ## Copy the installer to the Installer-Pack repo
+                              shutil.copy2(
+                                  root / installer_name,
+                                  installer_repo / installer_name,
+                              )
+                              print(f"::notice::installer for package {package.name} rebuilt into Installer-Pack in {time.time() - t0:.1f}s.")
+
+                              ## Copy the icon to the Installer-Pack repo
+                              if "icon" in found_keys:
+                                  shutil.copy2(
+                                      package / found_keys['icon'],
+                                      installer_repo / (package.name + ".icon.png"),
+                                  )
+
+                              break
+
+                          except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as e:
+                              if isinstance(e, subprocess.TimeoutExpired):
+                                  reason = "timed out (likely a stuck dialog thrown because a package that this one depends on is missing from the data folder)"
+                              elif isinstance(e, subprocess.CalledProcessError):
+                                  reason = f"failed (exit code {e.returncode})"
+                              else:
+                                  reason = f"hit an error copying the installer/icon: {e}"
+
+                              ## Kill lingering processes
+                              for name in (exe.name, exe2.name):
+                                  subprocess.run(
+                                      [
+                                          "taskkill",
+                                          "/F",
+                                          "/T",
+                                          "/IM",
+                                          name
+                                      ],
+                                      stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL,
+                                  )
+                              time.sleep(2)
+
+                              ## Remove partial installer left behind
+                              try:
+                                  (root / installer_name).unlink(missing_ok=True)
+                              except OSError:
+                                  pass
+
+                              if attempt < max_attempts:
+                                  print(f"::warning::building installer for package {package.name} {reason} (attempt {attempt}/{max_attempts}), retrying.")
+                                  continue
+
+                              ## Final failure, abort the job
+                              print(f"::error::building installer for package {package.name} {reason} (attempt {attempt}/{max_attempts}). Aborting job.")
+                              sys.exit(1)
 
                   #### Write the package's entry in the installer list
                   l.write(entry)
