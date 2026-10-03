@@ -1,17 +1,17 @@
 mse version:		2.6.0
 game:				magic
 short name:			Field Test
-full name:			Exporter v1.1
+full name:			Exporter v1.2
 icon:				icon.png
 position hint:		960120
 installer group:	magic/Exporters/Field Test
 
 
-version: 2026-02-06
+version: 2026-09-18
 
 depends on:
 	package: magic.mse-game
-	version: 2009-07-23
+	version: 2026-08-28
 
 create directory: true
 file type: *.txt|*.txt|*.*|*.*
@@ -30,7 +30,7 @@ option field:
 	name: export images
 script:
 	# replace shenanigans
-	template_vers := "1.1"
+	template_vers := "1.2"
 	fix_tm := replace@(match:"™", replace:"TM")
 	fixed_set_code := {
 		trim(fix_tm(if options.set_code != "" then options.set_code else set.set_code))
@@ -310,6 +310,7 @@ script:
 	}
 
 	write_normal:= {
+		real_card := if card.compatability or else false then card.card else card
 		"	\{"
 		+ (if export_me() then "" else "\"skip\": true, ")
 		+ "\"fullName\": \"" + sanitize(apos_fix(database_name())) + "\", "
@@ -325,11 +326,11 @@ script:
 		+ "\"color\": \"" + (if contains(card.super_type, match:"Land") then "" else silver_patch(indicator_color_name(card.card_color))) + "\", "
 		+ "\"cmc\": " + cmc(card.casting_cost) + ", "
 		+ "\"cardType\": \"" + type_trim(card.super_type) + "\", "
-		+ (if contains(card.shape, match: "split") or contains(card.shape, match:"double") or contains(card.shape, match:"adventure") or contains(card.shape, match:"aftermath") then secondCard())
+		+ (if (card.compatability or else false) or contains(real_card.shape, match: "split") or contains(real_card.shape, match:"double") or contains(real_card.shape, match:"adventure") or contains(real_card.shape, match:"aftermath") then secondCard())
 		+ "\"rarity\": \"" + (if rarity_name() == "Token" then "token" else if rarity_name() == "Bonus" then "bonus" else if rarity_name() == "Masterpiece" then "masterpiece" else card.rarity) + "\", "
 		+ "\"shape\": \"" + lackey_shape() + "\", "
 		+ "\"setID\": \"" + (if token_export() then "tokens" else fixed_set_code()) + "\", "
-		+ "\"cardID\": \"" + (if token_export() then fixed_set_code() else "") + position(of:card, in:set) + "\", "
+		+ "\"cardID\": \"" + (if token_export() then fixed_set_code() else "") + position(of:real_card, in:set) + "\", "
 		+ (if token_export() then "\"parentSet\": \"" + fixed_set_code() + "\", " else "")
 		+ "\"notes\": " + card_note_array() + ", "
 		+ (if filter_rename() != "" then "\"rename\": \"" + filter_rename() + "\", " else "")
@@ -357,9 +358,14 @@ script:
 		+ "\"color2\": \"" + (if contains(card.super_type, match:"Land") then "" else silver_patch(indicator_color_name(card.card_color_2))) + "\", "
 		+ "\"cmc2\": " + cmc(card.casting_cost_2) + ", "
 		+ "\"cardType2\": \"" + type_trim(card.super_type_2) + "\", "
+		+ (if card.compatability or else false then "\"backID\": \"" + position(of:card.card_2, in:set) + "\", " else "")
 	}
 
-	write_update := {write_normal()}
+	write_update := {
+		if get_back_face(card) != nil then write_normal(card:linked_dfc_compat_map(card:card))
+		else if get_front_face(card) != nil then ""
+		else write_normal()
+	}
 	write_cards := to_text(for each card in cards do write_update())
 	clean_cards := replace@(match:",\n$", replace: "\n")
 		+replace@(match:"’", replace:"'")

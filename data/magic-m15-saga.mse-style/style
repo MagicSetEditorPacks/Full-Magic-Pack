@@ -7,7 +7,7 @@ position hint:		000010
 installer group:	magic/M15 Frames/Standard/M15 Saga
 
 
-version: 			2026-09-13
+version: 			2026-09-21
 depends on:
 	package: 		magic.mse-game
 	version: 		2026-09-06
@@ -23,6 +23,9 @@ depends on:
 depends on:
 	package: 		magic-mainframe-extras.mse-include
 	version: 		2018-01-01
+depends on:
+	package:		magic-pride.mse-include
+	version:		2026-08-28
 
 card width: 375
 card height: 523
@@ -61,7 +64,7 @@ update cards script:
 					offset := given - new_top
 					offset + ","
 				)
-				styling_data := [chapter_divider_offsets:new_str] + styling_data
+				styling_data := styling_data + [chapter_divider_offsets:new_str]
 			)
 			[
 				new_card(
@@ -80,6 +83,8 @@ update cards script:
 init script:
 	# Should hybrids have a grey name?
 	mask_hybrid_with_land := { styling.grey_hybrid_name }
+	
+	include file: /magic-pride.mse-include/scripts
 	
 	template_prefix := [
 		card: "cards/"
@@ -157,7 +162,7 @@ init script:
 		src := styling.snap_chapter_to_box
 		if src == "" and styling.chapter_number_coordinates == "" then src := default_snaps()
 		snap_array := split_comma(src)
-		abil := to_number_lax(snap_array[input-1])
+		abil := to_number_lax(snap_array[input-1] or else 0)
 		if abil < 0 or abil > 6 then abil := 0
 		if abil == 0 then 600 else snap_calc(input, snap_array:snap_array, abil:abil)
 	}
@@ -924,6 +929,38 @@ init script:
 		if input > cells then 0 else text_column_cell_height_array()[input-1].height
 	}
 	
+	pride_mask := {
+		base := "masks/pride" + (if legend then "_crown" + (if creature_frame() and is_saga() then "_creature" else "") else "") + ".png"
+		if creature_frame() then (
+			## crop at typeline
+			base := crop_image(
+				base,
+				offset_y: 0,
+				offset_x: 0,
+				width: 345,
+				height: 384 - type_offset()
+			)
+		)
+		else if not legend and is_notched() then (
+			## add notch
+			notch := crop_image(
+				"masks/pride_notch.png",
+				offset_x: if notch_left() then 0 else 145,
+				offset_y: 0,
+				width: 200,
+				height: 384
+			)
+			base := insert_image(
+				base_image: base,
+				inserted_image: notch,
+				offset_y: 0,
+				offset_x: if notch_left() then 0 else 145,
+				widen: false
+			)
+		)
+		base
+	}@(legend:false)
+	
 	card_stamp_offset_top_1 := {
 		if stamp_shape(field:1) == "triangle" and not creature_frame() then 2 else 0
 	}
@@ -1032,6 +1069,7 @@ styling field:
 	choice: pokemon evobar
 	choice: clear
 	choice: borderless
+	choice: pride pinlines
 styling field:
 	type: text
 	name: custom border source
@@ -1734,7 +1772,7 @@ card style:
 	pt:
 		z index: 910
 		left: 293
-		top: 466
+		top: { if creature_frame() then 466 else 472 }
 		width: {if starting_loyalty() or starting_defense() then 0 else 60}
 		height:	28
 		alignment: center middle shrink-overflow
@@ -2040,11 +2078,23 @@ extra card field:
 	choice: evo
 	save value: false
 	editable: false
+extra card field:
+	type: choice
+	name: pride pinline
+	include file: /magic-pride.mse-include/pins
+	editable: true
+	save value: true
+extra card field:
+	type: choice
+	name: pride pinline crown
+	choice: mirror
+	editable: false
+	save value: false
 
 extra card style:
 	pt box:
 		left: 285
-		top: 464
+		top: { if creature_frame() then 464 else 470 }
 		width: 70
 		height:	39
 		z index: 840
@@ -2285,7 +2335,7 @@ extra card style:
 		image: { crown_image() }
 		z index: 840
 		visible: {is_legend()}
-		mask: { if creature_frame() then "masks/creature_crown.png" }
+		mask: { if creature_frame() and is_saga() then "masks/creature_crown.png" }
 	bookmark:
 		left: 0
 		top: 0
@@ -2310,7 +2360,7 @@ extra card style:
 		height: 523
 		render style: image
 		image: { if is_clear() then "notches/a.png" else notch_image() }
-		z index: 490
+		z index: 390
 		mask: { "masks/hide_notch_" + (if notch_left() then "right.png" else "left.png") }
 		visible: { is_notched() }
 	typebar:
@@ -2392,3 +2442,23 @@ extra card style:
 		render style: image
 		image: { evobar_image(card_style.alias.content_width) }
 		visible: {use_evobar()}
+	pride pinline:
+		left: 15
+		top: 58
+		width: 345
+		height: { 384 - type_offset() }
+		render style: image
+		image: { pin_image() }
+		visible: {contains(styling.other_options, match:"pride pinlines")}
+		mask: {pride_mask()}
+		z index: 400
+	pride pinline crown:
+		left: 15
+		top: 58
+		width: 345
+		height: { 384 - type_offset() }
+		render style: image
+		image: { pin_image(extra_card.pride_pinline) }
+		visible: {contains(styling.other_options, match:"pride pinlines") and is_legend()}
+		mask: {pride_mask(legend:true)}
+		z index: 895
