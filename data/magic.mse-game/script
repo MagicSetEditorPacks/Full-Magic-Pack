@@ -756,14 +756,17 @@ crop_multi_image := {
 }
 
 ############################################################## Sorting mana symbols
+#### strings so we don't have to edit them so much
+mana_uncolored_symbols := "VHSDFCMAINJ"
+mana_string := "/\\?|∞XYZ0-9{mana_uncolored_symbols}TQWUBRGEKPLO"
 #### correctly sort a mana symbol (no guild mana)
-mana_sort := sort_text@(order: "\\?XYZI[0123456789]VHSFCAIM(EKPLO)(WUBRG)") 
+mana_sort := sort_text@(order: "\\?XYZI[0123456789]{mana_uncolored_symbols}(EKPLO)(WUBRG)") 
 #### correctly sort wedge mana
-mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VHSFCAIM(EPOKL)(WBGUR)")
+mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]{mana_uncolored_symbols}(EPOKL)(WBGUR)")
 #### sort nothing
-mana_unsort := sort_text@(order:"[/\\?XYZI0123456789VHSCAIEKPLOMWUBRG]")
+mana_unsort := sort_text@(order:"[{mana_string}]")
 #### correctly sort guild mana
-mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VHSFCAMIEKPLOWUBRG/|]") +
+mana_sort_guild := sort_text@(order: "[{mana_string}]") +
 		replace@(
 			#### No lookbehind :(
 			#match: "(?<!/)(./.|././.|./././.|.[|])(?!/)",
@@ -1293,11 +1296,11 @@ rarity_code := {
 is_unsorted := { false }
 ############################################################## Statistics utilities
 #### Converted mana cost
-is_half_mana :=    match@(match: "1/2|[|][WUBRGS]")
+is_half_mana :=    match@(match: "1/2|[|][WUBRGCSMA]")
 is_half_generic := match@(match: "1/2")
 is_colored_mana := match@(match: "[WUBRG]")
 only_numbers :=    filter_text@(match: "^[0123456789]+")
-cmc_split :=       break_text@(match: "(?ix) 1/2 | [|][WUBRGC] | TK | [0-9](/[WUBRGCVHSCMAEKPLOTQ2]) | [0-9]+(?!/[WUBRGCVHSCMAEKPLOTQ2]) | [WUBRGCMAVHS0-9](/[WUBRGCMAVHS])\{0,4} ")
+cmc_split :=       break_text@(match: "(?ix) 1/2 | [|][WUBRGCSMA] | TK | [0-9](/[WUBRGEKPLOTQ{mana_uncolored_symbols}]) | [0-9]+(?!/[WUBRGCEKPLOTQ{mana_uncolored_symbols}]) | [WUBRGEKPLO{mana_uncolored_symbols}0-9](/[WUBRGEKPLO{mana_uncolored_symbols}])\{0,4} ")
 cmc := {to_number(
 	for each sym in cmc_split(to_text()) do (
 		numbers := only_numbers(sym)
@@ -1473,11 +1476,11 @@ digital_map := [
 for_mana_costs := {
 	if input.separator_before == "—" and contains(input.param, match: " ") then (											#### multi word
 		if comma_count(input.param) == "," then (																			#### two part
-			if match(match: "^[VHSCMAIETKPLOQ\\?XYZIWUBRG0-9/|]+,", input.param) then													#### starts with mana
+			if match(match: "^[{mana_string}]+,", input.param) then													#### starts with mana
 				"{add}<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>"					#### "add" mana 
 			else "<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"					#### else cost "non"
 		) else if contains(input.param, match: ",") then (																	#### three+ parts
-			if match(match: "^[VHSCMAIETKPLOQ\\?XYZIWUBRG0-9/|]+,", input.param) then													#### starts with mana
+			if match(match: "^[{mana_string}]+,", input.param) then													#### starts with mana
 				"{add}<param-cost>{alternative_cost(input.param, trim:long_cost, s:action)}</param-cost>"						#### "add" mana with long formatting
 			else "<param-cost>{alternative_cost(input.param, trim:long_nomana_cost, s:action)}</param-cost>{non}"				#### else cost "non" with long formatting
 		) else
@@ -1489,7 +1492,7 @@ for_mana_costs := {
 }@(non:" in addition to any other costs", action:false, add:"")
 #### return bool; is the input is a simple mana cost?
 is_mana_cost := {
-	match(match: "^[VHSCMAIETKPLOQ\\?XYZIWUBRG0-9/|]+$", input.param)
+	match(match: "^[{mana_string}]+$", input.param)
 }
 #### Convert extra costs
 long_cost := replace@(match:", [A-Z]", replace: { to_lower() } )
@@ -1498,7 +1501,7 @@ long_nomana_cost := replace@(match:"[A-Z]", replace: { to_lower() })
 lower_first := replace@(match:"^[A-Z]", replace: { to_lower() })
 combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
 	replace@(match:",", replace:" and")+
-	replace@(match:"^[VHSCMETKPLOQ\\?XYZIWUBRG0-9/|]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
+	replace@(match:"^[{mana_string}]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
 	replace@(match:"^[A-Z]", replace: { to_lower() })
 alternative_cost := {
 	input := trim(input)
@@ -1776,8 +1779,8 @@ mana_context :=
 			|	<match>[ ]can[ ]be[ ]paid
 			|	(pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using)) #### pay X. creatures cost 1 less. pay an additional G.
 				([ ]either)?                                                                            #### pay either X or Y
-				([ ](<sym[^>]*>)?[-+=]?[VHSCMETKPLOQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)*                  #### pay X, Y or Z
-				([ ](<sym[^>]*>)?[-+=]?[VHSCMETKPLOQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* #### pay X or Y
+				([ ](<sym[^>]*>)?[-+=]?[{mana_string}]+(</sym[^>]*>)?,)*                  #### pay X, Y or Z
+				([ ](<sym[^>]*>)?[-+=]?[{mana_string}]+(</sym[^>]*>)?[ ](and|or|and/or))* #### pay X or Y
 				[ ]<match>
 				(
 						[,.)\"”]|$                              #### (end of word)
@@ -2167,7 +2170,7 @@ text_filter :=
 		out
 	} +
 	replace@(
-		match: "\\][-+=]?[VHSCMEKPLOTQINF\\?XYZIWUBRG0-9/|]+\\[",
+		match: "\\][-+=]?[{mana_string}]+\\[",
 		replace: {"<nosym>" + mana_filter_t() + "</nosym>"}
 	) +
 	#### step 5 : add mana & tap symbols
@@ -2182,13 +2185,13 @@ text_filter :=
 		replace: {"<sym-auto>" + _1 + "</sym-auto>" + _3}
 	) +
 	replace@(
-		match: "\\b[VHSCMEKPLOTQ\\?XYZIWUBRG0-9/|]+\\b",
+		match: "\\b[{mana_string}]+\\b",
 		in_context: mana_context,
 		replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"}
 	) +
 	#### step 5b : remove false positive mana & tap symbols
 	replace@(
-		match: "<sym-auto>([VHSCMEKPLOTQ\\?XYZIWUBRG0-9/|]+)</sym-auto>",
+		match: "<sym-auto>([{mana_string}]+)</sym-auto>",
 		in_context: mana_un_context,
 		replace: "\\1"
 	) +
@@ -2198,7 +2201,7 @@ text_filter :=
 		replace: {"<sym>INF</sym>" }
 	) +
 	replace@(
-		match: "\\[[-+=]?[VHSCMEKPLOTQ\\?XYZIWUBRG0-9/|]+\\]",
+		match: "\\[[-+=]?[{mana_string}]+\\]",
 		replace: {"<sym>" + mana_filter_t() + "</sym>"}
 	) +
 	#### step 6a : auto reminder

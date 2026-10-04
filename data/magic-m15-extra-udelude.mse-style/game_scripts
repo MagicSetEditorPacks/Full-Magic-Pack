@@ -2,32 +2,24 @@
 	############################################################## Sorting mana symbols
 	# Current Mana Codes:
 	#
-	#	A - artifact	B - black	C - 		D - 		E - 		F - 		G - green	H - phyrexian
+	#	A - artifact	B - black	C - colorless	D - hazard	E - brown	F - 		G - green	H - phyrexian
 	#
-	#	I - 		J - 		K - pink	L - yellow	M - 		N - 		O - 		P - purple
+	#	I - infinity	J - pawprint	K - pink	L - yellow	M - gold	N - energy	O - orange	P - purple
 	#
-	#	Q - untap	R - red		S - snow	T - tap		U - blue	V - 		W - white	X - X variable
+	#	Q - untap		R - red			S - snow	T - tap		U - blue	V - custom	W - white	
 	#
-	#	Y - Y variable	Z - Z variable
+	#	X - X variable	Y - Y variable	Z - Z variable
 	#
-	# correctly sort a mana symbol (no guild mana)
-	# This script is modified to provide an unsorted option and handle extra colors.
-	# This script is modified to handle extra colors.
-	mana_sort       := {
-		if contains(styling.extras, match:"unsorted casting cost") then
-			sort_text@(order: "[/XYZ∞0123456789HCMSAPLOEKWUBRG]")()
-		else
-			sort_text@(order: "XYZ∞[0123456789]HCMSA(PLOEK)(WUBRG)")()
+
+	# add unsorted mana styling option
+	mana_filter := to_upper + {
+		if chosen(set.mana_cost_sorting, choice: "unsorted") then mana_unsort()
+		else if contains(styling.extras, match:"unsorted casting cost") then mana_unsort()
+		else if mana_has_guild() then mana_sort_guild()
+		else if mana_has_wedge(input) then mana_sort_wedge(input)
+		else                     mana_sort()
 	}
-	#mana_sort       := sort_text@(order: "XYZ∞[0123456789]HCMSA(PLOEK)(WUBRG)")
-	# correctly sort guild mana
-	mana_sort_guild := sort_text@(order: "[XYZ∞01234567890HCMSAPLOEKWUBRG/|]") +
-			replace@(
-				match: "./.|././.|./././.|.[|]",
-				in_context: "(^|[^/])<match>($|[^/])",
-				replace: {sort_text(order:"in_place((PLOEK)(WUBRG)")}
-			)
-	tap_filter := sort_text@(order: "<TQ>")
+
 	############################################################## Determine card color
 	
 	# Names of colors
@@ -296,263 +288,7 @@
 			else                       multi_color_pair_sort()               # Multicolor (by pairs)
 		)
 	}
-	
-	############################################################## Utilities for keywords
-	# replaces — correctly
-	for_mana_costs := format_cost := {
-		if input.separator_before == "—" and contains(input.param, match: " ") then (
-			if contains(input.param, match:",") then (
-				if match(match: "^[HCMSATQXYZ∞WUBRGPLOEK0-9/|]+,", input.param) then
-					"{add}<param-cost>{combined_cost(input.param)}</param-cost>"
-				else "<param-cost>{combined_cost(input.param)}</param-cost>"
-			) else
-				"<param-cost>{alternative_cost(input.param)}</param-cost>"
-		) else
-			"{add}<param-mana>{input.param}</param-mana>"
-	}
-	combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
-		replace@(match:",", replace:" and")+
-		replace@(match:"^[HCMSATQXYZ∞WUBRGPLOEK0-9/|]", in_context: "(^|[[:space:]])<match>", replace: "<sym-auto>&</sym-auto>")+
-		replace@(match:"^[A-Z]", replace: { to_lower() })
-	
-	############################################################## The text box
-	
-	# Filters for the text box
-	# context in which mana symbols are found
-	mana_context :=
-		"(?ix)				# case insensitive, ignore whitespace
-		 (^|[[:space:]\"(“'])		# start of a word
-		 (  <match>:			# G: something
-		 |  <match>,			# G, tap: something
-		 |  <match>[ ]can[ ]be[ ]pay
-		 |  (pays?|additional|costs?|the	# pay X. creatures cost 1 less. pay an additional G.
-		    |adds?|pay(ed)?[ ](with|using)
-		    )
-		    ([ ]either)?			 # pay either X or Y
-		    ([ ](<sym[^>]*>)?[HCMSATQXYZ∞WUBRGPLOEK0-9/|]+(</sym[^>]*>)?,)* # pay X, Y or Z
-		    ([ ](<sym[^>]*>)?[HCMSATQXYZ∞WUBRGPLOEK0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* # pay X or Y
-		    [ ]<match>
-		    ([,.)]|$				# (end of word)
-		    |[ ][^ .,]*$			# still typing...
-		    |[ ]( or | and | in | less | more | to ) # or next word is ...
-		    )
-		    )
-		 |  <param-mana><match></param-mana>		# keyword argument that is declared as mana
-		 |  <param-cost>[ ]*<match></param-cost>	# keyword argument that is declared as cost
-		 |  <param-cost><match>,			# keyword argument that is declared as cost
-		 ";
-	# the rule text filter
-	#  - adds mana symbols
-	#  - makes text in parentheses italic
-	text_filter :=
-		# step 1 : remove all automatic tags
-		remove_tag@(tag: "<sym-auto>") +
-		remove_tag@(tag: "<i-auto>")   +
-		remove_tag@(tag: "<b-auto>")   +
-		remove_tag@(tag: "<error-spelling") +
-		remove_tag@(tag: "<nospellcheck") +
-		remove_tag@(tag: "<li>") +
-		remove_tag@(tag: "<bullet>") +
-		remove_tag@(tag: "<align") +
-		remove_tag@(tag: "<margin") +
-		#### step 1b : remove zero-width space used for level spacers
-		replace@(match:"​", replace:"") +
-		#### step 2a : temp fix for formatting buttons
-		replace@(
-			match:"<b></b>",
-			replace:"BOLDAROUND"
-		) +
-		replace@(
-			match:"<i></i>",
-			replace:"ITALAROUND"
-		) +
-		replace@(
-			match:"<sym></sym>",
-			replace:"SYMAROUND"
-		) +
-		#### step 2a : reminder text for keywords
-		expand_keywords@(
-			condition: {
-				correct_case or (mode != "pseudo" and not used_placeholders)
-			}
-			default_expand: {
-				chosen(choice:if correct_case or mode == "action" then mode else "lower case", set.automatic_reminder_text) and chosen(choice:mode, set.automatic_reminder_text)
-			},
-			combine: {
-				keyword := "<nospellcheck>{keyword}</nospellcheck>"
-				reminder := process_english_hints(reminder)
-				if mode == "pseudo" then "<i-auto>{keyword}</i-auto>"
-				else keyword + if expand then "<atom-reminder-{mode}> ({reminder})</atom-reminder-{mode}>" else ""
-			}
-		) +
-		#### step 2b : apply face_code
-		replace@(
-			match: "face_(.*?)_end",
-			replace: {face_code(_1)}
-		) +
-		#### step 2c : move action keywords' reminder text to the end of the line
-		replace@(
-			match: "(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)", #### removed "| ?<kw-" from lookahead
-			replace: "\\2\\1"
-		) +
-		#### step 2d : when there's an action keyword and another one, then move that to the end of the line
-		replace@(
-			match: "(<atom-reminder-[^>]+> (?:(?!</kw)[^\n]*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*?)(<atom-reminder-[^>]+> (?:(?!</kw).*?)</atom-reminder-[^>]+></kw[^>]*>)([^\n]*)",
-			replace: "\\2\\4\\3\\1"
-		) +
-		#### step 2e : allow a sentence after lowercase reminder text for equips etc.
-		#replace@(
-		#	match: "(<kw[^>]+><nospellcheck>[a-z][^<]+</nospellcheck>)(<atom-reminder-(?:expert|custom|old|core)>(?:(?!<kw-).)*</atom-reminder-(?:expert|custom|old|core)></kw[^>]*>)([^\n]+)$",
-		#	replace: "\\1\\3\\2"
-		#	) +
-		#### step 2f : remove duplicate reminder text
-		replace@(
-			match: "(<atom-reminder-[^>]*>[^)]+[)]</atom-reminder-[^>]*>)([^\n]+)\\1"
-			replace: "\\2\\1"
-		) +
-		#### step 2g : combine reminder texts
-		replace@(
-			match: "[)](</atom-reminder-[^>]+></kw-[^>]><atom-reminder-[^>]+> )[(]"
-			replace: "\\1"
-		) +
-		#### step 2h : temp fix for formatting buttons
-		replace@(
-			match:"BOLDAROUND",
-			replace:"<b></b>"
-		) +
-		replace@(
-			match:"ITALAROUND",
-			replace:"<i></i>"
-		) +
-		replace@(
-			match:"SYMAROUND",
-			replace:"<sym></sym>"
-		) +
-		replace@(
-			match:"-\n-"
-			replace:"<soft-line>\n</soft-line>"
-		) +
-		#### step 3a : expand shortcut word CARDNAME
-		replace@(
-			match: "CARDNAME>?", #### >? is here so after replacement, the mouse snaps to the end of </atom>
-			in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|-|—|/|​)<match>", #### TODO: Allow any punctuation before
-			replace: "<atom-cardname></atom-cardname>"
-		) +
-		#### step 3b : expand shortcut word LEGENDNAME
-		replace@(
-			match: "LEGENDNAME>?",
-			in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>", #### TODO: Allow any punctuation before
-			replace: "<atom-legname></atom-legname>"
-		) +
-		#### step 3c : fill in atom fields
-		tag_contents@(
-			tag: "<atom-cardname>",
-			contents: { "<nospellcheck>" + (if card_name=="" then "CARDNAME" else strip_card_codes(card_name, atom:true)) + "</nospellcheck>" }
-		) +
-		tag_contents@(
-			tag: "<atom-legname>",
-			contents: { "<nospellcheck>" + (if card_name=="" then "LEGENDNAME" else legend_filter(strip_card_codes(card_name, atom:true))) + "</nospellcheck>" }
-		) +
-		replace@(
-			match: "INS([1-9])",
-			in_context: "(^|[[:space:]]|\\(|,|\\.|:|“|\"|'|‘|/|​)<match>",
-			replace: "<atom-insert\\1></atom-insert\\1>"
-		) +
-		{
-			out := input
-			for x from 1 to inserts_count() do
-				out := tag_contents(out,
-					tag: "<atom-insert"+x+">",
-					contents: { "<nospellcheck>" + (if inserts_values()[x-1] == "" then "INS"+x else inserts_values()[x-1]) + "</nospellcheck>" }
-				)
-			out
-		} +
-		# step 4 : explict non mana symbols
-		replace@(
-			match: "\\][-+=]?[VHSMCATQXYZ∞WUBRGPK0-9/|]+\\[",
-			replace: {"<nosym>" + mana_filter_t() + "</nosym>"} ) +
-		#### step 5 : add mana & tap symbols
-		replace@(
-			match: "(?<!\\/)([+=-][XYZ0-9|]+)(?!\\/)",
-			in_context: mana_context,
-			replace: {"<sym-auto>" + _1 + "</sym-auto>"}
-		) +
-		replace@(
-			match: "\\b((TK)+)(T)?\\b",
-			in_context: mana_context,
-			replace: {"<sym-auto>" + _1 + "</sym-auto>" + _3}
-		) +
-		replace@(
-			match: "\\b[VHMSCATQXYZ∞WUBRGPK0-9/|]+\\b",
-			in_context: mana_context,
-			replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"}
-		) +
-		#### step 5b : remove false positive mana & tap symbols
-		replace@(
-			match: "<sym-auto>([VHSMCATQXYZ∞WUBRGPK0-9/|]+)</sym-auto>",
-			in_context: mana_un_context,
-			replace: "\\1"
-		) +
-		#### step 5c : add explicit mana symbols
-		replace@(
-			match: "\\[[-+=]?[VHSMCATQXYZ∞WUBRGPK0-9/|]+\\]",
-			replace: {"<sym>" + mana_filter_t() + "</sym>"}
-		) +
-		# step 6a : curly double quotes
-		replace@(
-			match: "[[.quotation-mark.]]|”",
-			in_context: "[ ]<match>+|^<match>",
-			replace: "“" )+
-		replace@(
-			match: "[[.quotation-mark.]]",
-			replace: "”" )+
-		# step 7 : italicize text in parenthesis
-		replace@(
-		 	match: "[(]([^)\n]|[(][^)\n]*[)])*[)]?",
-			in_context: "(^|[[:space:]])<match>|<atom-keyword><match></",
-		 	replace: "<i-auto>&</i-auto>") +
-		#### step 7b : indent bullets
-		replace@(
-			match: "• ?(.*?)(<line>\n</line>|\n|<soft-line>\n</soft-line>|$)",
-			replace:
-			{
-				margin := to_int(3.1*stylesheet.card_height/523)
-				"<margin:0:0:" + margin + "><li><bullet>• </bullet>" + _1 + "</li></margin:0:0:" + margin + ">" + _2
-			}
-		) +
-		#### step 7c : soft-line bullets
-		replace@(
-			match: "\n(<margin[^>]+>)?<li>",
-			replace: {"<soft-line>\n</soft-line>" + _1 + "<li>"}
-		) +
-			#### step 8 : automatic capitalization, but not after "("
-		#replace@(
-		#	match: "([ ]*: |—| — )" #### preceded by this
-		#	     + "([[:lower:]])"  #### match this
-		#	     + "(?![)])",       #### not followed by this
-		#	replace: { _1 + to_upper(_2) }) +
-		#### step 9 : spellcheck
-		{
-			if set.auto_correct then
-				auto_correct(input)
-			else input
-		} +
-		{
-			if set.auto_errata then
-				auto_errata(input)
-			else input
-		} +
-		{
-			if language().code == "ja" or language().code == "zht" or language().code == "zhs" then input
-			else if set.mark_errors then
-			check_spelling(
-				language: language().spellcheck_code,
-				extra_dictionary: "/magic.mse-game/dictionary/magic-words",
-				extra_match: additional_text_words
-			)
-			else input
-		}
-	
+		
 	############################################################## Other boxes
 	# Script to make magic-mana-future compatible w/ other templates
 	# Is now used to allow colored XYZ mana.
@@ -638,11 +374,6 @@
 	}
 
 	############################################################## Statistics utilities
-	# Converted mana cost
-	is_half_mana    := match@(match: "1/2|[|][HSCAWUBRGPLOEK]")
-	is_colored_mana := match@(match: "[WUBRGPLOEK]")
-	cmc_split := break_text@(match: "(?ix) 1/2 | [|][WUBRGPLOEK] | [0-9]+(?!/[WUBRGHSCMAPLOEKCTQ2]) | [WUBRGHSCMAPLOEK0-9.](/[WUBRGHSCMAPLOEK])\{0,4} ")
-	
 	primary_card_color := {
 		artifact := chosen(choice:"artifact") and not (chosen(choice:"white") or chosen(choice:"blue") or chosen(choice:"black") or chosen(choice:"red") or chosen(choice:"green"))
 		land     := chosen(choice:"land")
