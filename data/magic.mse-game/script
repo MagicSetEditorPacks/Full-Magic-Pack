@@ -34,11 +34,13 @@ include file: language
 include file: statistics_script
 include file: /magic-blends.mse-include/new-blends
 ############################################################## Versioning
-version_date := {"2026-09-19 Template Pack 4.0.7: Alt Rarity Defaults Fix"}
+version_date := {"2026-10-01 Template Pack 4.1.0: OneDrive Fixes, Modules"}
 version := version_date
+
 #### magic.mse-game version primary dependencies
 ### 2026-08-28 - MSE 2.6 & card links support
 ### 2026-09-06 - text_filter given card_styling:styling, font_stroke scripts
+
 ############################################################## Common filters
 ############################################################## Utility
 comma_count :=     filter_text@(match:",")
@@ -356,6 +358,27 @@ exclusive_choice_chain := {
 	input
 }
 
+double_blend :=
+{
+	masked_blend(
+		light: prefix + light,
+		dark: prefix + dark,
+		mask: prefix + mask,
+	)
+}
+triple_blend :=
+{
+	masked_blend(
+		light: prefix + light1,
+		dark: masked_blend(
+			light: prefix + light2,
+			dark: prefix + dark2,
+			mask: prefix + mask2,
+		)
+		mask: prefix + mask1,
+	)
+}
+
 #### This blends a map of images together
 #### i dont remember why
 #### i think i tested it for dungeons
@@ -520,9 +543,31 @@ dfc_splitter_name := {
 special_text :=                  { "" }
 special_text2 :=                 { "" }
 a_saga :=                        {false}
-saga_reminder :=                 { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
 b_saga :=                        {false}
-saga_reminderb :=                { "As this Saga enters and after your draw step, add a lore counter. Sacrifice after III." }
+saga_reminder :=
+{
+	snaps := replace(styling.snap_chapter_to_box or else "", match: ",+$", replace: "")
+	number_of_chapters := if snaps != "" then min(saga_chapter_max_count_1(), length(split_comma(snaps))) else to_int(styling.number_of_textboxes) or else to_int(digital_map(styling.number_of_textboxes)) or else 3
+	default := styling.default_reminder or else styling.alternate_reminder or else ""
+	if default == "" then default := "As this Saga enters and after your draw step, add a lore counter. Sacrifice after [number of chapters]."
+	replace(default, match: "\\[number of chapters\\]", replace: saga_map[number_of_chapters])
+}
+saga_reminderb :=
+{
+	snaps := replace(styling.snap_chapter_to_back_box or else "", match: ",+$", replace: "")
+	number_of_chapters := if snaps != "" then min(saga_chapter_max_count_2(), length(split_comma(snaps))) else (
+		option := styling.number_of_back_textboxes or else ""
+		if option != "" then to_int(option) or else to_int(digital_map(option)) or else 3
+		else (
+			option := styling.back_style or else ""
+			if contains(option, match: "box saga") then to_int(trim(replace(option, match: "box saga", replace: ""))) or else 3
+			else 3
+		)
+	)
+	default := styling.default_reminder or else styling.alternate_reminder or else ""
+	if default == "" then default := "As this Saga enters and after your draw step, add a lore counter. Sacrifice after [number of chapters]."
+	replace(default, match: "\\[number of chapters\\]", replace: saga_map[number_of_chapters])
+}
 is_mainframe :=                  { false }
 mainframe_walker :=              {false}
 mainframe_walker_text_script :=  {combined_editor(field1: card.level_1_text, separator1: "<line>\n</line>", field2: card.level_2_text, separator2: "<line>\n</line>", field3: card.level_3_text)}
@@ -711,14 +756,17 @@ crop_multi_image := {
 }
 
 ############################################################## Sorting mana symbols
+#### strings so we don't have to edit them so much
+mana_uncolored_symbols := "VHSDFCMAINJ"
+mana_string := "/\\?|∞XYZ0-9{mana_uncolored_symbols}TQWUBRGEKPLO"
 #### correctly sort a mana symbol (no guild mana)
-mana_sort := sort_text@(order: "\\?XYZI[0123456789]VHSFCAI(EKPLO)(WUBRG)") 
+mana_sort := sort_text@(order: "\\?XYZI[0123456789]{mana_uncolored_symbols}(EKPLO)(WUBRG)") 
 #### correctly sort wedge mana
-mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]VHSFCAI(EPOKL)(WBGUR)")
+mana_sort_wedge := sort_text@(order: "\\?XYZI[0123456789]{mana_uncolored_symbols}(EPOKL)(WBGUR)")
 #### sort nothing
-mana_unsort := sort_text@(order:"[/\\?XYZI0123456789VHSCAIEKPLOMWUBRG]")
+mana_unsort := sort_text@(order:"[{mana_string}]")
 #### correctly sort guild mana
-mana_sort_guild := sort_text@(order: "[\\?XYZI01234567890VHSFCAIEKPLOWUBRG/|]") +
+mana_sort_guild := sort_text@(order: "[{mana_string}]") +
 		replace@(
 			#### No lookbehind :(
 			#match: "(?<!/)(./.|././.|./././.|.[|])(?!/)",
@@ -1197,8 +1245,8 @@ card_number_offset := {pull_comma_array(set.card_number_offsets, cell:0, end:fal
 set_number_offset := {pull_comma_array(set.card_number_offsets, cell:1, end:false, default:0)}
 #### the raw numbers, these aren't typically used directly
 card_number := {
-	base := if get_front_face(card) != nil then card_index(card:get_linked_numbering_card()) else card_index()
-	base + 1 + to_number(card_number_offset())
+	if get_front_face(card) != nil then card := get_linked_numbering_card(card)
+	card_index() + 1 + to_number(card_number_offset())
 }
 card_index := {
 	position (
@@ -1248,11 +1296,11 @@ rarity_code := {
 is_unsorted := { false }
 ############################################################## Statistics utilities
 #### Converted mana cost
-is_half_mana :=    match@(match: "1/2|[|][WUBRGS]")
+is_half_mana :=    match@(match: "1/2|[|][WUBRGCSMA]")
 is_half_generic := match@(match: "1/2")
 is_colored_mana := match@(match: "[WUBRG]")
 only_numbers :=    filter_text@(match: "^[0123456789]+")
-cmc_split :=       break_text@(match: "(?ix) 1/2 | [|][WUBRGC] | TK | [0-9](/[WUBRGCVHSCEKPLOTQ2]) | [0-9]+(?!/[WUBRGCVHSCEKPLOTQ2]) | [WUBRGCVHS0-9](/[WUBRGCVHS])\{0,4} ")
+cmc_split :=       break_text@(match: "(?ix) 1/2 | [|][WUBRGCSMA] | TK | [0-9](/[WUBRGEKPLOTQ{mana_uncolored_symbols}]) | [0-9]+(?!/[WUBRGCEKPLOTQ{mana_uncolored_symbols}]) | [WUBRGEKPLO{mana_uncolored_symbols}0-9](/[WUBRGEKPLO{mana_uncolored_symbols}])\{0,4} ")
 cmc := {to_number(
 	for each sym in cmc_split(to_text()) do (
 		numbers := only_numbers(sym)
@@ -1428,11 +1476,11 @@ digital_map := [
 for_mana_costs := {
 	if input.separator_before == "—" and contains(input.param, match: " ") then (											#### multi word
 		if comma_count(input.param) == "," then (																			#### two part
-			if match(match: "^[VHSCAIETKPLOQ\\?XYZIWUBRG0-9/|]+,", input.param) then													#### starts with mana
+			if match(match: "^[{mana_string}]+,", input.param) then													#### starts with mana
 				"{add}<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>"					#### "add" mana 
 			else "<param-cost>{alternative_cost(input.param, trim:combined_cost, s:action)}</param-cost>{non}"					#### else cost "non"
 		) else if contains(input.param, match: ",") then (																	#### three+ parts
-			if match(match: "^[VHSCAIETKPLOQ\\?XYZIWUBRG0-9/|]+,", input.param) then													#### starts with mana
+			if match(match: "^[{mana_string}]+,", input.param) then													#### starts with mana
 				"{add}<param-cost>{alternative_cost(input.param, trim:long_cost, s:action)}</param-cost>"						#### "add" mana with long formatting
 			else "<param-cost>{alternative_cost(input.param, trim:long_nomana_cost, s:action)}</param-cost>{non}"				#### else cost "non" with long formatting
 		) else
@@ -1444,7 +1492,7 @@ for_mana_costs := {
 }@(non:" in addition to any other costs", action:false, add:"")
 #### return bool; is the input is a simple mana cost?
 is_mana_cost := {
-	match(match: "^[VHSCAIETKPLOQ\\?XYZIWUBRG0-9/|]+$", input.param)
+	match(match: "^[{mana_string}]+$", input.param)
 }
 #### Convert extra costs
 long_cost := replace@(match:", [A-Z]", replace: { to_lower() } )
@@ -1453,7 +1501,7 @@ long_nomana_cost := replace@(match:"[A-Z]", replace: { to_lower() })
 lower_first := replace@(match:"^[A-Z]", replace: { to_lower() })
 combined_cost := replace@(match:", [A-Z]", replace: { to_lower() })+
 	replace@(match:",", replace:" and")+
-	replace@(match:"^[VHSCETKPLOQ\\?XYZIWUBRG0-9/|]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
+	replace@(match:"^[{mana_string}]+", in_context: "(^|[[:space:]])<match>(?![a-z])", replace: "<sym-auto>&</sym-auto>")+
 	replace@(match:"^[A-Z]", replace: { to_lower() })
 alternative_cost := {
 	input := trim(input)
@@ -1731,8 +1779,8 @@ mana_context :=
 			|	<match>[ ]can[ ]be[ ]paid
 			|	(pays?|additional|costs?|the|adds?|pay(ed)?[ ](with|using)) #### pay X. creatures cost 1 less. pay an additional G.
 				([ ]either)?                                                                            #### pay either X or Y
-				([ ](<sym[^>]*>)?[-+=]?[VHSCETKPLOQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?,)*                  #### pay X, Y or Z
-				([ ](<sym[^>]*>)?[-+=]?[VHSCETKPLOQ\\?XYZIEWUBRG0-9/|]+(</sym[^>]*>)?[ ](and|or|and/or))* #### pay X or Y
+				([ ](<sym[^>]*>)?[-+=]?[{mana_string}]+(</sym[^>]*>)?,)*                  #### pay X, Y or Z
+				([ ](<sym[^>]*>)?[-+=]?[{mana_string}]+(</sym[^>]*>)?[ ](and|or|and/or))* #### pay X or Y
 				[ ]<match>
 				(
 						[,.)\"”]|$                              #### (end of word)
@@ -2122,7 +2170,7 @@ text_filter :=
 		out
 	} +
 	replace@(
-		match: "\\][-+=]?[VHSCEKPLOTQINF\\?XYZIWUBRG0-9/|]+\\[",
+		match: "\\][-+=]?[{mana_string}]+\\[",
 		replace: {"<nosym>" + mana_filter_t() + "</nosym>"}
 	) +
 	#### step 5 : add mana & tap symbols
@@ -2137,13 +2185,13 @@ text_filter :=
 		replace: {"<sym-auto>" + _1 + "</sym-auto>" + _3}
 	) +
 	replace@(
-		match: "\\b[VHSCEKPLOTQ\\?XYZIWUBRG0-9/|]+\\b",
+		match: "\\b[{mana_string}]+\\b",
 		in_context: mana_context,
 		replace: {"<sym-auto>" + mana_filter_t() + "</sym-auto>"}
 	) +
 	#### step 5b : remove false positive mana & tap symbols
 	replace@(
-		match: "<sym-auto>([VHSCEKPLOTQ\\?XYZIWUBRG0-9/|]+)</sym-auto>",
+		match: "<sym-auto>([{mana_string}]+)</sym-auto>",
 		in_context: mana_un_context,
 		replace: "\\1"
 	) +
@@ -2153,7 +2201,7 @@ text_filter :=
 		replace: {"<sym>INF</sym>" }
 	) +
 	replace@(
-		match: "\\[[-+=]?[VHSCEKPLOTQ\\?XYZIWUBRG0-9/|]+\\]",
+		match: "\\[[-+=]?[{mana_string}]+\\]",
 		replace: {"<sym>" + mana_filter_t() + "</sym>"}
 	) +
 	#### step 6a : auto reminder
@@ -3299,6 +3347,10 @@ card_number_tags := {
 #### Card number section of card code
 card_number_formatter := {
 	cn_tag := card_number_tags().0
+	if get_front_face(card) != nil then (
+		cn_tag := card_number_tags().1
+		card := get_linked_numbering_card()
+	)
 	
 	case set.card_number_style of
 		"0001/0099": card_number_mom() + cn_tag + (if set.over_partition_display == "100" and over_partition() then "" else "/" + card_count_mom()),
@@ -3524,6 +3576,9 @@ chapter_text_filter_default :=
 ############################################################## Leveler textboxes
 level_filter_default := { "" }
 level_filter := { input }
+
+level_label_filter_default := { "LEVEL" }
+level_label_filter := { input }
 
 #### Correct the CARDNAME atom for levelers
 card_name_for_level := {
@@ -4740,6 +4795,384 @@ loyalty_textbox_background_image :=
 	)
 }
 
+############################################################## Saga abilities and chapters
+saga_face_1 :=							{ 1 }
+
+saga_reminder_text_offset_left_1 :=		{ 0 }
+saga_reminder_text_offset_top_1 :=		{ 0 }
+saga_reminder_text_offset_width_1 :=	{ 0 }
+saga_reminder_text_offset_height_1 :=	{ 0 }
+
+saga_text_offset_left_1 :=				{ 0 }
+saga_text_offset_top_1 :=				{ 0 }
+saga_text_offset_width_1 :=				{ 0 }
+saga_text_offset_height_1 :=			{ 0 }
+
+saga_text_offset_padding_1 :=			{ 0 }
+
+saga_chapter_offset_left_1 :=			{ 0 }
+saga_chapter_offset_top_1 :=			{ 0 }
+saga_chapter_offset_width_1 :=			{ 0 }
+saga_chapter_offset_height_1 :=			{ 0 }
+
+saga_chapter_offset_spacing_1 :=		{ 0 }
+
+saga_first_separator_offset_left_1 :=	{ 0 }
+saga_first_separator_offset_top_1 :=	{ 0 }
+saga_first_separator_offset_width_1 :=	{ 0 }
+saga_first_separator_offset_height_1 :=	{ 0 }
+
+saga_separator_offset_left_1 :=			{ 0 }
+saga_separator_offset_top_1 :=			{ 0 }
+saga_separator_offset_width_1 :=		{ 0 }
+saga_separator_offset_height_1 :=		{ 0 }
+
+saga_reminder_text_left_1 :=			{ map := face_coordinates_map(saga_face_1()); 35 * map.width/375 + map.left + saga_reminder_text_offset_left_1() }
+saga_reminder_text_top_1 :=				{ map := face_coordinates_map(saga_face_1()); 64 * map.height/523 + map.top + saga_reminder_text_offset_top_1() }
+saga_reminder_text_width_1 :=			{ saga_text_width_1() + (saga_text_left_1() - saga_reminder_text_left_1()) + saga_reminder_text_offset_width_1() }
+saga_reminder_text_bottom_1 :=			{ saga_text_top_1() + saga_reminder_text_offset_height_1() }
+
+saga_reminder_text_padding_bottom_1 :=	{ 0 }
+
+saga_text_left_1 :=						{ map := face_coordinates_map(saga_face_1()); 49 * map.width/375 + map.left + saga_text_offset_left_1() }
+saga_text_top_1 :=						{ map := face_coordinates_map(saga_face_1()); 156 * map.height/523 + map.top + saga_text_offset_top_1() }
+saga_text_width_1 :=					{ map := face_coordinates_map(saga_face_1()); 133 * map.width/375 + saga_text_offset_width_1() }
+saga_text_height_1 :=					{ map := face_coordinates_map(saga_face_1()); 278 * map.height/523 + saga_text_offset_height_1() }
+
+saga_text_padding_1 :=
+{
+	map := face_coordinates_map(saga_face_1())
+	shape := separator_field(input)
+	if shape == "none" then 0
+	else (if shape == "flavor bar" then -2 else if shape == "grey bar" then -4 else 2) * map.height/523 + saga_separator_height_1(input)/2 + saga_text_offset_padding_1()
+}
+
+saga_chapter_left_1 :=					{ map := face_coordinates_map(saga_face_1()); 14 * map.width/375 + map.left + saga_chapter_offset_left_1() }
+saga_chapter_width_1 :=					{ map := face_coordinates_map(saga_face_1()); 29.5 * map.width/375 + saga_chapter_offset_width_1() }
+saga_chapter_height_1 :=				{ map := face_coordinates_map(saga_face_1()); 33.5 * map.height/523 + saga_chapter_offset_height_1() }
+saga_chapter_top_1 :=
+{
+	chapter_info := saga_chapter_info_1(input-1)
+	if chapter_info[0] == -1 then stylesheet.card_height + 1
+	else
+	(
+		index := chapter_info[0]
+		subindex := chapter_info[1]
+		count := chapter_info[2]
+		chapter_height := saga_chapter_height_1()
+		chapter_spacing := saga_chapter_spacing_1()
+		desired_chapter_height := count * chapter_height																#### How much total space do the chapter icons want
+		desired_spacing := (count-1) * chapter_spacing																	#### How much total space do the gaps between chapters want
+		desired_height := desired_chapter_height + desired_spacing														#### How much total space do the chapters and gaps between them want
+		textbox_height := card_style["level_" + (index+1) + "_text"].height												#### How much space does the textbox offer
+		missing_height := desired_height - textbox_height																#### How much space is missing from the textbox
+		effective_spacing := desired_spacing - max(missing_height, 0)													#### How much total space do the gaps between chapters actually have
+		effective_spacing := max(effective_spacing, (count-1) * (chapter_spacing - chapter_height))						#### Chapters must always be at least chapter_spacing pixels below the previous one
+		effective_spacing_per_chapter := effective_spacing / max(count-1,1)												#### How much space does each gap have (can be negative, chapters will then overlap)
+		effective_height := desired_chapter_height + effective_spacing													#### How much total space do the chapters and gaps between and around them want
+		offset := (textbox_height - effective_height)/2
+		
+		top := card_style["level_" + (index+1) + "_text"].top + offset + subindex * (chapter_height + effective_spacing_per_chapter)
+		
+		top + saga_chapter_offset_top_1()
+	)
+}
+
+saga_chapter_info_1 :=
+{
+	#### This returns a triplet consisting of:
+	#### Which chaptertrain the input chapter is in
+	#### Which position inside the chaptertrain the input chapter is at
+	#### The size of that chaptertrain
+	chapter_indexes := saga_chapter_indexes_1(active_count: saga_abilities_count_1() - 1);
+	index := chapter_indexes[input]
+	if index == -1 then [-1,-1,-1]
+	else
+	(
+		subindex :=	if input == 0 then 0
+					else (for c from 0 to (input-1) do (if chapter_indexes[c] == index then 1 else 0))
+		count :=	subindex + 1 + (for c from (input+1) to saga_chapter_max_count_1()-1 do (if chapter_indexes[c] == index then 1 else 0))
+		[index, subindex, count]
+	)
+}
+
+saga_chapter_indexes_1 :=
+{
+	#### This return which chaptertrain each chapter is in
+	snaps := if styling.snap_chapter_to_box == "" then [1,2,3,4,5,6,7,8] else split_comma(styling.snap_chapter_to_box)
+	snaps_count := length(snaps)
+	for c from 0 to saga_chapter_max_count_1()-1 do
+	(
+		if c >= snaps_count then [-1]
+		else
+		(
+			index := (to_int(trim(snaps[c])) or else -1) - 1
+			if index > active_count or index < 0 then [-1]
+			else [index]
+		)
+	)
+}
+
+saga_chapter_spacing_1 :=				{ map := face_coordinates_map(saga_face_1()); 4 * map.height/523 + saga_chapter_offset_spacing_1() }
+
+saga_chapter_visible_1 :=				{ saga_chapter_max_count_1() >= input and ( (styling.snap_chapter_to_box == "" and saga_abilities_count_1() >= input) or (styling.snap_chapter_to_box != "" and length(split_comma(styling.snap_chapter_to_box)) >= input) ) }
+
+saga_chapter_image_1 :=
+{
+	path := styling.custom_chapter_icons
+	if contains(path, match: ".png") then (if path.0 == "/" then "" else "/") + (un_png(path) + input + ".png")
+	else "/magic-modules.mse-include/chapters/chapter" + input + ".png"
+}
+
+saga_chapter_max_count_1 :=	{ 10 }
+
+saga_separator_left_1 :=				{ map := face_coordinates_map(saga_face_1()); 25 * map.width/375 + map.left + saga_separator_offset_left_1() + (if input == 1 then saga_first_separator_offset_left_1() else 0) }
+saga_separator_width_1 :=				{ map := face_coordinates_map(saga_face_1()); 178 * map.width/375 + saga_separator_offset_width_1() + (if input == 1 then saga_first_separator_offset_width_1() else 0) }
+saga_separator_top_1 :=
+{
+	card_style["level_" + input + "_text"].top + saga_separator_offset_top_1() + (if input == 1 then saga_first_separator_offset_top_1() else 0) - saga_separator_height_1(input)/2
+}
+saga_separator_height_1 :=
+{
+	active_count := saga_abilities_count_1()
+	if input > active_count then 0 else (
+	map := face_coordinates_map(saga_face_1())
+	shape := separator_field(input)
+	(if shape == "none" or shape == "flavor bar" or shape == "grey bar" then 12 else 24.5) * map.height/523 + saga_separator_offset_height_1() + (if input == 1 then saga_first_separator_offset_height_1() else 0))
+}
+
+saga_bookmark_mask_1 := { "" }
+saga_separator_mask_1 :=
+{
+	mask := saga_bookmark_mask_1()
+	if mask == "" then "" else (
+	offset_x := saga_separator_left_1()
+	offset_y := saga_separator_top_1(input) + saga_separator_move_1(input)
+	width := saga_separator_width_1()
+	height := saga_separator_height_1(input)
+	crop_safe(mask, offset_x: offset_x, offset_y: offset_y, width: width, height: height))
+}
+
+saga_chapter_move_1 :=		{ split := split_comma(styling.move_chapter_icons);		if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:700, minimum:-700) else 0 }
+saga_separator_move_1 :=	{ split := split_comma(styling.move_separators);		if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:500, minimum:-500) else 0 }
+saga_textbox_move_1 :=		{ split := split_comma(styling.move_textbox_bottoms);	if length(split) > input   and split[input  ] != "" and split[input  ] != "-" then clamp(split[input  ], maximum:500, minimum:-500) else 0 }
+
+saga_abilities_count_1 :=	{ to_int(styling.number_of_textboxes) }
+
+saga_textbox_heights_1 :=
+{
+	active_count := saga_abilities_count_1() - 1
+	total_available_height := saga_text_height_1()
+	
+	#### This specifies how much text dictates the height of a textbox. 100 Percent means all textboxes have the same height, regardless of their text content.
+	#### 0 percent means textboxes have a height directly proportional to their text content. (For ex: a textbox with twice as many characters will be twice as high.)
+	ability_balance_percentage := styling.ability_balance_percentage or else "30"
+	ability_balance_importance := if ability_balance_percentage == "" then 0.3 else clamp(ability_balance_percentage, minimum: 0, maximum: 100) / 100
+	
+	#### This specifies how much chapter icons dictate the height of a textbox. 100 Percent means chapter icons will be very spaced out.
+	#### 0 percent means chapter icons will overlap (only if there is not enough space).
+	chapter_spacing_percentage := styling.chapter_spacing_percentage or else "50"
+	chapter_spacing_importance := if chapter_spacing_percentage == "" then 1.0 else clamp(chapter_spacing_percentage, minimum: 0, maximum: 100) / 50
+	
+	#### A chaptertrain is the set of all chapter icons that are on the same ability. (Up to 8 abilities, so 8 chaptertrains.)
+	chapter_indexes := saga_chapter_indexes_1(active_count: active_count)
+	chaptertrain_0_count := 0
+	chaptertrain_1_count := 0
+	chaptertrain_2_count := 0
+	chaptertrain_3_count := 0
+	chaptertrain_4_count := 0
+	chaptertrain_5_count := 0
+	chaptertrain_6_count := 0
+	chaptertrain_7_count := 0
+	#### Put each chapter icon in it's chapter train
+	for c from 0 to saga_chapter_max_count_1()-1 do
+	(
+		if		chapter_indexes[c] == -1 then	(0)
+		else if	chapter_indexes[c] == 0 then	(chaptertrain_0_count := chaptertrain_0_count + 1)
+		else if	chapter_indexes[c] == 1 then	(chaptertrain_1_count := chaptertrain_1_count + 1)
+		else if	chapter_indexes[c] == 2 then	(chaptertrain_2_count := chaptertrain_2_count + 1)
+		else if	chapter_indexes[c] == 3 then	(chaptertrain_3_count := chaptertrain_3_count + 1)
+		else if	chapter_indexes[c] == 4 then	(chaptertrain_4_count := chaptertrain_4_count + 1)
+		else if	chapter_indexes[c] == 5 then	(chaptertrain_5_count := chaptertrain_5_count + 1)
+		else if	chapter_indexes[c] == 6 then	(chaptertrain_6_count := chaptertrain_6_count + 1)
+		else									(chaptertrain_7_count := chaptertrain_7_count + 1)
+	)
+	chaptertrain_counts := [chaptertrain_0_count, chaptertrain_1_count, chaptertrain_2_count, chaptertrain_3_count, chaptertrain_4_count, chaptertrain_5_count, chaptertrain_6_count, chaptertrain_7_count]
+	chaptertrain_desired_heights :=	for x from 0 to active_count do [chaptertrain_counts[x] * (saga_chapter_height_1() + saga_chapter_spacing_1()) * chapter_spacing_importance]
+	
+	#### Determine how much text is in each textbox. The ideal metric would be card_style.level_X_text.content_lines, but every time the card_style variable is used,
+	#### everything breaks when the data is reloaded. The layout of the card changes, which is unacceptable. To counteract this, the less precise but more stable
+	#### length(card.level_X_text) is used instead.
+	character_counts :=				for x from 0 to active_count do [clamp(length(to_text(card["level_" + (x+1) + "_text"])), minimum: 20, maximum: 1000)]
+	total_character_count :=		for x from 0 to active_count do character_counts[x]
+	total_character_average :=		total_character_count / (active_count + 1)
+	balanced_character_counts :=	for x from 0 to active_count do [total_character_average * ability_balance_importance + character_counts[x] * (1 - ability_balance_importance)]
+	text_desired_heights :=			for x from 0 to active_count do [total_available_height*balanced_character_counts[x]/total_character_count]
+	
+	textbox_desired_heights :=		for x from 0 to active_count do [max(text_desired_heights[x], chaptertrain_desired_heights[x])]
+	
+	total_desired_height :=			for x from 0 to active_count do textbox_desired_heights[x]
+	
+	missing := ( total_desired_height - total_available_height ) / ( active_count + 1 )
+	factor := total_available_height / total_desired_height
+	
+	#### When resizing, always make small textboxes as big as possible, to make for a more balanced looking card
+	textbox_effective_heights :=	if missing <= 0 then	(for x from 0 to active_count do [textbox_desired_heights[x] - missing])	#### When increasing size, add equally to each textbox
+									else					(for x from 0 to active_count do [textbox_desired_heights[x] * factor])		#### When decreasing size, do it in percentage, taking away more from big textboxes
+	
+	textbox_effective_heights
+}
+
+saga_text_alignment_1 :=
+{
+	if	styling.center_text == "yes"
+	or	styling.center_text == "always"
+	or	styling.center_text == "short text only"
+	then "middle center"
+	else "middle left"
+}
+
+
+############################################################## Class abilities
+class_face_1 :=								{ 1 }
+
+class_reminder_text_offset_left_1 :=		{ 0 }
+class_reminder_text_offset_top_1 :=			{ 0 }
+class_reminder_text_offset_width_1 :=		{ 0 }
+class_reminder_text_offset_height_1 :=		{ 0 }
+
+class_text_offset_left_1 :=					{ 0 }
+class_text_offset_top_1 :=					{ 0 }
+class_text_offset_width_1 :=				{ 0 }
+class_text_offset_height_1 :=				{ 0 }
+
+class_text_offset_padding_1 :=				{ 0 }
+
+class_first_separator_offset_left_1 :=		{ 0 }
+class_first_separator_offset_top_1 :=		{ 0 }
+class_first_separator_offset_width_1 :=		{ 0 }
+class_first_separator_offset_height_1 :=	{ 0 }
+
+class_separator_offset_left_1 :=			{ 0 }
+class_separator_offset_top_1 :=				{ 0 }
+class_separator_offset_width_1 :=			{ 0 }
+class_separator_offset_height_1 :=			{ 0 }
+
+class_level_cost_offset_left_1 :=			{ 0 }
+class_level_cost_offset_top_1 :=			{ 0 }
+class_level_cost_offset_width_1 :=			{ 0 }
+class_level_cost_offset_height_1 :=			{ 0 }
+
+class_level_offset_left_1 :=				{ 0 }
+class_level_offset_top_1 :=					{ 0 }
+class_level_offset_width_1 :=				{ 0 }
+class_level_offset_height_1 :=				{ 0 }
+
+class_reminder_text_left_1 :=				{ class_text_left_1() + class_reminder_text_offset_left_1() }
+class_reminder_text_top_1 :=				{ map := face_coordinates_map(class_face_1()); 64 * map.height/523 + map.top + class_reminder_text_offset_top_1() }
+class_reminder_text_width_1 :=				{ if styling.remove_reminder_text then 0 else class_text_width_1() + class_reminder_text_offset_width_1() }
+class_reminder_text_bottom_1 :=				{ class_text_top_1() + class_reminder_text_offset_height_1() }
+
+class_reminder_text_padding_bottom_1 :=		{ 0 }
+
+class_text_left_1 :=						{ map := face_coordinates_map(class_face_1()); 193 * map.width/375 + map.left + class_text_offset_left_1() }
+class_text_top_1 :=							{ map := face_coordinates_map(class_face_1()); (64 + class_text_top_adjustment_1()) * map.height/523 + map.top + class_text_offset_top_1() }
+class_text_width_1 :=						{ map := face_coordinates_map(class_face_1()); 147 * map.width/375 + class_text_offset_width_1() }
+class_text_height_1 :=						{ map := face_coordinates_map(class_face_1()); (370 - class_text_top_adjustment_1()) * map.height/523 + class_text_offset_height_1() }
+class_text_top_adjustment_1 :=
+{
+	if styling.remove_reminder_text then 0 else (
+	character_count := length(to_text(card.chapter_text))
+	if		character_count > 84 then	84
+	else if	character_count > 56 then	63
+	else if	character_count > 28 then	42
+	else								21)
+}
+
+class_text_padding_1 :=
+{
+	map := face_coordinates_map(class_face_1())
+	shape := separator_field(input)
+	if shape == "none" then 0
+	else (if shape == "flavor bar" then -2 else if shape == "grey bar" then -4 else 2) * map.height/523 + class_separator_height_1(input)/2 + class_text_offset_padding_1()
+}
+
+class_separator_left_1 :=					{ map := face_coordinates_map(class_face_1()); 186 * map.width/375 + map.left + class_separator_offset_left_1() + (if input == 1 then class_first_separator_offset_left_1() else 0) }
+class_separator_width_1 :=					{ map := face_coordinates_map(class_face_1()); 160 * map.width/375 + class_separator_offset_width_1() + (if input == 1 then class_first_separator_offset_width_1() else 0) }
+class_separator_top_1 :=
+{
+	card_style["level_" + input + "_text"].top + class_separator_offset_top_1() + (if input == 1 then class_first_separator_offset_top_1() else 0) - class_separator_height_1(input)/2
+}
+class_separator_height_1 :=
+{
+	active_count := class_abilities_count_1()
+	if input > active_count then 0 else (
+	map := face_coordinates_map(class_face_1())
+	shape := separator_field(input)
+	(if shape == "none" or shape == "flavor bar" or shape == "grey bar" then 12 else 24.5) * map.height/523 + class_separator_offset_height_1() + (if input == 1 then class_first_separator_offset_height_1() else 0))
+}
+
+class_separator_shrink_1 :=	{ split := split_comma(styling.shrink_separators);		if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:class_separator_height_1(input)/2, minimum:-500) else 0 }
+class_separator_move_1 :=	{ split := split_comma(styling.move_separators);		if length(split) > input-1 and split[input-1] != "" and split[input-1] != "-" then clamp(split[input-1], maximum:500, minimum:-500) else 0 }
+class_textbox_move_1 :=		{ split := split_comma(styling.move_textbox_bottoms);	if length(split) > input   and split[input  ] != "" and split[input  ] != "-" then clamp(split[input  ], maximum:500, minimum:-500) else 0 }
+
+class_abilities_count_1 :=	{ to_int(styling.number_of_textboxes) }
+
+class_textbox_heights_1 :=
+{
+	active_count := class_abilities_count_1() - 1
+	total_available_height := class_text_height_1()
+	
+	#### This specifies how much text dictates the height of a textbox. 100 Percent means all textboxes have the same height, regardless of their text content.
+	#### 0 percent means textboxes have a height directly proportional to their text content. (For ex: a textbox with twice as many characters will be twice as high.)
+	ability_balance_percentage := styling.ability_balance_percentage or else "30"
+	ability_balance_importance := if ability_balance_percentage == "" then 0.3 else clamp(ability_balance_percentage, minimum: 0, maximum: 100) / 100
+	
+	#### Determine how much text is in each textbox. The ideal metric would be card_style.level_X_text.content_lines, but every time the card_style variable is used,
+	#### everything breaks when the data is reloaded. The layout of the card changes, which is unacceptable. To counteract this, the less precise but more stable
+	#### length(card.level_X_text) is used instead.
+	character_counts :=				for x from 0 to active_count do [clamp(length(to_text(card["level_" + (x+1) + "_text"])), minimum: 20, maximum: 1000)]
+	total_character_count :=		for x from 0 to active_count do character_counts[x]
+	total_character_average :=		total_character_count / (active_count + 1)
+	balanced_character_counts :=	for x from 0 to active_count do [total_character_average * ability_balance_importance + character_counts[x] * (1 - ability_balance_importance)]
+	text_desired_heights :=			for x from 0 to active_count do [total_available_height*balanced_character_counts[x]/total_character_count]
+	
+	separators_desired_heights :=	for x from 0 to active_count do [(if styling.remove_reminder_text and x == 0 then 0 else class_separator_height_1(x+1)/2 - class_separator_shrink_1(x+1)) + (if x == active_count then 0 else class_separator_height_1(x+2)/2 - class_separator_shrink_1(x+2))]
+	
+	textbox_desired_heights :=		for x from 0 to active_count do [text_desired_heights[x] + separators_desired_heights[x]]
+	
+	total_desired_height :=			for x from 0 to active_count do textbox_desired_heights[x]
+	
+	missing := ( total_desired_height - total_available_height ) / ( active_count + 1 )
+	factor := total_available_height / total_desired_height
+	
+	#### When resizing, always make small textboxes as big as possible, to make for a more balanced looking card
+	textbox_effective_heights :=	if missing <= 0 then	(for x from 0 to active_count do [textbox_desired_heights[x] - missing])	#### When increasing size, add equally to each textbox
+									else					(for x from 0 to active_count do [textbox_desired_heights[x] * factor])		#### When decreasing size, do it in percentage, taking away more from big textboxes
+	
+	textbox_effective_heights
+}
+
+class_level_cost_left_1 :=		{  7 * face_coordinates_map(class_face_1()).height/523 + separator_style_field(input).left }
+class_level_cost_right_1 :=		{ -7 * face_coordinates_map(class_face_1()).height/523 + (separator_style_field(input).left + separator_style_field(input).right)/2 }
+class_level_cost_top_1 :=		{ if not contains(separator_field(input), match: "level") or class_abilities_count_1() < input or styling.remove_level_costs then stylesheet.card_height+1 else 3 * face_coordinates_map(class_face_1()).height/523 + separator_style_field(input).top }
+class_level_cost_height_1 :=	{ height := separator_style_field(input).height - 7 * face_coordinates_map(class_face_1()).height/523; if height < 0 then 0 else height }
+
+class_level_left_1 :=			{  7 * face_coordinates_map(class_face_1()).height/523 + if styling.remove_level_costs then separator_style_field(input).left else (separator_style_field(input).left + separator_style_field(input).right)/2 }
+class_level_right_1 :=			{ -7 * face_coordinates_map(class_face_1()).height/523 + separator_style_field(input).right }
+class_level_top_1 :=			{ if not contains(separator_field(input), match: "level") or class_abilities_count_1() < input then stylesheet.card_height+1 else 3 * face_coordinates_map(class_face_1()).height/523 + separator_style_field(input).top }
+class_level_height_1 :=			{ height := separator_style_field(input).height - 7 * face_coordinates_map(class_face_1()).height/523; if height < 0 then 0 else height }
+
+class_text_alignment_1 :=
+{
+	if	styling.center_text == "yes"
+	or	styling.center_text == "always"
+	or	styling.center_text == "short text only"
+	then "middle center"
+	else "middle left"
+}
+
+
 ############################################################## Separators
 separator_enable_level := { false }
 separator_default := { 
@@ -4752,6 +5185,9 @@ separator_default := {
 	)
 	else "none"
 }
+separator_field := { if input <= 1 then card.separator else card["separator_" + input] }
+separator_style_field := { if input <= 1 then card_style.separator else card_style["separator_" + input] }
+separator_image := { "/magic-modules.mse-include/separators/" + separator_field(input) + ".png" }
 
 flavor_bar_left := { face_coordinates_map(input).left }
 flavor_bar_top :=
