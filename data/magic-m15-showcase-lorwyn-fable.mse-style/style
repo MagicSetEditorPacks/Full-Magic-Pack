@@ -34,11 +34,78 @@ card dpi:			297.6
 ############################################################## Extra scripts
 
 init script:
+	include file: /magic-modules.mse-include/levels/init_script
+	## testing
+	leveler_enabled 				:= {styling.leveler}
+	## main offsets
+	leveler_container_offset_left 	:= { -12 }
+	leveler_ptbox_offset_left 		:= { 24 }
+	leveler_margin_offset_left 		:= { -12 }
+	leveler_margin_offset_right 	:= { -20 }
+	## stripe mask
+	leveler_stripes_mask := {
+		"multiply_levels" + (if is_stamped() then "_stamped" else "") + ".png"
+	}
+	## insert_image the stamp so multiply levels works
+	leveler_card := {
+		image := color_blend(type: "card")
+		stamp_rim := color_blend(type: if is_stamped() then "stamp" else "nonstamp")
+		image := insert_image(
+			base_image: image,
+			inserted_image: stamp_rim,
+			offset_x: 0,
+			offset_y: 0
+		)
+		leveler_multiply()
+	}
+	## wrap the ptbox script so leveler pts can use it too
+	leveler_ptbox_image := {
+		pure := pure_colors()
+		count := length(pure)
+		color := pt_colors()
+		if color == "gold" and count > 1 then template("m", type: "pt")
+		else if color == "land" and count > 1 then template("c", type: "pt")
+		else if color == "hybrid" and count == 2 then masked_blend(mask: "special_blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
+		else color_blend(type: "pt")
+	}
+	## adventures in handling full canvas ptbox images
+	leveler_canvas_ptboxes := {
+		[
+			"pt": [
+				offset_top: -436,
+				pt_left: 	 592
+				pt_top: 	 937
+				pt_width: 	  97
+				pt_height: 	  35
+			]
+		]
+	}
+	leveler_multiply_dimensions := [
+		"pt": [height:1039, width:744, mask:""],
+		"box": [height:100, width:150, mask:""]
+	] + leveler_multiply_dimensions
+	## change the pt box leveler asset
+	box_container := {
+		image := leveler_ptbox_image()
+		crop_image(
+			image,
+			offset_x: 560,
+			offset_y: 900
+			width: 150,
+			height: 100
+		)
+	}
+	leveler_container_width_coord	 := ["box":75] + leveler_container_width_coord
+	leveler_container_height_coord	 := ["box":50] + leveler_container_height_coord
+	leveler_container_left_coord	 := ["box":5]  + leveler_container_left_coord
+	leveler_container_text_inset_top := ["box":16] + leveler_container_text_inset_top
+	leveler_margins_left 			 := ["box":50] + leveler_margins_left
+	## added spacecraft
 	swap_fonts_pt_default :=
 	[
 		name: {"Beleren Bold"},
-		size: {30.0},
-		color: {"black"},
+		size: {if leveler_container_shape() == "station" then 26 else 30.0},
+		color: {if leveler_container_shape() == "station" then "white" else "black"},
 		vertical: {0},
 		italic: {""},
 		stroke: {0},
@@ -216,7 +283,11 @@ init script:
 	art_mask :=			{ crop("image_mask.png", offset_x: art_left(), offset_y: art_top(), width: art_width(), height: art_bottom() - art_top()) }
 
 ############################################################## Extra style options
-
+styling field:
+	type:			boolean
+	name:			leveler
+	initial:		no
+include file: /magic-modules.mse-include/levels/styling_fields
 styling field:
 	type:			text
 	name:			popout art coordinates
@@ -228,6 +299,7 @@ styling field:
 	initial:		no
 
 include file: /magic-modules.mse-include/texts/styling_fields
+
 
 styling field:
 	type:			choice
@@ -292,6 +364,8 @@ include file: /magic-modules.mse-include/foils/card_fields
 
 #include file: /magic-modules.mse-include/alias/card_fields_under
 
+include file: /magic-modules.mse-include/levels/card_fields
+
 card style:
 	############################# Alias
 	alias:
@@ -324,7 +398,7 @@ card style:
 		z index:			200
 		popup style:		in place
 		render style:		image
-		image:				{ color_blend(type: "card") }
+		image:				{ leveler_card() }
 		mask:				card_mask.png
 	############################# Image
 	image:
@@ -378,32 +452,9 @@ card style:
 			stroke color:		{ body_font_stroke_color() }
 			stroke blur:		{ body_font_stroke_blur() }
 			scale down to:		7
-	############################# PT
-	pt:
-		left:				592
-		top:				{ 937 + pt_font_vertical() }
-		width:				97
-		height:				35
-		z index:			900
-		alignment:			center middle shrink-overflow
-		font:
-			name:				{ pt_font() }
-			size:				{ pt_font_size() }
-			color:				{ pt_font_color() }
-			stroke radius:		{ pt_font_stroke() }
-			stroke color:		{ pt_font_stroke_color() }
-			stroke blur:		{ pt_font_stroke_blur() }
-			separator color:	red
 
 ############################################################## Extra card fields
 
-extra card field:
-	type:				choice
-	name:				pt box
-	editable:			false
-	save value:			false
-	show statistics:	false
-	choice:				pt box
 extra card field:
 	type:				choice
 	name:				crown
@@ -427,23 +478,6 @@ extra card field:
 	choice:				stamp rim
 
 extra card style:
-	pt box:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			800
-		visible:			{ card.pt != "" }
-		render style:		image
-		image:
-			script:
-				pure := pure_colors()
-				count := length(pure)
-				color := pt_colors()
-				if color == "gold" and count > 1 then template("m", type: "pt")
-				else if color == "land" and count > 1 then template("c", type: "pt")
-				else if color == "hybrid" and count == 2 then masked_blend(mask: "special_blend_pt.png", dark: template(pure.0, type: "pt"), light: template(pure.1, type: "pt"))
-				else color_blend(type: "pt")
 	crown:
 		left:				0
 		top:				0
@@ -462,11 +496,3 @@ extra card style:
 		visible:			{ card.alias != "" }
 		render style:		image
 		image:				{ color_blend(type: "alias") }
-	stamp rim:
-		left:				0
-		top:				0
-		width:				{ stylesheet.card_width }
-		height:				{ stylesheet.card_height }
-		z index:			210
-		render style:		image
-		image:				{ color_blend(type: if is_stamped() then "stamp" else "nonstamp") }
