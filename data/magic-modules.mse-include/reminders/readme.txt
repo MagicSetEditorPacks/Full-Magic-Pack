@@ -24,10 +24,12 @@ reminder_type_offset_top := { 0 }
 reminder_type_offset_left := { 0 }
 reminder_type_offset_width := { 0 }
 reminder_type_offset_height := { 0 }
+reminder_type_offset_font_size := { 0 }
 reminder_cost_offset_top := { 0 }
 reminder_cost_offset_left := { 0 }
 reminder_cost_offset_width := { 0 }
 reminder_cost_offset_height := { 0 }
+reminder_cost_offset_font_size := { 0 }
 
 #### To change the folder from which the reminder box images are taken:
 #### You must write the path of the folder starting from the data folder.
